@@ -1,0 +1,16 @@
+name: Task
+description: Technical work, chores, refactoring
+labels: ["type: task", "status: triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      placeholder: |
+        - [ ] ...

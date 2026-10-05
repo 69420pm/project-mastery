@@ -1,0 +1,19 @@
+name: PR title
+
+# PRs are squash-merged, so the PR title becomes the commit message on main.
+# Enforcing Conventional Commits here keeps history and release notes clean.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
