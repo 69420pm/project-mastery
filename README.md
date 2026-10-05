@@ -3,6 +3,8 @@
 [![CI](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml)
 
+**Live demo:** https://project-mastery-dun.vercel.app
+
 > 🚧 Early development — the product description lands here as features ship.
 
 ## Tech stack
