@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Git workflow
+
+- Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)
+- Conventional Commits for commit messages and PR titles
+- Every change goes through a PR against `main`; never push to `main` or merge PRs. The maintainer reviews and squash-merges, so the PR title becomes the commit on `main`.
+- No AI attribution: no `Co-Authored-By` trailers or "Generated with" lines in commits or PRs.
