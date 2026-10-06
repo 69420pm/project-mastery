@@ -8,14 +8,14 @@ const bodySchema = z.object({
 
 /**
  * Starts the example workflow and returns its run id, to try Workflow
- * locally (`pnpm dev`, then `pnpm exec workflow web`). Disabled in
- * production. Real jobs start from their feature's route or Server Action.
+ * locally (`pnpm dev`, then `pnpm exec workflow web`). It has no auth, so
+ * it is disabled on every Vercel deployment, previews included. Real jobs
+ * start from their feature's route or Server Action, behind `requireUser`.
  */
 export async function POST(request: Request) {
-  if (process.env.VERCEL_ENV === "production") {
+  if (process.env.VERCEL) {
     return new Response(null, { status: 404 });
   }
-  // TODO(auth): require a signed-in user once Supabase Auth lands.
 
   const body = bodySchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {

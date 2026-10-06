@@ -1,0 +1,5 @@
+-- Seed data for local development, loaded by `pnpm db:reset` after the
+-- migrations. Never runs against hosted projects.
+--
+-- Intentionally empty for now: sign up through /login and confirm the email in
+-- Mailpit (http://127.0.0.1:54324). Add fixtures here as features add tables.

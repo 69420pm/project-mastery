@@ -1,12 +1,21 @@
 // @vitest-environment node
-import { expect, test, vi } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { getUser } from "@/lib/auth/user";
 import { TUTOR_INSTRUCTIONS } from "@/lib/ai/tutor";
 import { POST } from "./route";
 
 vi.mock("server-only", () => ({}));
 // `after` needs a Next.js request scope, which unit tests don't have.
 vi.mock("next/server", () => ({ after: vi.fn() }));
+vi.mock("@/lib/auth/user", () => ({ getUser: vi.fn() }));
+
+beforeEach(() => {
+  vi.mocked(getUser).mockResolvedValue({
+    id: "user-1",
+    email: "student@example.com",
+  });
+});
 
 function chatRequest(body: unknown) {
   return new Request("http://localhost/api/chat", {
@@ -54,6 +63,19 @@ test("streams the tutor's reply with the tutor instructions", async () => {
     role: "user",
     content: [{ type: "text", text: "How do I solve 2x + 3 = 11?" }],
   });
+});
+
+test("rejects requests without a signed-in user", async () => {
+  vi.mocked(getUser).mockResolvedValue(null);
+  const tutor = mockTextModel("unused");
+  useMockModels({ tutor });
+
+  const response = await POST(
+    chatRequest({ id: "chat-1", messages: [userMessage] }),
+  );
+
+  expect(response.status).toBe(401);
+  expect(tutor.doStreamCalls).toHaveLength(0);
 });
 
 test("rejects a body without messages", async () => {

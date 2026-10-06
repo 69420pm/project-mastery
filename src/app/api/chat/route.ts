@@ -8,6 +8,7 @@ import {
 import { after } from "next/server";
 import { z } from "zod";
 import { aiTask } from "@/lib/ai/models";
+import { getUser } from "@/lib/auth/user";
 import { TUTOR_INSTRUCTIONS } from "@/lib/ai/tutor";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
 
@@ -22,9 +23,10 @@ const bodySchema = z.object({
 
 /** Streams a tutor reply to the chat UI (`useChat` from `@ai-sdk/react`). */
 export async function POST(request: Request) {
-  // TODO(auth): return 401 without a Supabase session once auth lands, and
-  // pass the user's id as `userId` to the trace attributes below.
-  const userId = undefined;
+  const user = await getUser();
+  if (!user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = bodySchema.safeParse(await request.json().catch(() => null));
   if (!body.success) {
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
   after(flushTraces);
 
   return withTraceAttributes(
-    { userId, sessionId: body.data.id, traceName: "tutor-chat" },
+    { userId: user.id, sessionId: body.data.id, traceName: "tutor-chat" },
     async () => {
       const result = streamText({
         ...aiTask("tutor"),
