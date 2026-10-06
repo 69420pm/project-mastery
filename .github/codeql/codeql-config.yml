@@ -1,0 +1,10 @@
+name: CodeQL config
+
+queries:
+  - uses: security-and-quality
+
+query-filters:
+  # Framework compiler directives such as "use workflow", "use step" (Vercel
+  # Workflow) and "use cache" (Next.js) are valid but unknown to CodeQL.
+  - exclude:
+      id: js/unknown-directive
