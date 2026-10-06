@@ -16,6 +16,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) records the stack and the technical decisions behind it. Read it before adding a dependency, introducing a new service or pattern, or changing how data, auth, AI calls or background jobs work. Changing a recorded decision means updating its entry in the same PR.
 
+Where code goes is defined in [Project structure](docs/ARCHITECTURE.md#project-structure) and enforced by ESLint. Read that section before creating files or folders. When a lint error reports a boundary or structure violation, move the code to where the message says; do not disable the rule or add exceptions.
+
 ## Git workflow
 
 - Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)

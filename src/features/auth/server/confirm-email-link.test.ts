@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const { GET } = await import("./route");
+const { confirmEmailLink } = await import("./confirm-email-link");
 
 function request(query: string) {
   return new NextRequest(`http://localhost:3000/auth/confirm?${query}`);
@@ -28,10 +28,10 @@ beforeEach(() => {
   auth.exchangeCodeForSession.mockReset().mockResolvedValue({ error: null });
 });
 
-describe("GET /auth/confirm", () => {
+describe("confirmEmailLink", () => {
   test("verifies a token hash and redirects to next", async () => {
     await expect(
-      GET(request("token_hash=abc&type=email&next=%2Fcourses")),
+      confirmEmailLink(request("token_hash=abc&type=email&next=%2Fcourses")),
     ).rejects.toThrow("redirect:/courses");
 
     expect(auth.verifyOtp).toHaveBeenCalledWith({
@@ -45,32 +45,34 @@ describe("GET /auth/confirm", () => {
       "http://localhost:3000/auth/confirm?next=%2Fcourses",
     );
     await expect(
-      GET(request(`token_hash=abc&type=email&next=${next}`)),
+      confirmEmailLink(request(`token_hash=abc&type=email&next=${next}`)),
     ).rejects.toThrow("redirect:/courses");
   });
 
   test("exchanges a PKCE code", async () => {
-    await expect(GET(request("code=xyz&next=%2Fcourses"))).rejects.toThrow(
-      "redirect:/courses",
-    );
+    await expect(
+      confirmEmailLink(request("code=xyz&next=%2Fcourses")),
+    ).rejects.toThrow("redirect:/courses");
     expect(auth.exchangeCodeForSession).toHaveBeenCalledWith("xyz");
   });
 
   test("never redirects off-site", async () => {
     await expect(
-      GET(request("code=xyz&next=https%3A%2F%2Fevil.example")),
+      confirmEmailLink(request("code=xyz&next=https%3A%2F%2Fevil.example")),
     ).rejects.toThrow(/^redirect:\/$/);
   });
 
   test("sends invalid or expired links to the error page", async () => {
     auth.verifyOtp.mockResolvedValue({ error: new Error("expired") });
-    await expect(GET(request("token_hash=abc&type=email"))).rejects.toThrow(
-      "redirect:/auth/error",
-    );
+    await expect(
+      confirmEmailLink(request("token_hash=abc&type=email")),
+    ).rejects.toThrow("redirect:/auth/error");
 
-    await expect(GET(request("token_hash=abc&type=bogus"))).rejects.toThrow(
+    await expect(
+      confirmEmailLink(request("token_hash=abc&type=bogus")),
+    ).rejects.toThrow("redirect:/auth/error");
+    await expect(confirmEmailLink(request(""))).rejects.toThrow(
       "redirect:/auth/error",
     );
-    await expect(GET(request(""))).rejects.toThrow("redirect:/auth/error");
   });
 });

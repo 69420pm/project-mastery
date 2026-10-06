@@ -45,6 +45,7 @@ export const supabaseSecretEnvSchema = z.object({
 });
 
 export type SupabasePublicEnv = z.infer<typeof supabasePublicEnvSchema>;
+export type SupabaseSecretEnv = z.infer<typeof supabaseSecretEnvSchema>;
 
 /** Whether the public Supabase variables are set at all (not validated). */
 export function isSupabaseConfigured(): boolean {
@@ -64,5 +65,15 @@ export function getSupabasePublicEnv(): SupabasePublicEnv {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  });
+}
+
+/**
+ * Validates and returns the secret key. Only `createAdminClient` calls it; in
+ * the browser the variable is never set, so this throws there.
+ */
+export function getSupabaseSecretEnv(): SupabaseSecretEnv {
+  return parseEnv(supabaseSecretEnvSchema, {
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
   });
 }

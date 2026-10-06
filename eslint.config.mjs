@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
+import { architecture } from "./eslint/architecture.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -20,6 +21,8 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Folder structure and layer boundaries (docs/ARCHITECTURE.md).
+  ...architecture,
   // Disable stylistic rules that conflict with Prettier; must come last.
   prettier,
   // Override default ignores of eslint-config-next.

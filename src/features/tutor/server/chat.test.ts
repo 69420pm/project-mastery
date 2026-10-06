@@ -2,8 +2,8 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { getUser } from "@/lib/auth/user";
-import { TUTOR_INSTRUCTIONS } from "@/lib/ai/tutor";
-import { POST } from "./route";
+import { TUTOR_INSTRUCTIONS } from "@/features/tutor/ai/instructions";
+import { handleTutorChat } from "./chat";
 
 vi.mock("server-only", () => ({}));
 // `after` needs a Next.js request scope, which unit tests don't have.
@@ -47,7 +47,7 @@ test("streams the tutor's reply with the tutor instructions", async () => {
   const tutor = mockTextModel("What have you tried so far?");
   useMockModels({ tutor });
 
-  const response = await POST(
+  const response = await handleTutorChat(
     chatRequest({ id: "chat-1", messages: [userMessage] }),
   );
 
@@ -70,7 +70,7 @@ test("rejects requests without a signed-in user", async () => {
   const tutor = mockTextModel("unused");
   useMockModels({ tutor });
 
-  const response = await POST(
+  const response = await handleTutorChat(
     chatRequest({ id: "chat-1", messages: [userMessage] }),
   );
 
@@ -81,7 +81,9 @@ test("rejects requests without a signed-in user", async () => {
 test("rejects a body without messages", async () => {
   useMockModels({ tutor: mockTextModel("unused") });
 
-  const response = await POST(chatRequest({ id: "chat-1", messages: [] }));
+  const response = await handleTutorChat(
+    chatRequest({ id: "chat-1", messages: [] }),
+  );
 
   expect(response.status).toBe(400);
 });
@@ -89,7 +91,7 @@ test("rejects a body without messages", async () => {
 test("rejects malformed messages", async () => {
   useMockModels({ tutor: mockTextModel("unused") });
 
-  const response = await POST(
+  const response = await handleTutorChat(
     chatRequest({ messages: [{ role: "user", text: "missing parts" }] }),
   );
 
