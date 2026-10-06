@@ -12,6 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 [VISION.md](VISION.md) defines what this product is and what it is not. Read it before any product, UX or scope decision: proposing or planning features, writing issues, designing flows, UI or AI tutor behavior, or deciding between options that change what the user experiences. It is not needed for purely technical work such as implementing a well-specified issue, refactoring, fixing bugs, tooling or code review.
 
+## Architecture
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) records the stack and the technical decisions behind it. Read it before adding a dependency, introducing a new service or pattern, or changing how data, auth, AI calls or background jobs work. Changing a recorded decision means updating its entry in the same PR.
+
 ## Git workflow
 
 - Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)

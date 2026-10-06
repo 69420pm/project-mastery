@@ -22,6 +22,8 @@
 | Releases         | release-please (semantic versioning + generated changelog)               |
 | Project tracking | GitHub Issues + Projects                                                 |
 
+The table lists what is in place today. The planned stack (Supabase, Vercel AI SDK and AI Gateway, durable workflows) and the reasons behind each choice are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Getting started
 
 Requires Node.js 24 (see `.nvmrc`) and pnpm (pinned via the `packageManager` field — `corepack enable` sets it up).
@@ -64,6 +66,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ```
 src/app/         App Router routes, layouts and colocated unit tests
+docs/            Architecture and technical decisions
 e2e/             Playwright end-to-end tests
 public/          Static assets
 .github/         CI workflows, issue/PR templates, Dependabot
