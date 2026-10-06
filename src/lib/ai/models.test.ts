@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { embed, generateText } from "ai";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vitest";
 import { AI_TASKS, aiTask, modelIdFor } from "./models";
 import { mockEmbeddingModel, mockTextModel, useMockModels } from "./testing";
 
@@ -8,6 +16,11 @@ vi.mock("server-only", () => ({}));
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+// Each test starts from AI Gateway mode, whatever the developer's shell sets.
+beforeEach(() => {
+  vi.stubEnv("AI_PROVIDER", undefined);
 });
 
 describe("modelIdFor", () => {
@@ -46,6 +59,66 @@ describe("modelIdFor", () => {
     vi.stubEnv("VERCEL", "1");
 
     expect(() => modelIdFor("tutor")).not.toThrow();
+  });
+});
+
+describe("AI_PROVIDER=google", () => {
+  function stubGeminiApi() {
+    vi.stubEnv("AI_PROVIDER", "google");
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "test-key");
+    vi.stubEnv("AI_GATEWAY_API_KEY", undefined);
+    vi.stubEnv("VERCEL", undefined);
+  }
+
+  // Starts from the AI SDK's default global provider (AI Gateway).
+  function clearGlobalProvider() {
+    const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
+    globalThis.AI_SDK_DEFAULT_PROVIDER = undefined;
+    onTestFinished(() => {
+      globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
+    });
+  }
+
+  test("needs no AI Gateway key", () => {
+    stubGeminiApi();
+
+    expect(modelIdFor("tutor")).toBe(AI_TASKS.tutor.model);
+  });
+
+  test("requires a Gemini API key", () => {
+    stubGeminiApi();
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
+
+    expect(() => modelIdFor("tutor")).toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
+  });
+
+  test("is refused on Vercel", () => {
+    stubGeminiApi();
+    vi.stubEnv("VERCEL", "1");
+
+    expect(() => modelIdFor("tutor")).toThrow(/AI_PROVIDER/);
+  });
+
+  test("rejects models that are not from Google", () => {
+    stubGeminiApi();
+    vi.stubEnv("AI_MODEL_TUTOR", "xiaomi/mimo-v2.6-flash");
+
+    expect(() => modelIdFor("tutor")).toThrow(/AI_MODEL_TUTOR/);
+  });
+
+  test("resolves model ids through the Gemini API", () => {
+    stubGeminiApi();
+    clearGlobalProvider();
+
+    const { model } = aiTask("tutor");
+
+    expect(model).toBe("google/gemini-2.5-flash");
+    expect(
+      globalThis.AI_SDK_DEFAULT_PROVIDER?.languageModel(model),
+    ).toMatchObject({
+      provider: expect.stringMatching(/^google/),
+      modelId: "gemini-2.5-flash",
+    });
   });
 });
 

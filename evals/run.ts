@@ -4,7 +4,8 @@
  *   pnpm evals                          # all evals
  *   pnpm evals tutor-asks-before-telling
  *
- * Evals make real model calls through AI Gateway (free tier in development),
+ * Evals make real model calls (Gemini API free tier or AI Gateway, per
+ * AI_PROVIDER),
  * so they never run in `pnpm check`, Vitest or CI. With Langfuse keys, each
  * fixture is synced to a Langfuse dataset and run with Langfuse's experiment
  * runner, which records a dataset run with traces and scores. Without keys,

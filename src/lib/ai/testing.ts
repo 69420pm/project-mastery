@@ -79,6 +79,7 @@ type MockModels = {
  * a model id share its mock.
  */
 export function useMockModels(models: MockModels) {
+  vi.stubEnv("AI_PROVIDER", "gateway");
   vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
   for (const config of Object.values(AI_TASKS)) {
     vi.stubEnv(config.override, undefined);
