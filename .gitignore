@@ -47,6 +47,10 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 
+# vercel workflow (generated routes, SWC plugin cache; local runs live in .next/)
+/src/app/.well-known/workflow/
+/.swc
+
 # editor swap files
 *.swp
 *.swo

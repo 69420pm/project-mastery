@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
 };
 
-export default nextConfig;
+// Compiles "use workflow" / "use step" directives (Vercel Workflow).
+export default withWorkflow(nextConfig);

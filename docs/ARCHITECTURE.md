@@ -108,7 +108,7 @@ Each decision records the context, the choice and its consequences. A decision c
 
 **Decision.** Develop on the free credit with free-tier models. Unit tests and CI use mock models and make no real calls. Production moves to purchased credits, with budgets per project and API key. Before real users, production tasks are restricted to providers with zero data retention and no training on prompts.
 
-**Consequences.** Development code must handle `429` responses from the free tier's rate limits, which long-running jobs need anyway. Token usage and cost are recorded per user and per AI call from the first AI feature, which also provides the metering VISION.md requires.
+**Consequences.** Development code must handle `429` responses from the free tier's rate limits, which long-running jobs need anyway. Every AI call retries with backoff (AI SDK `maxRetries`, honoring `retry-after`), and AI Gateway falls back to the next model configured for the task. Token usage and cost are recorded per user and per AI call from the first AI feature, which also provides the metering VISION.md requires.
 
 ### 7. Ingestion: process every upload once
 
@@ -132,7 +132,7 @@ Each decision records the context, the choice and its consequences. A decision c
 
 **Decision.** Run long tasks as durable workflows with retries per step. Vercel Workflow is the first candidate because it runs on the existing platform; Inngest is the alternative. A short spike on the first ingestion feature confirms the choice.
 
-**Consequences.** Jobs report progress through the database, so the UI can show it.
+**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up with an example workflow in `src/workflows/`; the comparison with Inngest still happens on the first ingestion feature.
 
 ### 10. Learning science as libraries, not inventions
 
@@ -170,6 +170,6 @@ shadcn/ui uses Radix primitives, which AI Elements builds on. The design tokens 
 
 ## Open questions
 
-- Durable workflow engine: Vercel Workflow or Inngest (decision 9).
+- Durable workflow engine: Vercel Workflow (set up) or Inngest (decision 9).
 - Models for ingestion, tutoring and embeddings, chosen by testing on real course materials.
 - Design direction: typography, color and motion.
