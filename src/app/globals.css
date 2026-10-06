@@ -1,26 +1,207 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+/* Streamdown renders Tailwind classes from inside node_modules. */
+@source "../../node_modules/streamdown/dist/*.js";
+@source "../../node_modules/@streamdown/math/dist/*.js";
+@source "../../node_modules/@streamdown/code/dist/*.js";
+@source "../../node_modules/@streamdown/cjk/dist/*.js";
+@source "../../node_modules/@streamdown/mermaid/dist/*.js";
+
+/* next-themes toggles the `dark` class on <html>. */
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens
+ *
+ * Three layers, so the design direction can change in one place:
+ *   1. Palette inputs: the hues and chroma every color is derived from.
+ *   2. Semantic tokens: what a value is for (background, primary, success),
+ *      per color mode. Components only use these.
+ *   3. Tailwind theme: exposes the tokens as utilities (`bg-primary`,
+ *      `rounded-lg`, `font-heading`, `ease-standard`).
+ *
+ * The values are neutral placeholders until the design direction is decided
+ * (see "Open questions" in docs/ARCHITECTURE.md). Token names follow
+ * shadcn/ui, so generated components pick them up without changes.
+ */
+
+/* 1. Palette inputs */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --hue-neutral: 265;
+  --chroma-neutral: 0.006;
+  --hue-brand: 265;
+  --hue-success: 150;
+  --hue-warning: 75;
+  --hue-danger: 27;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* 2. Semantic tokens: light mode */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.16 var(--chroma-neutral) var(--hue-neutral));
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.21 var(--chroma-neutral) var(--hue-neutral));
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 var(--chroma-neutral) var(--hue-neutral));
+  --secondary-foreground: var(--primary);
+  --muted: oklch(0.967 var(--chroma-neutral) var(--hue-neutral));
+  --muted-foreground: oklch(0.55 0.015 var(--hue-neutral));
+  --accent: oklch(0.967 var(--chroma-neutral) var(--hue-neutral));
+  --accent-foreground: var(--primary);
+  --border: oklch(0.922 var(--chroma-neutral) var(--hue-neutral));
+  --input: oklch(0.922 var(--chroma-neutral) var(--hue-neutral));
+  --ring: oklch(0.7 0.02 var(--hue-neutral));
+
+  /* Brand accent for highlights such as links, progress and selection. */
+  --brand: oklch(0.52 0.2 var(--hue-brand));
+  --brand-foreground: oklch(0.985 0 0);
+
+  /* Status colors, e.g. for feedback on answers and mastery levels. */
+  --success: oklch(0.56 0.14 var(--hue-success));
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.77 0.16 var(--hue-warning));
+  --warning-foreground: oklch(0.28 0.07 var(--hue-warning));
+  --destructive: oklch(0.577 0.245 var(--hue-danger));
+
+  --chart-1: oklch(0.81 0.1 var(--hue-brand));
+  --chart-2: oklch(0.65 0.17 var(--hue-brand));
+  --chart-3: oklch(0.52 0.2 var(--hue-brand));
+  --chart-4: oklch(0.43 0.18 var(--hue-brand));
+  --chart-5: oklch(0.35 0.14 var(--hue-brand));
+
+  --sidebar: oklch(0.985 var(--chroma-neutral) var(--hue-neutral));
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Shape */
+  --radius: 0.625rem;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
 }
 
-@media (prefers-color-scheme: dark) {
+/*
+ * 2. Semantic tokens: dark mode. Tokens defined as var(...) above resolve
+ * against these values because next-themes sets `.dark` on <html> itself.
+ */
+.dark {
+  --background: oklch(0.16 var(--chroma-neutral) var(--hue-neutral));
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 var(--chroma-neutral) var(--hue-neutral));
+  --popover: oklch(0.205 var(--chroma-neutral) var(--hue-neutral));
+  --primary: oklch(0.922 var(--chroma-neutral) var(--hue-neutral));
+  --primary-foreground: oklch(0.205 var(--chroma-neutral) var(--hue-neutral));
+  --secondary: oklch(0.269 var(--chroma-neutral) var(--hue-neutral));
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.269 var(--chroma-neutral) var(--hue-neutral));
+  --muted-foreground: oklch(0.71 0.015 var(--hue-neutral));
+  --accent: oklch(0.269 var(--chroma-neutral) var(--hue-neutral));
+  --accent-foreground: var(--foreground);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0.02 var(--hue-neutral));
+
+  --brand: oklch(0.68 0.16 var(--hue-brand));
+  --brand-foreground: oklch(0.16 var(--chroma-neutral) var(--hue-neutral));
+
+  --success: oklch(0.7 0.15 var(--hue-success));
+  --success-foreground: oklch(0.2 0.04 var(--hue-success));
+  --warning: oklch(0.8 0.15 var(--hue-warning));
+  --warning-foreground: oklch(0.25 0.06 var(--hue-warning));
+  --destructive: oklch(0.704 0.191 var(--hue-danger));
+
+  --sidebar: oklch(0.205 var(--chroma-neutral) var(--hue-neutral));
+}
+
+@media (prefers-reduced-motion: reduce) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* 3. Tailwind theme */
+@theme inline {
+  /* Typography: font variables come from next/font in the root layout. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Color */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Shape */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Motion: pair with the durations, e.g. `ease-standard duration-(--duration-base)`. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

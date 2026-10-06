@@ -4,7 +4,7 @@ export default function Home() {
       <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
         Project Mastery
       </h1>
-      <p className="max-w-md text-lg text-zinc-600 dark:text-zinc-400">
+      <p className="max-w-md text-lg text-muted-foreground">
         Under construction.
       </p>
     </main>
