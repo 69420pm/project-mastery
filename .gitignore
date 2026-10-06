@@ -50,3 +50,6 @@ next-env.d.ts
 # editor swap files
 *.swp
 *.swo
+
+# Claude Code agent worktrees
+/.claude/worktrees/
