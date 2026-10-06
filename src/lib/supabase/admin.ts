@@ -1,0 +1,32 @@
+import "server-only";
+import { createClient } from "@supabase/supabase-js";
+import { parseEnv } from "@/lib/env";
+import type { Database } from "./database.types";
+import { getSupabasePublicEnv, supabaseSecretEnvSchema } from "./env";
+
+/**
+ * Supabase client with the secret (service role) key. It BYPASSES Row Level
+ * Security, so every query must scope data to the right user itself.
+ *
+ * Use it deliberately and in few places (ARCHITECTURE.md, decision 3): server
+ * code with no signed-in user, such as background jobs. Never use it to handle
+ * a user's request; use the client from `server.ts` instead.
+ */
+export function createAdminClient() {
+  const env = getSupabasePublicEnv();
+  const { SUPABASE_SECRET_KEY } = parseEnv(supabaseSecretEnvSchema, {
+    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
+  });
+
+  return createClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SECRET_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    },
+  );
+}
