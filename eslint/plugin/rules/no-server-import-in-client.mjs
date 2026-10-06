@@ -2,7 +2,7 @@ import { hasDirective } from "../paths.mjs";
 
 // Local modules that run only on the server: a feature's server.ts and
 // server/ folder, and lib modules such as @/lib/supabase/server.
-const SERVER_MODULE = /^(@\/|\.).*(^|\/)server(\/|$)/;
+const SERVER_MODULE = /^(@\/|\.).*\/server(\/|$)/;
 // Server Actions are the one server module Client Components may import.
 const SERVER_ACTIONS = /\/server\/actions$/;
 
