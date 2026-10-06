@@ -23,7 +23,15 @@
     "test:e2e": "playwright test",
     "evals": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/run.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm test:run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:migration:new": "supabase migration new",
+    "db:types": "supabase gen types --local --schema public > src/lib/supabase/database.types.ts && prettier --write --log-level=warn src/lib/supabase/database.types.ts",
+    "db:lint": "supabase db lint --local --fail-on error",
+    "db:test": "supabase test db"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.130",
@@ -38,6 +46,8 @@
     "@streamdown/code": "^2.0.0",
     "@streamdown/math": "^1.0.3",
     "@streamdown/mermaid": "^1.0.3",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
     "ai": "^7.0.127",
     "class-variance-authority": "^0.7.1",
     "client-only": "^0.0.1",
@@ -83,6 +93,7 @@
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "supabase": "^2.119.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

@@ -1,0 +1,12 @@
+<h2>Confirm your email</h2>
+
+<p>Follow this link to confirm your email address for Project Mastery:</p>
+
+<p>
+  <a
+    href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}"
+    >Confirm email address</a
+  >
+</p>
+
+<p>If you did not sign up, you can ignore this email.</p>
