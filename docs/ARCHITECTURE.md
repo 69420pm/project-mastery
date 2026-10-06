@@ -51,9 +51,9 @@ flowchart LR
 
 | Environment | App                         | Supabase               | AI                                |
 | ----------- | --------------------------- | ---------------------- | --------------------------------- |
-| Local       | `pnpm dev`                  | Supabase CLI in Docker | AI Gateway, free monthly credit   |
+| Local       | `pnpm dev`                  | Supabase CLI in Docker | Gemini API free tier, or Gateway  |
 | Tests / CI  | Vitest, Playwright          | Supabase CLI in Docker | AI SDK mock models, no real calls |
-| Preview     | Vercel preview per PR       | Staging project        | AI Gateway, free monthly credit   |
+| Preview     | Vercel preview per PR       | Staging project        | AI Gateway, card on file          |
 | Production  | Vercel production on `main` | Production project     | AI Gateway, purchased credits     |
 
 Preview deployments never touch production data.
@@ -104,11 +104,11 @@ Each decision records the context, the choice and its consequences. A decision c
 
 ### 6. AI cost: near zero in development, metered in production
 
-**Context.** There are no users yet, so development should cost nothing or close to it. AI Gateway gives every team a free monthly credit on a subset of models, with lower rate limits. Bring-your-own-key requires the paid tier, and buying credits ends the free credit for good.
+**Context.** There are no users yet, so development should cost nothing or close to it. AI Gateway gives every team a free monthly credit on a subset of models, with lower rate limits, but only with a credit card on file. Bring-your-own-key requires the paid tier, and buying credits ends the free credit for good. The Gemini API has a free tier without a credit card, but Google may use its prompts for training and human review, and its terms do not allow serving it to users in the EU.
 
-**Decision.** Develop on the free credit with free-tier models. Unit tests and CI use mock models and make no real calls. Production moves to purchased credits, with budgets per project and API key. Before real users, production tasks are restricted to providers with zero data retention and no training on prompts.
+**Decision.** Develop locally against the Gemini API free tier (`AI_PROVIDER=google`), which resolves the same `google/…` model ids directly instead of through AI Gateway, so switching is one environment variable and feature code does not change. Primary models per task are Google models while development runs this way; gateway fallbacks to other providers apply only through AI Gateway. Google mode is refused on Vercel, so every deployment uses AI Gateway, and development uses only test materials without personal data. Unit tests and CI use mock models and make no real calls. Production moves to purchased credits, with budgets per project and API key. Before real users, production tasks are restricted to providers with zero data retention and no training on prompts.
 
-**Consequences.** Development code must handle `429` responses from the free tier's rate limits, which long-running jobs need anyway. Every AI call retries with backoff (AI SDK `maxRetries`, honoring `retry-after`), and AI Gateway falls back to the next model configured for the task. Token usage and cost are recorded per user and per AI call from the first AI feature, which also provides the metering VISION.md requires.
+**Consequences.** Preview deployments have working AI only once AI Gateway is set up. Development code must handle `429` responses from free-tier rate limits, which long-running jobs need anyway. Every AI call retries with backoff (AI SDK `maxRetries`, honoring `retry-after`), and AI Gateway falls back to the next model configured for the task. Token usage and cost are recorded per user and per AI call from the first AI feature, which also provides the metering VISION.md requires.
 
 ### 7. Ingestion: process every upload once
 

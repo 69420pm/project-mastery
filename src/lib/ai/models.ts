@@ -1,4 +1,5 @@
 import "server-only";
+import { google } from "@ai-sdk/google";
 import { getAiEnv, type AiEnv } from "./env";
 
 type TaskConfig = {
@@ -18,15 +19,16 @@ type TaskConfig = {
  * The single per-task model configuration (ARCHITECTURE decision 5). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
- * These are placeholders from the AI Gateway free tier, which development runs
- * on (decision 6). The real model per task is chosen by testing on real
- * course materials (open question in docs/ARCHITECTURE.md).
+ * These are placeholders. Primary models are Google models, so they run both
+ * through AI Gateway and directly on the Gemini API free tier, which local
+ * development can use instead (decision 6). The real model per task is chosen
+ * by testing on real course materials (open question in docs/ARCHITECTURE.md).
  */
 export const AI_TASKS = {
   /** Socratic tutor chat. */
   tutor: {
-    model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: ["google/gemini-2.5-flash"],
+    model: "google/gemini-2.5-flash",
+    fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_TUTOR",
   },
   /** Vision: a rendered page image to markdown with LaTeX (decision 7). */
@@ -37,11 +39,14 @@ export const AI_TASKS = {
   },
   /** Chunk embeddings for pgvector. Changing it means re-embedding. */
   embed: {
-    model: "openai/text-embedding-3-small",
+    model: "google/gemini-embedding-2",
     fallbacks: [],
     override: "AI_MODEL_EMBED",
   },
-  /** LLM-as-judge for evals; a different family than the tutor. */
+  /**
+   * LLM-as-judge for evals. Ideally a different family than the tutor, which
+   * waits for the model choice: the Gemini API only serves Google models.
+   */
   judge: {
     model: "google/gemini-2.5-flash",
     fallbacks: [],
@@ -60,7 +65,31 @@ export const AI_MAX_RETRIES = 3;
 /** Resolves the gateway model id for a task, honoring env overrides. */
 export function modelIdFor(task: AiTask): string {
   const config = AI_TASKS[task];
-  return getAiEnv()[config.override] ?? config.model;
+  const env = getAiEnv();
+  const id = env[config.override] ?? config.model;
+  if (env.AI_PROVIDER === "google" && !id.startsWith("google/")) {
+    throw new Error(
+      `AI_PROVIDER=google only serves Google models, but task "${task}" uses "${id}". Set ${config.override} to a google/ model.`,
+    );
+  }
+  return id;
+}
+
+/**
+ * With AI_PROVIDER=google, resolves `google/<model>` ids through the Gemini
+ * API instead of AI Gateway. Model ids stay plain strings in both modes: the
+ * AI SDK resolves them through this global provider, which defaults to AI
+ * Gateway (and which tests replace with mocks).
+ */
+function routeToGeminiApi() {
+  // `modelIdFor` has already checked the `google/` prefix.
+  const geminiId = (id: string) => id.slice("google/".length);
+  globalThis.AI_SDK_DEFAULT_PROVIDER ??= {
+    specificationVersion: "v4",
+    languageModel: (id) => google.languageModel(geminiId(id)),
+    embeddingModel: (id) => google.embeddingModel(geminiId(id)),
+    imageModel: (id) => google.imageModel(geminiId(id)),
+  };
 }
 
 /**
@@ -73,6 +102,7 @@ export function modelIdFor(task: AiTask): string {
  */
 export function aiTask(task: AiTask) {
   const { fallbacks } = AI_TASKS[task];
+  if (getAiEnv().AI_PROVIDER === "google") routeToGeminiApi();
   return {
     model: modelIdFor(task),
     maxRetries: AI_MAX_RETRIES,
