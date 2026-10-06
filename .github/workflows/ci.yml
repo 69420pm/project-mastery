@@ -56,3 +56,27 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  database:
+    name: Database lint, policy tests & types
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Installs the CLI version pinned in pnpm-lock.yaml.
+      - uses: supabase/setup-cli@v3
+      # Only Postgres, Auth, Storage and the API gateway are needed here.
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
+      - run: supabase db lint --local --fail-on error
+      - run: supabase test db
+      - name: Check that generated types are up to date
+        run: |
+          pnpm db:types
+          git diff --exit-code -- src/lib/supabase/database.types.ts \
+            || { echo "::error::Database types are out of date. Run pnpm db:types and commit the result."; exit 1; }
