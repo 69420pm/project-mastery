@@ -38,8 +38,8 @@ test("rejects a body without items", async () => {
   expect(start).not.toHaveBeenCalled();
 });
 
-test("is disabled in production", async () => {
-  vi.stubEnv("VERCEL_ENV", "production");
+test("is disabled on Vercel deployments", async () => {
+  vi.stubEnv("VERCEL", "1");
 
   const response = await POST(request({ items: ["a"] }));
 
