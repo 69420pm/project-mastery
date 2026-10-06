@@ -1,6 +1,9 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  "@swc/core": false
+  cbor-extract: false
+  esbuild: false
 
 # react-pdf loads the PDF.js worker by package path, so pdfjs-dist must be
 # resolvable from the app. Hoisting keeps it at the version react-pdf pins.
