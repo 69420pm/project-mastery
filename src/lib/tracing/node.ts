@@ -2,7 +2,8 @@ import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { LangfuseVercelAiSdkIntegration } from "@langfuse/vercel-ai-sdk";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { registerTelemetry } from "ai";
-import { isLangfuseConfigured } from "./env";
+import { isVercelDeployment } from "@/lib/deployment-env";
+import { getTracingEnvironment, isLangfuseConfigured } from "./env";
 
 /**
  * Sends AI SDK spans to Langfuse through OpenTelemetry (ARCHITECTURE decision
@@ -21,11 +22,8 @@ export function startTracing(): NodeTracerProvider | undefined {
       new LangfuseSpanProcessor({
         // Serverless functions freeze after the response: export every span
         // right away instead of batching. Routes also call `flushTraces`.
-        exportMode: process.env.VERCEL ? "immediate" : "batched",
-        environment:
-          process.env.LANGFUSE_TRACING_ENVIRONMENT ??
-          process.env.VERCEL_ENV ??
-          "development",
+        exportMode: isVercelDeployment() ? "immediate" : "batched",
+        environment: getTracingEnvironment(),
       }),
     ],
   });

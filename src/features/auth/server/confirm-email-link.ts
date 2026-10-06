@@ -1,3 +1,4 @@
+import "server-only";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
@@ -15,14 +16,14 @@ const emailOtpTypeSchema = z.enum([
 ]) satisfies z.ZodType<EmailOtpType>;
 
 /**
- * Target of the links in auth emails. Signs the user in, then redirects to
- * the `next` path. Handles both link styles:
+ * Handles the links in auth emails (`GET /auth/confirm`). Signs the user in,
+ * then redirects to the `next` path. Handles both link styles:
  * - `token_hash` + `type` from the project's email templates (works in any
  *   browser),
  * - `code` from Supabase's default PKCE flow (works only in the browser that
  *   requested the email).
  */
-export async function GET(request: NextRequest) {
+export async function confirmEmailLink(request: NextRequest): Promise<never> {
   const { searchParams, origin } = request.nextUrl;
   const next = confirmRedirectPath(searchParams.get("next"), origin);
   const tokenHash = searchParams.get("token_hash");

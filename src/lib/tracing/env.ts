@@ -27,3 +27,16 @@ export function isLangfuseConfigured(): boolean {
   const env = parseEnv(schema, process.env);
   return Boolean(env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY);
 }
+
+/**
+ * The Langfuse environment traces are filed under: an explicit
+ * `LANGFUSE_TRACING_ENVIRONMENT`, else the Vercel environment (`production`,
+ * `preview`), else `development`.
+ */
+export function getTracingEnvironment(): string {
+  return (
+    process.env.LANGFUSE_TRACING_ENVIRONMENT ??
+    process.env.VERCEL_ENV ??
+    "development"
+  );
+}

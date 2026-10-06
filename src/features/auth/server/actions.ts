@@ -4,28 +4,14 @@ import type { AuthError } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import type { LoginMessageCode } from "@/app/login/messages";
+import type { LoginMessageCode } from "@/features/auth/domain/login-messages";
+import {
+  magicLinkSchema,
+  signInSchema,
+  signUpSchema,
+} from "@/features/auth/schemas";
 import { CONFIRM_PATH, safeRedirectPath } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
-
-const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
-
-const signInSchema = z.object({
-  email: emailSchema,
-  // Only the sign-up rules are enforced on new passwords; any stored password
-  // may sign in.
-  password: z.string().min(1).max(72),
-});
-
-const signUpSchema = z.object({
-  email: emailSchema,
-  // 8 matches `minimum_password_length` in supabase/config.toml; bcrypt reads
-  // at most 72 bytes.
-  password: z.string().min(8).max(72),
-});
-
-const magicLinkSchema = z.object({ email: emailSchema });
 
 /** The site's origin, for links in auth emails. */
 async function getOrigin() {

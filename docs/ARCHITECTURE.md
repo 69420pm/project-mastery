@@ -58,6 +58,90 @@ flowchart LR
 
 Preview deployments never touch production data.
 
+## Project structure
+
+The code is organized by feature, in layers that depend in one direction only (decision 14). ESLint enforces everything in this section: a file in the wrong place or an import across a forbidden boundary fails `pnpm lint`, with a message that says where the code belongs.
+
+```
+src/
+├── app/                   Routing only: Next.js special files
+│   ├── (marketing)/       Public pages
+│   ├── (auth)/            Sign-in pages and the email link route
+│   └── api/               Route handlers that need raw HTTP (streaming, webhooks)
+├── features/<feature>/    One folder per product capability
+├── components/            Shared UI without domain knowledge
+│   ├── ui/                shadcn/ui, generated
+│   └── ai-elements/       AI Elements, generated
+├── hooks/                 Shared client hooks (use-*.ts)
+├── lib/                   Platform: Supabase clients, auth session, AI, tracing, env
+├── proxy.ts               Session refresh on every request
+└── instrumentation.ts     Tracing setup
+```
+
+### Layers
+
+```
+app ──► features ──► components ──► hooks ──► lib
+           │ ▲
+           └─┘  other features only through index.ts / server.ts
+```
+
+- **`app/`** contains only Next.js files: `page`, `layout`, `loading`, `error`, `not-found`, `route` and metadata files. Pages fetch data through feature server code and compose feature components. Route handlers delegate to a feature in one line. Signed-in pages go in an `(app)` route group whose layout calls `requireUser`.
+- **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors.
+- **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
+- Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
+
+### Anatomy of a feature
+
+```
+features/<feature>/
+├── index.ts         Public API, safe for any code: components, Server Actions, schemas, types
+├── server.ts        Public API for server code only: queries, services, route handlers
+├── components/      React components (Server Components by default)
+├── hooks/           Client hooks (use-*.ts)
+├── server/          Server-only code, every module imports "server-only"
+│   ├── actions.ts   Server Actions ("use server"), the only place they may live
+│   └── *.ts         Queries (the Data Access Layer), services, route handler logic
+├── ai/              Prompts, tools and agents, calling models through aiTask (decision 5)
+├── workflows/       Durable workflows and their steps (decision 9)
+├── domain/          Pure logic without I/O, such as scheduling or scoring
+├── schemas.ts       Zod schemas shared by forms and Server Actions
+└── types.ts         Shared types
+```
+
+Only the folders a feature needs exist. Inside a feature, files import each other freely; imports from other folders use the `@/` alias, never `../`. Entry files list their exports by name (no `export *`), so the public API stays deliberate. Unit tests sit next to the file they test as `*.test.ts(x)`.
+
+### How data moves
+
+- **Reads:** a page (Server Component) calls a query in the feature's `server/`. The query checks the user (`requireUser`), reads with the Supabase server client, so Row Level Security applies, and returns only the fields the UI needs.
+- **Writes:** a form calls a Server Action in `server/actions.ts`, which validates the input with Zod, checks the user, writes, revalidates and returns an `ActionResult`.
+- **AI streaming:** `useChat` posts to a route handler in `app/api/`, which delegates to the feature (for example `handleTutorChat`), which calls models through `aiTask`.
+- **Background jobs:** server code starts a workflow from the feature's `workflows/`. Steps that run without a user use the admin client and report progress to the database, where the UI reads it.
+
+### What the lint rules enforce
+
+| Rule                                 | Enforces                                                                                |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `project/file-structure`             | Every source file matches the structure above                                           |
+| `boundaries/dependencies`            | Layer directions, feature public APIs, and where restricted modules may be used (below) |
+| `import-x/no-cycle`                  | No import cycles, including between features                                            |
+| `project/require-server-only`        | Feature server modules import `server-only`                                             |
+| `project/use-server-location`        | `"use server"` only in `server/actions.ts`, no inline Server Actions                    |
+| `project/no-server-import-in-client` | Client Components do not import server modules (Server Actions excepted)                |
+| `check-file/*`                       | Kebab-case file and folder names (route folders may use Next.js conventions)            |
+| `no-restricted-imports`              | `@/` alias instead of `../` paths                                                       |
+| `no-restricted-properties`           | `process.env` only in env modules (`env.ts`, `*-env.ts`)                                |
+
+Restricted modules: `@supabase/*` only in `lib/supabase/` (type imports are allowed anywhere); the admin client only in `workflows/`; Supabase clients never directly in `app/`; `workflow` only in features' `workflows/` and `server/`; AI provider packages only in `lib/ai/`; Langfuse and OpenTelemetry only in `lib/tracing/` and `evals/`.
+
+The configuration lives in `eslint/architecture.mjs`, with project-specific rules in `eslint/plugin/`. `eslint/architecture.test.mjs` lints sample files against the real configuration to show each rule fires where it should and stays quiet where it should not. Changing the structure means changing the configuration, its tests and this section in the same PR.
+
+### Adding a feature
+
+1. Create `src/features/<feature>/` with the folders it needs, following the anatomy above.
+2. Export what pages and other features use from `index.ts` (anything client-safe) or `server.ts` (anything server-only).
+3. Add the routes in `src/app/` as thin files that import only from those entry files.
+
 ## Decisions
 
 Each decision records the context, the choice and its consequences. A decision changes through a PR that updates its entry.
@@ -132,7 +216,7 @@ Each decision records the context, the choice and its consequences. A decision c
 
 **Decision.** Run long tasks as durable workflows with retries per step. Vercel Workflow is the first candidate because it runs on the existing platform; Inngest is the alternative. A short spike on the first ingestion feature confirms the choice.
 
-**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up with an example workflow in `src/workflows/`; the comparison with Inngest still happens on the first ingestion feature.
+**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up with an example in `src/features/workflow-example/`; the comparison with Inngest still happens on the first ingestion feature.
 
 ### 10. Learning science as libraries, not inventions
 
@@ -167,6 +251,14 @@ shadcn/ui uses Radix primitives, which AI Elements builds on. The design tokens 
 **Decision.** Stay on free plans while there are no paying users: one Supabase project for staging and previews, one for production.
 
 **Consequences.** Charging money requires Vercel Pro, and real usage requires Supabase Pro. Both are expected costs in the business model.
+
+### 14. Feature modules with lint-enforced boundaries
+
+**Context.** Most code in this repository is written by AI agents and reviewed by one maintainer. Next.js does not prescribe a structure, so without one, code ends up wherever the last change put it, and the review has to catch it. Conventions written only in documents are followed inconsistently. A structure enforced by tools is followed every time, and its error messages tell the agent where code belongs.
+
+**Decision.** Organize code by feature, as described in [Project structure](#project-structure): `app/` for routing only, one folder per feature in `features/` with a public API in `index.ts` (client-safe) and `server.ts` (server-only), and shared layers below that never import features. Server code follows Next.js's Data Access Layer pattern: queries and Server Actions check the user and return only what the UI needs. ESLint enforces the structure with `eslint-plugin-boundaries`, `eslint-plugin-check-file`, `import-x/no-cycle` and a few project rules, and its tests prove each rule fires.
+
+**Consequences.** Every file has one obvious place, and a feature can change internally without breaking others. Server-only code and secrets cannot reach Client Components unnoticed. The rules also fix where decisions 3, 5 and 9 apply, so the service role key is used only in background workflows and model providers only in `lib/ai`. A new kind of file needs a deliberate change to the structure, its lint configuration and this document.
 
 ## Open questions
 

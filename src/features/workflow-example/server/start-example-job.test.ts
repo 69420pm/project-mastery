@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { start } from "workflow/api";
 import { afterEach, expect, test, vi } from "vitest";
-import { exampleWorkflow } from "@/workflows/example";
-import { POST } from "./route";
+import { exampleWorkflow } from "@/features/workflow-example/workflows/example";
+import { handleStartExampleJob } from "./start-example-job";
 
+vi.mock("server-only", () => ({}));
 // Unit tests have no workflow runtime; `start` is checked by its arguments.
 vi.mock("workflow/api", () => ({
   start: vi.fn(async () => ({ runId: "wrun_test" })),
@@ -22,7 +23,7 @@ function request(body: unknown) {
 }
 
 test("starts the example workflow and returns the run id", async () => {
-  const response = await POST(request({ items: ["a", "b"] }));
+  const response = await handleStartExampleJob(request({ items: ["a", "b"] }));
 
   expect(response.status).toBe(202);
   expect(await response.json()).toEqual({ runId: "wrun_test" });
@@ -32,7 +33,7 @@ test("starts the example workflow and returns the run id", async () => {
 });
 
 test("rejects a body without items", async () => {
-  const response = await POST(request({ items: [] }));
+  const response = await handleStartExampleJob(request({ items: [] }));
 
   expect(response.status).toBe(400);
   expect(start).not.toHaveBeenCalled();
@@ -41,7 +42,7 @@ test("rejects a body without items", async () => {
 test("is disabled on Vercel deployments", async () => {
   vi.stubEnv("VERCEL", "1");
 
-  const response = await POST(request({ items: ["a"] }));
+  const response = await handleStartExampleJob(request({ items: ["a"] }));
 
   expect(response.status).toBe(404);
   expect(start).not.toHaveBeenCalled();

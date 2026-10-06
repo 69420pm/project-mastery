@@ -1,42 +1,22 @@
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import {
   signInWithMagicLink,
   signInWithPassword,
   signUp,
-} from "@/app/auth/actions";
-import { safeRedirectPath } from "@/lib/auth/redirect";
-import { getUser } from "@/lib/auth/user";
-import { getLoginMessage } from "./messages";
-
-export const metadata: Metadata = {
-  title: "Sign in",
-};
+} from "@/features/auth/server/actions";
 
 // Placeholder UI: plain form elements until the design system lands.
 const fieldClass = "rounded border px-2 py-1";
 const buttonClass = "rounded border px-3 py-1 font-medium";
 
-export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const params = await searchParams;
-  // Only the path matters here, so any origin works for the check.
-  const next = safeRedirectPath(
-    typeof params.next === "string" ? params.next : null,
-    "http://localhost",
-  );
+type LoginFormsProps = {
+  /** Same-origin path to return to after signing in. */
+  next: string;
+};
 
-  if (await getUser()) redirect(next);
-
-  const error = getLoginMessage(params.error);
-  const message = getLoginMessage(params.message);
-
+/** Sign in with a password or an email link, or create an account. */
+export function LoginForms({ next }: LoginFormsProps) {
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-col gap-8 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
-
+    <>
       <form action={signInWithPassword} className="flex flex-col gap-2">
         <h2 className="font-medium">With email and password</h2>
         <input type="hidden" name="next" value={next} />
@@ -109,6 +89,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           Create account
         </button>
       </form>
-    </main>
+    </>
   );
 }

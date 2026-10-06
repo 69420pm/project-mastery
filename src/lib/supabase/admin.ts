@@ -1,8 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { parseEnv } from "@/lib/env";
 import type { Database } from "./database.types";
-import { getSupabasePublicEnv, supabaseSecretEnvSchema } from "./env";
+import { getSupabasePublicEnv, getSupabaseSecretEnv } from "./env";
 
 /**
  * Supabase client with the secret (service role) key. It BYPASSES Row Level
@@ -14,9 +13,7 @@ import { getSupabasePublicEnv, supabaseSecretEnvSchema } from "./env";
  */
 export function createAdminClient() {
   const env = getSupabasePublicEnv();
-  const { SUPABASE_SECRET_KEY } = parseEnv(supabaseSecretEnvSchema, {
-    SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY,
-  });
+  const { SUPABASE_SECRET_KEY } = getSupabaseSecretEnv();
 
   return createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,

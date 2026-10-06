@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
+import { TUTOR_INSTRUCTIONS } from "@/features/tutor/server";
 import { aiTask } from "@/lib/ai/models";
-import { TUTOR_INSTRUCTIONS } from "@/lib/ai/tutor";
 import type { EvalDefinition } from "./eval";
 
 type Input = { message: string };
