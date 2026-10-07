@@ -18,6 +18,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 Where code goes is defined in [Project structure](docs/ARCHITECTURE.md#project-structure) and enforced by ESLint. Read that section before creating files or folders. When a lint error reports a boundary or structure violation, move the code to where the message says; do not disable the rule or add exceptions.
 
+## Library docs
+
+Like Next.js, these packages ship documentation that matches the installed version. Read it before writing code against them instead of relying on memory:
+
+- AI SDK: `node_modules/ai/docs/`, and `node_modules/@ai-sdk/<provider>/docs/` for providers
+- Vercel Workflow: `node_modules/workflow/docs/`
+- Supabase client: `node_modules/@supabase/supabase-js/AGENTS.md`
+
+## Agent skills
+
+`.claude/skills/` holds the official skills for Supabase, shadcn/ui and Langfuse, and `next-dev-loop` for verifying changes in the running app (it needs the `agent-browser` CLI: `npm i -g agent-browser`). They are installed with the `skills` CLI and pinned in `skills-lock.json`. Update them with `npx skills update -p` and review the diff; do not edit the copies by hand.
+
+Chat UI is built with AI Elements (`src/components/ai-elements/`, decision 11), not with the chat components the shadcn skill recommends.
+
 ## Git workflow
 
 - Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)
