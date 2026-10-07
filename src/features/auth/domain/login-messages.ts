@@ -1,12 +1,10 @@
 /**
- * Messages the login page shows for `?error=` and `?message=` codes. Server
- * Actions redirect with a code instead of free text, so a crafted link cannot
- * put arbitrary text on the page.
+ * Messages for `?message=` codes on the login page and for auth errors in the
+ * forms. Redirects carry a code instead of free text, so a crafted link
+ * cannot put arbitrary text on the page.
  */
 export const loginMessages = {
-  "check-email": "Check your email for a link to continue.",
   "signed-out": "You are signed out.",
-  "invalid-input": "Enter a valid email address and password.",
   "invalid-credentials": "Email or password is incorrect.",
   "email-not-confirmed":
     "Confirm your email address first. The link is in your inbox.",

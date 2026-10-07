@@ -59,7 +59,7 @@ describe("confirmEmailLink", () => {
   test("never redirects off-site", async () => {
     await expect(
       confirmEmailLink(request("code=xyz&next=https%3A%2F%2Fevil.example")),
-    ).rejects.toThrow(/^redirect:\/$/);
+    ).rejects.toThrow(/^redirect:\/dashboard$/);
   });
 
   test("sends invalid or expired links to the error page", async () => {

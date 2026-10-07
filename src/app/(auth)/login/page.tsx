@@ -1,5 +1,7 @@
+import { CircleCheckIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getLoginMessage, LoginForms } from "@/features/auth";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 import { getUser } from "@/lib/auth/user";
@@ -18,17 +20,18 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   if (await getUser()) redirect(next);
 
-  const error = getLoginMessage(params.error);
   const message = getLoginMessage(params.message);
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-col gap-8 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
-
+    <>
+      <h1 className="sr-only">Sign in</h1>
+      {message && (
+        <Alert role="status">
+          <CircleCheckIcon />
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
       <LoginForms next={next} />
-    </main>
+    </>
   );
 }
