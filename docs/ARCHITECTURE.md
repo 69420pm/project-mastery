@@ -90,6 +90,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
+- `tools/agent/` is development tooling outside the app (decision 15). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
 
 ### Anatomy of a feature
 
@@ -259,6 +260,14 @@ shadcn/ui uses Radix primitives, which AI Elements builds on. The design tokens 
 **Decision.** Organize code by feature, as described in [Project structure](#project-structure): `app/` for routing only, one folder per feature in `features/` with a public API in `index.ts` (client-safe) and `server.ts` (server-only), and shared layers below that never import features. Server code follows Next.js's Data Access Layer pattern: queries and Server Actions check the user and return only what the UI needs. ESLint enforces the structure with `eslint-plugin-boundaries`, `eslint-plugin-check-file`, `import-x/no-cycle` and a few project rules, and its tests prove each rule fires.
 
 **Consequences.** Every file has one obvious place, and a feature can change internally without breaking others. Server-only code and secrets cannot reach Client Components unnoticed. The rules also fix where decisions 3, 5 and 9 apply, so the service role key is used only in background workflows and model providers only in `lib/ai`. A new kind of file needs a deliberate change to the structure, its lint configuration and this document.
+
+### 15. Agents verify changes in the running app through one CLI
+
+**Context.** Agents write most of the code (decision 14). Type checks and unit tests do not show whether a page renders, a form signs a user in, or a policy hides another user's rows. Ad hoc browser scripts cost many tokens per check and break easily, and generic browser tools know nothing about this app's test users, auth emails or Row Level Security.
+
+**Decision.** `tools/agent/` is a CLI, `pnpm -s agent`, that agents use to run and verify the app. It combines the dev server's built-in MCP endpoint (`/_next/mcp`) for compile issues, runtime and server errors; agent-browser for a headless browser session per checkout, read as accessibility snapshots; Mailpit for auth emails; and a direct Postgres connection for SQL, optionally run as a test user so Row Level Security applies. Output is compact by default: a clean check is one line, and each error is reported in full once. The CLI works only against the local stack and imports no app code. The project skill `run-app` teaches agents the workflow.
+
+**Consequences.** Agents can check behavior, not only types, for a few hundred tokens per page. `agent-browser` and `postgres` are development dependencies; `postgres` is used only by the CLI and does not replace supabase-js (decision 3). Staging and production stay out of agents' reach: changes are verified locally and ship through pull requests.
 
 ## Open questions
 

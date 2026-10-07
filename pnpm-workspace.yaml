@@ -1,4 +1,5 @@
 allowBuilds:
+  agent-browser: false
   sharp: false
   unrs-resolver: false
   "@swc/core": false

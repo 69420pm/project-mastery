@@ -74,6 +74,17 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ARC
 - **Tracing (optional):** create a project in [Langfuse EU cloud](https://cloud.langfuse.com) and set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to trace every AI call. Without keys, tracing is off.
 - **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models (Gemini API free tier locally). With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI.
 
+### Agent CLI
+
+`pnpm -s agent` lets coding agents (and you) drive the running app from the terminal: start the stack, sign in as a test user, open pages as compact accessibility snapshots, click and type, read errors as Next.js sees them, follow emails and run SQL with Row Level Security applied. It works only against the local stack. `pnpm -s agent help` lists the commands; the `run-app` skill in `.claude/skills/` teaches agents the workflow.
+
+```bash
+pnpm -s agent up              # start Supabase and the dev server, create test users
+pnpm -s agent login student   # sign in the browser session as a test user
+pnpm -s agent open /dashboard # URL, page snapshot and new errors
+pnpm -s agent check           # compile issues, runtime and server errors
+```
+
 ## Scripts
 
 | Command              | Description                                   |
@@ -89,6 +100,7 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ARC
 | `pnpm test:e2e`      | Playwright E2E tests (run `pnpm build` first) |
 | `pnpm check`         | Lint + typecheck + format check + unit tests  |
 | `pnpm evals`         | AI evals against real models (not in CI)      |
+| `pnpm -s agent`      | Drive the running app from the terminal       |
 | `pnpm db:start`      | Start local Supabase (Docker)                 |
 | `pnpm db:stop`       | Stop local Supabase                           |
 | `pnpm db:status`     | Show local Supabase URLs and API keys         |
@@ -118,6 +130,7 @@ src/hooks/         Shared client hooks
 src/lib/           Platform: Supabase clients, auth session, AI config, tracing, env
 eslint/            Lint rules that enforce the project structure, and their tests
 evals/             AI eval datasets and runner (`pnpm evals`)
+tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
 docs/              Architecture and technical decisions
 e2e/               Playwright end-to-end tests
