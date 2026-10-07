@@ -39,7 +39,7 @@ const cases = {
     {
       name: "lib cannot import a feature",
       file: "src/lib/example.ts",
-      code: 'export { handleTutorChat } from "@/features/tutor/server";',
+      code: 'export { confirmEmailLink } from "@/features/auth/server";',
       expected: ["boundaries/dependencies"],
     },
     {
@@ -63,13 +63,13 @@ const cases = {
     {
       name: "a route imports a feature's server API",
       file: "src/app/api/example/route.ts",
-      code: 'export { handleTutorChat as POST } from "@/features/tutor/server";',
+      code: 'export { confirmEmailLink as GET } from "@/features/auth/server";',
       expected: [],
     },
     {
       name: "a route cannot reach into a feature's internals",
       file: "src/app/api/example/route.ts",
-      code: 'export { handleTutorChat as POST } from "@/features/tutor/server/chat";',
+      code: 'export { confirmEmailLink as GET } from "@/features/auth/server/confirm-email-link";',
       expected: ["boundaries/dependencies"],
     },
     {
@@ -87,13 +87,13 @@ const cases = {
     {
       name: "evals test a feature through its server API",
       file: "evals/example.ts",
-      code: 'export { TUTOR_INSTRUCTIONS } from "@/features/tutor/server";',
+      code: 'export { confirmEmailLink } from "@/features/auth/server";',
       expected: [],
     },
     {
       name: "evals cannot reach into a feature's internals",
       file: "evals/example.ts",
-      code: 'export { TUTOR_INSTRUCTIONS } from "@/features/tutor/ai/instructions";',
+      code: 'export { signInSchema } from "@/features/auth/schemas";',
       expected: ["boundaries/dependencies"],
     },
     {
@@ -112,7 +112,7 @@ const cases = {
     },
     {
       name: "workflows may use the admin client",
-      file: "src/features/workflow-example/workflows/example-job.ts",
+      file: "src/features/ingestion/workflows/example-job.ts",
       code: 'export { createAdminClient } from "@/lib/supabase/admin";',
       expected: [],
     },
@@ -218,8 +218,8 @@ const cases = {
     },
     {
       name: "Client Components cannot import server modules",
-      file: "src/features/tutor/components/example.tsx",
-      code: '"use client";\nexport { handleTutorChat } from "@/features/tutor/server";\nimport "@/features/tutor/server";',
+      file: "src/features/auth/components/example.tsx",
+      code: '"use client";\nexport { confirmEmailLink } from "@/features/auth/server";\nimport "@/features/auth/server";',
       expected: ["project/no-server-import-in-client"],
     },
     {

@@ -115,7 +115,7 @@ Only the folders a feature needs exist. Inside a feature, files import each othe
 
 - **Reads:** a page (Server Component) calls a query in the feature's `server/`. The query checks the user (`requireUser`), reads with the Supabase server client, so Row Level Security applies, and returns only the fields the UI needs.
 - **Writes:** a form calls a Server Action in `server/actions.ts`, which validates the input with Zod, checks the user, writes, revalidates and returns an `ActionResult`.
-- **AI streaming:** `useChat` posts to a route handler in `app/api/`, which delegates to the feature (for example `handleTutorChat`), which calls models through `aiTask`.
+- **AI streaming:** `useChat` posts to a route handler in `app/api/`, which delegates to a handler exported from the feature's `server.ts`, which calls models through `aiTask`.
 - **Background jobs:** server code starts a workflow from the feature's `workflows/`. Steps that run without a user use the admin client and report progress to the database, where the UI reads it.
 
 ### What the lint rules enforce
@@ -216,7 +216,7 @@ Each decision records the context, the choice and its consequences. A decision c
 
 **Decision.** Run long tasks as durable workflows with retries per step. Vercel Workflow is the first candidate because it runs on the existing platform; Inngest is the alternative. A short spike on the first ingestion feature confirms the choice.
 
-**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up with an example in `src/features/workflow-example/`; the comparison with Inngest still happens on the first ingestion feature.
+**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up; the comparison with Inngest still happens on the first ingestion feature.
 
 ### 10. Learning science as libraries, not inventions
 

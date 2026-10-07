@@ -2,7 +2,7 @@
  * Runs evals for key prompts on demand (ARCHITECTURE decision 12):
  *
  *   pnpm evals                          # all evals
- *   pnpm evals tutor-asks-before-telling
+ *   pnpm evals <name>                   # one eval
  *
  * Evals make real model calls (Gemini API free tier or AI Gateway, per
  * AI_PROVIDER),
@@ -20,10 +20,10 @@ import {
   type EvalDefinition,
   type EvalItem,
 } from "./eval";
-import { tutorAsksBeforeTelling } from "./tutor-asks-before-telling";
 
+// Register each eval here; its fixture is `evals/datasets/<name>.json`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous registry
-const EVALS: EvalDefinition<any, any>[] = [tutorAsksBeforeTelling];
+const EVALS: EvalDefinition<any, any>[] = [];
 
 // Free-tier rate limits are per model: run items one at a time.
 const MAX_CONCURRENCY = 1;
