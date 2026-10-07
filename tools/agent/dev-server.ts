@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, openSync, readFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
   readState,
   writeState,
 } from "./config";
+import { readFrom } from "./fs";
 import { projectOnPort } from "./next-mcp";
 
 export const DEV_LOG = path.join(CACHE_DIR, "next-dev.log");
@@ -70,7 +71,8 @@ function isRunning(pid: number) {
 export async function startDevServer() {
   const port = await freePort();
   mkdirSync(CACHE_DIR, { recursive: true });
-  const log = openSync(DEV_LOG, "w");
+  // Read back through the same descriptor if the server fails to start.
+  const log = openSync(DEV_LOG, "w+");
   const child = spawn(BIN("next"), ["dev", "--port", String(port)], {
     cwd: ROOT,
     detached: true,
@@ -81,19 +83,20 @@ export async function startDevServer() {
     throw new AgentError("Could not start next dev.");
   writeState({ port, pid: child.pid, logOffset: 0, seenErrors: [] });
 
-  const deadline = Date.now() + START_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if ((await projectOnPort(port))?.projectPath === ROOT)
-      return { port, pid: child.pid };
-    if (!isRunning(child.pid)) break;
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  try {
+    const deadline = Date.now() + START_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if ((await projectOnPort(port))?.projectPath === ROOT)
+        return { port, pid: child.pid };
+      if (!isRunning(child.pid)) break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const tail = readFrom(log).text.trim().split("\n").slice(-20).join("\n");
+    throw new AgentError(`next dev did not start on port ${port}:\n${tail}`);
+  } finally {
+    // The server writes through its own copy of the descriptor.
+    closeSync(log);
   }
-  const tail = readFileSync(DEV_LOG, "utf8")
-    .trim()
-    .split("\n")
-    .slice(-20)
-    .join("\n");
-  throw new AgentError(`next dev did not start on port ${port}:\n${tail}`);
 }
 
 /** Stops the dev server that `agent up` started. */

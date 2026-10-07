@@ -1,5 +1,6 @@
-import { closeSync, openSync, readSync, statSync } from "node:fs";
+import { closeSync, fstatSync, openSync } from "node:fs";
 import { readState, writeState } from "./config";
+import { readFrom } from "./fs";
 import { callNextTool } from "./next-mcp";
 import {
   formatCompileIssue,
@@ -15,24 +16,22 @@ async function newServerErrors(port: number) {
     port,
     "get_logs",
   );
-  let size: number;
+  let fd: number;
   try {
-    size = statSync(logFilePath).size;
+    fd = openSync(logFilePath, "r");
   } catch {
     return [];
   }
-  // Without a stored offset, start at the end: older errors may be long fixed.
-  // A restarted dev server starts a new, shorter log.
-  const offset = Math.min(readState().logOffset ?? size, size);
-  const buffer = Buffer.alloc(size - offset);
-  const fd = openSync(logFilePath, "r");
   try {
-    readSync(fd, buffer, 0, buffer.length, offset);
+    // Without a stored offset, start at the end: older errors may be long
+    // fixed. A restarted dev server starts a new, shorter log.
+    const offset = readState().logOffset ?? fstatSync(fd).size;
+    const { text, size } = readFrom(fd, offset);
+    writeState({ logOffset: size });
+    return serverErrorsFromLog(text);
   } finally {
     closeSync(fd);
   }
-  writeState({ logOffset: size });
-  return serverErrorsFromLog(buffer.toString("utf8"));
 }
 
 // Next.js waits this long for every connected page to answer `get_errors`.
