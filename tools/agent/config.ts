@@ -58,9 +58,9 @@ export function readTomlPorts(toml: string): Record<string, number> {
   const ports: Record<string, number> = {};
   let section = "";
   for (const line of toml.split("\n")) {
-    const header = line.match(/^\s*\[([^\]]+)\]/);
+    const header = line.match(/^\s*\[([^\]]+)\]/)?.[1];
     if (header) {
-      section = header[1];
+      section = header;
       continue;
     }
     const port = line.match(/^\s*port\s*=\s*(\d+)/);

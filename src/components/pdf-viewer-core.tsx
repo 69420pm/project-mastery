@@ -129,7 +129,7 @@ function useElementWidth(ref: React.RefObject<HTMLElement | null>) {
     const element = ref.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
-      setWidth(Math.floor(entry.contentRect.width));
+      if (entry) setWidth(Math.floor(entry.contentRect.width));
     });
     observer.observe(element);
     return () => observer.disconnect();
