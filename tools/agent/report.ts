@@ -132,7 +132,7 @@ export function serverErrorsFromLog(chunk: string) {
 const DEV_TOOLS = /^\s*- button "Open Next\.js Dev Tools"/;
 const EMPTY_NODE = /^\s*- [A-Za-z]+$/;
 
-const depth = (line: string) => line.length - line.trimStart().length;
+const depth = (line = "") => line.length - line.trimStart().length;
 
 /** The index after the subtree of the node at `index`. */
 function subtreeEnd(lines: string[], index: number) {

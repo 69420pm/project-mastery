@@ -5,7 +5,18 @@ import { describe, expect, test } from "vitest";
 
 // Lints made-up files at real paths with the project's real config, so the
 // cases prove the architecture rules fire (and stay quiet) where they should.
-const eslint = new ESLint({ cwd: path.resolve(import.meta.dirname, "..") });
+// Made-up files are not in the TypeScript project, so type-aware linting is off.
+const eslint = new ESLint({
+  cwd: path.resolve(import.meta.dirname, ".."),
+  overrideConfig: {
+    languageOptions: { parserOptions: { projectService: false } },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-misused-promises": "off",
+      "@typescript-eslint/await-thenable": "off",
+    },
+  },
+});
 
 const ARCHITECTURE_RULES = new Set([
   "boundaries/dependencies",
