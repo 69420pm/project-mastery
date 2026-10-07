@@ -47,7 +47,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Local Supabase
 
-Auth, the database and file storage run locally with the Supabase CLI (installed with the dev dependencies). It needs Docker, for example [Docker Desktop](https://docs.docker.com/desktop/) or [OrbStack](https://orbstack.dev).
+Auth, the database and file storage run locally with the Supabase CLI (installed with the dev dependencies). It needs Docker, for example [Docker Desktop](https://docs.docker.com/desktop/) or [OrbStack](https://orbstack.dev). On Linux, including an OrbStack Linux machine, install [Docker Engine](https://docs.docker.com/engine/install/) and add yourself to the `docker` group. If image pulls fail with "failed to convert whiteout file" on a btrfs root (as in OrbStack machines), set `{ "features": { "containerd-snapshotter": false }, "storage-driver": "btrfs" }` in `/etc/docker/daemon.json` and restart Docker.
 
 ```bash
 pnpm db:start   # start Supabase in Docker and apply the migrations

@@ -4,14 +4,19 @@ import type { AuthError } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { LoginMessageCode } from "@/features/auth/domain/login-messages";
+import {
+  loginMessages,
+  type LoginMessageCode,
+} from "@/features/auth/domain/login-messages";
 import {
   magicLinkSchema,
   signInSchema,
   signUpSchema,
 } from "@/features/auth/schemas";
+import type { AuthFormState } from "@/features/auth/types";
 import { CONFIRM_PATH, safeRedirectPath } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
+import { parseActionInput } from "@/lib/validation/action";
 
 /** The site's origin, for links in auth emails. */
 async function getOrigin() {
@@ -41,19 +46,9 @@ async function readForm(formData: FormData) {
     typeof nextField === "string" ? nextField : null,
     origin,
   );
-  return { origin, next, fields: Object.fromEntries(formData) };
-}
-
-function redirectToLogin(params: {
-  error?: LoginMessageCode;
-  message?: LoginMessageCode;
-  next?: string;
-}): never {
-  const search = new URLSearchParams();
-  if (params.error) search.set("error", params.error);
-  if (params.message) search.set("message", params.message);
-  if (params.next && params.next !== "/") search.set("next", params.next);
-  redirect(`/login?${search}`);
+  const emailField = formData.get("email");
+  const email = typeof emailField === "string" ? emailField : "";
+  return { origin, next, email };
 }
 
 function toMessageCode(error: AuthError): LoginMessageCode {
@@ -72,49 +67,61 @@ function toMessageCode(error: AuthError): LoginMessageCode {
   }
 }
 
-export async function signInWithPassword(formData: FormData) {
-  const { next, fields } = await readForm(formData);
-  const input = signInSchema.safeParse(fields);
-  if (!input.success) redirectToLogin({ error: "invalid-input", next });
+function authFailure(error: AuthError, email: string): AuthFormState {
+  return { ok: false, message: loginMessages[toMessageCode(error)], email };
+}
 
+/**
+ * The sign-in form. Its submit buttons set `intent`: `password` signs in and
+ * redirects to `next`, `link` emails a sign-in link.
+ */
+export async function signIn(
+  _prev: AuthFormState | null,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const { origin, next, email } = await readForm(formData);
   const supabase = await createClient();
+
+  if (formData.get("intent") === "link") {
+    const input = parseActionInput(magicLinkSchema, formData);
+    if (!input.ok) return { ...input, email };
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: input.data.email,
+      options: { emailRedirectTo: confirmUrl(origin, next) },
+    });
+    if (error) return authFailure(error, email);
+    return { ok: true, data: undefined, email: input.data.email };
+  }
+
+  const input = parseActionInput(signInSchema, formData);
+  if (!input.ok) return { ...input, email };
+
   const { error } = await supabase.auth.signInWithPassword(input.data);
-  if (error) redirectToLogin({ error: toMessageCode(error), next });
+  if (error) return authFailure(error, email);
 
   revalidatePath("/", "layout");
   redirect(next);
 }
 
-export async function signUp(formData: FormData) {
-  const { origin, next, fields } = await readForm(formData);
-  const input = signUpSchema.safeParse(fields);
-  if (!input.success) redirectToLogin({ error: "invalid-input", next });
+export async function signUp(
+  _prev: AuthFormState | null,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const { origin, next, email } = await readForm(formData);
+  const input = parseActionInput(signUpSchema, formData);
+  if (!input.ok) return { ...input, email };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signUp({
     ...input.data,
     options: { emailRedirectTo: confirmUrl(origin, next) },
   });
-  if (error) redirectToLogin({ error: toMessageCode(error), next });
+  if (error) return authFailure(error, email);
 
   // With email confirmation on, Supabase answers the same way whether or not
   // the address already has an account, so this reveals nothing.
-  redirectToLogin({ message: "check-email" });
-}
-
-export async function signInWithMagicLink(formData: FormData) {
-  const { origin, next, fields } = await readForm(formData);
-  const input = magicLinkSchema.safeParse(fields);
-  if (!input.success) redirectToLogin({ error: "invalid-input", next });
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: input.data.email,
-    options: { emailRedirectTo: confirmUrl(origin, next) },
-  });
-  if (error) redirectToLogin({ error: toMessageCode(error), next });
-
-  redirectToLogin({ message: "check-email" });
+  return { ok: true, data: undefined, email: input.data.email };
 }
 
 export async function signOut() {
@@ -122,5 +129,5 @@ export async function signOut() {
   await supabase.auth.signOut();
 
   revalidatePath("/", "layout");
-  redirectToLogin({ message: "signed-out" });
+  redirect("/login?message=signed-out");
 }

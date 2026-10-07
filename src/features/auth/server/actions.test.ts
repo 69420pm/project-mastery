@@ -22,8 +22,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const { signInWithMagicLink, signInWithPassword, signOut, signUp } =
-  await import("./actions");
+const { signIn, signOut, signUp } = await import("./actions");
 
 function form(fields: Record<string, string>) {
   const data = new FormData();
@@ -38,10 +37,11 @@ beforeEach(() => {
   }
 });
 
-describe("signInWithPassword", () => {
+describe("signIn with a password", () => {
   test("signs in with normalized input and redirects to next", async () => {
     await expect(
-      signInWithPassword(
+      signIn(
+        null,
         form({
           email: " Alice@Example.com ",
           password: "secret",
@@ -58,56 +58,113 @@ describe("signInWithPassword", () => {
 
   test("never redirects off-site", async () => {
     await expect(
-      signInWithPassword(
+      signIn(
+        null,
         form({
           email: "alice@example.com",
           password: "secret",
           next: "https://evil.example",
         }),
       ),
-    ).rejects.toThrow(/^redirect:\/$/);
+    ).rejects.toThrow(/^redirect:\/dashboard$/);
   });
 
-  test("rejects invalid input without calling Supabase", async () => {
-    await expect(
-      signInWithPassword(form({ email: "not-an-email", password: "" })),
-    ).rejects.toThrow("redirect:/login?error=invalid-input");
+  test("returns field errors without calling Supabase", async () => {
+    const state = await signIn(
+      null,
+      form({ email: "not-an-email", password: "" }),
+    );
 
+    expect(state).toMatchObject({
+      ok: false,
+      email: "not-an-email",
+      fieldErrors: {
+        email: ["Enter a valid email address."],
+        password: ["Enter your password."],
+      },
+    });
     expect(auth.signInWithPassword).not.toHaveBeenCalled();
   });
 
-  test("maps Supabase errors to a message code and keeps next", async () => {
+  test("returns the message for a Supabase error", async () => {
     auth.signInWithPassword.mockResolvedValue({
       data: {},
       error: { code: "invalid_credentials" },
     });
 
-    await expect(
-      signInWithPassword(
-        form({
-          email: "alice@example.com",
-          password: "wrong",
-          next: "/courses",
-        }),
-      ),
-    ).rejects.toThrow(
-      "redirect:/login?error=invalid-credentials&next=%2Fcourses",
+    const state = await signIn(
+      null,
+      form({ email: "alice@example.com", password: "wrong" }),
     );
+
+    expect(state).toEqual({
+      ok: false,
+      message: "Email or password is incorrect.",
+      email: "alice@example.com",
+    });
+  });
+});
+
+describe("signIn with an email link", () => {
+  test("emails a sign-in link that returns to next", async () => {
+    const state = await signIn(
+      null,
+      form({
+        intent: "link",
+        email: "Alice@Example.com",
+        password: "",
+        next: "/courses",
+      }),
+    );
+
+    expect(state).toEqual({
+      ok: true,
+      data: undefined,
+      email: "alice@example.com",
+    });
+    expect(auth.signInWithOtp).toHaveBeenCalledWith({
+      email: "alice@example.com",
+      options: {
+        emailRedirectTo: "http://localhost:3000/auth/confirm?next=%2Fcourses",
+      },
+    });
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+  });
+
+  test("returns the message for rate limits", async () => {
+    auth.signInWithOtp.mockResolvedValue({
+      data: {},
+      error: { code: "over_email_send_rate_limit" },
+    });
+
+    const state = await signIn(
+      null,
+      form({ intent: "link", email: "alice@example.com" }),
+    );
+
+    expect(state).toMatchObject({
+      ok: false,
+      message: "Too many attempts. Wait a moment and try again.",
+    });
   });
 });
 
 describe("signUp", () => {
   test("sends the confirmation link through /auth/confirm", async () => {
-    await expect(
-      signUp(
-        form({
-          email: "alice@example.com",
-          password: "long enough",
-          next: "/courses",
-        }),
-      ),
-    ).rejects.toThrow("redirect:/login?message=check-email");
+    const state = await signUp(
+      null,
+      form({
+        email: "alice@example.com",
+        password: "long enough",
+        next: "/courses",
+      }),
+    );
 
+    expect(state).toEqual({
+      ok: true,
+      data: undefined,
+      email: "alice@example.com",
+    });
     expect(auth.signUp).toHaveBeenCalledWith({
       email: "alice@example.com",
       password: "long enough",
@@ -117,38 +174,33 @@ describe("signUp", () => {
     });
   });
 
+  test("defaults the link target to the signed-in home", async () => {
+    await signUp(
+      null,
+      form({ email: "alice@example.com", password: "long enough" }),
+    );
+
+    expect(auth.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: {
+          emailRedirectTo:
+            "http://localhost:3000/auth/confirm?next=%2Fdashboard",
+        },
+      }),
+    );
+  });
+
   test("requires at least 8 characters", async () => {
-    await expect(
-      signUp(form({ email: "alice@example.com", password: "short" })),
-    ).rejects.toThrow("redirect:/login?error=invalid-input");
+    const state = await signUp(
+      null,
+      form({ email: "alice@example.com", password: "short" }),
+    );
 
+    expect(state).toMatchObject({
+      ok: false,
+      fieldErrors: { password: ["Use at least 8 characters."] },
+    });
     expect(auth.signUp).not.toHaveBeenCalled();
-  });
-});
-
-describe("signInWithMagicLink", () => {
-  test("emails a sign-in link that returns to next", async () => {
-    await expect(
-      signInWithMagicLink(form({ email: "alice@example.com" })),
-    ).rejects.toThrow("redirect:/login?message=check-email");
-
-    expect(auth.signInWithOtp).toHaveBeenCalledWith({
-      email: "alice@example.com",
-      options: {
-        emailRedirectTo: "http://localhost:3000/auth/confirm?next=%2F",
-      },
-    });
-  });
-
-  test("reports rate limits", async () => {
-    auth.signInWithOtp.mockResolvedValue({
-      data: {},
-      error: { code: "over_email_send_rate_limit" },
-    });
-
-    await expect(
-      signInWithMagicLink(form({ email: "alice@example.com" })),
-    ).rejects.toThrow("redirect:/login?error=rate-limited");
   });
 });
 

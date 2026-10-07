@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { confirmRedirectPath, safeRedirectPath } from "./redirect";
+import {
+  confirmRedirectPath,
+  safeRedirectPath,
+  SIGNED_IN_PATH,
+} from "./redirect";
 
 const ORIGIN = "http://localhost:3000";
 
@@ -21,11 +25,11 @@ describe("safeRedirectPath", () => {
     "javascript:alert(1)",
     "http://localhost:3001/",
   ])("falls back for off-site target %s", (target) => {
-    expect(safeRedirectPath(target, ORIGIN)).toBe("/");
+    expect(safeRedirectPath(target, ORIGIN)).toBe(SIGNED_IN_PATH);
   });
 
   test("falls back for missing values and uses a custom fallback", () => {
-    expect(safeRedirectPath(null, ORIGIN)).toBe("/");
+    expect(safeRedirectPath(null, ORIGIN)).toBe(SIGNED_IN_PATH);
     expect(safeRedirectPath("", ORIGIN, "/login")).toBe("/login");
   });
 });
@@ -42,6 +46,6 @@ describe("confirmRedirectPath", () => {
 
   test("never returns an off-site target from the wrapped next", () => {
     const next = `${ORIGIN}/auth/confirm?next=https%3A%2F%2Fevil.example`;
-    expect(confirmRedirectPath(next, ORIGIN)).toBe("/");
+    expect(confirmRedirectPath(next, ORIGIN)).toBe(SIGNED_IN_PATH);
   });
 });

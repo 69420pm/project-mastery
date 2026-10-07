@@ -1,6 +1,9 @@
 /** The route that email links lead to. */
 export const CONFIRM_PATH = "/auth/confirm";
 
+/** Where signing in leads when there is no `next` path to return to. */
+export const SIGNED_IN_PATH = "/dashboard";
+
 /**
  * Turns an untrusted redirect target (a `next` query parameter or form field)
  * into a same-origin path. Anything that would leave the site, such as
@@ -9,7 +12,7 @@ export const CONFIRM_PATH = "/auth/confirm";
 export function safeRedirectPath(
   target: string | null | undefined,
   origin: string,
-  fallback = "/",
+  fallback = SIGNED_IN_PATH,
 ): string {
   if (!target) return fallback;
   try {

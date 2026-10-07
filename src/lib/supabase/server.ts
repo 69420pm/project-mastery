@@ -10,8 +10,10 @@ import { getSupabasePublicEnv } from "./env";
  * applies. Create a new client per request; never share one across requests.
  */
 export async function createClient() {
-  const env = getSupabasePublicEnv();
+  // Reading cookies first makes every caller dynamic, so builds without
+  // Supabase variables (CI) never try to prerender a page that uses the client.
   const cookieStore = await cookies();
+  const env = getSupabasePublicEnv();
 
   return createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
