@@ -97,6 +97,18 @@ const cases = {
       expected: ["boundaries/dependencies"],
     },
     {
+      name: "the agent CLI uses packages",
+      file: "tools/agent/example.ts",
+      code: 'export { z } from "zod";',
+      expected: [],
+    },
+    {
+      name: "the agent CLI drives the app from outside, without its code",
+      file: "tools/agent/example.ts",
+      code: 'export { createClient } from "@/lib/supabase/server";',
+      expected: ["boundaries/dependencies"],
+    },
+    {
       name: "dynamic imports are checked too",
       file: "src/components/example.tsx",
       code: 'export const load = () => import("@/features/auth");',
@@ -163,6 +175,12 @@ const cases = {
     {
       name: "no new top-level folders",
       file: "src/utils/example.ts",
+      code: "export const x = 1;",
+      expected: ["project/file-structure"],
+    },
+    {
+      name: "tools live in their own folder",
+      file: "tools/example.ts",
       code: "export const x = 1;",
       expected: ["project/file-structure"],
     },

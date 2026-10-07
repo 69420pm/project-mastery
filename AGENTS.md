@@ -28,7 +28,9 @@ Like Next.js, these packages ship documentation that matches the installed versi
 
 ## Agent skills
 
-`.claude/skills/` holds the official skills for Supabase, shadcn/ui and Langfuse, and `next-dev-loop` for verifying changes in the running app (it needs the `agent-browser` CLI: `npm i -g agent-browser`). They are installed with the `skills` CLI and pinned in `skills-lock.json`. Update them with `npx skills update -p` and review the diff; do not edit the copies by hand.
+`.claude/skills/` holds the official skills for Supabase, shadcn/ui and Langfuse. They are installed with the `skills` CLI and pinned in `skills-lock.json`. Update them with `npx skills update -p` and review the diff; do not edit the copies by hand.
+
+`run-app` is this project's own skill: how to run, drive and verify the app with `pnpm -s agent` (`tools/agent/`). Use it to confirm that a change works in the running app, not only that it compiles. It is not in `skills-lock.json`: keep it in sync when you change `tools/agent/`.
 
 Chat UI is built with AI Elements (`src/components/ai-elements/`, decision 11), not with the chat components the shadcn skill recommends.
 

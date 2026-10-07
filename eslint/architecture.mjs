@@ -34,10 +34,12 @@ const ALLOWED_FILES = [
   "src/{proxy,instrumentation,instrumentation-client}.ts",
   // Evaluation datasets and runner for AI behavior (decision 12).
   "evals/*.ts",
+  // CLI that lets coding agents drive the running app (decision 15).
+  "tools/agent/*.ts",
 ];
 
 /** Unit tests sit next to the file they test, under the same name. */
-const TEST_FILES = "src/**/*.test.{ts,tsx}";
+const TEST_FILES = "{src,tools}/**/*.test.{ts,tsx}";
 
 const ENV_FILES = ["src/**/env.ts", "src/**/*-env.ts"];
 
@@ -82,10 +84,10 @@ const featureEntries = (entries) => ({
 export const architecture = [
   {
     name: "project/architecture",
-    files: ["src/**/*.{ts,tsx}", "evals/**/*.ts"],
+    files: ["src/**/*.{ts,tsx}", "evals/**/*.ts", "tools/**/*.ts"],
     plugins: { boundaries, project },
     settings: {
-      "boundaries/include": ["src/**", "evals/**"],
+      "boundaries/include": ["src/**", "evals/**", "tools/**"],
       "boundaries/elements": [
         { type: "app", pattern: "src/app", partialMatch: false },
         {
@@ -98,6 +100,8 @@ export const architecture = [
         { type: "hooks", pattern: "src/hooks", partialMatch: false },
         { type: "lib", pattern: "src/lib", partialMatch: false },
         { type: "evals", pattern: "evals", partialMatch: false },
+        // Development tooling: drives the app from outside, imports none of it.
+        { type: "tools", pattern: "tools/*", partialMatch: false },
         // Root files such as proxy.ts and instrumentation.ts.
         { type: "root", pattern: "src", partialMatch: false },
       ],
