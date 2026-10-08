@@ -48,7 +48,11 @@ import {
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
-import type { ChatUIMessage, ModelOption } from "@/features/chat/types";
+import type {
+  ChatUIMessage,
+  ChatWithMessages,
+  ModelOption,
+} from "@/features/chat/types";
 import {
   DailyLimitNotice,
   refreshDailyLimitStatus,
@@ -56,17 +60,15 @@ import {
 } from "@/features/usage";
 
 type ChatProps = {
-  chatId: string;
-  /** The stored messages, empty for a new Chat. */
-  initialMessages: ChatUIMessage[];
-  /** True on `/chat`: the first message creates the Chat with `chatId`. */
+  /**
+   * The stored Chat (`getChat`), or an unsaved one without messages
+   * (`newChat`). Without a title, it gets one after a reply.
+   */
+  chat: ChatWithMessages;
+  /** True on `/chat`: the first message creates the Chat with its id. */
   isNew: boolean;
-  /** Whether the Chat has a title. Without one, it gets one after a reply. */
-  hasTitle?: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
-  /** The key of the choice the Chat answers with, the default for a new Chat. */
-  initialModelChoice: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
@@ -100,20 +102,18 @@ function CopyAction({ text }: { text: string }) {
  * Only the new message is sent; the server loads the stored history.
  */
 export function Chat({
-  chatId,
-  initialMessages,
+  chat,
   isNew,
-  hasTitle = false,
   modelOptions,
-  initialModelChoice,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
+  const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
-  const [modelChoice, setModelChoice] = useState(initialModelChoice);
+  const [modelChoice, setModelChoice] = useState(chat.modelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
   const { noteChatActivity, relabelChat } = useChatList();
-  const titled = useRef(hasTitle);
+  const titled = useRef(chat.title !== null);
   const {
     messages,
     sendMessage,
@@ -151,7 +151,7 @@ export function Chat({
       }
     },
     id: chatId,
-    messages: initialMessages,
+    messages: chat.messages,
     // The database stores message ids as uuids.
     generateId: () => crypto.randomUUID(),
     transport: new DefaultChatTransport({
