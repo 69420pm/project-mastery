@@ -1,0 +1,16 @@
+import { randomUUID } from "node:crypto";
+import type { Metadata } from "next";
+import { Chat } from "@/features/chat";
+import { requireUser } from "@/lib/auth/user";
+
+export const metadata: Metadata = {
+  title: "New chat",
+};
+
+/** A new Chat. It is stored with its first message, under this id. */
+export default async function NewChatPage() {
+  await requireUser("/chat");
+  const chatId = randomUUID();
+
+  return <Chat key={chatId} chatId={chatId} initialMessages={[]} isNew />;
+}

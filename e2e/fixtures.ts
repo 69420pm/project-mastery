@@ -17,7 +17,13 @@ import { createClient } from "@supabase/supabase-js";
  * neither the local admin API nor the mock AI.
  */
 
-export type Student = { id: string; email: string; displayName: string };
+export type Student = {
+  id: string;
+  email: string;
+  displayName: string;
+  /** For tests that sign in through the form. */
+  password: string;
+};
 
 /** Whether the tests run against a deployment instead of the local stack. */
 export const isDeployment = Boolean(process.env.PLAYWRIGHT_BASE_URL);
@@ -61,7 +67,7 @@ async function createStudent(): Promise<Student> {
   });
   if (error)
     throw new Error(`Creating a test Student failed: ${error.message}`);
-  return { id: data.user.id, email, displayName };
+  return { id: data.user.id, email, displayName, password: PASSWORD };
 }
 
 async function deleteStudent(student: Student) {
