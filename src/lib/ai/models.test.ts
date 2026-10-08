@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { embed, generateText } from "ai";
+import { embed, generateText, streamText } from "ai";
 import {
   afterEach,
   beforeEach,
@@ -212,6 +212,69 @@ describe("title task", () => {
     });
 
     expect(aiTask("title").model).toBe("google/gemini-2.5-flash-lite");
+  });
+});
+
+describe("AI_PROVIDER=mock", () => {
+  function stubMockProvider() {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    vi.stubEnv("AI_GATEWAY_API_KEY", undefined);
+    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", undefined);
+    vi.stubEnv("VERCEL", undefined);
+    const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
+    globalThis.AI_SDK_DEFAULT_PROVIDER = undefined;
+    onTestFinished(() => {
+      globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
+    });
+  }
+
+  test("is refused on Vercel", () => {
+    stubMockProvider();
+    vi.stubEnv("VERCEL", "1");
+
+    expect(() => modelIdFor("judge")).toThrow(/AI_PROVIDER/);
+  });
+
+  test("streams a deterministic reply without any key", async () => {
+    stubMockProvider();
+
+    const result = streamText({ ...aiTask("judge"), prompt: "What is 2+2?" });
+    const deltas: string[] = [];
+    for await (const delta of result.textStream) deltas.push(delta);
+
+    expect(deltas.length).toBeGreaterThan(10);
+    expect(deltas.join("")).toBe(
+      'Mock reply to "What is 2+2?". This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.',
+    );
+  });
+
+  test("answers generate calls and embeddings", async () => {
+    stubMockProvider();
+
+    const { text } = await generateText({
+      ...aiTask("judge"),
+      messages: [
+        { role: "user", content: "First question" },
+        { role: "assistant", content: "First answer" },
+        { role: "user", content: "Second question" },
+      ],
+    });
+    const { embedding } = await embed({ ...aiTask("embed"), value: "chunk" });
+
+    expect(text).toMatch(/^Mock reply to "Second question"\./);
+    expect(embedding.length).toBeGreaterThan(0);
+  });
+
+  test("answers every Chat model choice", async () => {
+    stubMockProvider();
+
+    for (const choice of modelChoices("chat")) {
+      const settings = aiTask("chat", choice.key);
+      const { text } = await generateText({ ...settings, prompt: "Hi" });
+
+      expect(settings.model).toBe(choice.model);
+      expect(text).toMatch(/^Mock reply to "Hi"\./);
+    }
   });
 });
 

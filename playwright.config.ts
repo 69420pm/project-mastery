@@ -1,4 +1,9 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+// The local Supabase keys for signed-in tests (e2e/fixtures.ts), as the app
+// reads them. Variables already set, as in CI, take precedence.
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
@@ -18,13 +23,15 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
-  // Test against the production build. Skipped when PLAYWRIGHT_BASE_URL points
-  // at an already-running deployment (e.g. a Vercel preview).
+  // Test against the production build with mock AI and local Supabase.
+  // Skipped when PLAYWRIGHT_BASE_URL points at an already-running deployment
+  // (e.g. a Vercel preview), where signed-in tests skip themselves.
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
         command: `pnpm start --port ${PORT}`,
         url: baseURL,
+        env: { AI_PROVIDER: "mock" },
         reuseExistingServer: !process.env.CI,
       },
 });
