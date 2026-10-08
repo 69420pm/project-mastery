@@ -2,7 +2,13 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { CircleAlertIcon, RotateCcwIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  CopyIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Conversation,
@@ -10,7 +16,12 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent } from "@/components/ai-elements/message";
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+} from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputBody,
@@ -63,6 +74,30 @@ function messageText(message: ChatUIMessage) {
     .join("");
 }
 
+/** Copies a message's text, confirming it briefly with a check mark. */
+function CopyAction({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  return (
+    <MessageAction
+      tooltip={copied ? "Copied" : "Copy"}
+      onClick={() => {
+        navigator.clipboard.writeText(text).then(
+          () => setCopied(true),
+          () => {},
+        );
+      }}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </MessageAction>
+  );
+}
+
 /**
  * A Chat with the AI: the messages, streamed replies and the message input.
  * Only the new message is sent; the server loads the stored history.
@@ -85,29 +120,47 @@ export function Chat({
   );
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
-  const { messages, sendMessage, regenerate, status, error, clearError } =
-    useChat<ChatUIMessage>({
+  const {
+    messages,
+    sendMessage,
+    regenerate,
+    stop,
+    setMessages,
+    status,
+    error,
+    clearError,
+  } = useChat<ChatUIMessage>({
+    onFinish: ({ message, isAbort }) => {
+      // The server stores a stopped reply as stopped; show it so now too.
+      if (isAbort && message.role === "assistant") {
+        setMessages((current) =>
+          current.map((m) =>
+            m.id === message.id
+              ? { ...m, metadata: { ...m.metadata, stopped: true } }
+              : m,
+          ),
+        );
+      }
       // Every reply, or a refusal at the limit, can change the status.
-      onFinish: () => {
-        refreshDailyLimitStatus().then(setDailyLimit, () => {});
-      },
-      id: chatId,
-      messages: initialMessages,
-      // The database stores message ids as uuids.
-      generateId: () => crypto.randomUUID(),
-      transport: new DefaultChatTransport({
-        api: "/api/chat",
-        // `body` carries the model choice of each send and retry.
-        prepareSendMessagesRequest: ({ messages, body }) => ({
-          body: {
-            ...body,
-            chatId,
-            newChat: isNew,
-            message: messages.at(-1),
-          },
-        }),
+      refreshDailyLimitStatus().then(setDailyLimit, () => {});
+    },
+    id: chatId,
+    messages: initialMessages,
+    // The database stores message ids as uuids.
+    generateId: () => crypto.randomUUID(),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      // `body` carries the model choice of each send and retry.
+      prepareSendMessagesRequest: ({ messages, body }) => ({
+        body: {
+          ...body,
+          chatId,
+          newChat: isNew,
+          message: messages.at(-1),
+        },
       }),
-    });
+    }),
+  });
   const selectedOption = modelOptions.find(({ key }) => key === modelChoice);
 
   // Once the reply streams, the message is stored: a new Chat gets its own
@@ -154,25 +207,52 @@ export function Chat({
               description="Ask a question or share a problem you are working on."
             />
           ) : (
-            messages.map((message) => (
-              <Message from={message.role} key={message.id}>
-                <MessageContent>
-                  {message.role === "assistant" ? (
-                    <Markdown
-                      streaming={
-                        status === "streaming" && message === lastMessage
+            messages.map((message) => {
+              const isLast = message === lastMessage;
+              const isStreaming = isBusy && isLast;
+              return (
+                <Message from={message.role} key={message.id}>
+                  <MessageContent data-testid="message-text">
+                    {message.role === "assistant" ? (
+                      <Markdown streaming={status === "streaming" && isLast}>
+                        {messageText(message)}
+                      </Markdown>
+                    ) : (
+                      <p className="whitespace-pre-wrap">
+                        {messageText(message)}
+                      </p>
+                    )}
+                  </MessageContent>
+                  {!isStreaming && (
+                    <MessageActions
+                      className={
+                        message.role === "user" ? "justify-end" : undefined
                       }
                     >
-                      {messageText(message)}
-                    </Markdown>
-                  ) : (
-                    <p className="whitespace-pre-wrap">
-                      {messageText(message)}
-                    </p>
+                      {message.metadata?.stopped && (
+                        <span className="px-1 text-xs text-muted-foreground">
+                          Stopped
+                        </span>
+                      )}
+                      <CopyAction text={messageText(message)} />
+                      {message.role === "assistant" &&
+                        isLast &&
+                        !limitReached && (
+                          <MessageAction
+                            tooltip="Regenerate"
+                            onClick={() => {
+                              clearError();
+                              void regenerate({ body: { modelChoice } });
+                            }}
+                          >
+                            <RefreshCwIcon />
+                          </MessageAction>
+                        )}
+                    </MessageActions>
                   )}
-                </MessageContent>
-              </Message>
-            ))
+                </Message>
+              );
+            })
           )}
           {status === "submitted" && (
             <Shimmer className="text-sm">Thinking…</Shimmer>
@@ -245,9 +325,11 @@ export function Chat({
                   </PromptInputSelectContent>
                 </PromptInputSelect>
               </PromptInputTools>
+              {/* While a reply is on its way, the button is Stop. */}
               <PromptInputSubmit
                 status={status}
-                disabled={isBusy || limitReached}
+                onStop={() => void stop()}
+                disabled={!isBusy && limitReached}
               />
             </PromptInputFooter>
           </PromptInput>

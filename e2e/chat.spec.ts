@@ -15,6 +15,23 @@ async function sendMessage(page: Page, text: string) {
   await messageInput(page).press("Enter");
 }
 
+/** A Chat's stored AI replies, in order. */
+async function storedReplies(chatId: string) {
+  const { data } = await adminClient()
+    .from("chat_messages")
+    .select("id, parts, stopped")
+    .eq("chat_id", chatId)
+    .eq("role", "assistant")
+    .order("created_at");
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    stopped: row.stopped as boolean,
+    text: (row.parts as Array<{ type: string; text?: string }>)
+      .map((part) => part.text ?? "")
+      .join(""),
+  }));
+}
+
 test.describe("signed in", () => {
   // Every test here runs as a fresh, signed-in Student.
   test.beforeEach(({ student }) => {
@@ -54,7 +71,7 @@ test.describe("signed in", () => {
     await page.reload();
 
     expect(page.url()).toBe(chatUrl);
-    await expect(log.locator(".is-user, .is-assistant")).toHaveText([
+    await expect(log.getByTestId("message-text")).toHaveText([
       "What is $x^2$ for x = 3?",
       /^Mock reply to "What is/,
       "And for x = 4?",
@@ -130,6 +147,69 @@ test.describe("signed in", () => {
 
     await page.goto("/chat");
     await expect(picker).toHaveText("Balanced");
+  });
+
+  test("Stop ends a reply early and the stopped reply stays after a reload", async ({
+    page,
+  }) => {
+    await page.goto("/chat");
+    await sendMessage(page, "Explain limits");
+    const log = page.getByRole("log");
+    await expect(log.getByText(/Mock reply to/)).toBeVisible();
+
+    await page.getByRole("button", { name: "Stop" }).click();
+
+    await expect(page.getByRole("button", { name: "Submit" })).toBeVisible();
+    await expect(log.getByText("Stopped", { exact: true })).toBeVisible();
+    // The server stores the partial reply once the aborted stream ends.
+    const chatId = page.url().split("/").at(-1)!;
+    await expect.poll(async () => (await storedReplies(chatId)).length).toBe(1);
+    const [reply] = await storedReplies(chatId);
+    expect(reply).toMatchObject({ stopped: true });
+    expect(reply!.text).toMatch(/^Mock reply to "Explain limits"/);
+    expect(reply!.text).not.toContain(REPLY_END);
+
+    await page.reload();
+
+    await expect(log.getByTestId("message-text")).toHaveText([
+      "Explain limits",
+      reply!.text.trim(),
+    ]);
+    await expect(log.getByText("Stopped", { exact: true })).toBeVisible();
+    await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(0);
+  });
+
+  test("Regenerate replaces the last reply, and Copy copies a message", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/chat");
+    await sendMessage(page, "What is a group?");
+    const log = page.getByRole("log");
+    await expect(log.getByText(REPLY_END, { exact: false })).toBeVisible();
+    const chatId = page.url().split("/").at(-1)!;
+    await expect.poll(async () => (await storedReplies(chatId)).length).toBe(1);
+    const [first] = await storedReplies(chatId);
+
+    await page.getByRole("button", { name: "Regenerate" }).click();
+
+    // The old reply is gone while the new one streams in.
+    await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(0);
+    await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(1);
+    await expect
+      .poll(async () => (await storedReplies(chatId)).map(({ id }) => id))
+      .toEqual([expect.not.stringMatching(first!.id)]);
+    await page.reload();
+    await expect(log.getByTestId("message-text")).toHaveText([
+      "What is a group?",
+      /^Mock reply to "What is a group\?"/,
+    ]);
+
+    await page.getByRole("button", { name: "Copy" }).first().click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "What is a group?",
+    );
   });
 
   test("an unknown Chat shows not-found", async ({ page }) => {
