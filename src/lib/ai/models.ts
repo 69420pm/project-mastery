@@ -45,24 +45,26 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
   chat: {
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3.8-flash",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_CHAT",
     choices: {
-      fast: { label: "Fast", model: "google/gemini-2.5-flash-lite" },
-      balanced: { label: "Balanced", model: "google/gemini-2.5-flash" },
-      thorough: { label: "Thorough", model: "google/gemini-2.5-pro" },
+      fast: { label: "Fast", model: "google/gemini-3.5-flash-lite" },
+      balanced: { label: "Balanced", model: "google/gemini-3.8-flash" },
+      // No stable Pro model exists, and the Gemini API free tier serves no
+      // Pro model, so with AI_PROVIDER=google this choice fails with 429.
+      thorough: { label: "Thorough", model: "google/gemini-3.1-pro-preview" },
     },
   },
   /** A short title for a Chat, on the cheapest model. */
   title: {
-    model: "google/gemini-2.5-flash-lite",
+    model: "google/gemini-3.1-flash-lite",
     fallbacks: [],
     override: "AI_MODEL_TITLE",
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3.8-flash",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_INGEST",
   },
@@ -74,10 +76,11 @@ export const AI_TASKS = {
   },
   /**
    * LLM-as-judge for evals. Ideally a different family than the Chat's models, which
-   * waits for the model choice: the Gemini API only serves Google models.
+   * waits for the model choice: the Gemini API only serves Google models. Until
+   * then it is at least a different model, with its own free-tier quota.
    */
   judge: {
-    model: "google/gemini-2.5-flash",
+    model: "google/gemini-3.7-flash",
     fallbacks: [],
     override: "AI_MODEL_JUDGE",
   },
