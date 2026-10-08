@@ -9,6 +9,63 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          cached_input_tokens: number;
+          chat_id: string | null;
+          cost_usd: number;
+          created_at: string;
+          estimated: boolean;
+          id: string;
+          input_tokens: number;
+          model_id: string;
+          output_tokens: number;
+          owner: string;
+          task: string;
+        };
+        Insert: {
+          cached_input_tokens?: number;
+          chat_id?: string | null;
+          cost_usd: number;
+          created_at?: string;
+          estimated?: boolean;
+          id?: string;
+          input_tokens: number;
+          model_id: string;
+          output_tokens: number;
+          owner?: string;
+          task: string;
+        };
+        Update: {
+          cached_input_tokens?: number;
+          chat_id?: string | null;
+          cost_usd?: number;
+          created_at?: string;
+          estimated?: boolean;
+          id?: string;
+          input_tokens?: number;
+          model_id?: string;
+          output_tokens?: number;
+          owner?: string;
+          task?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: false;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ai_usage_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_messages: {
         Row: {
           chat_id: string;
