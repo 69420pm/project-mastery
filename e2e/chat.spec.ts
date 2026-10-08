@@ -197,9 +197,13 @@ test.describe("signed in", () => {
     // The old reply is gone while the new one streams in.
     await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(0);
     await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(1);
+    // Wait for the new reply to be stored, not just for the old one to go.
     await expect
-      .poll(async () => (await storedReplies(chatId)).map(({ id }) => id))
-      .toEqual([expect.not.stringMatching(first!.id)]);
+      .poll(async () => {
+        const replies = await storedReplies(chatId);
+        return replies.length === 1 && replies[0]!.id !== first!.id;
+      })
+      .toBe(true);
     await page.reload();
     await expect(log.getByTestId("message-text")).toHaveText([
       "What is a group?",
