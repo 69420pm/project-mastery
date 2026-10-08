@@ -48,7 +48,11 @@ function localSupabaseEnv() {
   return { url, publishableKey, secretKey };
 }
 
-function adminClient() {
+/**
+ * The local stack's admin client, bypassing Row Level Security, for checking
+ * what the app stored.
+ */
+export function adminClient() {
   const { url, secretKey } = localSupabaseEnv();
   return createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },

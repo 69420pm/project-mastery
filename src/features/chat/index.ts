@@ -6,4 +6,5 @@ export type {
   ChatMessageMetadata,
   ChatUIMessage,
   ChatWithMessages,
+  ModelOption,
 } from "./types";

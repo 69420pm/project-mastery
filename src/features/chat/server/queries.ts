@@ -21,6 +21,7 @@ export async function getChat(
   return {
     id: chat.id,
     title: chat.title,
+    modelChoice: chat.modelChoice,
     messages: await loadMessages(supabase, chat.id),
   };
 }
