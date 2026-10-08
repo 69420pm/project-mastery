@@ -109,14 +109,19 @@ test.describe("signed in", () => {
     await sendMessage(page, "Second question");
     await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(2);
 
-    // Only the reply after the change used the chosen model.
-    const { data } = await adminClient()
-      .from("chat_messages")
-      .select("model_id")
-      .eq("chat_id", chatId!)
-      .eq("role", "assistant")
-      .order("created_at");
-    const [first, second] = (data ?? []).map((row) => row.model_id as string);
+    // Only the reply after the change used the chosen model. The server
+    // saves a reply once its stream ends, so wait for the row to land.
+    const replyModels = async () => {
+      const { data } = await adminClient()
+        .from("chat_messages")
+        .select("model_id")
+        .eq("chat_id", chatId!)
+        .eq("role", "assistant")
+        .order("created_at");
+      return (data ?? []).map((row) => row.model_id as string);
+    };
+    await expect.poll(async () => (await replyModels()).length).toBe(2);
+    const [first, second] = await replyModels();
     expect(modelName(second!)).toBe(thoroughModel);
     expect(first).not.toBe(second);
 
