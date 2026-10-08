@@ -74,6 +74,41 @@ export async function setModelChoice(
 }
 
 /**
+ * Stores a generated title, unless the Student has named the Chat
+ * themselves.
+ */
+export async function setGeneratedTitle(
+  supabase: Supabase,
+  chatId: string,
+  title: string,
+) {
+  const { error } = await supabase
+    .from("chats")
+    .update({ title })
+    .eq("id", chatId)
+    .eq("title_set_manually", false);
+  if (error) fail("Saving the title", error);
+}
+
+/**
+ * Renames a Chat for good: automatic titling never overwrites it. Returns
+ * false when the Chat is missing or not the Student's.
+ */
+export async function renameChat(
+  supabase: Supabase,
+  chatId: string,
+  title: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("chats")
+    .update({ title, title_set_manually: true })
+    .eq("id", chatId)
+    .select("id");
+  if (error) fail("Renaming the Chat", error);
+  return data.length > 0;
+}
+
+/**
  * The Student's Chats, newest message first, each with its title and the
  * text of its first message.
  */
@@ -105,9 +140,21 @@ function textOf(parts: ChatUIMessage["parts"]): string {
   return parts.map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
-export async function deleteChat(supabase: Supabase, chatId: string) {
-  const { error } = await supabase.from("chats").delete().eq("id", chatId);
+/**
+ * Deletes a Chat with its messages. Its usage records stay, without the Chat
+ * reference. Returns false when the Chat is missing or not the Student's.
+ */
+export async function deleteChat(
+  supabase: Supabase,
+  chatId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("chats")
+    .delete()
+    .eq("id", chatId)
+    .select("id");
   if (error) fail("Deleting the Chat", error);
+  return data.length > 0;
 }
 
 function toUIMessage(row: MessageRow): ChatUIMessage {

@@ -24,7 +24,13 @@ function createDb() {
         model_choice: "balanced",
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
-      ai_usage: () => ({ owner: signedIn, estimated: false, chat_id: null }),
+      // Recorded now, as in the database, so it counts towards today's spend.
+      ai_usage: () => ({
+        owner: signedIn,
+        estimated: false,
+        chat_id: null,
+        created_at: new Date().toISOString(),
+      }),
     },
     canAccess: (table, row, tables) => {
       if (table === "chats" || table === "ai_usage") {
@@ -413,7 +419,8 @@ describe("usage", () => {
 
     await send({ chatId, newChat: true, message: userMessage("Hi") });
 
-    expect(db.tables.ai_usage).toEqual([
+    const replyUsage = db.tables.ai_usage.filter(({ task }) => task === "chat");
+    expect(replyUsage).toEqual([
       expect.objectContaining({
         owner: STUDENT,
         task: "chat",
@@ -511,5 +518,116 @@ describe("the Daily limit", () => {
     });
 
     expect(reply.text).toBe("No limit.");
+  });
+
+  test("a reply that reaches the limit leaves the Chat untitled, without a title call", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    // The reply's ~$0.000053 crosses the limit.
+    seedSpend(STUDENT, 0.99996);
+    const title = mockTextModel("Never generated");
+    useMockModels({ chat: mockTextModel("Last reply."), title });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      newChat: true,
+      message: userMessage("Hi"),
+    });
+
+    expect(reply.text).toBe("Last reply.");
+    expect(title.doGenerateCalls).toHaveLength(0);
+    expect(db.tables.chats[0]?.title).toBeNull();
+  });
+});
+
+describe("the Chat title", () => {
+  test("after the first reply, the title task names the Chat from the Student's message, recorded as usage", async () => {
+    const title = mockTextModel("Derivatives explained");
+    useMockModels({ chat: mockTextModel("What do you think?"), title });
+    const chatId = randomUUID();
+
+    await send({
+      chatId,
+      newChat: true,
+      message: userMessage("What is a derivative?"),
+    });
+
+    expect(db.tables.chats[0]).toMatchObject({
+      title: "Derivatives explained",
+      title_set_manually: false,
+    });
+    expect(JSON.stringify(title.doGenerateCalls[0]?.prompt)).toContain(
+      "What is a derivative?",
+    );
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({ task: "chat", chat_id: chatId }),
+      expect.objectContaining({
+        owner: STUDENT,
+        task: "title",
+        model_id: "google/gemini-3.1-flash-lite",
+        input_tokens: 10,
+        output_tokens: 20,
+        estimated: false,
+        chat_id: chatId,
+      }),
+    ]);
+  });
+
+  test("a quoted or overlong title is stored as one short line", async () => {
+    useMockModels({
+      chat: mockTextModel("Sure."),
+      title: mockTextModel(
+        `"Limits and continuity of functions in real analysis, with many worked examples and exercises"\nMore text`,
+      ),
+    });
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Limits?") });
+
+    expect(db.tables.chats[0]?.title).toBe(
+      "Limits and continuity of functions in real analysis, with…",
+    );
+  });
+
+  test("a Chat that has a title, such as one the Student chose, is never retitled", async () => {
+    const title = mockTextModel("Generated");
+    useMockModels({ chat: mockTextModel("Again."), title });
+    const chatId = seedChat(STUDENT, [
+      { role: "user", parts: [{ type: "text", text: "Hi" }] },
+    ]);
+    Object.assign(db.tables.chats[0]!, {
+      title: "My calculus notes",
+      title_set_manually: true,
+    });
+
+    await send({ chatId, message: userMessage("More?") });
+
+    expect(db.tables.chats[0]?.title).toBe("My calculus notes");
+    expect(title.doGenerateCalls).toHaveLength(0);
+  });
+
+  test("a failed title call leaves the Chat untitled and keeps the reply", async () => {
+    useMockModels({
+      chat: mockTextModel("Kept."),
+      title: new MockLanguageModelV4({
+        doGenerate: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const chatId = randomUUID();
+
+    const reply = await send({
+      chatId,
+      newChat: true,
+      message: userMessage("Hi"),
+    });
+
+    expect(reply.text).toBe("Kept.");
+    expect(db.tables.chats[0]?.title).toBeNull();
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Hi",
+      "Kept.",
+    ]);
   });
 });
