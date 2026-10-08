@@ -19,6 +19,7 @@ import { UserMenu } from "@/features/auth";
 import { ChatList, ChatListProvider, NewChatLink } from "@/features/chat";
 import { getChatList } from "@/features/chat/server";
 import { getUser } from "@/lib/auth/user";
+import { isSidebarOpen } from "@/lib/sidebar-state";
 
 /**
  * Shell for signed-in pages: a collapsible sidebar with New chat, the
@@ -33,8 +34,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     getChatList(),
     cookies(),
   ]);
-  // The Sidebar stores whether it is open in this cookie.
-  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false";
+  const sidebarOpen = isSidebarOpen(cookieStore);
 
   return (
     <ChatListProvider chats={chats}>
