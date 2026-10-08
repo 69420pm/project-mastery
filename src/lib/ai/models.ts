@@ -1,8 +1,9 @@
 import "server-only";
 import { google } from "@ai-sdk/google";
 import { getAiEnv, type AiEnv } from "./env";
+import { MODEL_PRICES } from "./prices";
 
-type TaskConfig = {
+export type TaskConfig = {
   /** Gateway model id (`provider/model`), resolved through AI Gateway. */
   model: string;
   /**
@@ -13,7 +14,23 @@ type TaskConfig = {
   fallbacks: readonly string[];
   /** Environment variable that overrides `model` without a code change. */
   override: keyof AiEnv;
+  /**
+   * Models a Student can choose from for this task, addressed by key, in
+   * display order (ADR 0005). The choice whose model equals `model` is the
+   * default, and `override` replaces its model.
+   */
+  choices?: Record<string, ModelChoiceConfig>;
 };
+
+type ModelChoiceConfig = {
+  /** Shown to the Student. */
+  label: string;
+  /** Gateway model id (`provider/model`). */
+  model: string;
+};
+
+/** A model choice as offered to the Student. */
+export type ModelChoice = ModelChoiceConfig & { key: string };
 
 /**
  * The single per-task model configuration (ADR 0005). Feature
@@ -25,11 +42,22 @@ type TaskConfig = {
  * by testing on real course materials (open question in docs/ARCHITECTURE.md).
  */
 export const AI_TASKS = {
-  /** Socratic tutor chat. */
-  tutor: {
+  /** The AI's replies in a Chat. The Student picks one of the choices. */
+  chat: {
     model: "google/gemini-2.5-flash",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
-    override: "AI_MODEL_TUTOR",
+    override: "AI_MODEL_CHAT",
+    choices: {
+      fast: { label: "Fast", model: "google/gemini-2.5-flash-lite" },
+      balanced: { label: "Balanced", model: "google/gemini-2.5-flash" },
+      thorough: { label: "Thorough", model: "google/gemini-2.5-pro" },
+    },
+  },
+  /** A short title for a Chat, on the cheapest model. */
+  title: {
+    model: "google/gemini-2.5-flash-lite",
+    fallbacks: [],
+    override: "AI_MODEL_TITLE",
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
@@ -44,7 +72,7 @@ export const AI_TASKS = {
     override: "AI_MODEL_EMBED",
   },
   /**
-   * LLM-as-judge for evals. Ideally a different family than the tutor, which
+   * LLM-as-judge for evals. Ideally a different family than the Chat's models, which
    * waits for the model choice: the Gemini API only serves Google models.
    */
   judge: {
@@ -62,12 +90,68 @@ export type AiTask = keyof typeof AI_TASKS;
  */
 export const AI_MAX_RETRIES = 3;
 
-/** Resolves the gateway model id for a task, honoring env overrides. */
-export function modelIdFor(task: AiTask): string {
-  const config = AI_TASKS[task];
-  const env = getAiEnv();
-  const id = env[config.override] ?? config.model;
-  if (env.AI_PROVIDER === "google" && !id.startsWith("google/")) {
+const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
+
+function servedByProvider(id: string): boolean {
+  return getAiEnv().AI_PROVIDER !== "google" || id.startsWith("google/");
+}
+
+/**
+ * The env override of a task's default model. Configured models are checked
+ * for prices by a unit test, overrides here, since every call is priced.
+ */
+function overrideFor(task: AiTask): string | undefined {
+  const config = taskConfig(task);
+  const override = getAiEnv()[config.override];
+  if (override !== undefined && !(override in MODEL_PRICES)) {
+    throw new Error(
+      `${config.override}="${override}" has no price. Add it to MODEL_PRICES in src/lib/ai/prices.ts.`,
+    );
+  }
+  return override;
+}
+
+/** All choices of a task, the default one resolved with the env override. */
+function allChoices(task: AiTask): ModelChoice[] {
+  const config = taskConfig(task);
+  const override = overrideFor(task);
+  return Object.entries(config.choices ?? {}).map(([key, choice]) => ({
+    key,
+    label: choice.label,
+    model:
+      choice.model === config.model ? (override ?? choice.model) : choice.model,
+  }));
+}
+
+/**
+ * The model choices a Student is offered for a task, in display order. With
+ * AI_PROVIDER=google only Google models are offered. Tasks without choices
+ * offer none.
+ */
+export function modelChoices(task: AiTask): ModelChoice[] {
+  return allChoices(task).filter((choice) => servedByProvider(choice.model));
+}
+
+/**
+ * Resolves the gateway model id for a task, honoring env overrides. With a
+ * choice key, resolves that choice instead of the task's default model.
+ */
+export function modelIdFor(task: AiTask, choice?: string): string {
+  if (choice !== undefined) {
+    const chosen = allChoices(task).find(({ key }) => key === choice);
+    if (!chosen) {
+      throw new Error(`Task "${task}" has no model choice "${choice}".`);
+    }
+    if (!servedByProvider(chosen.model)) {
+      throw new Error(
+        `AI_PROVIDER=google only serves Google models, but choice "${choice}" of task "${task}" uses "${chosen.model}".`,
+      );
+    }
+    return chosen.model;
+  }
+  const config = taskConfig(task);
+  const id = overrideFor(task) ?? config.model;
+  if (!servedByProvider(id)) {
     throw new Error(
       `AI_PROVIDER=google only serves Google models, but task "${task}" uses "${id}". Set ${config.override} to a google/ model.`,
     );
@@ -95,16 +179,18 @@ function routeToGeminiApi() {
 /**
  * Call settings for one AI task: model, retries, gateway fallbacks and
  * telemetry. Spread it into every AI SDK call so each call is configured and
- * traced the same way:
+ * traced the same way. For a task with model choices, pass the Student's
+ * choice key (never a raw model id); without one, the default is used:
  *
- *   streamText({ ...aiTask("tutor"), instructions, messages })
+ *   streamText({ ...aiTask("chat", choice), instructions, messages })
  *   embed({ ...aiTask("embed"), value })
  */
-export function aiTask(task: AiTask) {
+export function aiTask(task: AiTask, choice?: string) {
   const { fallbacks } = AI_TASKS[task];
+  const model = modelIdFor(task, choice);
   if (getAiEnv().AI_PROVIDER === "google") routeToGeminiApi();
   return {
-    model: modelIdFor(task),
+    model,
     maxRetries: AI_MAX_RETRIES,
     ...(fallbacks.length > 0 && {
       providerOptions: { gateway: { models: [...fallbacks] } },

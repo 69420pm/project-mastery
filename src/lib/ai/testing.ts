@@ -5,7 +5,7 @@ import {
   simulateReadableStream,
 } from "ai/test";
 import { onTestFinished, vi } from "vitest";
-import { AI_TASKS, type AiTask } from "./models";
+import { AI_TASKS, type AiTask, type TaskConfig } from "./models";
 
 /**
  * Test helpers for AI code. Unit tests and CI never call real models
@@ -75,8 +75,9 @@ type MockModels = {
 /**
  * Routes the given tasks to mock models for the current test. Model ids
  * resolve through the AI SDK's global provider, which this replaces, so any
- * task without a mock fails instead of reaching AI Gateway. Tasks that share
- * a model id share its mock.
+ * task without a mock fails instead of reaching AI Gateway. A task's mock
+ * also answers all of its model choices. Tasks that share a model id share
+ * its mock.
  */
 export function useMockModels(models: MockModels) {
   vi.stubEnv("AI_PROVIDER", "gateway");
@@ -88,9 +89,15 @@ export function useMockModels(models: MockModels) {
   const languageModels: Record<string, MockLanguageModelV4> = {};
   const embeddingModels: Record<string, MockEmbeddingModelV4> = {};
   for (const [task, model] of Object.entries(models)) {
-    const id = AI_TASKS[task as AiTask].model;
-    if (model instanceof MockEmbeddingModelV4) embeddingModels[id] = model;
-    else languageModels[id] = model;
+    const config: TaskConfig = AI_TASKS[task as AiTask];
+    const ids = [
+      config.model,
+      ...Object.values(config.choices ?? {}).map((choice) => choice.model),
+    ];
+    for (const id of ids) {
+      if (model instanceof MockEmbeddingModelV4) embeddingModels[id] = model;
+      else languageModels[id] = model;
+    }
   }
 
   const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
