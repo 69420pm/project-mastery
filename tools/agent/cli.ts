@@ -1,5 +1,5 @@
 /**
- * Drives the running app for coding agents (ARCHITECTURE decision 15):
+ * Drives the running app for coding agents (ADR 0015):
  *
  *   pnpm -s agent help
  *

@@ -1,5 +1,5 @@
 /**
- * Runs evals for key prompts on demand (ARCHITECTURE decision 12):
+ * Runs evals for key prompts on demand (ADR 0012):
  *
  *   pnpm evals                          # all evals
  *   pnpm evals <name>                   # one eval

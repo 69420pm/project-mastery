@@ -21,7 +21,7 @@ const modelId = optional(
 const schema = z
   .object({
     // Where model ids resolve: AI Gateway, or the Gemini API directly for
-    // local development without a card on file (ARCHITECTURE decision 6).
+    // local development without a card on file (ADR 0006).
     AI_PROVIDER: optional(z.enum(["gateway", "google"])).default("gateway"),
     // Local development authenticates with an AI Gateway API key. Deployments
     // on Vercel (VERCEL=1) authenticate through OIDC automatically, and

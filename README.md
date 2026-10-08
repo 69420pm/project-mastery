@@ -31,7 +31,7 @@
 | Releases         | release-please (semantic versioning + generated changelog)               |
 | Project tracking | GitHub Issues + Projects                                                 |
 
-The table lists what is in place today. The rest of the planned stack (spaced repetition, error tracking, analytics, email) and the reasons behind each choice are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The table lists what is in place today. The rest of the planned stack (spaced repetition, error tracking, analytics, email) and the reasons behind each choice are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and its decision records in [docs/adr/](docs/adr/).
 
 ## Getting started
 
@@ -65,7 +65,7 @@ pnpm db:types                      # regenerate src/lib/supabase/database.types.
 pnpm db:test                       # run the Row Level Security tests in supabase/tests/
 ```
 
-Every new table needs Row Level Security policies and pgTAP tests for them ([ARCHITECTURE.md](docs/ARCHITECTURE.md), decision 3). Commit the regenerated types with the migration; CI fails when they are out of date.
+Every new table needs Row Level Security policies and pgTAP tests for them ([ADR 0003](docs/adr/0003-supabase-js-with-rls.md)). Commit the regenerated types with the migration; CI fails when they are out of date.
 
 ### AI, background jobs and tracing
 
@@ -132,7 +132,7 @@ eslint/            Lint rules that enforce the project structure, and their test
 evals/             AI eval datasets and runner (`pnpm evals`)
 tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
-docs/              Architecture and technical decisions
+docs/              Architecture; adr/ holds the technical decisions
 e2e/               Playwright end-to-end tests
 public/            Static assets
 .github/           CI workflows, issue/PR templates, Dependabot
@@ -145,3 +145,5 @@ The layers, the anatomy of a feature and the lint rules that enforce them are de
 Copyright © 2026 Florian Portscher. All rights reserved.
 
 The source is public for review purposes; no license is granted for reuse or redistribution.
+
+Third-party agent skills in `.claude/skills/` keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
