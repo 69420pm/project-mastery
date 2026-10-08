@@ -9,6 +9,82 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          chat_id: string;
+          created_at: string;
+          id: string;
+          model_id: string | null;
+          parts: NonNullable<Json>;
+          role: string;
+          stopped: boolean;
+        };
+        Insert: {
+          chat_id: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          parts: NonNullable<Json>;
+          role: string;
+          stopped?: boolean;
+        };
+        Update: {
+          chat_id?: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          parts?: NonNullable<Json>;
+          role?: string;
+          stopped?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: false;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chats: {
+        Row: {
+          created_at: string;
+          id: string;
+          model_choice: string;
+          owner: string;
+          title: string | null;
+          title_set_manually: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          model_choice?: string;
+          owner?: string;
+          title?: string | null;
+          title_set_manually?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          model_choice?: string;
+          owner?: string;
+          title?: string | null;
+          title_set_manually?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chats_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
