@@ -43,7 +43,16 @@ const studentMessageSchema = z.object({
 export const chatRequestSchema = z.object({
   chatId: z.uuid(),
   newChat: z.boolean().optional(),
+  /**
+   * The key of the Student's model choice for this message, never a model
+   * id. The server checks it against the offered choices. Without one, the
+   * Chat's last choice is used.
+   */
+  modelChoice: z.string().max(100).optional(),
   message: studentMessageSchema,
 });
+
+/** The model choice of a new Chat, as in the database's `chats` default. */
+export const DEFAULT_MODEL_CHOICE = "balanced";
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

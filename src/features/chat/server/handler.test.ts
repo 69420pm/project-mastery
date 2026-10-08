@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { modelChoices } from "@/lib/ai/models";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
@@ -207,6 +208,92 @@ describe("a message to a stored Chat", () => {
       "Help?",
       "Second try.",
     ]);
+  });
+});
+
+describe("the model choice", () => {
+  const defaultChoice = () =>
+    modelChoices("chat").find(({ key }) => key === "balanced");
+
+  /** A choice other than the default, so a test can tell them apart. */
+  function otherChoice() {
+    const choice = modelChoices("chat").find(({ key }) => key !== "balanced");
+    if (!choice) throw new Error("The chat task needs a second choice.");
+    return choice;
+  }
+
+  test("a new Chat answers with the chosen model, stores it on the reply and remembers the choice", async () => {
+    useMockModels({ chat: mockTextModel("Chosen.") });
+    const choice = otherChoice();
+    const chatId = randomUUID();
+
+    await send({
+      chatId,
+      newChat: true,
+      modelChoice: choice.key,
+      message: userMessage("Hi"),
+    });
+
+    expect(storedMessages(chatId).at(-1)).toMatchObject({
+      role: "assistant",
+      modelId: choice.model,
+    });
+    expect(db.tables.chats[0]).toMatchObject({ model_choice: choice.key });
+  });
+
+  test("a changed choice applies from the next message on and is remembered", async () => {
+    useMockModels({ chat: mockTextModel("Changed.") });
+    const choice = otherChoice();
+    const chatId = seedChat(STUDENT);
+
+    await send({ chatId, message: userMessage("First") });
+    await send({
+      chatId,
+      modelChoice: choice.key,
+      message: userMessage("Second"),
+    });
+
+    const replies = storedMessages(chatId).filter(
+      ({ role }) => role === "assistant",
+    );
+    expect(replies.map(({ modelId }) => modelId)).toEqual([
+      defaultChoice()?.model,
+      choice.model,
+    ]);
+    expect(db.tables.chats[0]).toMatchObject({ model_choice: choice.key });
+  });
+
+  test("without a choice, a stored Chat answers with its last choice", async () => {
+    useMockModels({ chat: mockTextModel("Remembered.") });
+    const choice = otherChoice();
+    const chatId = seedChat(STUDENT);
+    db.tables.chats[0]!.model_choice = choice.key;
+
+    await send({ chatId, message: userMessage("Again") });
+
+    expect(storedMessages(chatId).at(-1)?.modelId).toBe(choice.model);
+  });
+
+  test("an unknown choice key, such as a raw model id, is refused without a model call", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    const chatId = randomUUID();
+
+    for (const modelChoice of ["turbo", otherChoice().model]) {
+      const reply = await send({
+        chatId,
+        newChat: true,
+        modelChoice,
+        message: userMessage("Hi"),
+      });
+      expect(reply).toEqual({
+        status: 400,
+        refusal: expect.stringMatching(/model/i),
+      });
+    }
+
+    expect(db.tables.chats).toEqual([]);
+    expect(model.doStreamCalls).toHaveLength(0);
   });
 });
 

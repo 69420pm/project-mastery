@@ -14,6 +14,7 @@ import {
 import { after } from "next/server";
 import { chatReplySettings } from "@/features/chat/ai/reply";
 import {
+  DEFAULT_MODEL_CHOICE,
   chatMessageMetadataSchema,
   chatRequestSchema,
 } from "@/features/chat/schemas";
@@ -24,10 +25,12 @@ import {
   findChat,
   loadMessages,
   saveMessage,
+  setModelChoice,
   type StoredChat,
   type Supabase,
 } from "@/features/chat/server/chat-store";
 import type { ChatUIMessage } from "@/features/chat/types";
+import { modelChoices } from "@/lib/ai/models";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
@@ -37,9 +40,11 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * the AI SDK message persistence guide. The stages, in order:
  *
  * 1. require the signed-in Student
- * 2. validate the request: the message, and a Chat the Student owns or may create
+ * 2. validate the request: the message, an offered model choice, and a Chat
+ *    the Student owns or may create
  * 3. (Daily limit, #27: refuse before any model call)
- * 4. create the Chat on its first message, and store the Student's message
+ * 4. create the Chat on its first message, store the Student's message and
+ *    the Chat's model choice
  * 5. stream the reply from the full stored history
  * 6. on end, store the reply with its model (and record usage, #27)
  *
@@ -56,19 +61,45 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, newChat, message } = parsed.data;
+  const { chatId, newChat, modelChoice, message } = parsed.data;
+
+  const offered = modelChoices("chat");
+  const isOffered = (key: string) =>
+    offered.some((choice) => choice.key === key);
+  if (modelChoice !== undefined && !isOffered(modelChoice)) {
+    const labels = offered.map(({ label }) => label);
+    return refuse(
+      400,
+      `This model is not available. Choose ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}.`,
+    );
+  }
 
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
   if (!existing && !newChat) return refuse(404, chatNotFound);
 
-  const chat = existing ?? (await createChat(supabase, chatId));
+  const chat =
+    existing ??
+    (await createChat(supabase, chatId, modelChoice ?? DEFAULT_MODEL_CHOICE));
   if (!chat) return refuse(404, chatNotFound);
 
   const history = await addStudentMessage(supabase, chat, message, !existing);
   if (!history) return refuse(409, "This message was already sent.");
 
-  return streamReply({ request, supabase, chat, userId: user.id, history });
+  // The choice applies from this message on. A stored choice that is no
+  // longer offered, as in Google mode, falls back to the default.
+  const choice =
+    modelChoice ??
+    (isOffered(chat.modelChoice) ? chat.modelChoice : DEFAULT_MODEL_CHOICE);
+  if (existing) await setModelChoice(supabase, chat.id, choice);
+
+  return streamReply({
+    request,
+    supabase,
+    chat: { ...chat, modelChoice: choice },
+    userId: user.id,
+    history,
+  });
 }
 
 const chatNotFound = "This chat does not exist.";

@@ -45,15 +45,32 @@ export async function findChat(
 export async function createChat(
   supabase: Supabase,
   chatId: string,
+  modelChoice: string,
 ): Promise<StoredChat | null> {
   const { data, error } = await supabase
     .from("chats")
-    .insert({ id: chatId })
+    .insert({ id: chatId, model_choice: modelChoice })
     .select("id, title, model_choice")
     .single();
   if (error?.code === "23505") return null;
   if (error) fail("Creating the Chat", error);
   return { id: data.id, title: data.title, modelChoice: data.model_choice };
+}
+
+/**
+ * Stores the Chat's last model choice. Writing it on every message also moves
+ * the Chat's `updated_at`, which orders the Chat list.
+ */
+export async function setModelChoice(
+  supabase: Supabase,
+  chatId: string,
+  modelChoice: string,
+) {
+  const { error } = await supabase
+    .from("chats")
+    .update({ model_choice: modelChoice })
+    .eq("id", chatId);
+  if (error) fail("Saving the model choice", error);
 }
 
 export async function deleteChat(supabase: Supabase, chatId: string) {
