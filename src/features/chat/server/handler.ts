@@ -21,6 +21,7 @@ import {
 import { messageText } from "@/features/chat/domain/message-text";
 import {
   chatMessageMetadataSchema,
+  chatNotFoundMessage,
   chatRequestSchema,
 } from "@/features/chat/schemas";
 import {
@@ -90,7 +91,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
-  if (!existing && !newChat) return refuse(404, chatNotFound);
+  if (!existing && !newChat) return refuse(404, chatNotFoundMessage);
 
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
@@ -107,7 +108,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
       modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
       replyId,
     }));
-  if (!chat) return refuse(404, chatNotFound);
+  if (!chat) return refuse(404, chatNotFoundMessage);
 
   // The choice applies from this message on.
   const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
@@ -127,8 +128,6 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     replyId,
   });
 }
-
-const chatNotFound = "This chat does not exist.";
 
 function refuse(status: number, message: string) {
   return new Response(message, {

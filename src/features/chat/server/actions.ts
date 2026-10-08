@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   chatIdSchema,
+  chatNotFoundMessage,
   deleteChatSchema,
   renameChatSchema,
 } from "@/features/chat/schemas";
@@ -20,7 +21,7 @@ import { parseActionInput, type ActionResult } from "@/lib/validation/action";
 const signedOut = { ok: false, message: "Sign in again to continue." } as const;
 const chatNotFound = {
   ok: false,
-  message: "This chat does not exist.",
+  message: chatNotFoundMessage,
 } as const;
 
 /**

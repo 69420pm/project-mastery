@@ -5,6 +5,9 @@ export const MAX_MESSAGE_LENGTH = 10_000;
 
 export const messageTooLongMessage = `Your message is too long. Keep it under ${MAX_MESSAGE_LENGTH.toLocaleString("en-US")} characters.`;
 
+/** What a Student sees for a Chat that is missing or not theirs. */
+export const chatNotFoundMessage = "This chat does not exist.";
+
 /**
  * Metadata the server attaches to AI messages (see `ChatMessageMetadata`).
  * Student messages have none.
