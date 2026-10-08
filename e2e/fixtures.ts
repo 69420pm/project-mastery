@@ -106,6 +106,45 @@ async function signIn(
   );
 }
 
+/**
+ * Stores a Chat for a Student with one message from them, as if they had sent
+ * it at `at`, for tests that need existing Chats.
+ */
+export async function seedChat(
+  owner: string,
+  {
+    firstMessage,
+    title = null,
+    at,
+  }: {
+    firstMessage: string;
+    title?: string | null;
+    at: Date;
+  },
+): Promise<string> {
+  const id = randomUUID();
+  const admin = adminClient();
+  const time = at.toISOString();
+  const chat = await admin.from("chats").insert({
+    id,
+    owner,
+    title,
+    created_at: time,
+    last_message_at: time,
+  });
+  if (chat.error)
+    throw new Error(`Seeding a Chat failed: ${chat.error.message}`);
+  const message = await admin.from("chat_messages").insert({
+    chat_id: id,
+    role: "user",
+    parts: [{ type: "text", text: firstMessage }],
+    created_at: time,
+  });
+  if (message.error)
+    throw new Error(`Seeding a message failed: ${message.error.message}`);
+  return id;
+}
+
 export const test = base.extend<{ student: Student }>({
   student: async ({ context, baseURL }, provide, testInfo) => {
     testInfo.skip(

@@ -28,10 +28,13 @@ If `up` reports "permission denied … docker.sock", this shell is not in the `d
 ```
 $ pnpm -s agent open /dashboard
 http://localhost:3000/dashboard
-- banner
-  - link "Project Mastery" [ref=e3]
-  - button "Account menu" [expanded=false, ref=e4]
+- link "Project Mastery" [ref=e3]
+- navigation "Chats" [ref=e4]
+  - StaticText "Chats"
+  - StaticText "No chats yet."
+- button "Account menu" [expanded=false, ref=e9]
 - main
+  - button "Toggle Sidebar" [ref=e6]
   - heading "Welcome" [level=1, ref=e5]
   - paragraph
     - StaticText "Signed in as student@example.com. Your courses will appear here."

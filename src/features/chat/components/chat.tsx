@@ -24,6 +24,8 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { chatLabel } from "@/features/chat/domain/chat-label";
+import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
   MAX_MESSAGE_LENGTH,
   messageTooLongMessage,
@@ -64,14 +66,22 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
       }),
     });
 
-  // Once the reply streams, the Chat exists: give it its own address without
-  // remounting, so reloading or bookmarking it works.
+  // Once the reply streams, the message is stored: a new Chat gets its own
+  // address without remounting, so reloading or bookmarking it works, and the
+  // Chat moves to the top of the sidebar.
   const path = `/chat/${chatId}`;
+  const firstMessage = messages[0] ? messageText(messages[0]) : null;
+  const { noteChatActivity } = useChatList();
   useEffect(() => {
-    if (isNew && status === "streaming" && window.location.pathname !== path) {
+    if (status !== "streaming") return;
+    if (isNew && window.location.pathname !== path) {
       window.history.replaceState(null, "", path);
     }
-  }, [isNew, status, path]);
+    noteChatActivity({
+      id: chatId,
+      label: chatLabel({ title: null, firstMessage }),
+    });
+  }, [isNew, status, path, chatId, firstMessage, noteChatActivity]);
 
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
@@ -89,7 +99,7 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-8.5rem)] min-h-80 flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
       <Conversation className="min-h-0">
         <ConversationContent className="mx-auto w-full max-w-3xl px-0">
           {messages.length === 0 ? (
