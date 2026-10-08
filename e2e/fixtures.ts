@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { test as base, type BrowserContext } from "@playwright/test";
+import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
@@ -178,5 +178,15 @@ export const test = base.extend<{ student: Student }>({
     await deleteStudent(student);
   },
 });
+
+/**
+ * The sidebar's Chat list. On a phone the sidebar is a slide-over that opens
+ * from the menu button first.
+ */
+export async function openSidebar(page: Page) {
+  const toggle = page.getByRole("button", { name: "Toggle Sidebar" });
+  if (test.info().project.name === "mobile") await toggle.click();
+  return page.getByRole("navigation", { name: "Chats" });
+}
 
 export { expect } from "@playwright/test";

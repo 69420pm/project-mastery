@@ -52,6 +52,31 @@ export const chatRequestSchema = z.object({
   message: studentMessageSchema,
 });
 
+/** The longest title a Student can give a Chat, in characters. */
+export const MAX_TITLE_LENGTH = 100;
+
+/** Renaming a Chat from its "…" menu. */
+export const renameChatSchema = z.object({
+  chatId: z.uuid(),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Enter a title.")
+    .max(
+      MAX_TITLE_LENGTH,
+      `Keep the title under ${MAX_TITLE_LENGTH} characters.`,
+    ),
+});
+
+/** A Chat addressed by id. */
+export const chatIdSchema = z.object({ chatId: z.uuid() });
+
+/** Deleting a Chat from its "…" menu. */
+export const deleteChatSchema = chatIdSchema.extend({
+  /** The Student is on the Chat's page, so they land on a new Chat. */
+  leave: z.boolean().optional(),
+});
+
 /** The model choice of a new Chat, as in the database's `chats` default. */
 export const DEFAULT_MODEL_CHOICE = "balanced";
 

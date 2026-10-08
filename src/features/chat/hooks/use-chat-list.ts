@@ -9,11 +9,14 @@ export type ChatListContextValue = {
    * it with `chat.label` when the list does not have it yet (a new Chat).
    */
   noteChatActivity: (chat: ChatListItem) => void;
+  /** Shows a listed Chat under a new label, such as its new title. */
+  relabelChat: (chat: ChatListItem) => void;
 };
 
 export const ChatListContext = createContext<ChatListContextValue>({
   chats: [],
   noteChatActivity: () => {},
+  relabelChat: () => {},
 });
 
 /** The sidebar's Chat list, from the nearest `ChatListProvider`. */
@@ -29,4 +32,12 @@ export function withChatOnTop(
   if (chats[0]?.id === chat.id) return chats;
   const listed = chats.find(({ id }) => id === chat.id);
   return [listed ?? chat, ...chats.filter(({ id }) => id !== chat.id)];
+}
+
+/** `chats` with the listed `chat` shown under its new label. */
+export function withChatLabel(
+  chats: ChatListItem[],
+  chat: ChatListItem,
+): ChatListItem[] {
+  return chats.map((listed) => (listed.id === chat.id ? chat : listed));
 }

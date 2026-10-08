@@ -9,7 +9,7 @@ import {
   RefreshCwIcon,
   RotateCcwIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -47,6 +47,7 @@ import {
   MAX_MESSAGE_LENGTH,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
+import { getChatTitle } from "@/features/chat/server/actions";
 import type { ChatUIMessage, ModelOption } from "@/features/chat/types";
 import {
   DailyLimitNotice,
@@ -60,6 +61,8 @@ type ChatProps = {
   initialMessages: ChatUIMessage[];
   /** True on `/chat`: the first message creates the Chat with `chatId`. */
   isNew: boolean;
+  /** Whether the Chat has a title. Without one, it gets one after a reply. */
+  hasTitle?: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
   /** The Chat's last model choice; a new Chat starts on the default. */
@@ -106,6 +109,7 @@ export function Chat({
   chatId,
   initialMessages,
   isNew,
+  hasTitle = false,
   modelOptions,
   initialModelChoice = DEFAULT_MODEL_CHOICE,
   dailyLimit: initialDailyLimit,
@@ -120,6 +124,8 @@ export function Chat({
   );
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
+  const { noteChatActivity, relabelChat } = useChatList();
+  const titled = useRef(hasTitle);
   const {
     messages,
     sendMessage,
@@ -143,6 +149,18 @@ export function Chat({
       }
       // Every reply, or a refusal at the limit, can change the status.
       refreshDailyLimitStatus().then(setDailyLimit, () => {});
+      // The server names an untitled Chat before the reply ends. After a
+      // Stop it may not have yet; the next reply then picks the title up.
+      if (!titled.current) {
+        getChatTitle({ chatId }).then(
+          (result) => {
+            if (!result.ok || result.data === null) return;
+            titled.current = true;
+            relabelChat({ id: chatId, label: result.data });
+          },
+          () => {},
+        );
+      }
     },
     id: chatId,
     messages: initialMessages,
@@ -168,7 +186,6 @@ export function Chat({
   // Chat moves to the top of the sidebar.
   const path = `/chat/${chatId}`;
   const firstMessage = messages[0] ? messageText(messages[0]) : null;
-  const { noteChatActivity } = useChatList();
   useEffect(() => {
     if (status !== "streaming") return;
     if (isNew && window.location.pathname !== path) {

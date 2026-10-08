@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(17);
+select plan(21);
 
 -- Two Students. The signup trigger creates their profiles.
 insert into auth.users (id, email)
@@ -14,7 +14,14 @@ values
 insert into public.chats (id, owner)
 values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111'),
-  ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222');
+  ('bbbbbbbb-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222'),
+  ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111');
+
+insert into public.chat_messages (chat_id, role, parts, model_id)
+values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'user', '[{"type": "text", "text": "Hi"}]', null),
+  ('aaaaaaaa-0000-0000-0000-000000000002', 'user', '[{"type": "text", "text": "Hi"}]', null),
+  ('aaaaaaaa-0000-0000-0000-000000000002', 'assistant', '[{"type": "text", "text": "Hello"}]', 'google/gemini-2.5-flash');
 
 insert into public.ai_usage (id, owner, task, model_id, input_tokens, cached_input_tokens, output_tokens, cost_usd, chat_id)
 values
@@ -119,8 +126,23 @@ select is(
   'a recorded cost is exact unless marked as estimated'
 );
 
--- Deleting a Chat keeps its usage, without the Chat reference.
-delete from public.chats where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+-- A Student deleting their Chat keeps its usage, without the Chat reference,
+-- although they cannot change usage records themselves.
+set local role authenticated;
+set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
+
+select lives_ok(
+  $$delete from public.chats where id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  'a Student can delete a Chat that has usage records'
+);
+
+reset role;
+
+select is(
+  (select count(*)::int from public.chat_messages where chat_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  0,
+  'the deleted Chat''s messages are gone'
+);
 
 select is(
   (select count(*)::int from public.ai_usage where owner = '11111111-1111-1111-1111-111111111111'),
@@ -134,8 +156,20 @@ select is(
   'usage records lose the reference to a deleted Chat'
 );
 
--- Deleting the account removes the usage records.
+-- Deleting the account removes the Chats, their messages and the usage records.
 delete from auth.users where id = '11111111-1111-1111-1111-111111111111';
+
+select is(
+  (select count(*)::int from public.chats where owner = '11111111-1111-1111-1111-111111111111'),
+  0,
+  'Chats are deleted with the account'
+);
+
+select is(
+  (select count(*)::int from public.chat_messages where chat_id = 'aaaaaaaa-0000-0000-0000-000000000002'),
+  0,
+  'messages are deleted with the account'
+);
 
 select is(
   (select count(*)::int from public.ai_usage where owner = '11111111-1111-1111-1111-111111111111'),

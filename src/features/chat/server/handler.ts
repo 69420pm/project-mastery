@@ -30,6 +30,7 @@ import {
   type StoredChat,
   type Supabase,
 } from "@/features/chat/server/chat-store";
+import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
 import {
   checkDailyLimit,
@@ -54,6 +55,7 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *    the Chat's model choice
  * 5. stream the reply from the full stored history
  * 6. on end, store the reply with its model and record the call's usage
+ * 7. name an untitled Chat after its reply
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
  * message.
@@ -245,6 +247,17 @@ async function streamReply({
           });
         } catch (error) {
           console.error("Saving the Chat reply failed:", error);
+          return;
+        }
+
+        // After the first reply, before the response ends, so the client
+        // can show the title once the reply has finished.
+        if (chat.title === null) {
+          await titleChat(supabase, {
+            chatId: chat.id,
+            userId,
+            firstMessage: messageText(messages[0]),
+          });
         }
       },
     }),
@@ -253,8 +266,8 @@ async function streamReply({
   });
 }
 
-function messageText(message: ChatUIMessage) {
-  return message.parts
+function messageText(message: ChatUIMessage | undefined): string {
+  return (message?.parts ?? [])
     .map((part) => (part.type === "text" ? part.text : ""))
     .join("");
 }
