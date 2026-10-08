@@ -42,6 +42,8 @@ test.describe("signed in", () => {
     await expect(log.locator(".katex").first()).toBeVisible();
     const chatUrl = page.url();
 
+    // The input refuses a submit until the reply has fully settled.
+    await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
     await sendMessage(page, "And for x = 4?");
     await expect(
       log.getByText(/Mock reply to "And for x = 4\?"/),
