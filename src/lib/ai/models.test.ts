@@ -13,6 +13,7 @@ import {
   AI_TASKS,
   aiTask,
   answeringModel,
+  defaultModelChoice,
   modelChoices,
   modelIdFor,
 } from "./models";
@@ -154,6 +155,7 @@ describe("model choices", () => {
       },
     ]);
     expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+    expect(defaultModelChoice("chat")).toBe("balanced");
   });
 
   test("resolves a choice by its key", () => {

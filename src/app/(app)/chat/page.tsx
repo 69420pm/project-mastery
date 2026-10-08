@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { Chat } from "@/features/chat";
-import { chatModelOptions } from "@/features/chat/server";
+import { DEFAULT_MODEL_CHOICE, chatModelOptions } from "@/features/chat/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -22,6 +22,7 @@ export default async function NewChatPage() {
       initialMessages={[]}
       isNew
       modelOptions={chatModelOptions()}
+      initialModelChoice={DEFAULT_MODEL_CHOICE}
       dailyLimit={dailyLimit}
     />
   );

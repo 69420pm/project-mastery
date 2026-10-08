@@ -77,7 +77,4 @@ export const deleteChatSchema = chatIdSchema.extend({
   leave: z.boolean().optional(),
 });
 
-/** The model choice of a new Chat, as in the database's `chats` default. */
-export const DEFAULT_MODEL_CHOICE = "balanced";
-
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

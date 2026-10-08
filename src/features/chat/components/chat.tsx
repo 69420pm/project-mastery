@@ -44,7 +44,6 @@ import { chatLabel } from "@/features/chat/domain/chat-label";
 import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
-  DEFAULT_MODEL_CHOICE,
   MAX_MESSAGE_LENGTH,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
@@ -66,8 +65,8 @@ type ChatProps = {
   hasTitle?: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
-  /** The Chat's last model choice; a new Chat starts on the default. */
-  initialModelChoice?: string;
+  /** The key of the choice the Chat answers with, the default for a new Chat. */
+  initialModelChoice: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
@@ -106,17 +105,11 @@ export function Chat({
   isNew,
   hasTitle = false,
   modelOptions,
-  initialModelChoice = DEFAULT_MODEL_CHOICE,
+  initialModelChoice,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
   const [inputError, setInputError] = useState<string | null>(null);
-  // A stored choice that is no longer offered shows the default, as the
-  // server then answers with it.
-  const [modelChoice, setModelChoice] = useState(() =>
-    modelOptions.some(({ key }) => key === initialModelChoice)
-      ? initialModelChoice
-      : DEFAULT_MODEL_CHOICE,
-  );
+  const [modelChoice, setModelChoice] = useState(initialModelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
   const { noteChatActivity, relabelChat } = useChatList();

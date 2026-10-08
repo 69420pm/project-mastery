@@ -88,6 +88,12 @@ export const AI_TASKS = {
 
 export type AiTask = keyof typeof AI_TASKS;
 
+/** The keys of a task's model choices, such as "fast" for the Chat. */
+export type ModelChoiceKey<Task extends AiTask> =
+  (typeof AI_TASKS)[Task] extends { choices: infer Choices }
+    ? keyof Choices & string
+    : never;
+
 /**
  * Retries per call for retryable errors such as `429` from the free tier's
  * rate limits. The AI SDK backs off exponentially and honors `retry-after`.
@@ -125,6 +131,21 @@ function allChoices(task: AiTask): ModelChoice[] {
     model:
       choice.model === config.model ? (override ?? choice.model) : choice.model,
   }));
+}
+
+/**
+ * The key of a task's default model choice: the one whose model is the
+ * task's configured model.
+ */
+export function defaultModelChoice<Task extends AiTask>(
+  task: Task,
+): ModelChoiceKey<Task> {
+  const config = taskConfig(task);
+  const entry = Object.entries(config.choices ?? {}).find(
+    ([, choice]) => choice.model === config.model,
+  );
+  if (!entry) throw new Error(`Task "${task}" has no default model choice.`);
+  return entry[0] as ModelChoiceKey<Task>;
 }
 
 /**

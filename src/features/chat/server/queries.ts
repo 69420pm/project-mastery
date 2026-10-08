@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { offeredModelChoice } from "@/features/chat/ai/reply";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import {
   findChat,
@@ -26,7 +27,7 @@ export async function getChat(
   return {
     id: chat.id,
     title: chat.title,
-    modelChoice: chat.modelChoice,
+    modelChoice: offeredModelChoice(chat.modelChoice),
     messages: await loadMessages(supabase, chat.id),
   };
 }

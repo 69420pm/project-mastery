@@ -13,10 +13,13 @@ import {
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
-import { chatReplySettings } from "@/features/chat/ai/reply";
-import { messageText } from "@/features/chat/domain/message-text";
 import {
   DEFAULT_MODEL_CHOICE,
+  chatReplySettings,
+  offeredModelChoice,
+} from "@/features/chat/ai/reply";
+import { messageText } from "@/features/chat/domain/message-text";
+import {
   chatMessageMetadataSchema,
   chatRequestSchema,
 } from "@/features/chat/schemas";
@@ -106,11 +109,8 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     }));
   if (!chat) return refuse(404, chatNotFound);
 
-  // The choice applies from this message on. A stored choice that is no
-  // longer offered, as in Google mode, falls back to the default.
-  const choice =
-    modelChoice ??
-    (isOffered(chat.modelChoice) ? chat.modelChoice : DEFAULT_MODEL_CHOICE);
+  // The choice applies from this message on.
+  const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
   if (existing) {
     await startReply(supabase, chat.id, { modelChoice: choice, replyId });
   }
