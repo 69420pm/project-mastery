@@ -213,6 +213,28 @@ describe("a message to a stored Chat", () => {
       "Second try.",
     ]);
   });
+
+  test("regenerating replaces the last reply without keeping the old one", async () => {
+    useMockModels({ chat: mockTextModel("A different explanation.") });
+    const messageId = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      { id: messageId, role: "user", parts: [{ type: "text", text: "Why?" }] },
+      {
+        role: "assistant",
+        parts: [{ type: "text", text: "Because." }],
+        model_id: "google/gemini-3.5-flash-lite",
+        stopped: true,
+      },
+    ]);
+
+    await send({ chatId, message: userMessage("Why?", messageId) });
+
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Why?",
+      "A different explanation.",
+    ]);
+    expect(db.tables.chat_messages.at(-1)).toMatchObject({ stopped: false });
+  });
 });
 
 describe("the model choice", () => {
@@ -511,5 +533,97 @@ describe("the Daily limit", () => {
     });
 
     expect(reply.text).toBe("No limit.");
+  });
+});
+
+describe("a stopped reply", () => {
+  /**
+   * A model that streams `text`, then waits until the call is aborted, like
+   * a reply the Student stops halfway.
+   */
+  function stalledModel(text: string) {
+    return new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => ({
+        stream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            controller.enqueue({ type: "text-start", id: "text-1" });
+            controller.enqueue({
+              type: "text-delta",
+              id: "text-1",
+              delta: text,
+            });
+            abortSignal?.addEventListener("abort", () =>
+              controller.error(abortSignal.reason),
+            );
+          },
+        }),
+      }),
+    });
+  }
+
+  /** Sends a message and disconnects once the reply's first text arrives. */
+  async function sendAndStop(body: unknown) {
+    const disconnect = new AbortController();
+    const response = await handleChatRequest(
+      new Request("http://localhost/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: disconnect.signal,
+      }),
+    );
+    const reader = response
+      .body!.pipeThrough(new TextDecoderStream())
+      .getReader();
+    let received = "";
+    while (!received.includes('"text-delta"')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      received += value;
+    }
+    disconnect.abort();
+    await reader.cancel();
+  }
+
+  test("is stored with what was written so far and marked as stopped", async () => {
+    useMockModels({ chat: stalledModel("The first step is ") });
+    const chatId = randomUUID();
+
+    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+
+    await vi.waitFor(() =>
+      expect(db.tables.chat_messages.at(-1)).toMatchObject({
+        role: "assistant",
+        stopped: true,
+        model_id: "google/gemini-3.5-flash-lite",
+      }),
+    );
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Hi",
+      "The first step is ",
+    ]);
+  });
+
+  test("records an estimated cost of about four characters per token", async () => {
+    useMockModels({ chat: stalledModel("The first step is ") });
+    const chatId = randomUUID();
+
+    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+
+    await vi.waitFor(() => expect(db.tables.ai_usage).toHaveLength(1));
+    expect(db.tables.ai_usage[0]).toMatchObject({
+      owner: STUDENT,
+      task: "chat",
+      model_id: "google/gemini-3.5-flash-lite",
+      cached_input_tokens: 0,
+      // "The first step is " has 18 characters.
+      output_tokens: 5,
+      estimated: true,
+      chat_id: chatId,
+    });
+    // The input is the instructions plus the history, far more than "Hi".
+    expect(db.tables.ai_usage[0]!.input_tokens).toBeGreaterThan(100);
+    expect(db.tables.ai_usage[0]!.cost_usd).toBeGreaterThan(0);
   });
 });
