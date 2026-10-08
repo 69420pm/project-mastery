@@ -9,7 +9,7 @@ import { AI_TASKS, type AiTask } from "./models";
 
 /**
  * Test helpers for AI code. Unit tests and CI never call real models
- * (ARCHITECTURE decision 6): `useMockModels` routes every task to a mock.
+ * (ADR 0006): `useMockModels` routes every task to a mock.
  * Test files that import server-only modules add `vi.mock("server-only", () => ({}))`.
  */
 

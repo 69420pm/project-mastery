@@ -1,0 +1,7 @@
+# Agents verify changes in the running app through one CLI
+
+**Context.** Agents write most of the code ([ADR 0014](0014-feature-modules-with-lint-boundaries.md)). Type checks and unit tests do not show whether a page renders, a form signs a user in, or a policy hides another user's rows. Ad hoc browser scripts cost many tokens per check and break easily, and generic browser tools know nothing about this app's test users, auth emails or Row Level Security.
+
+**Decision.** `tools/agent/` is a CLI, `pnpm -s agent`, that agents use to run and verify the app. It combines the dev server's built-in MCP endpoint (`/_next/mcp`) for compile issues, runtime and server errors; agent-browser for a headless browser session per checkout, read as accessibility snapshots; Mailpit for auth emails; and a direct Postgres connection for SQL, optionally run as a test user so Row Level Security applies. Output is compact by default: a clean check is one line, and each error is reported in full once. The CLI works only against the local stack and imports no app code. The project skill `run-app` teaches agents the workflow.
+
+**Consequences.** Agents can check behavior, not only types, for a few hundred tokens per page. `agent-browser` and `postgres` are development dependencies; `postgres` is used only by the CLI and does not replace supabase-js ([ADR 0003](0003-supabase-js-with-rls.md)). Staging and production stay out of agents' reach: changes are verified locally and ship through pull requests.

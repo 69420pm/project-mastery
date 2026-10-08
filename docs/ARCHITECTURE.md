@@ -60,7 +60,7 @@ Preview deployments never touch production data.
 
 ## Project structure
 
-The code is organized by feature, in layers that depend in one direction only (decision 14). ESLint enforces everything in this section: a file in the wrong place or an import across a forbidden boundary fails `pnpm lint`, with a message that says where the code belongs.
+The code is organized by feature, in layers that depend in one direction only ([ADR 0014](adr/0014-feature-modules-with-lint-boundaries.md)). ESLint enforces everything in this section: a file in the wrong place or an import across a forbidden boundary fails `pnpm lint`, with a message that says where the code belongs.
 
 ```
 src/
@@ -90,7 +90,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
-- `tools/agent/` is development tooling outside the app (decision 15). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
+- `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
 
 ### Anatomy of a feature
 
@@ -103,8 +103,8 @@ features/<feature>/
 ├── server/          Server-only code, every module imports "server-only"
 │   ├── actions.ts   Server Actions ("use server"), the only place they may live
 │   └── *.ts         Queries (the Data Access Layer), services, route handler logic
-├── ai/              Prompts, tools and agents, calling models through aiTask (decision 5)
-├── workflows/       Durable workflows and their steps (decision 9)
+├── ai/              Prompts, tools and agents, calling models through aiTask (ADR 0005)
+├── workflows/       Durable workflows and their steps (ADR 0009)
 ├── domain/          Pure logic without I/O, such as scheduling or scoring
 ├── schemas.ts       Zod schemas shared by forms and Server Actions
 └── types.ts         Shared types
@@ -145,132 +145,26 @@ The configuration lives in `eslint/architecture.mjs`, with project-specific rule
 
 ## Decisions
 
-Each decision records the context, the choice and its consequences. A decision changes through a PR that updates its entry.
+Each technical decision is an ADR in [adr/](adr/), with its context, the choice and its consequences. A decision changes through a PR that updates its ADR, or adds a new ADR that supersedes it.
 
-### 1. Hosted only, no self-hosted version
-
-**Context.** A local version for end users would need users to bring their own API keys, a second auth and storage path, and its own documentation and tests. VISION.md requires accounts, usage metering and limits from the start, and AI cost is the main cost driver, so the product assumes one system that we operate. Non-technical students would not clone a repository, and local models are not good enough for math tutoring.
-
-**Decision.** Ship one hosted product. Make local development excellent instead: cloning the repository and running Supabase locally starts the full stack.
-
-**Consequences.** One code path for auth, storage and AI. Self-hosting can be reconsidered if a real need appears.
-
-### 2. Supabase as the backend platform
-
-**Context.** The app needs Postgres, authentication, file storage for several PDFs per user, and vector search for grounded answers. Running separate services for each adds accounts, configuration and failure modes for a small team.
-
-**Decision.** Use Supabase for Postgres (with pgvector), Auth and Storage.
-
-**Consequences.** One platform, one local emulator, one permission model for rows and files. The free plan has 1 GB of file storage, a 50 MB upload limit, and pauses projects after 7 days without activity, so the public demo needs a scheduled keep-alive and real usage needs the Pro plan.
-
-### 3. supabase-js with Row Level Security instead of an ORM
-
-**Context.** An ORM such as Drizzle connects with a database role that bypasses Row Level Security, so access control would live in application code. supabase-js calls run as the signed-in user, so Postgres enforces it.
-
-**Decision.** Access data through supabase-js with types generated from the schema. Write schema changes as SQL migrations with the Supabase CLI. Row Level Security policies are the security boundary for both tables and stored files.
-
-**Consequences.** Every table needs policies, and tests cover them. Server-only code that must bypass policies (for example background jobs) uses the service role deliberately and in few places.
-
-### 4. EU region
-
-**Context.** The first users are university students in the EU, and course materials and learning data are personal data under the GDPR.
-
-**Decision.** Host Supabase in Frankfurt and run Vercel functions in `fra1`, next to the database. Vercel's default region is in the US, so the region is set explicitly in `vercel.json`.
-
-**Consequences.** Low latency between app and database, and personal data stored in the EU. Production AI requests must go to providers that do not train on or retain the data (see decision 6).
-
-### 5. Vercel AI SDK through Vercel AI Gateway
-
-**Context.** The app uses several models for different tasks, and the right model per task will change as models improve. Switching providers should be a configuration change.
-
-**Decision.** Call models through the Vercel AI SDK and route requests through Vercel AI Gateway. Model choice lives in one per-task configuration (for example `tutor`, `ingest`, `embed`), not in feature code. No additional agent framework.
-
-**Consequences.** One API key and one bill for every provider, no token markup, fallbacks and spend tracking in one place. The AI SDK covers streaming chat UIs, structured output with Zod, tool calling and mock models for tests. Each task uses the smallest model that does it well, as VISION.md requires.
-
-### 6. AI cost: near zero in development, metered in production
-
-**Context.** There are no users yet, so development should cost nothing or close to it. AI Gateway gives every team a free monthly credit on a subset of models, with lower rate limits, but only with a credit card on file. Bring-your-own-key requires the paid tier, and buying credits ends the free credit for good. The Gemini API has a free tier without a credit card, but Google may use its prompts for training and human review, and its terms do not allow serving it to users in the EU.
-
-**Decision.** Develop locally against the Gemini API free tier (`AI_PROVIDER=google`), which resolves the same `google/…` model ids directly instead of through AI Gateway, so switching is one environment variable and feature code does not change. Primary models per task are Google models while development runs this way; gateway fallbacks to other providers apply only through AI Gateway. Google mode is refused on Vercel, so every deployment uses AI Gateway, and development uses only test materials without personal data. Unit tests and CI use mock models and make no real calls. Production moves to purchased credits, with budgets per project and API key. Before real users, production tasks are restricted to providers with zero data retention and no training on prompts.
-
-**Consequences.** Preview deployments have working AI only once AI Gateway is set up. Development code must handle `429` responses from free-tier rate limits, which long-running jobs need anyway. Every AI call retries with backoff (AI SDK `maxRetries`, honoring `retry-after`), and AI Gateway falls back to the next model configured for the task. Token usage and cost are recorded per user and per AI call from the first AI feature, which also provides the metering VISION.md requires.
-
-### 7. Ingestion: process every upload once
-
-**Context.** Grounded answers need citations down to the slide or page. Course PDFs in STEM are full of formulas, diagrams and scanned exams, which plain text extraction loses. Not every model accepts PDF files directly, but most current models accept images.
-
-**Decision.** Ingest each upload once in a background workflow: render each page to an image, convert it with a vision model to markdown with LaTeX, split it into chunks that keep their page reference, embed the chunks into pgvector, and derive the topic map. Every feature reuses this result.
-
-**Consequences.** Works with any vision model, so the ingestion model can change freely. Ingestion cost is paid once per upload, not per question. The exact conversion model is chosen by testing on real course materials.
-
-### 8. Workflows by default, agents where they pay off
-
-**Context.** Most of the product (ingestion, exam analysis, plan building, review scheduling) is a known sequence of steps. Autonomous agent loops cost more and behave less predictably.
-
-**Decision.** Build fixed pipelines with LLM steps by default. Use agent loops with tools where the path cannot be known in advance, mainly the tutor session (looking up course material, recording mastery, scheduling reviews).
-
-**Consequences.** Lower and more predictable cost per student, and steps that can be tested on their own.
-
-### 9. Durable background jobs
-
-**Context.** Ingestion and planning take minutes and must survive timeouts and failed model calls. A single serverless request is not enough.
-
-**Decision.** Run long tasks as durable workflows with retries per step. Vercel Workflow is the first candidate because it runs on the existing platform; Inngest is the alternative. A short spike on the first ingestion feature confirms the choice.
-
-**Consequences.** Jobs report progress through the database, so the UI can show it. Vercel Workflow is set up; the comparison with Inngest still happens on the first ingestion feature.
-
-### 10. Learning science as libraries, not inventions
-
-**Context.** Spaced retrieval is central to VISION.md, and scheduling algorithms are a solved problem.
-
-**Decision.** Schedule reviews with FSRS through `ts-fsrs`.
-
-**Consequences.** Review scheduling rests on a well-studied algorithm, and the app's own work goes into deciding what to review and how to ask.
-
-### 11. UI built on shadcn/ui with its own design
-
-**Context.** The app should look professional and distinct. shadcn/ui gives accessible, consistent components that the codebase owns, but its defaults look like every other shadcn app.
-
-**Decision.** Build on shadcn/ui and AI Elements for chat, with the project's own design tokens for typography, color, dark mode and motion. Render math with KaTeX and stream AI answers with Streamdown. Show cited pages in a PDF viewer that jumps to the page.
-
-**Consequences.** A small design direction is set before the first feature screens, so every screen follows it.
-
-shadcn/ui uses Radix primitives, which AI Elements builds on. The design tokens live in `src/app/globals.css` in three layers (palette inputs, semantic tokens per color mode, Tailwind theme), so the design direction changes values in one place; until it is decided they hold neutral placeholders. Dark mode follows the system by default through `next-themes`. AI answers render through one `Markdown` component (Streamdown with KaTeX, `$…$` and `$$…$$` as math), and the PDF viewer loads only in the browser.
-
-### 12. Observability and quality of AI behavior
-
-**Context.** The tutor's most important behavior is pedagogical: asking before telling, grounding answers in the course. A tutor that starts handing out solutions breaks the first principle of VISION.md, and no unit test catches that.
-
-**Decision.** Trace every AI call with Langfuse and keep evaluation datasets for key prompts, run on demand and before prompt or model changes. Report errors to Sentry, product analytics to PostHog, and send auth emails through Resend, since Supabase's built-in email is only meant for testing.
-
-**Consequences.** Prompt and model changes are checked against evals like code changes are checked against tests.
-
-### 13. Hosting plans
-
-**Context.** Vercel's Hobby plan is free but limited to non-commercial use. Supabase's free plan allows two projects.
-
-**Decision.** Stay on free plans while there are no paying users: one Supabase project for staging and previews, one for production.
-
-**Consequences.** Charging money requires Vercel Pro, and real usage requires Supabase Pro. Both are expected costs in the business model.
-
-### 14. Feature modules with lint-enforced boundaries
-
-**Context.** Most code in this repository is written by AI agents and reviewed by one maintainer. Next.js does not prescribe a structure, so without one, code ends up wherever the last change put it, and the review has to catch it. Conventions written only in documents are followed inconsistently. A structure enforced by tools is followed every time, and its error messages tell the agent where code belongs.
-
-**Decision.** Organize code by feature, as described in [Project structure](#project-structure): `app/` for routing only, one folder per feature in `features/` with a public API in `index.ts` (client-safe) and `server.ts` (server-only), and shared layers below that never import features. Server code follows Next.js's Data Access Layer pattern: queries and Server Actions check the user and return only what the UI needs. ESLint enforces the structure with `eslint-plugin-boundaries`, `eslint-plugin-check-file`, `import-x/no-cycle` and a few project rules, and its tests prove each rule fires.
-
-**Consequences.** Every file has one obvious place, and a feature can change internally without breaking others. Server-only code and secrets cannot reach Client Components unnoticed. The rules also fix where decisions 3, 5 and 9 apply, so the service role key is used only in background workflows and model providers only in `lib/ai`. A new kind of file needs a deliberate change to the structure, its lint configuration and this document.
-
-### 15. Agents verify changes in the running app through one CLI
-
-**Context.** Agents write most of the code (decision 14). Type checks and unit tests do not show whether a page renders, a form signs a user in, or a policy hides another user's rows. Ad hoc browser scripts cost many tokens per check and break easily, and generic browser tools know nothing about this app's test users, auth emails or Row Level Security.
-
-**Decision.** `tools/agent/` is a CLI, `pnpm -s agent`, that agents use to run and verify the app. It combines the dev server's built-in MCP endpoint (`/_next/mcp`) for compile issues, runtime and server errors; agent-browser for a headless browser session per checkout, read as accessibility snapshots; Mailpit for auth emails; and a direct Postgres connection for SQL, optionally run as a test user so Row Level Security applies. Output is compact by default: a clean check is one line, and each error is reported in full once. The CLI works only against the local stack and imports no app code. The project skill `run-app` teaches agents the workflow.
-
-**Consequences.** Agents can check behavior, not only types, for a few hundred tokens per page. `agent-browser` and `postgres` are development dependencies; `postgres` is used only by the CLI and does not replace supabase-js (decision 3). Staging and production stay out of agents' reach: changes are verified locally and ship through pull requests.
+- [0001](adr/0001-hosted-only.md): Hosted only, no self-hosted version
+- [0002](adr/0002-supabase-backend.md): Supabase as the backend platform
+- [0003](adr/0003-supabase-js-with-rls.md): supabase-js with Row Level Security instead of an ORM
+- [0004](adr/0004-eu-region.md): EU region
+- [0005](adr/0005-ai-sdk-through-gateway.md): Vercel AI SDK through Vercel AI Gateway
+- [0006](adr/0006-ai-cost.md): AI cost: near zero in development, metered in production
+- [0007](adr/0007-ingest-each-upload-once.md): Ingestion: process every upload once
+- [0008](adr/0008-workflows-by-default.md): Workflows by default, agents where they pay off
+- [0009](adr/0009-durable-background-jobs.md): Durable background jobs
+- [0010](adr/0010-fsrs-for-spaced-repetition.md): Learning science as libraries, not inventions
+- [0011](adr/0011-shadcn-ui-with-own-design.md): UI built on shadcn/ui with its own design
+- [0012](adr/0012-ai-observability-and-evals.md): Observability and quality of AI behavior
+- [0013](adr/0013-hosting-plans.md): Hosting plans
+- [0014](adr/0014-feature-modules-with-lint-boundaries.md): Feature modules with lint-enforced boundaries
+- [0015](adr/0015-agent-cli-for-running-app.md): Agents verify changes in the running app through one CLI
 
 ## Open questions
 
-- Durable workflow engine: Vercel Workflow (set up) or Inngest (decision 9).
+- Durable workflow engine: Vercel Workflow (set up) or Inngest ([ADR 0009](adr/0009-durable-background-jobs.md)).
 - Models for ingestion, tutoring and embeddings, chosen by testing on real course materials.
 - Design direction: typography, color and motion.

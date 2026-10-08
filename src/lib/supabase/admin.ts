@@ -7,7 +7,7 @@ import { getSupabasePublicEnv, getSupabaseSecretEnv } from "./env";
  * Supabase client with the secret (service role) key. It BYPASSES Row Level
  * Security, so every query must scope data to the right user itself.
  *
- * Use it deliberately and in few places (ARCHITECTURE.md, decision 3): server
+ * Use it deliberately and in few places (ADR 0003): server
  * code with no signed-in user, such as background jobs. Never use it to handle
  * a user's request; use the client from `server.ts` instead.
  */

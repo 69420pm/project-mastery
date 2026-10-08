@@ -32,9 +32,9 @@ const ALLOWED_FILES = [
   "src/lib/**/*.ts",
   // Next.js root files.
   "src/{proxy,instrumentation,instrumentation-client}.ts",
-  // Evaluation datasets and runner for AI behavior (decision 12).
+  // Evaluation datasets and runner for AI behavior (ADR 0012).
   "evals/*.ts",
-  // CLI that lets coding agents drive the running app (decision 15).
+  // CLI that lets coding agents drive the running app (ADR 0015).
   "tools/agent/*.ts",
 ];
 
@@ -62,7 +62,7 @@ const RESTRICTED_PACKAGES = [
     source: "@ai-sdk/!(react)",
     allowedIn: ["src/lib/ai/**"],
     message:
-      "Model providers are configured once in src/lib/ai/models.ts (ARCHITECTURE decision 5). Call models through `aiTask(...)` instead of importing {{to.module.source}}.",
+      "Model providers are configured once in src/lib/ai/models.ts (docs/adr/0005-ai-sdk-through-gateway.md). Call models through `aiTask(...)` instead of importing {{to.module.source}}.",
   },
   {
     source: "@{langfuse,opentelemetry}/*",
@@ -199,7 +199,7 @@ export const architecture = [
               },
               message: `Routes read and write data through a feature's server code (the Data Access Layer), not through Supabase clients directly. ${DOCS}`,
             },
-            // The service role bypasses Row Level Security (decision 3).
+            // The service role bypasses Row Level Security (ADR 0003).
             {
               from: { file: { path: notIn(["src/features/*/workflows/**"]) } },
               disallow: {
@@ -211,7 +211,7 @@ export const architecture = [
                 },
               },
               message:
-                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/) may use it (ARCHITECTURE decision 3). Handle user requests with createClient from @/lib/supabase/server.",
+                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
             },
             ...RESTRICTED_PACKAGES.map(({ source, allowedIn, message }) => ({
               from: { file: { path: notIn(allowedIn) } },

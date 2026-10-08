@@ -16,12 +16,12 @@ type TaskConfig = {
 };
 
 /**
- * The single per-task model configuration (ARCHITECTURE decision 5). Feature
+ * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
  * These are placeholders. Primary models are Google models, so they run both
  * through AI Gateway and directly on the Gemini API free tier, which local
- * development can use instead (decision 6). The real model per task is chosen
+ * development can use instead (ADR 0006). The real model per task is chosen
  * by testing on real course materials (open question in docs/ARCHITECTURE.md).
  */
 export const AI_TASKS = {
@@ -31,7 +31,7 @@ export const AI_TASKS = {
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_TUTOR",
   },
-  /** Vision: a rendered page image to markdown with LaTeX (decision 7). */
+  /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
     model: "google/gemini-2.5-flash",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
