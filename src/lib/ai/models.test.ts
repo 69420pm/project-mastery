@@ -33,9 +33,9 @@ describe("modelIdFor", () => {
 
   test("lets an environment variable override a task's model", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-2.5-flash-lite");
+    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.8-flash");
 
-    expect(modelIdFor("chat")).toBe("google/gemini-2.5-flash-lite");
+    expect(modelIdFor("chat")).toBe("google/gemini-3.8-flash");
   });
 
   test("rejects an override that is not a gateway model id", () => {
@@ -119,12 +119,12 @@ describe("AI_PROVIDER=google", () => {
 
     const { model } = aiTask("chat");
 
-    expect(model).toBe("google/gemini-2.5-flash");
+    expect(model).toBe("google/gemini-3.5-flash-lite");
     expect(
       globalThis.AI_SDK_DEFAULT_PROVIDER?.languageModel(model),
     ).toMatchObject({
       provider: expect.stringMatching(/^google/),
-      modelId: "gemini-2.5-flash",
+      modelId: "gemini-3.5-flash-lite",
     });
   });
 });
@@ -135,24 +135,32 @@ describe("model choices", () => {
     vi.stubEnv("AI_MODEL_CHAT", undefined);
 
     expect(modelChoices("chat")).toEqual([
-      { key: "fast", label: "Fast", model: "google/gemini-2.5-flash-lite" },
-      { key: "balanced", label: "Balanced", model: "google/gemini-2.5-flash" },
-      { key: "thorough", label: "Thorough", model: "google/gemini-2.5-pro" },
+      { key: "fast", label: "Fast", model: "google/gemini-3.1-flash-lite" },
+      {
+        key: "balanced",
+        label: "Balanced",
+        model: "google/gemini-3.5-flash-lite",
+      },
+      {
+        key: "thorough",
+        label: "Thorough",
+        model: "google/gemini-3.8-flash",
+      },
     ]);
-    expect(aiTask("chat").model).toBe("google/gemini-2.5-flash");
+    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
   });
 
   test("resolves a choice by its key", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
 
-    expect(aiTask("chat", "thorough").model).toBe("google/gemini-2.5-pro");
-    expect(aiTask("chat", "fast").model).toBe("google/gemini-2.5-flash-lite");
+    expect(aiTask("chat", "thorough").model).toBe("google/gemini-3.8-flash");
+    expect(aiTask("chat", "fast").model).toBe("google/gemini-3.1-flash-lite");
   });
 
   test("refuses an unknown choice key, including a raw model id", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
 
-    expect(() => aiTask("chat", "google/gemini-2.5-pro")).toThrow(/choice/);
+    expect(() => aiTask("chat", "google/gemini-3.8-flash")).toThrow(/choice/);
     expect(() => aiTask("judge", "fast")).toThrow(/choice/);
   });
 
@@ -162,7 +170,7 @@ describe("model choices", () => {
 
     expect(aiTask("chat").model).toBe("xiaomi/mimo-v2.6-flash");
     expect(aiTask("chat", "balanced").model).toBe("xiaomi/mimo-v2.6-flash");
-    expect(aiTask("chat", "fast").model).toBe("google/gemini-2.5-flash-lite");
+    expect(aiTask("chat", "fast").model).toBe("google/gemini-3.1-flash-lite");
   });
 
   test("offers only Google choices with AI_PROVIDER=google", () => {
@@ -201,7 +209,7 @@ describe("title task", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_TITLE", undefined);
 
-    expect(aiTask("title").model).toBe("google/gemini-2.5-flash-lite");
+    expect(aiTask("title").model).toBe("google/gemini-3.1-flash-lite");
 
     vi.stubEnv("AI_PROVIDER", "google");
     vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "test-key");
@@ -211,7 +219,7 @@ describe("title task", () => {
       globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
     });
 
-    expect(aiTask("title").model).toBe("google/gemini-2.5-flash-lite");
+    expect(aiTask("title").model).toBe("google/gemini-3.1-flash-lite");
   });
 });
 
