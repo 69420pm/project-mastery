@@ -41,8 +41,10 @@ Add `!` (e.g. `feat!:`) for breaking changes.
 ## Testing
 
 - **Unit / component tests** live next to the code as `*.test.ts(x)` and run with Vitest.
-- **End-to-end tests** live in `e2e/` and run with Playwright against the production build:
+- **End-to-end tests** live in `e2e/` and run with Playwright against the production build, with mock AI (`AI_PROVIDER=mock`) and local Supabase:
   ```bash
   pnpm exec playwright install chromium   # once
+  pnpm db:start
   pnpm build && pnpm test:e2e
   ```
+  For a signed-in test, import `test` and `expect` from `e2e/fixtures.ts` and use the `student` fixture: it creates a fresh Student through the local auth admin API and starts the test signed in. These tests skip when `PLAYWRIGHT_BASE_URL` points at a deployment.

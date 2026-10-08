@@ -70,6 +70,7 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ADR
 ### AI, background jobs and tracing
 
 - **AI key:** local development calls the Gemini API directly (`AI_PROVIDER=google`, as in `.env.example`). Create a free key in [Google AI Studio](https://aistudio.google.com/apikey), no credit card needed, and set `GOOGLE_GENERATIVE_AI_API_KEY` in `.env.local`. Google may use free-tier prompts for training, so use your own test materials and never personal data. To go through Vercel AI Gateway instead, as deployments do, set `AI_PROVIDER=gateway` and an `AI_GATEWAY_API_KEY` from the [Vercel dashboard](https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys). Unit tests and CI use mock models and need no key. Models are configured per task in `src/lib/ai/models.ts`.
+- **Mock AI:** `AI_PROVIDER=mock` answers every AI call with a deterministic reply, streamed slowly enough to be stopped, without any key or network access. The Playwright suite runs the production build in this mode; it is refused on Vercel.
 - **Background jobs:** `pnpm dev` runs workflows locally with no setup (the local world stores runs in `.next/workflow-data`). Inspect runs with `pnpm exec workflow web` or `pnpm exec workflow inspect runs`.
 - **Tracing (optional):** create a project in [Langfuse EU cloud](https://cloud.langfuse.com) and set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to trace every AI call. Without keys, tracing is off.
 - **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models (Gemini API free tier locally). With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI.
@@ -87,27 +88,27 @@ pnpm -s agent check           # compile issues, runtime and server errors
 
 ## Scripts
 
-| Command              | Description                                   |
-| -------------------- | --------------------------------------------- |
-| `pnpm dev`           | Start the dev server                          |
-| `pnpm build`         | Production build                              |
-| `pnpm start`         | Serve the production build                    |
-| `pnpm lint`          | ESLint (zero warnings allowed)                |
-| `pnpm typecheck`     | Generate route types and run `tsc`            |
-| `pnpm format`        | Format with Prettier                          |
-| `pnpm test`          | Unit tests in watch mode                      |
-| `pnpm test:coverage` | Unit tests with coverage report               |
-| `pnpm test:e2e`      | Playwright E2E tests (run `pnpm build` first) |
-| `pnpm check`         | Lint + typecheck + format check + unit tests  |
-| `pnpm evals`         | AI evals against real models (not in CI)      |
-| `pnpm -s agent`      | Drive the running app from the terminal       |
-| `pnpm db:start`      | Start local Supabase (Docker)                 |
-| `pnpm db:stop`       | Stop local Supabase                           |
-| `pnpm db:status`     | Show local Supabase URLs and API keys         |
-| `pnpm db:reset`      | Recreate the local database from migrations   |
-| `pnpm db:types`      | Generate TypeScript types from the local DB   |
-| `pnpm db:lint`       | Lint the local database schema                |
-| `pnpm db:test`       | Run pgTAP database tests (RLS policies)       |
+| Command              | Description                                                       |
+| -------------------- | ----------------------------------------------------------------- |
+| `pnpm dev`           | Start the dev server                                              |
+| `pnpm build`         | Production build                                                  |
+| `pnpm start`         | Serve the production build                                        |
+| `pnpm lint`          | ESLint (zero warnings allowed)                                    |
+| `pnpm typecheck`     | Generate route types and run `tsc`                                |
+| `pnpm format`        | Format with Prettier                                              |
+| `pnpm test`          | Unit tests in watch mode                                          |
+| `pnpm test:coverage` | Unit tests with coverage report                                   |
+| `pnpm test:e2e`      | Playwright E2E tests (run `pnpm build` and `pnpm db:start` first) |
+| `pnpm check`         | Lint + typecheck + format check + unit tests                      |
+| `pnpm evals`         | AI evals against real models (not in CI)                          |
+| `pnpm -s agent`      | Drive the running app from the terminal                           |
+| `pnpm db:start`      | Start local Supabase (Docker)                                     |
+| `pnpm db:stop`       | Stop local Supabase                                               |
+| `pnpm db:status`     | Show local Supabase URLs and API keys                             |
+| `pnpm db:reset`      | Recreate the local database from migrations                       |
+| `pnpm db:types`      | Generate TypeScript types from the local DB                       |
+| `pnpm db:lint`       | Lint the local database schema                                    |
+| `pnpm db:test`       | Run pgTAP database tests (RLS policies)                           |
 
 ## Development workflow
 
