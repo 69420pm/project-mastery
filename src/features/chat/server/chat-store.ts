@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { messageText } from "@/features/chat/domain/message-text";
 import type { ChatUIMessage } from "@/features/chat/types";
 
 /**
@@ -134,14 +135,10 @@ export async function listChats(
       id: chat.id,
       title: chat.title,
       firstMessage: first
-        ? textOf(first.parts as ChatUIMessage["parts"])
+        ? messageText(first.parts as ChatUIMessage["parts"])
         : null,
     };
   });
-}
-
-function textOf(parts: ChatUIMessage["parts"]): string {
-  return parts.map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
 /**

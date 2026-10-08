@@ -41,6 +41,7 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
   DEFAULT_MODEL_CHOICE,
@@ -70,12 +71,6 @@ type ChatProps = {
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
-
-function messageText(message: ChatUIMessage) {
-  return message.parts
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
-}
 
 /** Copies a message's text, confirming it briefly with a check mark. */
 function CopyAction({ text }: { text: string }) {
@@ -185,7 +180,7 @@ export function Chat({
   // address without remounting, so reloading or bookmarking it works, and the
   // Chat moves to the top of the sidebar.
   const path = `/chat/${chatId}`;
-  const firstMessage = messages[0] ? messageText(messages[0]) : null;
+  const firstMessage = messages[0] ? messageText(messages[0].parts) : null;
   useEffect(() => {
     if (status !== "streaming") return;
     if (isNew && window.location.pathname !== path) {
@@ -232,11 +227,11 @@ export function Chat({
                   <MessageContent data-testid="message-text">
                     {message.role === "assistant" ? (
                       <Markdown streaming={status === "streaming" && isLast}>
-                        {messageText(message)}
+                        {messageText(message.parts)}
                       </Markdown>
                     ) : (
                       <p className="whitespace-pre-wrap">
-                        {messageText(message)}
+                        {messageText(message.parts)}
                       </p>
                     )}
                   </MessageContent>
@@ -251,7 +246,7 @@ export function Chat({
                           Stopped
                         </span>
                       )}
-                      <CopyAction text={messageText(message)} />
+                      <CopyAction text={messageText(message.parts)} />
                       {message.role === "assistant" &&
                         isLast &&
                         !limitReached && (

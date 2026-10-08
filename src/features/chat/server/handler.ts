@@ -14,6 +14,7 @@ import {
 } from "ai";
 import { after } from "next/server";
 import { chatReplySettings } from "@/features/chat/ai/reply";
+import { messageText } from "@/features/chat/domain/message-text";
 import {
   DEFAULT_MODEL_CHOICE,
   chatMessageMetadataSchema,
@@ -234,9 +235,9 @@ async function streamReply({
               usage: estimatedUsage({
                 input: [
                   settings.instructions,
-                  ...messages.map(messageText),
+                  ...messages.map(({ parts }) => messageText(parts)),
                 ].join("\n"),
-                output: messageText(responseMessage),
+                output: messageText(responseMessage.parts),
               }),
               estimated: true,
             };
@@ -252,7 +253,7 @@ async function streamReply({
         }
 
         if (outcome.status === "failed") return;
-        if (stopped && !hasText(responseMessage)) return;
+        if (stopped && messageText(responseMessage.parts) === "") return;
         try {
           const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,
@@ -271,7 +272,7 @@ async function streamReply({
           await titleChat(supabase, {
             chatId: chat.id,
             userId,
-            firstMessage: messageText(messages[0]),
+            firstMessage: messageText(messages[0]?.parts ?? []),
           });
         }
       },
@@ -279,16 +280,6 @@ async function streamReply({
     // Lets `onEnd` run when the client disconnects mid-reply.
     consumeSseStream: consumeStream,
   });
-}
-
-function messageText(message: ChatUIMessage | undefined): string {
-  return (message?.parts ?? [])
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
-}
-
-function hasText(message: ChatUIMessage) {
-  return messageText(message) !== "";
 }
 
 function statusCode(error: unknown): number | undefined {
