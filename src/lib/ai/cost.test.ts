@@ -10,9 +10,9 @@ import {
 
 describe("costUsd", () => {
   test("prices input, cached input and output tokens per million", () => {
-    // Gemini 2.5 Flash: $0.30 input, $0.03 cached input, $2.50 output.
+    // Gemini 3.5 Flash-Lite: $0.30 input, $0.03 cached input, $2.50 output.
     // 600k × 0.30 + 400k × 0.03 + 100k × 2.50 = 0.18 + 0.012 + 0.25
-    const cost = costUsd("google/gemini-2.5-flash", {
+    const cost = costUsd("google/gemini-3.5-flash-lite", {
       inputTokens: 1_000_000,
       cachedInputTokens: 400_000,
       outputTokens: 100_000,
@@ -22,14 +22,14 @@ describe("costUsd", () => {
   });
 
   test("a call without cached tokens costs input plus output", () => {
-    // Gemini 2.5 Pro: 2,000 × $1.25 + 500 × $10 per million.
-    const cost = costUsd("google/gemini-2.5-pro", {
+    // Gemini 3.1 Pro: 2,000 × $2 + 500 × $12 per million.
+    const cost = costUsd("google/gemini-3.1-pro-preview", {
       inputTokens: 2_000,
       cachedInputTokens: 0,
       outputTokens: 500,
     });
 
-    expect(cost).toBeCloseTo(0.0075, 10);
+    expect(cost).toBeCloseTo(0.01, 10);
   });
 
   test("refuses a model without a price", () => {
