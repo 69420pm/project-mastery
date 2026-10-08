@@ -29,6 +29,11 @@ import {
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import type { ChatUIMessage } from "@/features/chat/types";
+import {
+  DailyLimitNotice,
+  refreshDailyLimitStatus,
+  type DailyLimitStatus,
+} from "@/features/usage";
 
 type ChatProps = {
   chatId: string;
@@ -36,6 +41,8 @@ type ChatProps = {
   initialMessages: ChatUIMessage[];
   /** True on `/chat`: the first message creates the Chat with `chatId`. */
   isNew: boolean;
+  /** The Student's Daily limit status when the page loaded. */
+  dailyLimit: DailyLimitStatus;
 };
 
 function messageText(message: ChatUIMessage) {
@@ -48,10 +55,21 @@ function messageText(message: ChatUIMessage) {
  * A Chat with the AI: the messages, streamed replies and the message input.
  * Only the new message is sent; the server loads the stored history.
  */
-export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
+export function Chat({
+  chatId,
+  initialMessages,
+  isNew,
+  dailyLimit: initialDailyLimit,
+}: ChatProps) {
   const [inputError, setInputError] = useState<string | null>(null);
+  const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
+  const limitReached = dailyLimit.level === "reached";
   const { messages, sendMessage, regenerate, status, error, clearError } =
     useChat<ChatUIMessage>({
+      // Every reply, or a refusal at the limit, can change the status.
+      onFinish: () => {
+        refreshDailyLimitStatus().then(setDailyLimit, () => {});
+      },
       id: chatId,
       messages: initialMessages,
       // The database stores message ids as uuids.
@@ -77,7 +95,9 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
   const lastMessage = messages.at(-1);
 
   async function handleSubmit({ text }: { text: string }) {
-    if (text.trim() === "" || isBusy) throw new Error("Nothing to send.");
+    if (text.trim() === "" || isBusy || limitReached) {
+      throw new Error("Nothing to send.");
+    }
     if (text.length > MAX_MESSAGE_LENGTH) {
       setInputError(messageTooLongMessage);
       // Rejecting keeps the text in the input.
@@ -121,7 +141,8 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
           {status === "submitted" && (
             <Shimmer className="text-sm">Thinking…</Shimmer>
           )}
-          {error && (
+          {/* At the limit, the notice below explains the refusal. */}
+          {error && !limitReached && (
             <Alert variant="destructive">
               <CircleAlertIcon />
               <AlertDescription>{error.message}</AlertDescription>
@@ -142,6 +163,7 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
       </Conversation>
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+        <DailyLimitNotice status={dailyLimit} />
         {/* Controlled, so a refused message stays in the input. */}
         <PromptInputProvider>
           <PromptInput onSubmit={handleSubmit}>
@@ -151,12 +173,16 @@ export function Chat({ chatId, initialMessages, isNew }: ChatProps) {
                 aria-invalid={inputError !== null}
                 aria-describedby={inputError ? "chat-input-error" : undefined}
                 placeholder="Ask about your studies…"
+                disabled={limitReached}
                 onChange={() => setInputError(null)}
               />
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools />
-              <PromptInputSubmit status={status} disabled={isBusy} />
+              <PromptInputSubmit
+                status={status}
+                disabled={isBusy || limitReached}
+              />
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>

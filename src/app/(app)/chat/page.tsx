@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { Chat } from "@/features/chat";
+import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
 export const metadata: Metadata = {
@@ -11,6 +12,15 @@ export const metadata: Metadata = {
 export default async function NewChatPage() {
   await requireUser("/chat");
   const chatId = randomUUID();
+  const dailyLimit = await getDailyLimitStatus();
 
-  return <Chat key={chatId} chatId={chatId} initialMessages={[]} isNew />;
+  return (
+    <Chat
+      key={chatId}
+      chatId={chatId}
+      initialMessages={[]}
+      isNew
+      dailyLimit={dailyLimit}
+    />
+  );
 }
