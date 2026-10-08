@@ -79,7 +79,7 @@ export async function seedAiSpend(student: Student, costUsd: number) {
   const { error } = await adminClient().from("ai_usage").insert({
     owner: student.id,
     task: "chat",
-    model_id: "google/gemini-2.5-flash",
+    model_id: "google/gemini-3.5-flash-lite",
     input_tokens: 0,
     output_tokens: 0,
     cost_usd: costUsd,

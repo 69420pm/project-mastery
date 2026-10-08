@@ -330,7 +330,7 @@ describe("usage", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "chat",
-        model_id: "google/gemini-2.5-flash",
+        model_id: "google/gemini-3.5-flash-lite",
         input_tokens: 10,
         cached_input_tokens: 0,
         output_tokens: 20,
@@ -350,7 +350,7 @@ describe("the Daily limit", () => {
       id: randomUUID(),
       owner,
       task: "chat",
-      model_id: "google/gemini-2.5-flash",
+      model_id: "google/gemini-3.5-flash-lite",
       input_tokens: 0,
       cached_input_tokens: 0,
       output_tokens: 0,
