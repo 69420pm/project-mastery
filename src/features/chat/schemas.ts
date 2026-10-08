@@ -53,7 +53,7 @@ export const chatRequestSchema = z.object({
 });
 
 /** The longest title a Student can give a Chat, in characters. */
-export const MAX_TITLE_LENGTH = 100;
+export const MAX_TYPED_TITLE_LENGTH = 100;
 
 /** Renaming a Chat from its "…" menu. */
 export const renameChatSchema = z.object({
@@ -63,8 +63,8 @@ export const renameChatSchema = z.object({
     .trim()
     .min(1, "Enter a title.")
     .max(
-      MAX_TITLE_LENGTH,
-      `Keep the title under ${MAX_TITLE_LENGTH} characters.`,
+      MAX_TYPED_TITLE_LENGTH,
+      `Keep the title under ${MAX_TYPED_TITLE_LENGTH} characters.`,
     ),
 });
 
