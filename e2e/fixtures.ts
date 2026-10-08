@@ -74,6 +74,23 @@ async function createStudent(): Promise<Student> {
   return { id: data.user.id, email, displayName, password: PASSWORD };
 }
 
+/**
+ * Records AI spend for a Student today, as one usage record of `costUsd`
+ * dollars, to bring them near or to the Daily limit (AI_DAILY_LIMIT_USD in
+ * playwright.config.ts). The records go with the Student.
+ */
+export async function seedAiSpend(student: Student, costUsd: number) {
+  const { error } = await adminClient().from("ai_usage").insert({
+    owner: student.id,
+    task: "chat",
+    model_id: "google/gemini-3.5-flash-lite",
+    input_tokens: 0,
+    output_tokens: 0,
+    cost_usd: costUsd,
+  });
+  if (error) throw new Error(`Seeding AI spend failed: ${error.message}`);
+}
+
 async function deleteStudent(student: Student) {
   const { error } = await adminClient().auth.admin.deleteUser(student.id);
   if (error)

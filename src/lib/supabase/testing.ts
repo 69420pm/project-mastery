@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, gt, order, single, maybeSingle) and emulates Row Level
+ * delete, eq, in, gt, gte, order, single, maybeSingle) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
  * Real policies are tested with pgTAP (supabase/tests/database/).
@@ -164,6 +164,10 @@ export function fakeSupabase<Table extends string>(
       },
       gt(column: string, value: unknown) {
         filters.push((row) => String(row[column]) > String(value));
+        return builder;
+      },
+      gte(column: string, value: unknown) {
+        filters.push((row) => String(row[column]) >= String(value));
         return builder;
       },
       order(column: string, { ascending = true } = {}) {

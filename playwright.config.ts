@@ -31,7 +31,8 @@ export default defineConfig({
     : {
         command: `pnpm start --port ${PORT}`,
         url: baseURL,
-        env: { AI_PROVIDER: "mock" },
+        // A Daily limit that tests reach by seeding usage (seedAiSpend).
+        env: { AI_PROVIDER: "mock", AI_DAILY_LIMIT_USD: "1" },
         reuseExistingServer: !process.env.CI,
       },
 });

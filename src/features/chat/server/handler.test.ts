@@ -15,7 +15,7 @@ let db = createDb();
 /** The local tables, with the ownership rules of the real policies. */
 function createDb() {
   return fakeSupabase({
-    tables: { chats: [], chat_messages: [] },
+    tables: { chats: [], chat_messages: [], ai_usage: [] },
     defaults: {
       chats: () => ({
         owner: signedIn,
@@ -24,9 +24,12 @@ function createDb() {
         model_choice: "balanced",
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
+      ai_usage: () => ({ owner: signedIn, estimated: false, chat_id: null }),
     },
     canAccess: (table, row, tables) => {
-      if (table === "chats") return row.owner === signedIn;
+      if (table === "chats" || table === "ai_usage") {
+        return row.owner === signedIn;
+      }
       return tables.chats.some(
         (chat) => chat.id === row.chat_id && chat.owner === signedIn,
       );
@@ -49,6 +52,7 @@ const { handleChatRequest } = await import("./handler");
 beforeEach(() => {
   signedIn = STUDENT;
   db = createDb();
+  vi.stubEnv("AI_DAILY_LIMIT_USD", "");
 });
 
 function userMessage(text: string, id: string = randomUUID()) {
@@ -399,4 +403,113 @@ test("a failed reply streams an error and stores no reply", async () => {
 
   expect(reply.error).toBe("The AI could not reply. Please try again.");
   expect(storedMessages(chatId).map(({ role }) => role)).toEqual(["user"]);
+});
+
+describe("usage", () => {
+  test("every reply records its tokens, model and cost in US dollars", async () => {
+    // Mock replies report 10 input and 20 output tokens.
+    useMockModels({ chat: mockTextModel("Try it yourself first.") });
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Hi") });
+
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        owner: STUDENT,
+        task: "chat",
+        model_id: "google/gemini-3.5-flash-lite",
+        input_tokens: 10,
+        cached_input_tokens: 0,
+        output_tokens: 20,
+        // 10 × $0.30 + 20 × $2.50 per million tokens.
+        cost_usd: expect.closeTo(0.000053, 12),
+        estimated: false,
+        chat_id: chatId,
+      }),
+    ]);
+  });
+});
+
+describe("the Daily limit", () => {
+  /** Spend of a Student, today unless `createdAt` says otherwise. */
+  function seedSpend(owner: string, costUsd: number, createdAt = new Date()) {
+    db.tables.ai_usage.push({
+      id: randomUUID(),
+      owner,
+      task: "chat",
+      model_id: "google/gemini-3.5-flash-lite",
+      input_tokens: 0,
+      cached_input_tokens: 0,
+      output_tokens: 0,
+      cost_usd: costUsd,
+      estimated: false,
+      chat_id: null,
+      created_at: createdAt.toISOString(),
+    });
+  }
+
+  test("once reached, refuses the message before any model call or new Chat", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    seedSpend(STUDENT, 0.6);
+    seedSpend(STUDENT, 0.4);
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      newChat: true,
+      message: userMessage("One more?"),
+    });
+
+    expect(reply).toEqual({
+      status: 429,
+      refusal:
+        "You've reached today's daily limit. The AI is available again after it resets.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(db.tables.chats).toEqual([]);
+  });
+
+  test("still answers just below the limit, even if the reply goes over", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    seedSpend(STUDENT, 0.99999);
+    useMockModels({ chat: mockTextModel("Here you go.") });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      newChat: true,
+      message: userMessage("Last one"),
+    });
+
+    expect(reply.text).toBe("Here you go.");
+    expect(db.tables.ai_usage).toHaveLength(2);
+  });
+
+  test("counts neither earlier days' spend nor another Student's", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    seedSpend(STUDENT, 5, new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
+    seedSpend(CLASSMATE, 5);
+    useMockModels({ chat: mockTextModel("Sure.") });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      newChat: true,
+      message: userMessage("Hi"),
+    });
+
+    expect(reply.text).toBe("Sure.");
+  });
+
+  test("without AI_DAILY_LIMIT_USD nothing is blocked", async () => {
+    seedSpend(STUDENT, 1_000_000);
+    useMockModels({ chat: mockTextModel("No limit.") });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      newChat: true,
+      message: userMessage("Hi"),
+    });
+
+    expect(reply.text).toBe("No limit.");
+  });
 });
