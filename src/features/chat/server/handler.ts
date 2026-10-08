@@ -22,11 +22,11 @@ import {
 import {
   createChat,
   deleteChat,
-  deleteMessages,
   findChat,
   loadMessages,
   saveMessage,
-  setModelChoice,
+  saveReply,
+  startReply,
   type StoredChat,
   type Supabase,
 } from "@/features/chat/server/chat-store";
@@ -51,10 +51,11 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * 2. validate the request: the message, an offered model choice, and a Chat
  *    the Student owns or may create
  * 3. refuse at the Daily limit, before any model call
- * 4. create the Chat on its first message, store the Student's message and
- *    the Chat's model choice
+ * 4. create the Chat on its first message, or mark the new reply as the
+ *    Chat's latest with its model choice, then store the Student's message
  * 5. stream the reply from the full stored history
- * 6. on end, store the reply with its model and record the call's usage
+ * 6. on end, record the call's usage and store the reply with its model,
+ *    unless a newer request has started a reply since
  * 7. name an untitled Chat after its reply
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
@@ -92,20 +93,29 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     return refuse(429, dailyLimitReachedMessage);
   }
 
+  // The reply's id, marked as the Chat's latest before the Student's message
+  // is stored, so a stopped reply still ending from an earlier request can
+  // never be kept after it.
+  const replyId = randomUUID();
   const chat =
     existing ??
-    (await createChat(supabase, chatId, modelChoice ?? DEFAULT_MODEL_CHOICE));
+    (await createChat(supabase, chatId, {
+      modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
+      replyId,
+    }));
   if (!chat) return refuse(404, chatNotFound);
-
-  const history = await addStudentMessage(supabase, chat, message, !existing);
-  if (!history) return refuse(409, "This message was already sent.");
 
   // The choice applies from this message on. A stored choice that is no
   // longer offered, as in Google mode, falls back to the default.
   const choice =
     modelChoice ??
     (isOffered(chat.modelChoice) ? chat.modelChoice : DEFAULT_MODEL_CHOICE);
-  if (existing) await setModelChoice(supabase, chat.id, choice);
+  if (existing) {
+    await startReply(supabase, chat.id, { modelChoice: choice, replyId });
+  }
+
+  const history = await addStudentMessage(supabase, chat, message, !existing);
+  if (!history) return refuse(409, "This message was already sent.");
 
   return streamReply({
     request,
@@ -113,6 +123,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     chat: { ...chat, modelChoice: choice },
     userId: user.id,
     history,
+    replyId,
   });
 }
 
@@ -126,10 +137,11 @@ function refuse(status: number, message: string) {
 }
 
 /**
- * Stores the Student's message and returns the history to answer. When the
- * message is already the Chat's last Student message, as when retrying a
- * failed reply, any reply stored after it is dropped instead. Returns null if
- * the message id is taken elsewhere.
+ * Stores the Student's message and returns the history to answer, which ends
+ * with it. When the message is already the Chat's last Student message, as
+ * when regenerating or retrying a failed reply, the history leaves out any
+ * reply stored after it, which the new reply replaces once it is saved.
+ * Returns null if the message id is taken elsewhere.
  */
 async function addStudentMessage(
   supabase: Supabase,
@@ -142,10 +154,6 @@ async function addStudentMessage(
   if (index !== -1) {
     const later = stored.slice(index + 1);
     if (later.some((m) => m.role === "user")) return null;
-    await deleteMessages(
-      supabase,
-      later.map((m) => m.id),
-    );
     return stored.slice(0, index + 1);
   }
 
@@ -164,12 +172,14 @@ async function streamReply({
   chat,
   userId,
   history,
+  replyId,
 }: {
   request: Request;
   supabase: Supabase;
   chat: StoredChat;
   userId: string;
   history: ChatUIMessage[];
+  replyId: string;
 }) {
   const messages = await validateUIMessages<ChatUIMessage>({
     messages: history,
@@ -203,7 +213,7 @@ async function streamReply({
     stream: toUIMessageStream<ToolSet, ChatUIMessage>({
       stream: (await result).stream,
       originalMessages: messages,
-      generateMessageId: randomUUID,
+      generateMessageId: () => replyId,
       messageMetadata: ({ part }) =>
         part.type === "start"
           ? { modelId }
@@ -244,10 +254,12 @@ async function streamReply({
         if (outcome.status === "failed") return;
         if (stopped && !hasText(responseMessage)) return;
         try {
-          await saveMessage(supabase, chat.id, {
+          const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,
+            id: replyId,
             metadata: { modelId, ...(stopped && { stopped }) },
           });
+          if (!kept) return;
         } catch (error) {
           console.error("Saving the Chat reply failed:", error);
           return;
