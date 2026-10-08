@@ -38,7 +38,7 @@ import {
   recordAiUsage,
 } from "@/features/usage/server";
 import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
-import { modelChoices } from "@/lib/ai/models";
+import { answeringModel, modelChoices } from "@/lib/ai/models";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
@@ -176,10 +176,11 @@ async function streamReply({
     metadataSchema: chatMessageMetadataSchema,
   });
   const settings = chatReplySettings(chat.modelChoice);
-  const modelId = settings.model;
-  // What the provider reports when the call completes. An aborted call
-  // reports nothing.
+  // What the provider reports when the call completes: its usage and the
+  // model that answered, a gateway fallback when the primary failed. An
+  // aborted call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;
+  let modelId = settings.model;
 
   const result = withTraceAttributes(
     { userId, sessionId: chat.id, traceName: "chat-reply" },
@@ -190,8 +191,9 @@ async function streamReply({
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
-        onEnd: ({ usage }) => {
+        onEnd: ({ usage, response }) => {
           reportedUsage = usage;
+          modelId = answeringModel(settings, response.modelId);
         },
       }),
   );
@@ -203,7 +205,11 @@ async function streamReply({
       originalMessages: messages,
       generateMessageId: randomUUID,
       messageMetadata: ({ part }) =>
-        part.type === "start" ? { modelId } : undefined,
+        part.type === "start"
+          ? { modelId }
+          : part.type === "finish-step"
+            ? { modelId: answeringModel(settings, part.response.modelId) }
+            : undefined,
       onError: replyErrorMessage,
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.

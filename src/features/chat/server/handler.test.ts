@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { modelChoices } from "@/lib/ai/models";
+import { AI_TASKS, modelChoices } from "@/lib/ai/models";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
@@ -457,7 +458,60 @@ describe("usage", () => {
       }),
     ]);
   });
+
+  test("a reply from a gateway fallback is stored and priced as the fallback model", async () => {
+    const [fallback] = AI_TASKS.chat.fallbacks;
+    useMockModels({ chat: answeredByModel(fallback, "From the fallback.") });
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Hi") });
+
+    expect(storedMessages(chatId).at(-1)).toMatchObject({
+      text: "From the fallback.",
+      modelId: fallback,
+    });
+    expect(db.tables.ai_usage.find(({ task }) => task === "chat")).toEqual(
+      expect.objectContaining({
+        model_id: fallback,
+        // 10 × $0.04 + 20 × $1.28 per million tokens.
+        cost_usd: expect.closeTo(0.000026, 12),
+      }),
+    );
+  });
 });
+
+/**
+ * A model that answers `text` and reports `modelId` as the model that
+ * answered, as AI Gateway does when it falls back to another model.
+ */
+function answeredByModel(modelId: string, text: string) {
+  return new MockLanguageModelV4({
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: "stream-start", warnings: [] },
+          { type: "response-metadata", modelId },
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", delta: text },
+          { type: "text-end", id: "text-1" },
+          {
+            type: "finish",
+            finishReason: { unified: "stop", raw: undefined },
+            usage: {
+              inputTokens: {
+                total: 10,
+                noCache: 10,
+                cacheRead: undefined,
+                cacheWrite: undefined,
+              },
+              outputTokens: { total: 20, text: 20, reasoning: undefined },
+            },
+          },
+        ],
+      }),
+    }),
+  });
+}
 
 describe("the Daily limit", () => {
   /** Spend of a Student, today unless `createdAt` says otherwise. */

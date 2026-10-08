@@ -164,6 +164,33 @@ export function modelIdFor(task: AiTask, choice?: string): string {
 }
 
 /**
+ * The model that answered a call made with `aiTask` settings: the requested
+ * model or one of its gateway fallbacks, as named by the model id the
+ * provider reports (`response.modelId`), so the call is stored and priced as
+ * that model. Reported ids may lack the `provider/` prefix, as the Gemini API
+ * reports them. An id that names none of them, or none at all, as for an
+ * aborted call, means the requested model.
+ */
+export function answeringModel(
+  settings: {
+    model: string;
+    providerOptions?: { gateway: { models: readonly string[] } };
+  },
+  reportedModelId: string | undefined,
+): string {
+  const candidates = [
+    settings.model,
+    ...(settings.providerOptions?.gateway.models ?? []),
+  ];
+  const withoutProvider = (id: string) => id.slice(id.indexOf("/") + 1);
+  return (
+    candidates.find((id) => id === reportedModelId) ??
+    candidates.find((id) => withoutProvider(id) === reportedModelId) ??
+    settings.model
+  );
+}
+
+/**
  * With AI_PROVIDER=google, resolves `google/<model>` ids through the Gemini
  * API instead of AI Gateway. Model ids stay plain strings in both modes: the
  * AI SDK resolves them through this global provider, which defaults to AI
