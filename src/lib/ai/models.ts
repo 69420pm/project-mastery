@@ -45,15 +45,15 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
   chat: {
-    model: "google/gemini-3.8-flash",
+    model: "google/gemini-3.5-flash-lite",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_CHAT",
+    // Every choice is a model the Gemini API free tier serves, so all of them
+    // work locally. Thorough is not a Pro model: the free tier serves none.
     choices: {
-      fast: { label: "Fast", model: "google/gemini-3.5-flash-lite" },
-      balanced: { label: "Balanced", model: "google/gemini-3.8-flash" },
-      // No stable Pro model exists, and the Gemini API free tier serves no
-      // Pro model, so with AI_PROVIDER=google this choice fails with 429.
-      thorough: { label: "Thorough", model: "google/gemini-3.1-pro-preview" },
+      fast: { label: "Fast", model: "google/gemini-3.1-flash-lite" },
+      balanced: { label: "Balanced", model: "google/gemini-3.5-flash-lite" },
+      thorough: { label: "Thorough", model: "google/gemini-3.8-flash" },
     },
   },
   /** A short title for a Chat, on the cheapest model. */
