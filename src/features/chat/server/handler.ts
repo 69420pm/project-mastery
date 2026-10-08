@@ -13,22 +13,26 @@ import {
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
-import { chatReplySettings } from "@/features/chat/ai/reply";
 import {
   DEFAULT_MODEL_CHOICE,
+  chatReplySettings,
+  offeredModelChoice,
+} from "@/features/chat/ai/reply";
+import { messageText } from "@/features/chat/domain/message-text";
+import {
   chatMessageMetadataSchema,
+  chatNotFoundMessage,
   chatRequestSchema,
 } from "@/features/chat/schemas";
 import {
   createChat,
   deleteChat,
-  deleteMessages,
   findChat,
   loadMessages,
   saveMessage,
-  setModelChoice,
+  saveReply,
+  startReply,
   type StoredChat,
-  type Supabase,
 } from "@/features/chat/server/chat-store";
 import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
@@ -38,9 +42,10 @@ import {
   recordAiUsage,
 } from "@/features/usage/server";
 import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
-import { modelChoices } from "@/lib/ai/models";
+import { answeringModel, modelChoices } from "@/lib/ai/models";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
 
 /**
@@ -51,10 +56,11 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * 2. validate the request: the message, an offered model choice, and a Chat
  *    the Student owns or may create
  * 3. refuse at the Daily limit, before any model call
- * 4. create the Chat on its first message, store the Student's message and
- *    the Chat's model choice
+ * 4. create the Chat on its first message, or mark the new reply as the
+ *    Chat's latest with its model choice, then store the Student's message
  * 5. stream the reply from the full stored history
- * 6. on end, store the reply with its model and record the call's usage
+ * 6. on end, record the call's usage and store the reply with its model,
+ *    unless a newer request has started a reply since
  * 7. name an untitled Chat after its reply
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
@@ -85,27 +91,33 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
-  if (!existing && !newChat) return refuse(404, chatNotFound);
+  if (!existing && !newChat) return refuse(404, chatNotFoundMessage);
 
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
     return refuse(429, dailyLimitReachedMessage);
   }
 
+  // The reply's id, marked as the Chat's latest before the Student's message
+  // is stored, so a stopped reply still ending from an earlier request can
+  // never be kept after it.
+  const replyId = randomUUID();
   const chat =
     existing ??
-    (await createChat(supabase, chatId, modelChoice ?? DEFAULT_MODEL_CHOICE));
-  if (!chat) return refuse(404, chatNotFound);
+    (await createChat(supabase, chatId, {
+      modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
+      replyId,
+    }));
+  if (!chat) return refuse(404, chatNotFoundMessage);
+
+  // The choice applies from this message on.
+  const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
+  if (existing) {
+    await startReply(supabase, chat.id, { modelChoice: choice, replyId });
+  }
 
   const history = await addStudentMessage(supabase, chat, message, !existing);
   if (!history) return refuse(409, "This message was already sent.");
-
-  // The choice applies from this message on. A stored choice that is no
-  // longer offered, as in Google mode, falls back to the default.
-  const choice =
-    modelChoice ??
-    (isOffered(chat.modelChoice) ? chat.modelChoice : DEFAULT_MODEL_CHOICE);
-  if (existing) await setModelChoice(supabase, chat.id, choice);
 
   return streamReply({
     request,
@@ -113,10 +125,9 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     chat: { ...chat, modelChoice: choice },
     userId: user.id,
     history,
+    replyId,
   });
 }
-
-const chatNotFound = "This chat does not exist.";
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -126,10 +137,11 @@ function refuse(status: number, message: string) {
 }
 
 /**
- * Stores the Student's message and returns the history to answer. When the
- * message is already the Chat's last Student message, as when retrying a
- * failed reply, any reply stored after it is dropped instead. Returns null if
- * the message id is taken elsewhere.
+ * Stores the Student's message and returns the history to answer, which ends
+ * with it. When the message is already the Chat's last Student message, as
+ * when regenerating or retrying a failed reply, the history leaves out any
+ * reply stored after it, which the new reply replaces once it is saved.
+ * Returns null if the message id is taken elsewhere.
  */
 async function addStudentMessage(
   supabase: Supabase,
@@ -142,10 +154,6 @@ async function addStudentMessage(
   if (index !== -1) {
     const later = stored.slice(index + 1);
     if (later.some((m) => m.role === "user")) return null;
-    await deleteMessages(
-      supabase,
-      later.map((m) => m.id),
-    );
     return stored.slice(0, index + 1);
   }
 
@@ -164,22 +172,25 @@ async function streamReply({
   chat,
   userId,
   history,
+  replyId,
 }: {
   request: Request;
   supabase: Supabase;
   chat: StoredChat;
   userId: string;
   history: ChatUIMessage[];
+  replyId: string;
 }) {
   const messages = await validateUIMessages<ChatUIMessage>({
     messages: history,
     metadataSchema: chatMessageMetadataSchema,
   });
   const settings = chatReplySettings(chat.modelChoice);
-  const modelId = settings.model;
-  // What the provider reports when the call completes. An aborted call
-  // reports nothing.
+  // What the provider reports when the call completes: its usage and the
+  // model that answered, a gateway fallback when the primary failed. A
+  // stopped or failed call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;
+  let modelId = settings.model;
 
   const result = withTraceAttributes(
     { userId, sessionId: chat.id, traceName: "chat-reply" },
@@ -190,8 +201,9 @@ async function streamReply({
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
-        onEnd: ({ usage }) => {
+        onEnd: ({ usage, response }) => {
           reportedUsage = usage;
+          modelId = answeringModel(settings, response.modelId);
         },
       }),
   );
@@ -201,50 +213,53 @@ async function streamReply({
     stream: toUIMessageStream<ToolSet, ChatUIMessage>({
       stream: (await result).stream,
       originalMessages: messages,
-      generateMessageId: randomUUID,
+      generateMessageId: () => replyId,
       messageMetadata: ({ part }) =>
-        part.type === "start" ? { modelId } : undefined,
+        part.type === "start"
+          ? { modelId }
+          : part.type === "finish-step"
+            ? { modelId: answeringModel(settings, part.response.modelId) }
+            : undefined,
       onError: replyErrorMessage,
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
         const stopped = isAborted || isCancelled === true;
-        // A stopped call reports no usage, so its cost is estimated from the
-        // text sent and received. Otherwise stopping would dodge the limit.
+        // A stopped or failed call reports no usage, so its cost is
+        // estimated from the text sent and received. Otherwise stopping
+        // would dodge the limit.
         const usage = reportedUsage
           ? { usage: tokenUsage(reportedUsage) }
-          : stopped
-            ? {
-                usage: estimatedUsage({
-                  input: [
-                    settings.instructions,
-                    ...messages.map(messageText),
-                  ].join("\n"),
-                  output: messageText(responseMessage),
-                }),
-                estimated: true,
-              }
-            : undefined;
-        if (usage) {
-          try {
-            await recordAiUsage(supabase, {
-              task: "chat",
-              modelId,
-              ...usage,
-              chatId: chat.id,
-            });
-          } catch (error) {
-            console.error("Recording the Chat reply's usage failed:", error);
-          }
+          : {
+              usage: estimatedUsage({
+                input: [
+                  settings.instructions,
+                  ...messages.map(({ parts }) => messageText(parts)),
+                ].join("\n"),
+                output: messageText(responseMessage.parts),
+              }),
+              estimated: true,
+            };
+        try {
+          await recordAiUsage(supabase, {
+            task: "chat",
+            modelId,
+            ...usage,
+            chatId: chat.id,
+          });
+        } catch (error) {
+          console.error("Recording the Chat reply's usage failed:", error);
         }
 
         if (outcome.status === "failed") return;
-        if (stopped && !hasText(responseMessage)) return;
+        if (stopped && messageText(responseMessage.parts) === "") return;
         try {
-          await saveMessage(supabase, chat.id, {
+          const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,
+            id: replyId,
             metadata: { modelId, ...(stopped && { stopped }) },
           });
+          if (!kept) return;
         } catch (error) {
           console.error("Saving the Chat reply failed:", error);
           return;
@@ -256,7 +271,7 @@ async function streamReply({
           await titleChat(supabase, {
             chatId: chat.id,
             userId,
-            firstMessage: messageText(messages[0]),
+            firstMessage: messageText(messages[0]?.parts ?? []),
           });
         }
       },
@@ -264,16 +279,6 @@ async function streamReply({
     // Lets `onEnd` run when the client disconnects mid-reply.
     consumeSseStream: consumeStream,
   });
-}
-
-function messageText(message: ChatUIMessage | undefined): string {
-  return (message?.parts ?? [])
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
-}
-
-function hasText(message: ChatUIMessage) {
-  return messageText(message) !== "";
 }
 
 function statusCode(error: unknown): number | undefined {

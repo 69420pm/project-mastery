@@ -109,6 +109,7 @@ export type Database = {
           created_at: string;
           id: string;
           last_message_at: string;
+          latest_reply_id: string | null;
           model_choice: string;
           owner: string;
           title: string | null;
@@ -119,6 +120,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           last_message_at?: string;
+          latest_reply_id?: string | null;
           model_choice?: string;
           owner?: string;
           title?: string | null;
@@ -129,6 +131,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           last_message_at?: string;
+          latest_reply_id?: string | null;
           model_choice?: string;
           owner?: string;
           title?: string | null;

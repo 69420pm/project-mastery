@@ -1,5 +1,10 @@
 import "server-only";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
+import {
+  DEFAULT_MODEL_CHOICE,
+  offeredModelChoice,
+} from "@/features/chat/ai/reply";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import {
   findChat,
@@ -26,8 +31,21 @@ export async function getChat(
   return {
     id: chat.id,
     title: chat.title,
-    modelChoice: chat.modelChoice,
+    modelChoice: offeredModelChoice(chat.modelChoice),
     messages: await loadMessages(supabase, chat.id),
+  };
+}
+
+/**
+ * An unsaved Chat for the new Chat page, on the default model choice. It is
+ * stored with its first message, under this id.
+ */
+export function newChat(): ChatWithMessages {
+  return {
+    id: randomUUID(),
+    title: null,
+    modelChoice: DEFAULT_MODEL_CHOICE,
+    messages: [],
   };
 }
 

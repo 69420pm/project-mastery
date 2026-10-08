@@ -19,7 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
-import { MAX_TITLE_LENGTH } from "@/features/chat/schemas";
+import { MAX_TYPED_TITLE_LENGTH } from "@/features/chat/schemas";
 import { renameChat } from "@/features/chat/server/actions";
 import type { ChatListItem } from "@/features/chat/types";
 
@@ -85,7 +85,7 @@ function RenameChatForm({
           <Input
             id={inputId}
             value={title}
-            maxLength={MAX_TITLE_LENGTH}
+            maxLength={MAX_TYPED_TITLE_LENGTH}
             aria-invalid={error !== null}
             onChange={(event) => {
               setTitle(event.target.value);

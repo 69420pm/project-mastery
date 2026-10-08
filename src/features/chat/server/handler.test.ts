@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
+import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { modelChoices } from "@/lib/ai/models";
+import { AI_TASKS, modelChoices } from "@/lib/ai/models";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
@@ -241,6 +242,37 @@ describe("a message to a stored Chat", () => {
     ]);
     expect(db.tables.chat_messages.at(-1)).toMatchObject({ stopped: false });
   });
+
+  test("a failed regenerate keeps the last reply", async () => {
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const messageId = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      { id: messageId, role: "user", parts: [{ type: "text", text: "Why?" }] },
+      {
+        role: "assistant",
+        parts: [{ type: "text", text: "Because." }],
+        model_id: "google/gemini-3.5-flash-lite",
+      },
+    ]);
+
+    const reply = await send({
+      chatId,
+      message: userMessage("Why?", messageId),
+    });
+
+    expect(reply.error).toBe("The AI could not reply. Please try again.");
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Why?",
+      "Because.",
+    ]);
+  });
 });
 
 describe("the model choice", () => {
@@ -457,7 +489,86 @@ describe("usage", () => {
       }),
     ]);
   });
+
+  test("a reply from a gateway fallback is stored and priced as the fallback model", async () => {
+    const [fallback] = AI_TASKS.chat.fallbacks;
+    useMockModels({ chat: answeredByModel(fallback, "From the fallback.") });
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Hi") });
+
+    expect(storedMessages(chatId).at(-1)).toMatchObject({
+      text: "From the fallback.",
+      modelId: fallback,
+    });
+    expect(db.tables.ai_usage.find(({ task }) => task === "chat")).toEqual(
+      expect.objectContaining({
+        model_id: fallback,
+        // 10 × $0.04 + 20 × $1.28 per million tokens.
+        cost_usd: expect.closeTo(0.000026, 12),
+      }),
+    );
+  });
+
+  test("a failed reply records an estimated cost, as the provider reports none", async () => {
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Hi") });
+
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        task: "chat",
+        model_id: "google/gemini-3.5-flash-lite",
+        output_tokens: 0,
+        estimated: true,
+        chat_id: chatId,
+      }),
+    ]);
+    // The input is the instructions plus the history, far more than "Hi".
+    expect(db.tables.ai_usage[0]!.input_tokens).toBeGreaterThan(100);
+  });
 });
+
+/**
+ * A model that answers `text` and reports `modelId` as the model that
+ * answered, as AI Gateway does when it falls back to another model.
+ */
+function answeredByModel(modelId: string, text: string) {
+  return new MockLanguageModelV4({
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: "stream-start", warnings: [] },
+          { type: "response-metadata", modelId },
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", delta: text },
+          { type: "text-end", id: "text-1" },
+          {
+            type: "finish",
+            finishReason: { unified: "stop", raw: undefined },
+            usage: {
+              inputTokens: {
+                total: 10,
+                noCache: 10,
+                cacheRead: undefined,
+                cacheWrite: undefined,
+              },
+              outputTokens: { total: 20, text: 20, reasoning: undefined },
+            },
+          },
+        ],
+      }),
+    }),
+  });
+}
 
 describe("the Daily limit", () => {
   /** Spend of a Student, today unless `createdAt` says otherwise. */
@@ -657,9 +768,13 @@ describe("the Chat title", () => {
 describe("a stopped reply", () => {
   /**
    * A model that streams `text`, then waits until the call is aborted, like
-   * a reply the Student stops halfway.
+   * a reply the Student stops halfway. Its stream ends once `ended` settles
+   * after the abort, so a test can let other requests run first.
    */
-  function stalledModel(text: string) {
+  function stalledModel(
+    text: string,
+    ended: Promise<void> = Promise.resolve(),
+  ) {
     return new MockLanguageModelV4({
       doStream: async ({ abortSignal }) => ({
         stream: new ReadableStream({
@@ -671,14 +786,36 @@ describe("a stopped reply", () => {
               id: "text-1",
               delta: text,
             });
-            abortSignal?.addEventListener("abort", () =>
-              controller.error(abortSignal.reason),
-            );
+            abortSignal?.addEventListener("abort", () => {
+              void ended.then(() => controller.error(abortSignal.reason));
+            });
           },
         }),
       }),
     });
   }
+
+  /**
+   * A model whose first reply stalls until stopped and ends only on
+   * `endStopped()`, and which answers later calls with `nextText`.
+   */
+  function stoppedThenAnswering(stoppedText: string, nextText: string) {
+    let endStopped!: () => void;
+    const stopped = stalledModel(
+      stoppedText,
+      new Promise((resolve) => (endStopped = resolve)),
+    );
+    const next = mockTextModel(nextText);
+    let calls = 0;
+    const model = new MockLanguageModelV4({
+      doStream: (options) =>
+        calls++ === 0 ? stopped.doStream(options) : next.doStream(options),
+    });
+    return { model, endStopped };
+  }
+
+  /** Lets pending database writes of an ended reply finish. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
   /** Sends a message and disconnects once the reply's first text arrives. */
   async function sendAndStop(body: unknown) {
@@ -743,5 +880,50 @@ describe("a stopped reply", () => {
     // The input is the instructions plus the history, far more than "Hi".
     expect(db.tables.ai_usage[0]!.input_tokens).toBeGreaterThan(100);
     expect(db.tables.ai_usage[0]!.cost_usd).toBeGreaterThan(0);
+  });
+
+  test("that ends after the Student regenerated it is not kept next to the new reply", async () => {
+    const { model, endStopped } = stoppedThenAnswering(
+      "The first step is ",
+      "A fresh reply.",
+    );
+    useMockModels({ chat: model });
+    const messageId = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      { id: messageId, role: "user", parts: [{ type: "text", text: "Why?" }] },
+    ]);
+
+    await sendAndStop({ chatId, message: userMessage("Why?", messageId) });
+    await send({ chatId, message: userMessage("Why?", messageId) });
+    endStopped();
+    // The stopped reply's usage counts, whether or not the reply is kept.
+    await vi.waitFor(() => expect(db.tables.ai_usage).toHaveLength(2));
+    await settle();
+
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Why?",
+      "A fresh reply.",
+    ]);
+  });
+
+  test("that ends after the Student's next message is not stored after it", async () => {
+    const { model, endStopped } = stoppedThenAnswering(
+      "The first step is ",
+      "Next reply.",
+    );
+    useMockModels({ chat: model });
+    const chatId = seedChat(STUDENT);
+
+    await sendAndStop({ chatId, message: userMessage("Why?") });
+    await send({ chatId, message: userMessage("Never mind, how?") });
+    endStopped();
+    await vi.waitFor(() => expect(db.tables.ai_usage).toHaveLength(2));
+    await settle();
+
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Why?",
+      "Never mind, how?",
+      "Next reply.",
+    ]);
   });
 });

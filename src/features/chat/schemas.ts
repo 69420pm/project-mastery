@@ -5,6 +5,9 @@ export const MAX_MESSAGE_LENGTH = 10_000;
 
 export const messageTooLongMessage = `Your message is too long. Keep it under ${MAX_MESSAGE_LENGTH.toLocaleString("en-US")} characters.`;
 
+/** What a Student sees for a Chat that is missing or not theirs. */
+export const chatNotFoundMessage = "This chat does not exist.";
+
 /**
  * Metadata the server attaches to AI messages (see `ChatMessageMetadata`).
  * Student messages have none.
@@ -53,7 +56,7 @@ export const chatRequestSchema = z.object({
 });
 
 /** The longest title a Student can give a Chat, in characters. */
-export const MAX_TITLE_LENGTH = 100;
+export const MAX_TYPED_TITLE_LENGTH = 100;
 
 /** Renaming a Chat from its "…" menu. */
 export const renameChatSchema = z.object({
@@ -63,8 +66,8 @@ export const renameChatSchema = z.object({
     .trim()
     .min(1, "Enter a title.")
     .max(
-      MAX_TITLE_LENGTH,
-      `Keep the title under ${MAX_TITLE_LENGTH} characters.`,
+      MAX_TYPED_TITLE_LENGTH,
+      `Keep the title under ${MAX_TYPED_TITLE_LENGTH} characters.`,
     ),
 });
 
@@ -76,8 +79,5 @@ export const deleteChatSchema = chatIdSchema.extend({
   /** The Student is on the Chat's page, so they land on a new Chat. */
   leave: z.boolean().optional(),
 });
-
-/** The model choice of a new Chat, as in the database's `chats` default. */
-export const DEFAULT_MODEL_CHOICE = "balanced";
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

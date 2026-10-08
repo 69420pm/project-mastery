@@ -45,8 +45,9 @@ export function costUsd(modelId: string, usage: TokenUsage): number {
 const CHARACTERS_PER_TOKEN = 4;
 
 /**
- * Estimated token counts of an aborted call, for which providers report no
- * usage: about four characters per token of the text sent and received.
+ * Estimated token counts of an aborted or failed call, for which providers
+ * report no usage: about four characters per token of the text sent and
+ * received.
  */
 export function estimatedUsage(text: {
   input: string;
@@ -59,23 +60,4 @@ export function estimatedUsage(text: {
     cachedInputTokens: 0,
     outputTokens: tokens(text.output),
   };
-}
-
-/** Start of the current Daily limit window: 00:00 UTC of `now`'s day. */
-export function utcDayStart(now: Date): Date {
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-}
-
-/** When the Daily limit resets: the next 00:00 UTC after `now`. */
-export function dailyLimitReset(now: Date): Date {
-  const start = utcDayStart(now);
-  return new Date(
-    Date.UTC(
-      start.getUTCFullYear(),
-      start.getUTCMonth(),
-      start.getUTCDate() + 1,
-    ),
-  );
 }

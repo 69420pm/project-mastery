@@ -2,7 +2,7 @@
 const MAX_LABEL_LENGTH = 40;
 
 /** The longest generated title, before the ellipsis. */
-const MAX_TITLE_LENGTH = 60;
+const MAX_GENERATED_TITLE_LENGTH = 60;
 
 /** `text` on one line, cut at a word to at most `max` characters plus "…". */
 function shortenAtWord(text: string, max: number): string {
@@ -40,5 +40,7 @@ export function generatedTitle(text: string): string | null {
     .split("\n")
     .map((line) => line.replace(/^[\s#*_"'“”‘’`]+|[\s*_"'“”‘’`.]+$/g, ""))
     .find((line) => line !== "");
-  return firstLine ? shortenAtWord(firstLine, MAX_TITLE_LENGTH) : null;
+  return firstLine
+    ? shortenAtWord(firstLine, MAX_GENERATED_TITLE_LENGTH)
+    : null;
 }

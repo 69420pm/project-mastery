@@ -3,4 +3,4 @@ import "server-only";
 
 export { chatModelOptions, chatReplySettings } from "./ai/reply";
 export { handleChatRequest } from "./server/handler";
-export { getChat, getChatList } from "./server/queries";
+export { getChat, getChatList, newChat } from "./server/queries";

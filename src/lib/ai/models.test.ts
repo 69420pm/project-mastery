@@ -9,7 +9,14 @@ import {
   test,
   vi,
 } from "vitest";
-import { AI_TASKS, aiTask, modelChoices, modelIdFor } from "./models";
+import {
+  AI_TASKS,
+  aiTask,
+  answeringModel,
+  defaultModelChoice,
+  modelChoices,
+  modelIdFor,
+} from "./models";
 import { mockEmbeddingModel, mockTextModel, useMockModels } from "./testing";
 
 vi.mock("server-only", () => ({}));
@@ -148,6 +155,7 @@ describe("model choices", () => {
       },
     ]);
     expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+    expect(defaultModelChoice("chat")).toBe("balanced");
   });
 
   test("resolves a choice by its key", () => {
@@ -325,5 +333,31 @@ describe("aiTask", () => {
     });
 
     expect(text).toBe("Try it yourself first.");
+  });
+});
+
+describe("answeringModel", () => {
+  const settings = {
+    model: "google/gemini-3.5-flash-lite",
+    providerOptions: { gateway: { models: ["xiaomi/mimo-v2.6-flash"] } },
+  };
+
+  test("names the gateway fallback that answered", () => {
+    expect(answeringModel(settings, "xiaomi/mimo-v2.6-flash")).toBe(
+      "xiaomi/mimo-v2.6-flash",
+    );
+  });
+
+  test("matches an id reported without its provider prefix", () => {
+    expect(answeringModel(settings, "gemini-3.5-flash-lite")).toBe(
+      "google/gemini-3.5-flash-lite",
+    );
+  });
+
+  test("falls back to the requested model for an unknown or missing id", () => {
+    expect(answeringModel(settings, "some-other-model")).toBe(
+      "google/gemini-3.5-flash-lite",
+    );
+    expect(answeringModel({ model: "google/x" }, undefined)).toBe("google/x");
   });
 });

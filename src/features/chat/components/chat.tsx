@@ -41,14 +41,18 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
-  DEFAULT_MODEL_CHOICE,
   MAX_MESSAGE_LENGTH,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
-import type { ChatUIMessage, ModelOption } from "@/features/chat/types";
+import type {
+  ChatUIMessage,
+  ChatWithMessages,
+  ModelOption,
+} from "@/features/chat/types";
 import {
   DailyLimitNotice,
   refreshDailyLimitStatus,
@@ -56,26 +60,18 @@ import {
 } from "@/features/usage";
 
 type ChatProps = {
-  chatId: string;
-  /** The stored messages, empty for a new Chat. */
-  initialMessages: ChatUIMessage[];
-  /** True on `/chat`: the first message creates the Chat with `chatId`. */
+  /**
+   * The stored Chat (`getChat`), or an unsaved one without messages
+   * (`newChat`). Without a title, it gets one after a reply.
+   */
+  chat: ChatWithMessages;
+  /** True on `/chat`: the first message creates the Chat with its id. */
   isNew: boolean;
-  /** Whether the Chat has a title. Without one, it gets one after a reply. */
-  hasTitle?: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
-  /** The Chat's last model choice; a new Chat starts on the default. */
-  initialModelChoice?: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
-
-function messageText(message: ChatUIMessage) {
-  return message.parts
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
-}
 
 /** Copies a message's text, confirming it briefly with a check mark. */
 function CopyAction({ text }: { text: string }) {
@@ -106,26 +102,18 @@ function CopyAction({ text }: { text: string }) {
  * Only the new message is sent; the server loads the stored history.
  */
 export function Chat({
-  chatId,
-  initialMessages,
+  chat,
   isNew,
-  hasTitle = false,
   modelOptions,
-  initialModelChoice = DEFAULT_MODEL_CHOICE,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
+  const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
-  // A stored choice that is no longer offered shows the default, as the
-  // server then answers with it.
-  const [modelChoice, setModelChoice] = useState(() =>
-    modelOptions.some(({ key }) => key === initialModelChoice)
-      ? initialModelChoice
-      : DEFAULT_MODEL_CHOICE,
-  );
+  const [modelChoice, setModelChoice] = useState(chat.modelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
   const { noteChatActivity, relabelChat } = useChatList();
-  const titled = useRef(hasTitle);
+  const titled = useRef(chat.title !== null);
   const {
     messages,
     sendMessage,
@@ -163,7 +151,7 @@ export function Chat({
       }
     },
     id: chatId,
-    messages: initialMessages,
+    messages: chat.messages,
     // The database stores message ids as uuids.
     generateId: () => crypto.randomUUID(),
     transport: new DefaultChatTransport({
@@ -185,7 +173,7 @@ export function Chat({
   // address without remounting, so reloading or bookmarking it works, and the
   // Chat moves to the top of the sidebar.
   const path = `/chat/${chatId}`;
-  const firstMessage = messages[0] ? messageText(messages[0]) : null;
+  const firstMessage = messages[0] ? messageText(messages[0].parts) : null;
   useEffect(() => {
     if (status !== "streaming") return;
     if (isNew && window.location.pathname !== path) {
@@ -232,11 +220,11 @@ export function Chat({
                   <MessageContent data-testid="message-text">
                     {message.role === "assistant" ? (
                       <Markdown streaming={status === "streaming" && isLast}>
-                        {messageText(message)}
+                        {messageText(message.parts)}
                       </Markdown>
                     ) : (
                       <p className="whitespace-pre-wrap">
-                        {messageText(message)}
+                        {messageText(message.parts)}
                       </p>
                     )}
                   </MessageContent>
@@ -251,7 +239,7 @@ export function Chat({
                           Stopped
                         </span>
                       )}
-                      <CopyAction text={messageText(message)} />
+                      <CopyAction text={messageText(message.parts)} />
                       {message.role === "assistant" &&
                         isLast &&
                         !limitReached && (

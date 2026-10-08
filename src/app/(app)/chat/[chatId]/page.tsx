@@ -23,12 +23,9 @@ export default async function ChatPage({
   return (
     <Chat
       key={chat.id}
-      chatId={chat.id}
-      initialMessages={chat.messages}
-      hasTitle={chat.title !== null}
+      chat={chat}
       isNew={false}
       modelOptions={chatModelOptions()}
-      initialModelChoice={chat.modelChoice}
       dailyLimit={dailyLimit}
     />
   );

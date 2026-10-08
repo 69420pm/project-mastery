@@ -2,12 +2,10 @@ import "server-only";
 import { generateText } from "ai";
 import { chatTitleSettings } from "@/features/chat/ai/title";
 import { generatedTitle } from "@/features/chat/domain/chat-label";
-import {
-  setGeneratedTitle,
-  type Supabase,
-} from "@/features/chat/server/chat-store";
+import { setGeneratedTitle } from "@/features/chat/server/chat-store";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
+import type { Supabase } from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
 
 /**

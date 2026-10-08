@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(23);
 
 -- Two Students. The signup trigger creates their profiles.
 insert into auth.users (id, email)
@@ -111,6 +111,11 @@ select throws_ok(
   '42501',
   null,
   'a Student cannot hand a Chat to someone else'
+);
+
+select lives_ok(
+  $$update public.chats set model_choice = 'fast', latest_reply_id = gen_random_uuid() where id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  'a Student can change their Chat''s model choice and latest reply'
 );
 
 select lives_ok(

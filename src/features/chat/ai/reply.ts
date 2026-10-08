@@ -1,5 +1,10 @@
 import { modelName } from "@/lib/ai/model-name";
-import { aiTask, modelChoices } from "@/lib/ai/models";
+import {
+  aiTask,
+  defaultModelChoice,
+  modelChoices,
+  type ModelChoiceKey,
+} from "@/lib/ai/models";
 import type { ModelOption } from "@/features/chat/types";
 import { CHAT_INSTRUCTIONS } from "./prompt";
 
@@ -13,6 +18,26 @@ import { CHAT_INSTRUCTIONS } from "./prompt";
  */
 export function chatReplySettings(modelChoice?: string) {
   return { ...aiTask("chat", modelChoice), instructions: CHAT_INSTRUCTIONS };
+}
+
+/**
+ * The model choice of a new Chat: the `chat` task's default. The database's
+ * `chats.model_choice` default repeats it for rows inserted without one, but
+ * the handler always sets the choice.
+ */
+export const DEFAULT_MODEL_CHOICE = defaultModelChoice("chat");
+
+/**
+ * The choice a Chat answers with: `key` while it is offered, otherwise the
+ * default, as for a stored choice that Google mode does not offer.
+ */
+export function offeredModelChoice(
+  key: string | undefined,
+): ModelChoiceKey<"chat"> {
+  const offered = modelChoices("chat").find((choice) => choice.key === key);
+  return (
+    (offered?.key as ModelChoiceKey<"chat"> | undefined) ?? DEFAULT_MODEL_CHOICE
+  );
 }
 
 /** The model choices the picker offers, in display order. */

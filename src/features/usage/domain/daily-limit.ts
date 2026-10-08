@@ -16,3 +16,22 @@ export function dailyLimitLevel(
   if (spentUsd >= limitUsd * DAILY_LIMIT_WARNING_SHARE) return "warning";
   return "ok";
 }
+
+/** Start of the current Daily limit window: 00:00 UTC of `now`'s day. */
+export function utcDayStart(now: Date): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
+/** When the Daily limit resets: the next 00:00 UTC after `now`. */
+export function dailyLimitReset(now: Date): Date {
+  const start = utcDayStart(now);
+  return new Date(
+    Date.UTC(
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate() + 1,
+    ),
+  );
+}
