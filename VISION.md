@@ -15,7 +15,7 @@ This is what takes the fun out of studying: hours of effort with little visible 
 ## How it works
 
 1. **Upload**: The student uploads course materials: slides, scripts, exercises, old exams.
-2. **Brief**: They tell the tutor about the exam: date, format, what the lecturer emphasizes, what to skip, their goals and their current level.
+2. **Brief**: They tell the AI about the exam: date, format, what the lecturer emphasizes, what to skip, their goals and their current level.
 3. **Plan**: The AI analyzes the materials and old exams, works out what matters most, and builds a learning plan that fits the student's time and preferences.
 4. **Learn**: The AI tutors the student through the plan, session by session, and keeps adapting it to what the student has mastered, struggles with or wants.
 5. **Ready**: Before the exam, the student practices on realistic mock exams and knows honestly how ready they are, topic by topic.
@@ -26,8 +26,8 @@ This is what takes the fun out of studying: hours of effort with little visible 
 2. **Learning science by default.** Spaced retrieval, interleaving, worked examples that fade into independent practice, feedback on the reasoning and not just the final answer. The student never needs to know these terms; the app simply works this way.
 3. **Long-term mastery wins; the exam date sets the mode.** With weeks to go, the plan builds durable knowledge, and the app supplies the consistency that is hard to keep up alone. With days to go, it switches to triage: highest exam relevance × weakest mastery first.
 4. **Grounded in the course.** The uploaded materials are the primary source, cited down to the slide or page. Questions that go deeper or beyond them are welcome and get answered, clearly marked as going beyond the course.
-5. **A tutor, not a supervisor.** The tutor recommends what to do next. The student stays in control and can skip, reorder or redirect, and the plan adapts strongly to them.
-6. **Honest, not paternalistic.** Solutions are not locked away. The tutor encourages the student's own attempt first and helps step by step. If the student takes shortcuts, the app makes it visible that no learning happened.
+5. **A tutor, not a supervisor.** The AI recommends what to do next. The student stays in control and can skip, reorder or redirect, and the plan adapts strongly to them.
+6. **Honest, not paternalistic.** Solutions are not locked away. The AI encourages the student's own attempt first and helps step by step. If the student takes shortcuts, the app makes it visible that no learning happened.
 7. **The reward is understanding.** Learning is fun when it works. Motivation comes from the moment a confusing topic becomes clear, from knowledge that stays, and from progress made visible. Points and streaks for their own sake are not the goal.
 8. **Zero bureaucracy for the student.** Everything that isn't learning is the AI's job: finding content, analyzing old exams, planning, scheduling reviews.
 
