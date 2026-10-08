@@ -82,21 +82,3 @@ export type AiEnv = z.infer<typeof schema>;
 export function getAiEnv(): AiEnv {
   return parseEnv(schema, process.env);
 }
-
-const dollars = "expected an amount in US dollars, like 0.50";
-
-const dailyLimitSchema = z.object({
-  // The Daily limit per Student in US dollars: their AI spend since 00:00
-  // UTC, priced from the price table (ADR 0006). Unset means no limit.
-  AI_DAILY_LIMIT_USD: optional(
-    z.coerce.number({ error: dollars }).nonnegative(dollars),
-  ),
-});
-
-/**
- * The Daily limit per Student in US dollars, or undefined for no limit.
- * Separate from `getAiEnv`, so reading it needs no AI credentials.
- */
-export function getDailyLimitUsd(): number | undefined {
-  return parseEnv(dailyLimitSchema, process.env).AI_DAILY_LIMIT_USD;
-}

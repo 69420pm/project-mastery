@@ -1,12 +1,15 @@
 import "server-only";
-import { dailyLimitLevel } from "@/features/usage/domain/daily-limit";
+import {
+  dailyLimitLevel,
+  dailyLimitReset,
+  utcDayStart,
+} from "@/features/usage/domain/daily-limit";
+import { getDailyLimitUsd } from "@/features/usage/server/daily-limit-env";
 import {
   spentSinceUsd,
   type Supabase,
 } from "@/features/usage/server/usage-store";
 import type { DailyLimitStatus } from "@/features/usage/types";
-import { dailyLimitReset, utcDayStart } from "@/lib/ai/cost";
-import { getDailyLimitUsd } from "@/lib/ai/env";
 import { createClient } from "@/lib/supabase/server";
 
 /** The refusal a Student sees when an AI call is refused at the Daily limit. */
@@ -14,7 +17,7 @@ export const dailyLimitReachedMessage =
   "You've reached today's daily limit. The AI is available again after it resets.";
 
 /**
- * The signed-in Student's Daily limit status:their AI spend since 00:00 UTC
+ * The signed-in Student's Daily limit status: their AI spend since 00:00 UTC
  * against `AI_DAILY_LIMIT_USD`. Run it before every AI call and refuse the
  * call when the level is `reached`; a call that has started always finishes.
  */
