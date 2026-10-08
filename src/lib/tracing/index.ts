@@ -4,7 +4,7 @@ import { trace } from "@opentelemetry/api";
 /** Trace-level attributes that Langfuse groups and filters by. */
 export type TraceAttributes = {
   userId?: string;
-  /** Groups traces into a session, e.g. one tutor chat. */
+  /** Groups traces into a session, e.g. one Chat. */
   sessionId?: string;
   traceName?: string;
   tags?: string[];

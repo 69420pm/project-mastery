@@ -166,5 +166,5 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 ## Open questions
 
 - Durable workflow engine: Vercel Workflow (set up) or Inngest ([ADR 0009](adr/0009-durable-background-jobs.md)).
-- Models for ingestion, tutoring and embeddings, chosen by testing on real course materials.
+- Models for ingestion, the Chat and embeddings, chosen by testing on real course materials.
 - Design direction: typography, color and motion.

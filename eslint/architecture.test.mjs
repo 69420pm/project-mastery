@@ -55,13 +55,13 @@ const cases = {
     },
     {
       name: "a feature imports another feature through its public API",
-      file: "src/features/tutor/components/example.tsx",
+      file: "src/features/chat/components/example.tsx",
       code: 'export { LoginForms } from "@/features/auth";',
       expected: [],
     },
     {
       name: "a feature cannot reach into another feature's internals",
-      file: "src/features/tutor/domain/example.ts",
+      file: "src/features/chat/domain/example.ts",
       code: 'export { signInSchema } from "@/features/auth/schemas";',
       expected: ["boundaries/dependencies"],
     },
@@ -159,13 +159,13 @@ const cases = {
     },
     {
       name: "model providers stay in lib/ai",
-      file: "src/features/tutor/ai/example.ts",
+      file: "src/features/chat/ai/example.ts",
       code: 'export { google } from "@ai-sdk/google";',
       expected: ["boundaries/dependencies"],
     },
     {
       name: "the AI SDK React hooks are allowed in features",
-      file: "src/features/tutor/components/example.tsx",
+      file: "src/features/chat/components/example.tsx",
       code: 'export { useChat } from "@ai-sdk/react";',
       expected: [],
     },

@@ -32,7 +32,8 @@ const schema = z
     VERCEL_OIDC_TOKEN: optional(z.string()),
     VERCEL: z.string().optional(),
     // Optional per-task model overrides, see src/lib/ai/models.ts.
-    AI_MODEL_TUTOR: modelId,
+    AI_MODEL_CHAT: modelId,
+    AI_MODEL_TITLE: modelId,
     AI_MODEL_INGEST: modelId,
     AI_MODEL_EMBED: modelId,
     AI_MODEL_JUDGE: modelId,
