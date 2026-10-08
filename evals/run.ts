@@ -30,14 +30,17 @@ const MAX_CONCURRENCY = 1;
 
 type ItemResult = { evaluations: Evaluation[] };
 
-/** Share of items whose gate scores all passed. */
-function passRate(gates: string[], items: ItemResult[]) {
+/**
+ * Share of the fixture's items whose gate scores all passed. Items without a
+ * result, such as those Langfuse skips when their task fails, count as failed.
+ */
+function passRate(gates: string[], items: ItemResult[], total: number) {
   const passed = items.filter((item) =>
     gates.every((gate) =>
       item.evaluations.some((e) => e.name === gate && e.value === 1),
     ),
   ).length;
-  return items.length === 0 ? 0 : passed / items.length;
+  return total === 0 ? 0 : passed / total;
 }
 
 async function runWithLangfuse<Input, Expected>(
@@ -68,13 +71,13 @@ async function runWithLangfuse<Input, Expected>(
     runEvaluators: [
       async ({ itemResults }) => ({
         name: "pass_rate",
-        value: passRate(definition.gates, itemResults),
+        value: passRate(definition.gates, itemResults, fixture.items.length),
       }),
     ],
     maxConcurrency: MAX_CONCURRENCY,
   });
   console.info(await result.format({ includeItemResults: true }));
-  return passRate(definition.gates, result.itemResults);
+  return passRate(definition.gates, result.itemResults, fixture.items.length);
 }
 
 async function runLocally<Input, Expected>(
@@ -98,7 +101,7 @@ async function runLocally<Input, Expected>(
       );
     }
   }
-  return passRate(definition.gates, results);
+  return passRate(definition.gates, results, fixture.items.length);
 }
 
 async function main() {
