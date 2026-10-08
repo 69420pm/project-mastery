@@ -158,7 +158,7 @@ describe("a first message", () => {
       {
         role: "assistant",
         text: "Show me your attempt first.",
-        modelId: "google/gemini-2.5-flash",
+        modelId: "google/gemini-3.5-flash-lite",
       },
     ]);
   });
@@ -176,7 +176,7 @@ describe("a message to a stored Chat", () => {
       {
         role: "assistant",
         parts: [{ type: "text", text: "What do you think it is?" }],
-        model_id: "google/gemini-2.5-flash",
+        model_id: "google/gemini-3.5-flash-lite",
       },
     ]);
 
