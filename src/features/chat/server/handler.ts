@@ -36,7 +36,7 @@ import {
   dailyLimitReachedMessage,
   recordAiUsage,
 } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
+import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { modelChoices } from "@/lib/ai/models";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -206,12 +206,29 @@ async function streamReply({
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
-        if (reportedUsage) {
+        const stopped = isAborted || isCancelled === true;
+        // A stopped call reports no usage, so its cost is estimated from the
+        // text sent and received. Otherwise stopping would dodge the limit.
+        const usage = reportedUsage
+          ? { usage: tokenUsage(reportedUsage) }
+          : stopped
+            ? {
+                usage: estimatedUsage({
+                  input: [
+                    settings.instructions,
+                    ...messages.map(messageText),
+                  ].join("\n"),
+                  output: messageText(responseMessage),
+                }),
+                estimated: true,
+              }
+            : undefined;
+        if (usage) {
           try {
             await recordAiUsage(supabase, {
               task: "chat",
               modelId,
-              usage: tokenUsage(reportedUsage),
+              ...usage,
               chatId: chat.id,
             });
           } catch (error) {
@@ -220,7 +237,6 @@ async function streamReply({
         }
 
         if (outcome.status === "failed") return;
-        const stopped = isAborted || isCancelled === true;
         if (stopped && !hasText(responseMessage)) return;
         try {
           await saveMessage(supabase, chat.id, {
@@ -237,8 +253,14 @@ async function streamReply({
   });
 }
 
+function messageText(message: ChatUIMessage) {
+  return message.parts
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+}
+
 function hasText(message: ChatUIMessage) {
-  return message.parts.some((part) => part.type === "text" && part.text !== "");
+  return messageText(message) !== "";
 }
 
 function statusCode(error: unknown): number | undefined {
