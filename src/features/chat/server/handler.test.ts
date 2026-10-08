@@ -478,6 +478,32 @@ describe("usage", () => {
       }),
     );
   });
+
+  test("a failed reply records an estimated cost, as the provider reports none", async () => {
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const chatId = randomUUID();
+
+    await send({ chatId, newChat: true, message: userMessage("Hi") });
+
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        task: "chat",
+        model_id: "google/gemini-3.5-flash-lite",
+        output_tokens: 0,
+        estimated: true,
+        chat_id: chatId,
+      }),
+    ]);
+    // The input is the instructions plus the history, far more than "Hi".
+    expect(db.tables.ai_usage[0]!.input_tokens).toBeGreaterThan(100);
+  });
 });
 
 /**

@@ -177,8 +177,8 @@ async function streamReply({
   });
   const settings = chatReplySettings(chat.modelChoice);
   // What the provider reports when the call completes: its usage and the
-  // model that answered, a gateway fallback when the primary failed. An
-  // aborted call reports neither.
+  // model that answered, a gateway fallback when the primary failed. A
+  // stopped or failed call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;
   let modelId = settings.model;
 
@@ -215,33 +215,30 @@ async function streamReply({
       // once the reply has finished.
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
         const stopped = isAborted || isCancelled === true;
-        // A stopped call reports no usage, so its cost is estimated from the
-        // text sent and received. Otherwise stopping would dodge the limit.
+        // A stopped or failed call reports no usage, so its cost is
+        // estimated from the text sent and received. Otherwise stopping
+        // would dodge the limit.
         const usage = reportedUsage
           ? { usage: tokenUsage(reportedUsage) }
-          : stopped
-            ? {
-                usage: estimatedUsage({
-                  input: [
-                    settings.instructions,
-                    ...messages.map(messageText),
-                  ].join("\n"),
-                  output: messageText(responseMessage),
-                }),
-                estimated: true,
-              }
-            : undefined;
-        if (usage) {
-          try {
-            await recordAiUsage(supabase, {
-              task: "chat",
-              modelId,
-              ...usage,
-              chatId: chat.id,
-            });
-          } catch (error) {
-            console.error("Recording the Chat reply's usage failed:", error);
-          }
+          : {
+              usage: estimatedUsage({
+                input: [
+                  settings.instructions,
+                  ...messages.map(messageText),
+                ].join("\n"),
+                output: messageText(responseMessage),
+              }),
+              estimated: true,
+            };
+        try {
+          await recordAiUsage(supabase, {
+            task: "chat",
+            modelId,
+            ...usage,
+            chatId: chat.id,
+          });
+        } catch (error) {
+          console.error("Recording the Chat reply's usage failed:", error);
         }
 
         if (outcome.status === "failed") return;

@@ -45,8 +45,9 @@ export function costUsd(modelId: string, usage: TokenUsage): number {
 const CHARACTERS_PER_TOKEN = 4;
 
 /**
- * Estimated token counts of an aborted call, for which providers report no
- * usage: about four characters per token of the text sent and received.
+ * Estimated token counts of an aborted or failed call, for which providers
+ * report no usage: about four characters per token of the text sent and
+ * received.
  */
 export function estimatedUsage(text: {
   input: string;
