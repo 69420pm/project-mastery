@@ -3,6 +3,7 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import {
   ChatListContext,
+  withChatLabel,
   withChatOnTop,
 } from "@/features/chat/hooks/use-chat-list";
 import type { ChatListItem } from "@/features/chat/types";
@@ -30,9 +31,16 @@ export function ChatListProvider({ chats, children }: ChatListProviderProps) {
     });
   }, []);
 
+  const relabelChat = useCallback((chat: ChatListItem) => {
+    setList((current) => ({
+      ...current,
+      shown: withChatLabel(current.shown, chat),
+    }));
+  }, []);
+
   const value = useMemo(
-    () => ({ chats: list.shown, noteChatActivity }),
-    [list.shown, noteChatActivity],
+    () => ({ chats: list.shown, noteChatActivity, relabelChat }),
+    [list.shown, noteChatActivity, relabelChat],
   );
 
   return <ChatListContext value={value}>{children}</ChatListContext>;

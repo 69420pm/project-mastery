@@ -1,17 +1,7 @@
 import type { Page } from "@playwright/test";
-import { expect, seedChat, test } from "./fixtures";
+import { expect, openSidebar, seedChat, test } from "./fixtures";
 
 const HOUR = 60 * 60 * 1000;
-
-/**
- * The sidebar's Chat list. On a phone the sidebar is a slide-over that opens
- * from the menu button first.
- */
-async function openSidebar(page: Page) {
-  const toggle = page.getByRole("button", { name: "Toggle Sidebar" });
-  if (test.info().project.name === "mobile") await toggle.click();
-  return page.getByRole("navigation", { name: "Chats" });
-}
 
 function messageInput(page: Page) {
   return page.getByRole("textbox", { name: "Message" });
@@ -76,7 +66,7 @@ test("New chat opens an empty Chat", async ({ page, student }) => {
   await expect(messageInput(page)).toBeVisible();
 });
 
-test("a new Chat appears in the list after its first message", async ({
+test("a new Chat appears in the list with its first message, then gets a title after the reply", async ({
   page,
   student,
 }) => {
@@ -89,17 +79,33 @@ test("a new Chat appears in the list after its first message", async ({
   await messageInput(page).fill("What is the derivative of x^3?");
   await messageInput(page).press("Enter");
   await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
-  // Let the reply end, so it is saved before the Student is deleted.
-  await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
+  const chatId = page.url().split("/").at(-1);
 
+  // The mock reply takes seconds to stream, so the list still shows the
+  // first message.
   const chats = await openSidebar(page);
   await expect(chats.getByRole("link")).toHaveText([
     "What is the derivative of x^3?",
     "An earlier Chat",
   ]);
-  await expect(
-    chats.getByRole("link", { name: "What is the derivative of x^3?" }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(chats.getByRole("link").first()).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+
+  // The mock AI's title quotes the message, shortened.
+  const title = /^Mock reply to "What is the derivative of x\^3\?"/;
+  await expect(chats.getByRole("link").first()).toHaveText(title);
+  await expect(chats.getByRole("link").first()).toHaveAttribute(
+    "href",
+    `/chat/${chatId}`,
+  );
+
+  await page.reload();
+  await expect((await openSidebar(page)).getByRole("link")).toHaveText([
+    title,
+    "An earlier Chat",
+  ]);
 });
 
 test("the sidebar links to the dashboard and holds the account menu", async ({
