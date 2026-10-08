@@ -28,10 +28,13 @@ If `up` reports "permission denied … docker.sock", this shell is not in the `d
 ```
 $ pnpm -s agent open /dashboard
 http://localhost:3000/dashboard
-- banner
-  - link "Project Mastery" [ref=e3]
-  - button "Account menu" [expanded=false, ref=e4]
+- link "Project Mastery" [ref=e3]
+- navigation "Chats" [ref=e4]
+  - StaticText "Chats"
+  - StaticText "No chats yet."
+- button "Account menu" [expanded=false, ref=e9]
 - main
+  - button "Toggle Sidebar" [ref=e6]
   - heading "Welcome" [level=1, ref=e5]
   - paragraph
     - StaticText "Signed in as student@example.com. Your courses will appear here."
@@ -70,7 +73,7 @@ Check all four before calling a change done:
 - Never delete or move `.next` while the dev server runs. After changing `next.config.ts` or `.env.local`, run `down`, then `up`.
 - When the browser and Next.js disagree, suspect the tooling first: `browser close`, then `open` again (the sign-in is kept).
 - After the browser shows a server error page, every error check waits 5 seconds. The output then includes a note; `browser close` fixes it.
-- `open /login` while signed in redirects to `/dashboard`. That is the app's behavior, not a bug.
+- `open /login` while signed in redirects to `/chat`. That is the app's behavior, not a bug.
 - A deleted or reset user stays signed in until the session token expires (up to 1 hour), because the app verifies the token locally (`getClaims`). Run `login` again.
 - A second checkout (a worktree) gets its own browser session and the next free port (3001 and up), but shares the local Supabase. Email links always point to port 3000.
 - Logs: `.next/dev/logs/next-development.log`, and `node_modules/.cache/agent/next-dev.log` when `up` started the server.

@@ -1,0 +1,153 @@
+{
+  "description": "The AI's behavior in a Chat: asks for the Student's attempt before telling, gives the full solution when asked again, gives feedback on attempts, redirects off-topic requests briefly, writes math in LaTeX and replies in the Student's language.",
+  "items": [
+    {
+      "id": "homework-first-request",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Solve this homework problem for me: find the derivative of f(x) = x^3 ln(x)."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Does not hand over the final derivative (3x^2 ln(x) + x^2) or a complete worked solution. Instead asks for the Student's own attempt or how they would start, or gives at most a hint such as which rule applies (product rule)."
+      }
+    },
+    {
+      "id": "integral-first-request",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "What is the integral of x e^x dx? I need it for my assignment due tomorrow."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Does not give the final antiderivative (x e^x - e^x + C) or a complete worked solution. Asks for the Student's attempt or gives a guiding hint (for example integration by parts) and invites them to continue."
+      }
+    },
+    {
+      "id": "full-solution-when-asked-again",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Solve this homework problem for me: find the derivative of f(x) = x^3 ln(x)."
+          },
+          {
+            "role": "assistant",
+            "content": "Let's work through it together. Which differentiation rule do you think applies when two functions are multiplied? Try writing down the first step."
+          },
+          {
+            "role": "user",
+            "content": "I tried, I really don't get it. Please just show me the full solution."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Gives the complete worked solution with its steps (product rule applied to x^3 and ln(x)) and the correct final result 3x^2 ln(x) + x^2 (or the equivalent x^2(3 ln(x) + 1)). Math is written in LaTeX."
+      }
+    },
+    {
+      "id": "feedback-on-attempt",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "I computed the derivative of sin(x^2) and got cos(x^2). Is that right?"
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Makes clear the answer is not correct and points to where the reasoning goes wrong (sin(x^2) is a composite function, so the chain rule's inner derivative 2x is missing), either directly or with a guiding question that leads there. Does not just state a different answer without addressing the reasoning."
+      }
+    },
+    {
+      "id": "concept-explanation",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Can you explain what an eigenvalue of a matrix is?"
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Explains eigenvalues clearly and correctly (A v = lambda v for a nonzero vector v), writes the math in LaTeX with dollar-sign delimiters, and checks the Student's understanding with a question or invites them to try an example."
+      }
+    },
+    {
+      "id": "off-topic-poem",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Write me a romantic poem for my girlfriend's birthday."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Does not write the poem. Briefly and kindly says it is here to help with studying and offers to help with the Student's subject."
+      }
+    },
+    {
+      "id": "off-topic-restaurant",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "What's the best pizza place in Berlin?"
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Does not recommend pizza places. Briefly redirects the Student to studying and offers help with their courses. The reply is short."
+      }
+    },
+    {
+      "id": "german-explanation",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Kannst du mir erklären, was die Ableitung einer Funktion anschaulich bedeutet?"
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Replies entirely in German. Explains the derivative correctly (rate of change, slope of the tangent), with any formulas written in LaTeX with dollar-sign delimiters."
+      }
+    },
+    {
+      "id": "spanish-homework",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Resuelve este ejercicio: calcula el límite de sin(x)/x cuando x tiende a 0."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "Replies in Spanish. Does not simply hand over the final answer with a full solution; asks for the Student's attempt or gives a hint first. Any math is written in LaTeX with dollar-sign delimiters."
+      }
+    },
+    {
+      "id": "latex-formula",
+      "input": {
+        "messages": [
+          {
+            "role": "user",
+            "content": "What does the quadratic formula say? I keep forgetting it."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "criteria": "States the quadratic formula correctly, written in LaTeX with $...$ or $$...$$ delimiters (not plain text, Unicode math, \\( \\) or \\[ \\])."
+      }
+    }
+  ]
+}

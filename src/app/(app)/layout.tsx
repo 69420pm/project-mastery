@@ -1,28 +1,83 @@
+import { LayoutDashboardIcon } from "lucide-react";
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { SidebarLink } from "@/components/sidebar-link";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { UserMenu } from "@/features/auth";
+import { ChatList, ChatListProvider, NewChatLink } from "@/features/chat";
+import { getChatList } from "@/features/chat/server";
 import { getUser } from "@/lib/auth/user";
+import { isSidebarOpen } from "@/lib/sidebar-state";
 
 /**
- * Shell for signed-in pages. It only reads the user for the menu: each page
- * calls `requireUser` with its own path, so signing in returns there. Layouts
- * also do not re-render on client navigation, so they cannot guard pages.
+ * Shell for signed-in pages: a collapsible sidebar with New chat, the
+ * Student's Chats, the dashboard and the account menu, a slide-over on a
+ * phone. It only reads the user: each page calls `requireUser` with its own
+ * path, so signing in returns there. Layouts also do not re-render on client
+ * navigation, so they cannot guard pages.
  */
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const user = await getUser();
+  const [user, chats, cookieStore] = await Promise.all([
+    getUser(),
+    getChatList(),
+    cookies(),
+  ]);
+  const sidebarOpen = isSidebarOpen(cookieStore);
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-6">
-          <Link href="/dashboard" className="font-semibold tracking-tight">
-            Project Mastery
-          </Link>
-          {user && <UserMenu email={user.email} />}
-        </div>
-      </header>
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-10">
-        {children}
-      </div>
-    </div>
+    <ChatListProvider chats={chats}>
+      <SidebarProvider defaultOpen={sidebarOpen}>
+        <Sidebar>
+          <SidebarHeader>
+            <Link
+              href="/chat"
+              className="px-2 py-1.5 font-semibold tracking-tight"
+            >
+              Project Mastery
+            </Link>
+            <NewChatLink />
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarLink href="/dashboard">
+                    <LayoutDashboardIcon />
+                    <span>Dashboard</span>
+                  </SidebarLink>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+            <ChatList />
+          </SidebarContent>
+          {user && (
+            <SidebarFooter>
+              <UserMenu email={user.email} />
+            </SidebarFooter>
+          )}
+          <SidebarRail />
+        </Sidebar>
+        <SidebarInset className="h-svh min-w-0">
+          <div className="flex h-12 shrink-0 items-center px-2">
+            <SidebarTrigger />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ChatListProvider>
   );
 }

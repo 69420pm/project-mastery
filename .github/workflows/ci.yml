@@ -33,7 +33,7 @@ jobs:
   build-e2e:
     name: Build & E2E tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -42,6 +42,16 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Signed-in tests create test Students in local Supabase, as in the
+      # database job. The app runs with AI_PROVIDER=mock (playwright.config.ts).
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
+      - name: Point the app and tests at local Supabase
+        run: |
+          supabase status -o env | tr -d '"' | sed -n \
+            -e 's/^API_URL=/NEXT_PUBLIC_SUPABASE_URL=/p' \
+            -e 's/^PUBLISHABLE_KEY=/NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=/p' \
+            -e 's/^SECRET_KEY=/SUPABASE_SECRET_KEY=/p' >> "$GITHUB_ENV"
       - uses: actions/cache@v6
         with:
           path: .next/cache

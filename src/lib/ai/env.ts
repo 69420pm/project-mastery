@@ -20,9 +20,12 @@ const modelId = optional(
 
 const schema = z
   .object({
-    // Where model ids resolve: AI Gateway, or the Gemini API directly for
-    // local development without a card on file (ADR 0006).
-    AI_PROVIDER: optional(z.enum(["gateway", "google"])).default("gateway"),
+    // Where model ids resolve: AI Gateway, the Gemini API directly for local
+    // development without a card on file (ADR 0006), or deterministic mock
+    // models for end-to-end tests of the running app.
+    AI_PROVIDER: optional(z.enum(["gateway", "google", "mock"])).default(
+      "gateway",
+    ),
     // Local development authenticates with an AI Gateway API key. Deployments
     // on Vercel (VERCEL=1) authenticate through OIDC automatically, and
     // `vercel env pull` provides VERCEL_OIDC_TOKEN locally (valid for 12h).
@@ -32,7 +35,8 @@ const schema = z
     VERCEL_OIDC_TOKEN: optional(z.string()),
     VERCEL: z.string().optional(),
     // Optional per-task model overrides, see src/lib/ai/models.ts.
-    AI_MODEL_TUTOR: modelId,
+    AI_MODEL_CHAT: modelId,
+    AI_MODEL_TITLE: modelId,
     AI_MODEL_INGEST: modelId,
     AI_MODEL_EMBED: modelId,
     AI_MODEL_JUDGE: modelId,
@@ -62,6 +66,11 @@ const schema = z
   .refine((env) => env.AI_PROVIDER !== "google" || env.VERCEL !== "1", {
     path: ["AI_PROVIDER"],
     message: "'google' is for local development only, use 'gateway' on Vercel",
+  })
+  // Mock replies on a deployment would look like a working AI to Students.
+  .refine((env) => env.AI_PROVIDER !== "mock" || env.VERCEL !== "1", {
+    path: ["AI_PROVIDER"],
+    message: "'mock' is for end-to-end tests only, use 'gateway' on Vercel",
   });
 
 export type AiEnv = z.infer<typeof schema>;
