@@ -11,9 +11,12 @@
  * runner, which records a dataset run with traces and scores. Without keys,
  * the same task and scorers run locally and the results are only printed.
  */
+// Must come first: lets evals import modules that use Next.js.
+import "./next-aliases";
 import { LangfuseClient, type Evaluation } from "@langfuse/client";
 import { isLangfuseConfigured } from "@/lib/tracing/env";
 import { startTracing } from "@/lib/tracing/node";
+import { chatEval } from "./chat";
 import {
   experimentTask,
   loadFixture,
@@ -23,7 +26,7 @@ import {
 
 // Register each eval here; its fixture is `evals/datasets/<name>.json`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous registry
-const EVALS: EvalDefinition<any, any>[] = [];
+const EVALS: EvalDefinition<any, any>[] = [chatEval];
 
 // Free-tier rate limits are per model: run items one at a time.
 const MAX_CONCURRENCY = 1;
