@@ -5,12 +5,10 @@ import {
   utcDayStart,
 } from "@/features/usage/domain/daily-limit";
 import { getDailyLimitUsd } from "@/features/usage/server/daily-limit-env";
-import {
-  spentSinceUsd,
-  type Supabase,
-} from "@/features/usage/server/usage-store";
+import { spentSinceUsd } from "@/features/usage/server/usage-store";
 import type { DailyLimitStatus } from "@/features/usage/types";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 
 /** The refusal a Student sees when an AI call is refused at the Daily limit. */
 export const dailyLimitReachedMessage =

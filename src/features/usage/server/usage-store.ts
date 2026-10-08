@@ -1,16 +1,13 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { costUsd, type TokenUsage } from "@/lib/ai/cost";
 import type { AiTask } from "@/lib/ai/models";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * Records and sums AI usage as the signed-in Student, so Row Level Security
  * applies: a Student adds and reads only their own records and can never
  * change or delete them.
  */
-
-export type Supabase = SupabaseClient<Database>;
 
 /** One AI call made for the Student, as recorded. */
 export type AiUsageRecord = {

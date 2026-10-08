@@ -29,7 +29,6 @@ import {
   saveReply,
   startReply,
   type StoredChat,
-  type Supabase,
 } from "@/features/chat/server/chat-store";
 import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
@@ -42,6 +41,7 @@ import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { answeringModel, modelChoices } from "@/lib/ai/models";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
 
 /**

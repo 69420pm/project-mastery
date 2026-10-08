@@ -1,6 +1,6 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import type { Supabase } from "@/lib/supabase/types";
 import { messageText } from "@/features/chat/domain/message-text";
 import type { ChatUIMessage } from "@/features/chat/types";
 
@@ -8,8 +8,6 @@ import type { ChatUIMessage } from "@/features/chat/types";
  * Reads and writes Chats and their messages as the signed-in Student, so Row
  * Level Security applies: another Student's Chat reads as missing.
  */
-
-export type Supabase = SupabaseClient<Database>;
 
 export type StoredChat = {
   id: string;
