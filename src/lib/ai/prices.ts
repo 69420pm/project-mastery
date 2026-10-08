@@ -22,8 +22,6 @@ export type ModelPrice = {
  *   cached input on 2027-01-01 (Google's pricing page).
  * - Gemini 3.1 Flash-Lite cached input is $0.025 at Google and $0.03 through
  *   AI Gateway; this table uses the higher one.
- * - Gemini 3.1 Pro costs more above 200k prompt tokens; this table uses the
- *   lower tier.
  */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
   "google/gemini-3.1-flash-lite": {
@@ -38,7 +36,6 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   },
   "google/gemini-3.7-flash": { input: 0.75, output: 3.75, cachedInput: 0.075 },
   "google/gemini-3.8-flash": { input: 0.75, output: 3.75, cachedInput: 0.075 },
-  "google/gemini-3.1-pro-preview": { input: 2, output: 12, cachedInput: 0.2 },
   "google/gemini-embedding-2": { input: 0.2, output: 0, cachedInput: 0 },
   "xiaomi/mimo-v2.6-flash": { input: 0.04, output: 1.28, cachedInput: 0.04 },
 };

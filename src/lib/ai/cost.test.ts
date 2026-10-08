@@ -22,14 +22,14 @@ describe("costUsd", () => {
   });
 
   test("a call without cached tokens costs input plus output", () => {
-    // Gemini 3.1 Pro: 2,000 × $2 + 500 × $12 per million.
-    const cost = costUsd("google/gemini-3.1-pro-preview", {
+    // Gemini 3.8 Flash: 2,000 × $0.75 + 500 × $3.75 per million.
+    const cost = costUsd("google/gemini-3.8-flash", {
       inputTokens: 2_000,
       cachedInputTokens: 0,
       outputTokens: 500,
     });
 
-    expect(cost).toBeCloseTo(0.01, 10);
+    expect(cost).toBeCloseTo(0.003375, 10);
   });
 
   test("refuses a model without a price", () => {
