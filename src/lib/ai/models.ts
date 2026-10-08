@@ -1,6 +1,7 @@
 import "server-only";
 import { google } from "@ai-sdk/google";
 import { getAiEnv, type AiEnv } from "./env";
+import { routeToMockModels } from "./mock-provider";
 
 type TaskConfig = {
   /** Gateway model id (`provider/model`), resolved through AI Gateway. */
@@ -102,7 +103,9 @@ function routeToGeminiApi() {
  */
 export function aiTask(task: AiTask) {
   const { fallbacks } = AI_TASKS[task];
-  if (getAiEnv().AI_PROVIDER === "google") routeToGeminiApi();
+  const { AI_PROVIDER } = getAiEnv();
+  if (AI_PROVIDER === "google") routeToGeminiApi();
+  if (AI_PROVIDER === "mock") routeToMockModels();
   return {
     model: modelIdFor(task),
     maxRetries: AI_MAX_RETRIES,
