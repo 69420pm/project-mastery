@@ -28,3 +28,10 @@ export type ModelOption = {
   /** The model's name, shown under the label. */
   modelName: string;
 };
+
+/** A Chat as the sidebar lists it. */
+export type ChatListItem = {
+  id: string;
+  /** The title, or the first message shortened (`chatLabel`). */
+  label: string;
+};

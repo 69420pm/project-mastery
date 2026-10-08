@@ -136,15 +136,13 @@ async function login(name = "student") {
     "--exact",
   ]);
   const { ok } = await browser(
-    ["wait", "--url", "**/dashboard", "--timeout", "15000"],
+    ["wait", "--url", "**/chat", "--timeout", "15000"],
     {
       allowFailure: true,
     },
   );
   if (!ok)
-    throw new AgentError(
-      `Sign-in did not reach /dashboard:\n${await snapshot()}`,
-    );
+    throw new AgentError(`Sign-in did not reach /chat:\n${await snapshot()}`);
   return `signed in as ${name} (${email})`;
 }
 

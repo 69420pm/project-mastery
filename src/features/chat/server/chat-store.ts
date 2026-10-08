@@ -58,8 +58,8 @@ export async function createChat(
 }
 
 /**
- * Stores the Chat's last model choice. Writing it on every message also moves
- * the Chat's `updated_at`, which orders the Chat list.
+ * Stores the Chat's last model choice. It does not reorder the Chat list,
+ * which follows `last_message_at`.
  */
 export async function setModelChoice(
   supabase: Supabase,
@@ -71,6 +71,38 @@ export async function setModelChoice(
     .update({ model_choice: modelChoice })
     .eq("id", chatId);
   if (error) fail("Saving the model choice", error);
+}
+
+/**
+ * The Student's Chats, newest message first, each with its title and the
+ * text of its first message.
+ */
+export async function listChats(
+  supabase: Supabase,
+): Promise<
+  { id: string; title: string | null; firstMessage: string | null }[]
+> {
+  const { data, error } = await supabase
+    .from("chats")
+    .select("id, title, chat_messages(parts)")
+    .order("last_message_at", { ascending: false })
+    .order("created_at", { referencedTable: "chat_messages", ascending: true })
+    .limit(1, { referencedTable: "chat_messages" });
+  if (error) fail("Listing the Chats", error);
+  return data.map((chat) => {
+    const first = chat.chat_messages[0];
+    return {
+      id: chat.id,
+      title: chat.title,
+      firstMessage: first
+        ? textOf(first.parts as ChatUIMessage["parts"])
+        : null,
+    };
+  });
+}
+
+function textOf(parts: ChatUIMessage["parts"]): string {
+  return parts.map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
 export async function deleteChat(supabase: Supabase, chatId: string) {

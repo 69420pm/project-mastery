@@ -108,6 +108,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          last_message_at: string;
           model_choice: string;
           owner: string;
           title: string | null;
@@ -117,6 +118,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          last_message_at?: string;
           model_choice?: string;
           owner?: string;
           title?: string | null;
@@ -126,6 +128,7 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          last_message_at?: string;
           model_choice?: string;
           owner?: string;
           title?: string | null;

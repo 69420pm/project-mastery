@@ -1,8 +1,13 @@
 import "server-only";
 import { z } from "zod";
-import { findChat, loadMessages } from "@/features/chat/server/chat-store";
-import type { ChatWithMessages } from "@/features/chat/types";
-import { requireUser } from "@/lib/auth/user";
+import { chatLabel } from "@/features/chat/domain/chat-label";
+import {
+  findChat,
+  listChats,
+  loadMessages,
+} from "@/features/chat/server/chat-store";
+import type { ChatListItem, ChatWithMessages } from "@/features/chat/types";
+import { getUser, requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -24,4 +29,15 @@ export async function getChat(
     modelChoice: chat.modelChoice,
     messages: await loadMessages(supabase, chat.id),
   };
+}
+
+/**
+ * The signed-in Student's Chats for the sidebar, newest message first. Empty
+ * when signed out, without redirecting: the layout that shows the list only
+ * reads the user, and each page guards itself.
+ */
+export async function getChatList(): Promise<ChatListItem[]> {
+  if (!(await getUser())) return [];
+  const chats = await listChats(await createClient());
+  return chats.map((chat) => ({ id: chat.id, label: chatLabel(chat) }));
 }
