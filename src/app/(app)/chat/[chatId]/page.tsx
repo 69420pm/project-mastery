@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Chat } from "@/features/chat";
-import { getChat } from "@/features/chat/server";
+import { chatModelOptions, getChat } from "@/features/chat/server";
 import { requireUser } from "@/lib/auth/user";
 
 export const metadata: Metadata = {
@@ -22,6 +22,8 @@ export default async function ChatPage({
       chatId={chat.id}
       initialMessages={chat.messages}
       isNew={false}
+      modelOptions={chatModelOptions()}
+      initialModelChoice={chat.modelChoice}
     />
   );
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { Chat } from "@/features/chat";
+import { chatModelOptions } from "@/features/chat/server";
 import { requireUser } from "@/lib/auth/user";
 
 export const metadata: Metadata = {
@@ -12,5 +13,13 @@ export default async function NewChatPage() {
   await requireUser("/chat");
   const chatId = randomUUID();
 
-  return <Chat key={chatId} chatId={chatId} initialMessages={[]} isNew />;
+  return (
+    <Chat
+      key={chatId}
+      chatId={chatId}
+      initialMessages={[]}
+      isNew
+      modelOptions={chatModelOptions()}
+    />
+  );
 }

@@ -1,4 +1,6 @@
-import { aiTask } from "@/lib/ai/models";
+import { modelName } from "@/lib/ai/model-name";
+import { aiTask, modelChoices } from "@/lib/ai/models";
+import type { ModelOption } from "@/features/chat/types";
 import { CHAT_INSTRUCTIONS } from "./prompt";
 
 /**
@@ -11,4 +13,13 @@ import { CHAT_INSTRUCTIONS } from "./prompt";
  */
 export function chatReplySettings(modelChoice?: string) {
   return { ...aiTask("chat", modelChoice), instructions: CHAT_INSTRUCTIONS };
+}
+
+/** The model choices the picker offers, in display order. */
+export function chatModelOptions(): ModelOption[] {
+  return modelChoices("chat").map(({ key, label, model }) => ({
+    key,
+    label,
+    modelName: modelName(model),
+  }));
 }

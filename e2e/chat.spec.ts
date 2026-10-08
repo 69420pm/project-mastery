@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { modelName } from "../src/lib/ai/model-name";
+import { adminClient, expect, test } from "./fixtures";
 
 // The mock AI (AI_PROVIDER=mock) quotes the message and ends with this.
 const REPLY_END = "it never calls a real model.";
@@ -73,6 +74,57 @@ test.describe("signed in", () => {
     );
     await expect(messageInput(page)).toHaveValue("x".repeat(10_001));
     await expect(page).toHaveURL(/\/chat$/);
+  });
+
+  test("the model picker applies a choice from the next message on and the Chat remembers it", async ({
+    page,
+  }) => {
+    await page.goto("/chat");
+    const picker = page.getByRole("combobox", { name: "Model" });
+    // A new Chat starts on Balanced.
+    await expect(picker).toHaveText("Balanced");
+
+    await sendMessage(page, "First question");
+    const log = page.getByRole("log");
+    await expect(log.getByText(REPLY_END, { exact: false })).toBeVisible();
+    await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+    const chatId = page.url().split("/").at(-1);
+
+    // Each choice shows its model's name under its label.
+    await picker.click();
+    await expect(page.getByRole("option")).toHaveText([
+      /^Fast\S/,
+      /^Balanced\S/,
+      /^Thorough\S/,
+    ]);
+    const thorough = page.getByRole("option", { name: /^Thorough/ });
+    const thoroughModel = await thorough
+      .getByTestId("model-name")
+      .textContent();
+    expect(thoroughModel).toBeTruthy();
+    await thorough.click();
+    await expect(picker).toHaveText("Thorough");
+
+    await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
+    await sendMessage(page, "Second question");
+    await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(2);
+
+    // Only the reply after the change used the chosen model.
+    const { data } = await adminClient()
+      .from("chat_messages")
+      .select("model_id")
+      .eq("chat_id", chatId!)
+      .eq("role", "assistant")
+      .order("created_at");
+    const [first, second] = (data ?? []).map((row) => row.model_id as string);
+    expect(modelName(second!)).toBe(thoroughModel);
+    expect(first).not.toBe(second);
+
+    await page.reload();
+    await expect(picker).toHaveText("Thorough");
+
+    await page.goto("/chat");
+    await expect(picker).toHaveText("Balanced");
   });
 
   test("an unknown Chat shows not-found", async ({ page }) => {

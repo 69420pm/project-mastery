@@ -15,5 +15,16 @@ export type ChatUIMessage = UIMessage<ChatMessageMetadata>;
 export type ChatWithMessages = {
   id: string;
   title: string | null;
+  /** The key of the Chat's last model choice. */
+  modelChoice: string;
   messages: ChatUIMessage[];
+};
+
+/** A model choice as the picker shows it. The client knows only the key. */
+export type ModelOption = {
+  key: string;
+  /** Fast, Balanced or Thorough. */
+  label: string;
+  /** The model's name, shown under the label. */
+  modelName: string;
 };
