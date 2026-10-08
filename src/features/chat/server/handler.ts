@@ -9,6 +9,7 @@ import {
   streamText,
   toUIMessageStream,
   validateUIMessages,
+  type LanguageModelUsage,
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
@@ -28,6 +29,12 @@ import {
   type Supabase,
 } from "@/features/chat/server/chat-store";
 import type { ChatUIMessage } from "@/features/chat/types";
+import {
+  checkDailyLimit,
+  dailyLimitReachedMessage,
+  recordAiUsage,
+} from "@/features/usage/server";
+import { tokenUsage } from "@/lib/ai/cost";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { flushTraces, withTraceAttributes } from "@/lib/tracing";
@@ -38,10 +45,10 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *
  * 1. require the signed-in Student
  * 2. validate the request: the message, and a Chat the Student owns or may create
- * 3. (Daily limit, #27: refuse before any model call)
+ * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, and store the Student's message
  * 5. stream the reply from the full stored history
- * 6. on end, store the reply with its model (and record usage, #27)
+ * 6. on end, store the reply with its model and record the call's usage
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
  * message.
@@ -61,6 +68,11 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
   if (!existing && !newChat) return refuse(404, chatNotFound);
+
+  const dailyLimit = await checkDailyLimit(supabase);
+  if (dailyLimit.level === "reached") {
+    return refuse(429, dailyLimitReachedMessage);
+  }
 
   const chat = existing ?? (await createChat(supabase, chatId));
   if (!chat) return refuse(404, chatNotFound);
@@ -132,6 +144,9 @@ async function streamReply({
   });
   const settings = chatReplySettings(chat.modelChoice);
   const modelId = settings.model;
+  // What the provider reports when the call completes. An aborted call
+  // reports nothing.
+  let reportedUsage: LanguageModelUsage | undefined;
 
   const result = withTraceAttributes(
     { userId, sessionId: chat.id, traceName: "chat-reply" },
@@ -142,6 +157,9 @@ async function streamReply({
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
+        onEnd: ({ usage }) => {
+          reportedUsage = usage;
+        },
       }),
   );
   after(flushTraces);
@@ -154,7 +172,22 @@ async function streamReply({
       messageMetadata: ({ part }) =>
         part.type === "start" ? { modelId } : undefined,
       onError: replyErrorMessage,
+      // Runs before the response ends, so the client sees the recorded usage
+      // once the reply has finished.
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
+        if (reportedUsage) {
+          try {
+            await recordAiUsage(supabase, {
+              task: "chat",
+              modelId,
+              usage: tokenUsage(reportedUsage),
+              chatId: chat.id,
+            });
+          } catch (error) {
+            console.error("Recording the Chat reply's usage failed:", error);
+          }
+        }
+
         if (outcome.status === "failed") return;
         const stopped = isAborted || isCancelled === true;
         if (stopped && !hasText(responseMessage)) return;
