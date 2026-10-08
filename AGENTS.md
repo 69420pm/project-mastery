@@ -28,7 +28,7 @@ Like Next.js, these packages ship documentation that matches the installed versi
 
 ## Skills
 
-`.claude/skills/` holds the official skills for Supabase, shadcn/ui and Langfuse, and Matt Pocock's engineering skills (`mattpocock/skills`). They are installed with the `skills` CLI and pinned in `skills-lock.json`. Update them with `npx skills update -p` and review the diff; do not edit the copies by hand.
+`.claude/skills/` holds the official skills for Supabase, shadcn/ui and Langfuse, and Matt Pocock's engineering skills (`mattpocock/skills`). They are installed with the `skills` CLI and pinned in `skills-lock.json`. Update them with `npx skills update -p` and review the diff. To adapt one, remove it from `skills-lock.json` so updates leave it alone, and mark it _modified_ in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Before exploring code for a skill, read [docs/agents/domain.md](docs/agents/domain.md): how to use the domain glossary and the ADRs.
 

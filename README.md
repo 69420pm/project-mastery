@@ -145,3 +145,5 @@ The layers, the anatomy of a feature and the lint rules that enforce them are de
 Copyright © 2026 Florian Portscher. All rights reserved.
 
 The source is public for review purposes; no license is granted for reuse or redistribution.
+
+Third-party agent skills in `.claude/skills/` keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
