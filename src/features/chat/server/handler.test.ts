@@ -1249,6 +1249,32 @@ describe("attached Materials", () => {
     },
   );
 
+  test("a new message to a stored Chat attaching a Material deleted in another tab is refused and not stored", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const chatId = seedChat(STUDENT, [
+      { role: "user", parts: [{ type: "text", text: "Hi" }] },
+      { role: "assistant", parts: [{ type: "text", text: "Hello." }] },
+    ]);
+    db.tables.materials = [];
+
+    const reply = await send({
+      chatId,
+      message: messageWith("Explain this", [lecture]),
+    });
+
+    expect(reply).toEqual({
+      status: 400,
+      refusal: "An attached material does not exist.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Hi",
+      "Hello.",
+    ]);
+  });
+
   test("are sent again on later turns, and a deleted one as a note", async () => {
     const model = mockTextModel("Sure.");
     useMockModels({ chat: model });
