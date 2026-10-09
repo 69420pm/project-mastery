@@ -27,13 +27,16 @@ type CourseNameDialogProps = {
   title: string;
   submitLabel: string;
   initialName?: string;
+  /** The longest name allowed. Defaults to a Course name's limit. */
+  maxLength?: number;
+  placeholder?: string;
   /** Saves the name. A failure shows its message under the field. */
   onSave: (name: string) => Promise<ActionResult<unknown>>;
 };
 
 /**
- * Asks for a Course name, to create or rename a Course. It closes once the
- * name is saved, and the refreshed page shows it.
+ * Asks for a name, to create or rename a Course or rename a Material. It
+ * closes once the name is saved, and the refreshed page shows it.
  */
 export function CourseNameDialog({
   open,
@@ -54,6 +57,8 @@ function CourseNameForm({
   title,
   submitLabel,
   initialName = "",
+  maxLength = MAX_COURSE_NAME_LENGTH,
+  placeholder = "Linear Algebra",
   onSave,
   onDone,
 }: Omit<CourseNameDialogProps, "open" | "onOpenChange"> & {
@@ -87,8 +92,8 @@ function CourseNameForm({
           <Input
             id={inputId}
             value={name}
-            maxLength={MAX_COURSE_NAME_LENGTH}
-            placeholder="Linear Algebra"
+            maxLength={maxLength}
+            placeholder={placeholder}
             aria-invalid={error !== null}
             onChange={(event) => {
               setName(event.target.value);

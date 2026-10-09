@@ -3,6 +3,16 @@
 export { CourseList } from "./components/course-list";
 export { CourseNav } from "./components/course-nav";
 export { CourseSwitcher } from "./components/course-switcher";
-export { COURSE_LIST_PATH, coursePath } from "./domain/course-paths";
+export { Materials } from "./components/materials";
+export { MaterialsLink } from "./components/materials-link";
+export {
+  COURSE_LIST_PATH,
+  coursePath,
+  materialsPath,
+} from "./domain/course-paths";
 export { courseNotFoundMessage } from "./schemas";
-export type { CourseListItem, CourseWithCounts } from "./types";
+export type {
+  CourseListItem,
+  CourseWithCounts,
+  MaterialListItem,
+} from "./types";

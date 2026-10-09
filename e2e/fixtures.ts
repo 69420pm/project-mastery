@@ -92,7 +92,40 @@ export async function seedAiSpend(student: Student, costUsd: number) {
   if (error) throw new Error(`Seeding AI spend failed: ${error.message}`);
 }
 
+/** The Storage bucket of Materials. */
+export const MATERIALS_BUCKET = "course-files";
+
+/**
+ * The paths of a Student's files in a Course's folder, as uploaded for
+ * Materials.
+ */
+export async function storedFilePaths(
+  owner: string,
+  courseId: string,
+): Promise<string[]> {
+  const folder = `${owner}/${courseId}`;
+  const { data, error } = await adminClient()
+    .storage.from(MATERIALS_BUCKET)
+    .list(folder, { limit: 1000 });
+  if (error) throw new Error(`Listing files failed: ${error.message}`);
+  return data.map((file) => `${folder}/${file.name}`);
+}
+
+/** Removes a Student's uploaded files, which deleting them leaves behind. */
+async function deleteStudentFiles(student: Student) {
+  const bucket = adminClient().storage.from(MATERIALS_BUCKET);
+  const { data: courses, error } = await bucket.list(student.id, {
+    limit: 1000,
+  });
+  if (error) throw new Error(`Listing files failed: ${error.message}`);
+  for (const course of courses) {
+    const paths = await storedFilePaths(student.id, course.name);
+    if (paths.length > 0) await bucket.remove(paths);
+  }
+}
+
 async function deleteStudent(student: Student) {
+  await deleteStudentFiles(student);
   const { error } = await adminClient().auth.admin.deleteUser(student.id);
   if (error)
     throw new Error(`Deleting a test Student failed: ${error.message}`);
