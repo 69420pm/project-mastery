@@ -5,9 +5,11 @@ import {
   findCourse,
   listCourses,
 } from "@/features/courses/server/course-store";
+import { listMaterials } from "@/features/courses/server/material-store";
 import type {
   CourseListItem,
   CourseWithCounts,
+  MaterialListItem,
 } from "@/features/courses/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +22,17 @@ import { createClient } from "@/lib/supabase/server";
 export async function getCourseList(): Promise<CourseWithCounts[]> {
   if (!(await getUser())) return [];
   return listCourses(await createClient());
+}
+
+/**
+ * The signed-in Student's Materials in a Course, newest first. Empty when
+ * signed out or for another Student's Course.
+ */
+export async function getMaterialList(
+  courseId: string,
+): Promise<MaterialListItem[]> {
+  if (!(await getUser())) return [];
+  return listMaterials(await createClient(), courseId);
 }
 
 /**

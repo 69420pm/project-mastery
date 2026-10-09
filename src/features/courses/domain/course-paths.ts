@@ -5,3 +5,8 @@ export const COURSE_LIST_PATH = "/courses";
 export function coursePath(courseId: string): string {
   return `${COURSE_LIST_PATH}/${courseId}/chat`;
 }
+
+/** The Materials page of a Course. */
+export function materialsPath(courseId: string): string {
+  return `${COURSE_LIST_PATH}/${courseId}/materials`;
+}

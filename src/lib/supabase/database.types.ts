@@ -190,6 +190,57 @@ export type Database = {
           },
         ];
       };
+      materials: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          media_type: string;
+          name: string;
+          owner: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          media_type: string;
+          name: string;
+          owner?: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          media_type?: string;
+          name?: string;
+          owner?: string;
+          size_bytes?: number;
+          storage_path?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "materials_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "materials_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;

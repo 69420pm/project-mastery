@@ -12,48 +12,29 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
-import { deleteCourse } from "@/features/courses/server/actions";
-import type { CourseWithCounts } from "@/features/courses/types";
+import { deleteMaterial } from "@/features/courses/server/actions";
+import type { MaterialListItem } from "@/features/courses/types";
 
-type DeleteCourseDialogProps = {
-  course: CourseWithCounts;
+type DeleteMaterialDialogProps = {
+  material: MaterialListItem;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-/** What the confirmation says goes with the Course. */
-function deletedWith({
-  name,
-  chatCount,
-  materialCount,
-}: CourseWithCounts): string {
-  const contents = [
-    counted(chatCount, "chat", "chats"),
-    counted(materialCount, "material", "materials"),
-  ].filter(Boolean);
-  const along = contents.length > 0 ? ` and its ${contents.join(" and ")}` : "";
-  return `“${name}”${along} will be deleted for good. This cannot be undone.`;
-}
-
-function counted(count: number, one: string, many: string): string {
-  if (count === 0) return "";
-  return `${count} ${count === 1 ? one : many}`;
-}
-
-/** Asks before deleting a Course for good, with its Chats and Materials. */
-export function DeleteCourseDialog({
-  course,
+/** Asks before deleting a Material and its file for good. */
+export function DeleteMaterialDialog({
+  material,
   open,
   onOpenChange,
-}: DeleteCourseDialogProps) {
+}: DeleteMaterialDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleDelete(event: MouseEvent) {
-    // Stay open until the Course is gone, or to show why it is not.
+    // Stay open until the Material is gone, or to show why it is not.
     event.preventDefault();
     startTransition(async () => {
-      const result = await deleteCourse({ courseId: course.id });
+      const result = await deleteMaterial({ materialId: material.id });
       if (!result.ok) {
         setError(result.message);
         return;
@@ -72,8 +53,10 @@ export function DeleteCourseDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete course?</AlertDialogTitle>
-          <AlertDialogDescription>{deletedWith(course)}</AlertDialogDescription>
+          <AlertDialogTitle>Delete material?</AlertDialogTitle>
+          <AlertDialogDescription>
+            “{material.name}” will be deleted for good. This cannot be undone.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
           <p role="alert" className="text-sm text-destructive">

@@ -16,20 +16,21 @@ function fail(action: string, error: { message: string }): never {
 
 /**
  * The Student's Courses, most recently updated first, with how many Chats
- * each holds.
+ * and Materials each holds.
  */
 export async function listCourses(
   supabase: Supabase,
 ): Promise<CourseWithCounts[]> {
   const { data, error } = await supabase
     .from("courses")
-    .select("id, name, chats(count)")
+    .select("id, name, chats(count), materials(count)")
     .order("updated_at", { ascending: false });
   if (error) fail("Loading the Courses", error);
-  return data.map(({ id, name, chats }) => ({
+  return data.map(({ id, name, chats, materials }) => ({
     id,
     name,
     chatCount: chats[0]?.count ?? 0,
+    materialCount: materials[0]?.count ?? 0,
   }));
 }
 
