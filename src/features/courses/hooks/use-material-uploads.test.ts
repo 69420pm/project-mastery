@@ -11,6 +11,9 @@ const storage = vi.hoisted(() => ({
   removed: [] as string[],
 }));
 const registered = vi.hoisted(() => ({ calls: 0 }));
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 vi.mock("@/lib/supabase/upload", () => ({
   uploadFile: async ({ path }: { path: string }) => {
@@ -22,7 +25,6 @@ vi.mock("@/lib/supabase/upload", () => ({
   },
 }));
 vi.mock("@/features/courses/server/actions", () => ({
-  invalidatePages: async () => {},
   registerMaterial: async ({ materialId }: { materialId: string }) => {
     registered.calls++;
     return { ok: true, data: { id: materialId } };
@@ -45,6 +47,7 @@ beforeEach(() => {
   storage.uploaded = [];
   storage.removed = [];
   registered.calls = 0;
+  router.refresh.mockClear();
 });
 
 describe("useMaterialUploads", () => {
@@ -103,5 +106,47 @@ describe("useMaterialUploads", () => {
       expect(result.current.uploads[0]?.status).toBe("failed"),
     );
     expect(onRegistered).not.toHaveBeenCalled();
+  });
+
+  describe("refreshing the page", () => {
+    test("refreshes once a Material is registered by default", async () => {
+      const { result } = renderUploads();
+
+      act(() => result.current.add([pdf()]));
+
+      await waitFor(() => expect(router.refresh).toHaveBeenCalledTimes(1));
+    });
+
+    test("with refresh on leave, waits until the page unmounts", async () => {
+      const { result, unmount } = renderHook(() =>
+        useMaterialUploads({
+          ownerId: OWNER,
+          courseId: COURSE,
+          refresh: "on-leave",
+        }),
+      );
+
+      act(() => result.current.add([pdf()]));
+      await waitFor(() => expect(registered.calls).toBe(1));
+      await waitFor(() => expect(result.current.uploads).toEqual([]));
+      expect(router.refresh).not.toHaveBeenCalled();
+
+      unmount();
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
+    test("with refresh on leave, leaving without a registered Material refreshes nothing", () => {
+      const { unmount } = renderHook(() =>
+        useMaterialUploads({
+          ownerId: OWNER,
+          courseId: COURSE,
+          refresh: "on-leave",
+        }),
+      );
+
+      unmount();
+
+      expect(router.refresh).not.toHaveBeenCalled();
+    });
   });
 });

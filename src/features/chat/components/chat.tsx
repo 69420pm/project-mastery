@@ -52,10 +52,10 @@ import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
+import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
   MAX_ATTACHED_MATERIALS,
   MAX_MESSAGE_LENGTH,
-  tooManyMaterialsMessage,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
@@ -69,9 +69,7 @@ import {
   MaterialChip,
   MaterialPicker,
   MaterialViewer,
-  useMaterialUploads,
   type MaterialListItem,
-  type MaterialReference,
 } from "@/features/courses";
 import {
   DailyLimitNotice,
@@ -143,42 +141,31 @@ export function Chat({
   const [inputError, setInputError] = useState<string | null>(null);
   const [modelChoice, setModelChoice] = useState(chat.modelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
-  /** The Materials attached to the message being written. */
-  const [attached, setAttached] = useState<MaterialReference[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [opened, setOpened] = useState<MaterialListItem | null>(null);
-  /** Materials uploaded from this message box since the page loaded. */
-  const [uploaded, setUploaded] = useState<MaterialListItem[]>([]);
-  const materials = [...uploaded, ...courseMaterials];
-  const materialsById = new Map(materials.map((m) => [m.id, m]));
-  const fileInput = useRef<HTMLInputElement>(null);
-  const dropZone = useRef<HTMLDivElement>(null);
+  const limitReached = dailyLimit.level === "reached";
   const {
+    attached,
+    clearAttached,
+    toggleAttached,
+    detach,
+    materials,
+    materialsById,
+    pickerOpen,
+    setPickerOpen,
+    fileInput,
+    dropZone,
+    uploadFiles,
     uploads,
-    add: addUploads,
-    retry: retryUpload,
-    remove: removeUpload,
-  } = useMaterialUploads({
+    uploading,
+    retryUpload,
+    removeUpload,
+  } = useMessageAttachments({
     ownerId,
     courseId: chat.courseId,
-    // A refresh would replace a new Chat and the message in it.
-    refreshPage: false,
-    onRegistered: (material) => {
-      setUploaded((current) => [
-        {
-          id: material.materialId,
-          name: material.name,
-          mediaType: material.mediaType,
-          sizeBytes: 0,
-          createdAt: new Date().toISOString(),
-        },
-        ...current,
-      ]);
-      setAttached((current) => [...current, material]);
-    },
+    courseMaterials,
+    limitReached,
+    onInputError: setInputError,
   });
-  const uploading = uploads.length > 0;
-  const limitReached = dailyLimit.level === "reached";
   const { noteChatActivity, relabelChat } = useChatList();
   const titled = useRef(chat.title !== null);
   const {
@@ -255,71 +242,6 @@ export function Chat({
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
 
-  /** Uploads picked, pasted or dropped files, within the message's limit. */
-  function uploadFiles(files: Iterable<File>) {
-    const picked = [...files];
-    const room = Math.max(
-      MAX_ATTACHED_MATERIALS - attached.length - uploads.length,
-      0,
-    );
-    if (picked.length > room) setInputError(tooManyMaterialsMessage);
-    else setInputError(null);
-    addUploads(picked.slice(0, room));
-  }
-
-  // Files pasted or dropped on the message box are uploaded like the ones
-  // "Upload file" picks, not left to the prompt input's own attachments.
-  const uploadFilesRef = useRef(uploadFiles);
-  useEffect(() => {
-    uploadFilesRef.current = uploadFiles;
-  });
-  useEffect(() => {
-    const zone = dropZone.current;
-    if (!zone) return;
-    const takeFiles = (event: Event, files: File[]) => {
-      if (files.length === 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (limitReached) {
-        setInputError("You have reached today's limit. Try again tomorrow.");
-      } else {
-        uploadFilesRef.current(files);
-      }
-    };
-    const onPaste = (event: ClipboardEvent) =>
-      takeFiles(
-        event,
-        [...(event.clipboardData?.items ?? [])].flatMap((item) => {
-          const file = item.kind === "file" ? item.getAsFile() : null;
-          return file ? [file] : [];
-        }),
-      );
-    const onDrop = (event: DragEvent) =>
-      takeFiles(event, [...(event.dataTransfer?.files ?? [])]);
-    // Capture, to run before the prompt input's own handlers.
-    zone.addEventListener("paste", onPaste, true);
-    zone.addEventListener("drop", onDrop, true);
-    return () => {
-      zone.removeEventListener("paste", onPaste, true);
-      zone.removeEventListener("drop", onDrop, true);
-    };
-  }, [limitReached]);
-
-  function toggleAttached(material: MaterialListItem) {
-    setAttached((current) =>
-      current.some(({ materialId }) => materialId === material.id)
-        ? current.filter(({ materialId }) => materialId !== material.id)
-        : [
-            ...current,
-            {
-              materialId: material.id,
-              name: material.name,
-              mediaType: material.mediaType as MaterialReference["mediaType"],
-            },
-          ],
-    );
-  }
-
   async function handleSubmit({ text }: { text: string }) {
     if (
       (text.trim() === "" && attached.length === 0) ||
@@ -345,7 +267,7 @@ export function Chat({
       },
       { body: { modelChoice } },
     );
-    setAttached([]);
+    clearAttached();
   }
 
   return (
@@ -469,14 +391,7 @@ export function Chat({
                       material.name
                     }
                     mediaType={material.mediaType}
-                    onRemove={() =>
-                      setAttached((current) =>
-                        current.filter(
-                          ({ materialId }) =>
-                            materialId !== material.materialId,
-                        ),
-                      )
-                    }
+                    onRemove={() => detach(material.materialId)}
                   />
                 ))}
                 {uploads.map((upload) => (
