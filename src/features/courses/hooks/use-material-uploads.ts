@@ -6,7 +6,10 @@ import {
   MATERIALS_BUCKET,
   materialStoragePath,
 } from "@/features/courses/domain/material-storage";
-import { materialFileSchema } from "@/features/courses/schemas";
+import {
+  materialFileSchema,
+  type MaterialReference,
+} from "@/features/courses/schemas";
 import { registerMaterial } from "@/features/courses/server/actions";
 import { removeUploadedFile, uploadFile } from "@/lib/supabase/upload";
 
@@ -14,6 +17,7 @@ import { removeUploadedFile, uploadFile } from "@/lib/supabase/upload";
 export type MaterialUpload = {
   key: string;
   filename: string;
+  mediaType: string;
   status: "uploading" | "registering" | "failed";
   /** Share of the bytes sent, from 0 to 1. */
   progress: number;
@@ -35,11 +39,24 @@ const uploadFailed = "The upload failed. Please try again.";
 export function useMaterialUploads({
   ownerId,
   courseId,
+  onRegistered,
+  refreshPage = true,
 }: {
   ownerId: string;
   courseId: string;
+  /** Called once for each upload that became a Material. */
+  onRegistered?: (material: MaterialReference) => void;
+  /**
+   * Whether registering refreshes the page. False where a refresh would
+   * lose what the Student is writing.
+   */
+  refreshPage?: boolean;
 }) {
   const [uploads, setUploads] = useState<MaterialUpload[]>([]);
+  const registeredCallback = useRef(onRegistered);
+  useEffect(() => {
+    registeredCallback.current = onRegistered;
+  });
   const files = useRef(new Map<string, File>());
   const controllers = useRef(new Map<string, AbortController>());
 
@@ -120,6 +137,7 @@ export function useMaterialUploads({
           name: materialNameFromFilename(file.name),
           mediaType: file.type,
           sizeBytes: file.size,
+          refresh: refreshPage,
         });
       } catch (error) {
         // The action was never reached, so the file is removed here.
@@ -129,13 +147,18 @@ export function useMaterialUploads({
       }
       controllers.current.delete(key);
       if (result.ok) {
+        registeredCallback.current?.({
+          materialId,
+          name: materialNameFromFilename(file.name),
+          mediaType: file.type as MaterialReference["mediaType"],
+        });
         forget(key);
         return;
       }
       const fieldError = Object.values(result.fieldErrors ?? {})[0]?.[0];
       update(key, { status: "failed", message: fieldError ?? result.message });
     },
-    [courseId, ownerId, update, forget],
+    [courseId, ownerId, refreshPage, update, forget],
   );
 
   /** Starts uploading the files the Student picked or dropped. */
@@ -151,6 +174,7 @@ export function useMaterialUploads({
         ...added.map(({ key, file }) => ({
           key,
           filename: file.name,
+          mediaType: file.type,
           status: "uploading" as const,
           progress: 0,
           canRetry: true,

@@ -1,6 +1,12 @@
 "use client";
 
-import { FileTextIcon, FileXIcon, ImageIcon, XIcon } from "lucide-react";
+import {
+  FileTextIcon,
+  FileXIcon,
+  ImageIcon,
+  RotateCwIcon,
+  XIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MaterialChipProps = {
@@ -13,6 +19,12 @@ type MaterialChipProps = {
   onOpen?: () => void;
   /** Removes the Material from a message that is not sent yet. */
   onRemove?: () => void;
+  /** The upload is under way: the share sent, from 0 to 1. */
+  progress?: number;
+  /** The upload failed: why, shown on the chip. */
+  error?: string;
+  /** Uploads the file again after a failure. */
+  onRetry?: () => void;
 };
 
 /** A Material attached to a Chat message, shown as a small chip. */
@@ -22,6 +34,9 @@ export function MaterialChip({
   deleted = false,
   onOpen,
   onRemove,
+  progress,
+  error,
+  onRetry,
 }: MaterialChipProps) {
   const Icon = deleted
     ? FileXIcon
@@ -40,8 +55,9 @@ export function MaterialChip({
     <span
       data-testid="material-chip"
       className={cn(
-        "inline-flex h-7 max-w-64 items-center gap-1 rounded-md border bg-background text-xs",
+        "relative inline-flex h-7 max-w-80 items-center gap-1 overflow-hidden rounded-md border bg-background text-xs",
         deleted && "border-dashed text-muted-foreground",
+        error && "border-destructive",
       )}
     >
       {onOpen && !deleted ? (
@@ -56,6 +72,36 @@ export function MaterialChip({
         <span className="inline-flex min-w-0 items-center gap-1.5 px-2 py-1">
           {content}
         </span>
+      )}
+      {error && (
+        <span role="alert" className="truncate text-destructive">
+          {error}
+        </span>
+      )}
+      {error && onRetry && (
+        <button
+          type="button"
+          aria-label={`Retry ${name}`}
+          className="rounded-sm p-0.5 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onRetry}
+        >
+          <RotateCwIcon className="size-3.5" />
+        </button>
+      )}
+      {progress !== undefined && !error && (
+        <div
+          role="progressbar"
+          aria-label={`Uploading ${name}`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress * 100)}
+          className="absolute inset-x-0 bottom-0 h-0.5 bg-muted"
+        >
+          <div
+            className="h-full bg-primary transition-[width]"
+            style={{ width: `${Math.round(progress * 100)}%` }}
+          />
+        </div>
       )}
       {onRemove && (
         <button
