@@ -75,24 +75,15 @@ export async function renameCourse(input: {
 }
 
 /**
- * Drops the cached pages, for a client that registered Materials with
- * `refresh: false` and is leaving its page.
- */
-export async function invalidatePages(): Promise<void> {
-  revalidatePath("/", "layout");
-}
-
-/**
  * Registers a file the browser uploaded to Storage as a Material of the
  * Course. The upload went to `<owner>/<course>/<material id>` first, because
  * Server Action bodies are too small for the file. When registering fails,
  * the uploaded file is removed again, so no file stays behind without a
- * Material. The page refreshes to show it, unless `refresh` is false: a new
- * Chat's page would then be replaced, with the message being written.
+ * Material. It does not revalidate pages: the client refreshes the router
+ * when it suits the page, because revalidating would replace a new Chat's page
+ * while the Student writes the message.
  */
 export async function registerMaterial(input: {
-  /** Whether to refresh the page, true unless false. */
-  refresh?: boolean;
   materialId: string;
   courseId: string;
   name: string;
@@ -152,7 +143,6 @@ export async function registerMaterial(input: {
     return courseNotFound;
   }
 
-  if (input.refresh !== false) revalidatePath("/", "layout");
   return { ok: true, data: { id: material.materialId } };
 }
 
