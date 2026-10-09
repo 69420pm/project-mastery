@@ -9,13 +9,14 @@ export const metadata: Metadata = {
   title: "Chat",
 };
 
+/** A stored Chat. One in another Course is not found here. */
 export default async function ChatPage({
   params,
-}: PageProps<"/chat/[chatId]">) {
-  const { chatId } = await params;
-  await requireUser(`/chat/${chatId}`);
+}: PageProps<"/courses/[courseId]/chat/[chatId]">) {
+  const { courseId, chatId } = await params;
+  await requireUser(`/courses/${courseId}/chat/${chatId}`);
   const [chat, dailyLimit] = await Promise.all([
-    getChat(chatId),
+    getChat(courseId, chatId),
     getDailyLimitStatus(),
   ]);
   if (!chat) notFound();

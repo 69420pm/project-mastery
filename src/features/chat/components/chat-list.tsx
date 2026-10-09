@@ -20,17 +20,18 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { chatPath } from "@/features/chat/domain/chat-paths";
 import { DeleteChatDialog } from "@/features/chat/components/delete-chat-dialog";
 import { RenameChatDialog } from "@/features/chat/components/rename-chat-dialog";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import type { ChatListItem } from "@/features/chat/types";
 
 /**
- * The Student's Chats in the sidebar, newest first, with the open one
- * highlighted. Needs a `ChatListProvider` above it.
+ * The Student's Chats in a Course in the sidebar, newest first, with the
+ * open one highlighted. Needs a `ChatListProvider` above it.
  */
 export function ChatList() {
-  const { chats } = useChatList();
+  const { courseId, chats } = useChatList();
   const pathname = usePathname();
 
   return (
@@ -45,7 +46,8 @@ export function ChatList() {
               <ChatListEntry
                 key={chat.id}
                 chat={chat}
-                isOpen={pathname === `/chat/${chat.id}`}
+                href={chatPath(courseId, chat.id)}
+                isOpen={pathname === chatPath(courseId, chat.id)}
               />
             ))}
           </SidebarMenu>
@@ -58,9 +60,11 @@ export function ChatList() {
 /** One Chat in the list, with its "…" menu to rename or delete it. */
 function ChatListEntry({
   chat,
+  href,
   isOpen,
 }: {
   chat: ChatListItem;
+  href: string;
   isOpen: boolean;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
@@ -68,7 +72,7 @@ function ChatListEntry({
 
   return (
     <SidebarMenuItem>
-      <SidebarLink href={`/chat/${chat.id}`} isActive={isOpen}>
+      <SidebarLink href={href} isActive={isOpen}>
         <span>{chat.label}</span>
       </SidebarLink>
       {/* Not modal, so focus moves cleanly into a dialog opened from it. */}

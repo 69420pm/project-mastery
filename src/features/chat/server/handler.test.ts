@@ -9,6 +9,9 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const CLASSMATE = "22222222-2222-2222-2222-222222222222";
+/** The Student's Course, and one of their classmate's. */
+const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
+const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 
 let signedIn: string | null = STUDENT;
 let db = createDb();
@@ -16,7 +19,15 @@ let db = createDb();
 /** The local tables, with the ownership rules of the real policies. */
 function createDb() {
   return fakeSupabase({
-    tables: { chats: [], chat_messages: [], ai_usage: [] },
+    tables: {
+      courses: [
+        { id: COURSE, owner: STUDENT, name: "Calculus" },
+        { id: CLASSMATE_COURSE, owner: CLASSMATE, name: "Biology" },
+      ] as FakeRow[],
+      chats: [],
+      chat_messages: [],
+      ai_usage: [],
+    },
     defaults: {
       chats: () => ({
         owner: signedIn,
@@ -34,7 +45,16 @@ function createDb() {
       }),
     },
     canAccess: (table, row, tables) => {
-      if (table === "chats" || table === "ai_usage") {
+      if (table === "chats") {
+        return (
+          row.owner === signedIn &&
+          tables.courses.some(
+            (course) =>
+              course.id === row.course_id && course.owner === signedIn,
+          )
+        );
+      }
+      if (table === "courses" || table === "ai_usage") {
         return row.owner === signedIn;
       }
       return tables.chats.some(
@@ -127,6 +147,7 @@ function seedChat(owner: string, messages: FakeRow[] = []) {
   db.tables.chats.push({
     id: chatId,
     owner,
+    course_id: owner === STUDENT ? COURSE : CLASSMATE_COURSE,
     title: null,
     title_set_manually: false,
     model_choice: "balanced",
@@ -152,14 +173,18 @@ describe("a first message", () => {
 
     const reply = await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("What is a derivative?"),
     });
 
     expect(reply.status).toBe(200);
     expect(reply.text).toBe("Show me your attempt first.");
     expect(db.tables.chats).toEqual([
-      expect.objectContaining({ id: chatId, owner: STUDENT }),
+      expect.objectContaining({
+        id: chatId,
+        owner: STUDENT,
+        course_id: COURSE,
+      }),
     ]);
     expect(storedMessages(chatId)).toEqual([
       { role: "user", text: "What is a derivative?", modelId: null },
@@ -293,7 +318,7 @@ describe("the model choice", () => {
 
     await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       modelChoice: choice.key,
       message: userMessage("Hi"),
     });
@@ -346,7 +371,7 @@ describe("the model choice", () => {
     for (const modelChoice of ["turbo", otherChoice().model]) {
       const reply = await send({
         chatId,
-        newChat: true,
+        courseId: COURSE,
         modelChoice,
         message: userMessage("Hi"),
       });
@@ -369,10 +394,10 @@ describe("refusals", () => {
       { role: "user", parts: [{ type: "text", text: "Private" }] },
     ]);
 
-    for (const newChat of [false, true]) {
+    for (const courseId of [undefined, COURSE]) {
       const reply = await send({
         chatId,
-        newChat,
+        courseId,
         message: userMessage("Let me in"),
       });
       expect(reply).toEqual({
@@ -401,13 +426,34 @@ describe("refusals", () => {
     expect(db.tables.chats).toEqual([]);
   });
 
+  test("a new Chat in another Student's Course or an unknown Course is refused as not found, without a model call", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+
+    for (const courseId of [CLASSMATE_COURSE, randomUUID()]) {
+      const reply = await send({
+        chatId: randomUUID(),
+        courseId,
+        message: userMessage("Let me in"),
+      });
+      expect(reply).toEqual({
+        status: 404,
+        refusal: "This course does not exist.",
+      });
+    }
+
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(db.tables.chats).toEqual([]);
+    expect(db.tables.chat_messages).toEqual([]);
+  });
+
   test("a message over 10,000 characters is refused before a Chat is created", async () => {
     const model = mockTextModel("Never sent.");
     useMockModels({ chat: model });
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("x".repeat(10_001)),
     });
 
@@ -424,7 +470,7 @@ describe("refusals", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("x".repeat(10_000)),
     });
 
@@ -436,7 +482,7 @@ describe("refusals", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -457,7 +503,7 @@ test("a failed reply streams an error and stores no reply", async () => {
 
   const reply = await send({
     chatId,
-    newChat: true,
+    courseId: COURSE,
     message: userMessage("Hi"),
   });
 
@@ -471,7 +517,7 @@ describe("usage", () => {
     useMockModels({ chat: mockTextModel("Try it yourself first.") });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     const replyUsage = db.tables.ai_usage.filter(({ task }) => task === "chat");
     expect(replyUsage).toEqual([
@@ -495,7 +541,7 @@ describe("usage", () => {
     useMockModels({ chat: answeredByModel(fallback, "From the fallback.") });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     expect(storedMessages(chatId).at(-1)).toMatchObject({
       text: "From the fallback.",
@@ -521,7 +567,7 @@ describe("usage", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({
@@ -597,7 +643,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("One more?"),
     });
 
@@ -617,7 +663,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Last one"),
     });
 
@@ -633,7 +679,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -646,7 +692,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -662,7 +708,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -680,7 +726,7 @@ describe("the Chat title", () => {
 
     await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("What is a derivative?"),
     });
 
@@ -714,7 +760,7 @@ describe("the Chat title", () => {
     });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Limits?") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Limits?") });
 
     expect(db.tables.chats[0]?.title).toBe(
       "Limits and continuity of functions in real analysis, with…",
@@ -752,7 +798,7 @@ describe("the Chat title", () => {
 
     const reply = await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -845,7 +891,7 @@ describe("a stopped reply", () => {
     useMockModels({ chat: stalledModel("The first step is ") });
     const chatId = randomUUID();
 
-    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+    await sendAndStop({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     await vi.waitFor(() =>
       expect(db.tables.chat_messages.at(-1)).toMatchObject({
@@ -864,7 +910,7 @@ describe("a stopped reply", () => {
     useMockModels({ chat: stalledModel("The first step is ") });
     const chatId = randomUUID();
 
-    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+    await sendAndStop({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     await vi.waitFor(() => expect(db.tables.ai_usage).toHaveLength(1));
     expect(db.tables.ai_usage[0]).toMatchObject({

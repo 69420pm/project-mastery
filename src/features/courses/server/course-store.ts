@@ -1,6 +1,9 @@
 import "server-only";
 import type { Supabase } from "@/lib/supabase/types";
-import type { CourseListItem } from "@/features/courses/types";
+import type {
+  CourseListItem,
+  CourseWithCounts,
+} from "@/features/courses/types";
 
 /**
  * Reads and writes Courses as the signed-in Student, so Row Level Security
@@ -11,15 +14,36 @@ function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
-/** The Student's Courses, most recently updated first. */
+/**
+ * The Student's Courses, most recently updated first, with how many Chats
+ * each holds.
+ */
 export async function listCourses(
   supabase: Supabase,
-): Promise<CourseListItem[]> {
+): Promise<CourseWithCounts[]> {
+  const { data, error } = await supabase
+    .from("courses")
+    .select("id, name, chats(count)")
+    .order("updated_at", { ascending: false });
+  if (error) fail("Loading the Courses", error);
+  return data.map(({ id, name, chats }) => ({
+    id,
+    name,
+    chatCount: chats[0]?.count ?? 0,
+  }));
+}
+
+/** The Student's Course with this id, or null when it is missing or not theirs. */
+export async function findCourse(
+  supabase: Supabase,
+  courseId: string,
+): Promise<CourseListItem | null> {
   const { data, error } = await supabase
     .from("courses")
     .select("id, name")
-    .order("updated_at", { ascending: false });
-  if (error) fail("Loading the Courses", error);
+    .eq("id", courseId)
+    .maybeSingle();
+  if (error) fail("Loading the Course", error);
   return data;
 }
 

@@ -7,6 +7,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,14 +20,15 @@ import {
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
 import { DeleteCourseDialog } from "@/features/courses/components/delete-course-dialog";
 import { createCourse, renameCourse } from "@/features/courses/server/actions";
-import type { CourseListItem } from "@/features/courses/types";
+import { coursePath } from "@/features/courses/domain/course-paths";
+import type { CourseWithCounts } from "@/features/courses/types";
 
 /**
  * The Student's Courses, most recently updated first, with creating,
  * renaming and deleting them. Without Courses it invites the Student to
  * create their first one.
  */
-export function CourseList({ courses }: { courses: CourseListItem[] }) {
+export function CourseList({ courses }: { courses: CourseWithCounts[] }) {
   const [creating, setCreating] = useState(false);
 
   const newCourseButton = (
@@ -75,13 +77,21 @@ export function CourseList({ courses }: { courses: CourseListItem[] }) {
   );
 }
 
-/** One Course in the list, with its "…" menu to rename or delete it. */
-function CourseListEntry({ course }: { course: CourseListItem }) {
+/**
+ * One Course in the list, opening a new Chat in it, with its "…" menu to
+ * rename or delete it.
+ */
+function CourseListEntry({ course }: { course: CourseWithCounts }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
 
   return (
     <li className="flex items-center gap-2 py-2 pr-2 pl-4">
-      <span className="min-w-0 flex-1 truncate font-medium">{course.name}</span>
+      <Link
+        href={coursePath(course.id)}
+        className="min-w-0 flex-1 truncate rounded-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        {course.name}
+      </Link>
       {/* Not modal, so focus moves cleanly into a dialog opened from it. */}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>

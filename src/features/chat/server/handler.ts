@@ -36,6 +36,8 @@ import {
 } from "@/features/chat/server/chat-store";
 import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
+import { courseNotFoundMessage } from "@/features/courses";
+import { getCourse } from "@/features/courses/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
@@ -54,7 +56,7 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *
  * 1. require the signed-in Student
  * 2. validate the request: the message, an offered model choice, and a Chat
- *    the Student owns or may create
+ *    the Student owns, or a new Chat in a Course the Student owns
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, or mark the new reply as the
  *    Chat's latest with its model choice, then store the Student's message
@@ -76,7 +78,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, newChat, modelChoice, message } = parsed.data;
+  const { chatId, courseId, modelChoice, message } = parsed.data;
 
   const offered = modelChoices("chat");
   const isOffered = (key: string) =>
@@ -91,7 +93,10 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
-  if (!existing && !newChat) return refuse(404, chatNotFoundMessage);
+  if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
+  if (!existing && !(await getCourse(courseId!))) {
+    return refuse(404, courseNotFoundMessage);
+  }
 
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
@@ -105,6 +110,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const chat =
     existing ??
     (await createChat(supabase, chatId, {
+      courseId: courseId!,
       modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
       replyId,
     }));
