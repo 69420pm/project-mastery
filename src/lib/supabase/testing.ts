@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { fakeStorage } from "./testing-storage";
 
 /**
  * An in-memory stand-in for the Supabase server client in unit tests, so
@@ -20,6 +21,8 @@ export type FakeSupabaseOptions<Table extends string> = {
   tables: Record<Table, FakeRow[]>;
   /** Column defaults per table, like the schema's `default` clauses. */
   defaults?: Partial<Record<Table, () => FakeRow>>;
+  /** The signed-in user, whose folder in Storage the fake lets them use. */
+  userId?: string;
   /** Row Level Security: whether the current user may see and write `row`. */
   canAccess?: (
     table: Table,
@@ -196,5 +199,5 @@ export function fakeSupabase<Table extends string>(
     return builder;
   }
 
-  return { from, tables };
+  return { from, tables, ...fakeStorage(options.userId) };
 }

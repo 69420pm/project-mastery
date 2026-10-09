@@ -155,7 +155,9 @@ test.describe("signed in", () => {
     await page.goto("/chat");
     await sendMessage(page, "Explain limits");
     const log = page.getByRole("log");
-    await expect(log.getByText(/Mock reply to/)).toBeVisible();
+    // Stop only once the echoed prompt is on screen, so the partial reply
+    // always holds it. A bare "Mock reply to" can be cut mid-prompt.
+    await expect(log.getByText(/Mock reply to "Explain limits"/)).toBeVisible();
 
     await page.getByRole("button", { name: "Stop" }).click();
 
