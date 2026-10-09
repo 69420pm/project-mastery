@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { materialNameFromFilename } from "@/features/courses/domain/material-name";
 import {
@@ -10,10 +11,7 @@ import {
   materialFileSchema,
   type MaterialReference,
 } from "@/features/courses/schemas";
-import {
-  invalidatePages,
-  registerMaterial,
-} from "@/features/courses/server/actions";
+import { registerMaterial } from "@/features/courses/server/actions";
 import { removeUploadedFile, uploadFile } from "@/lib/supabase/upload";
 
 /** One file the Student added, while it uploads or when it did not work. */
@@ -43,18 +41,20 @@ export function useMaterialUploads({
   ownerId,
   courseId,
   onRegistered,
-  refreshPage = true,
+  refresh = "after-register",
 }: {
   ownerId: string;
   courseId: string;
   /** Called once for each upload that became a Material. */
   onRegistered?: (material: MaterialReference) => void;
   /**
-   * Whether registering refreshes the page. False where a refresh would
-   * lose what the Student is writing.
+   * When the router refreshes, so pages show the new Material. "on-leave"
+   * where a refresh would replace what the Student is writing: the refresh
+   * then waits until the page unmounts.
    */
-  refreshPage?: boolean;
+  refresh?: "after-register" | "on-leave";
 }) {
+  const router = useRouter();
   const [uploads, setUploads] = useState<MaterialUpload[]>([]);
   const registeredCallback = useRef(onRegistered);
   useEffect(() => {
@@ -80,18 +80,18 @@ export function useMaterialUploads({
     setUploads((current) => current.filter((upload) => upload.key !== key));
   }, []);
 
-  // Leaving the page cancels unfinished uploads. Registering did not refresh
-  // the page, so leaving after one drops the router's cached pages: Back then
-  // shows the new Material, on the Materials page and in the Chat.
-  const unrefreshed = useRef({ registered: false });
+  // Leaving the page cancels unfinished uploads. With refresh "on-leave",
+  // leaving after a registration refreshes the router, which drops its cached
+  // pages: Back then shows the new Material, on the Materials page and in the
+  // Chat.
+  const refreshOnLeave = useRef(false);
   useEffect(() => {
     const running = controllers.current;
-    const state = unrefreshed.current;
     return () => {
       for (const controller of running.values()) controller.abort();
-      if (state.registered) void invalidatePages();
+      if (refreshOnLeave.current) router.refresh();
     };
-  }, []);
+  }, [router]);
 
   const run = useCallback(
     async (key: string, file: File) => {
@@ -108,6 +108,7 @@ export function useMaterialUploads({
         return;
       }
 
+      const name = materialNameFromFilename(file.name);
       const materialId = crypto.randomUUID();
       const path = materialStoragePath(ownerId, courseId, materialId);
       const controller = new AbortController();
@@ -142,10 +143,9 @@ export function useMaterialUploads({
         result = await registerMaterial({
           materialId,
           courseId,
-          name: materialNameFromFilename(file.name),
+          name,
           mediaType: file.type,
           sizeBytes: file.size,
-          refresh: refreshPage,
         });
       } catch (error) {
         // The action was never reached, so the file is removed here.
@@ -155,10 +155,11 @@ export function useMaterialUploads({
       }
       controllers.current.delete(key);
       if (result.ok) {
-        if (!refreshPage) unrefreshed.current.registered = true;
+        if (refresh === "on-leave") refreshOnLeave.current = true;
+        else router.refresh();
         registeredCallback.current?.({
           materialId,
-          name: materialNameFromFilename(file.name),
+          name,
           mediaType: file.type as MaterialReference["mediaType"],
         });
         forget(key);
@@ -167,7 +168,7 @@ export function useMaterialUploads({
       const fieldError = Object.values(result.fieldErrors ?? {})[0]?.[0];
       update(key, { status: "failed", message: fieldError ?? result.message });
     },
-    [courseId, ownerId, refreshPage, update, forget],
+    [courseId, ownerId, refresh, router, update, forget],
   );
 
   /** Starts uploading the files the Student picked or dropped. */
