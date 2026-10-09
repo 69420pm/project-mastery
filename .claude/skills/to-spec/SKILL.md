@@ -10,13 +10,13 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching.
+1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching. When the spec relies on an external service (a model id, an API version, a quota), try it once and record what you found: assumed facts surface late, in the middle of implementation.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 
 Check with the user that these seams match their expectations.
 
-3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+3. Write the spec using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage. Keep the template's `##` headings exactly: implementers read one section at a time by its heading.
 
 <spec-template>
 
@@ -51,6 +51,7 @@ A list of implementation decisions that were made. This can include:
 - Schema changes
 - API contracts
 - Specific interactions
+- What happens when actions overlap or fail midway: a user acting while a request is pending (stop, retry, double submit, reload), an async write the next request depends on, a call that dies halfway
 
 Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
 
@@ -63,6 +64,7 @@ A list of testing decisions that were made. Include:
 - A description of what makes a good test (only test external behavior, not implementation details)
 - Which modules will be tested
 - Prior art for the tests (i.e. similar types of tests in the codebase)
+- For async behaviour, the observable signal a test waits on (a stored row, a UI state set after saving), so tests wait on the event instead of on time
 
 ## Out of Scope
 
@@ -70,6 +72,6 @@ A description of the things that are out of scope for this spec.
 
 ## Further Notes
 
-Any further notes about the feature.
+Any further notes about the feature, including what shipping needs beyond the code: migrations to apply to staging, environment variables, provider settings.
 
 </spec-template>

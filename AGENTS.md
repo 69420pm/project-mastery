@@ -26,6 +26,12 @@ Like Next.js, these packages ship documentation that matches the installed versi
 - Vercel Workflow: `node_modules/workflow/docs/`
 - Supabase client: `node_modules/@supabase/supabase-js/AGENTS.md`
 
+Gotchas that earlier work verified live in `docs/agents/notes/<topic>.md`: read the note for a library too, when there is one.
+
+## Agent worktrees
+
+In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](docs/agents/worktrees.md) before your first command: it covers setup, the commands the worktree guard accepts, and the database, AI quota and ports that parallel agents share.
+
 ## Git workflow
 
 - Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)

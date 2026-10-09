@@ -19,7 +19,10 @@ import { startTracing } from "@/lib/tracing/node";
 import { chatEval } from "./chat";
 import {
   experimentTask,
+  isQuotaExhausted,
   loadFixture,
+  QuotaExhaustedError,
+  withQuotaGuard,
   type EvalDefinition,
   type EvalItem,
 } from "./eval";
@@ -123,7 +126,7 @@ async function main() {
   }
   const selected = EVALS.filter(
     (e) => requested.length === 0 || requested.includes(e.name),
-  );
+  ).map(withQuotaGuard);
 
   const tracing = startTracing();
   const langfuse = isLangfuseConfigured() ? new LangfuseClient() : undefined;
@@ -139,6 +142,7 @@ async function main() {
       const rate = langfuse
         ? await runWithLangfuse(langfuse, definition, fixture)
         : await runLocally(definition, fixture);
+      if (isQuotaExhausted()) throw new QuotaExhaustedError();
 
       const verdict = rate >= definition.minPassRate ? "✓ passed" : "✗ failed";
       console.info(
@@ -154,6 +158,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error);
+  console.error(error instanceof QuotaExhaustedError ? error.message : error);
   process.exitCode = 1;
 });

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
@@ -5,7 +6,12 @@ import { defineConfig, devices } from "@playwright/test";
 // reads them. Variables already set, as in CI, take precedence.
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
-const PORT = Number(process.env.PORT ?? 3000);
+// Each checkout gets its own port (3100-3199), apart from dev servers on
+// 3000 and up, so parallel agent worktrees never test each other's server.
+const checkoutPort =
+  3100 +
+  (createHash("sha1").update(process.cwd()).digest().readUInt16BE() % 100);
+const PORT = Number(process.env.PORT ?? checkoutPort);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -33,6 +39,7 @@ export default defineConfig({
         url: baseURL,
         // A Daily limit that tests reach by seeding usage (seedAiSpend).
         env: { AI_PROVIDER: "mock", AI_DAILY_LIMIT_USD: "1" },
-        reuseExistingServer: !process.env.CI,
+        // A server already on the port is another build, never this one.
+        reuseExistingServer: false,
       },
 });

@@ -91,6 +91,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
 - `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
+- `tools/spec-run/` holds the shell scripts that `/implement-spec` runs: preparing an agent worktree for a ticket, and merging a finished ticket into the integration branch behind the full checks.
 
 ### Anatomy of a feature
 
