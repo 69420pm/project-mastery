@@ -108,7 +108,7 @@ test("a new Chat appears in the list with its first message, then gets a title a
   ]);
 });
 
-test("the sidebar links to the dashboard and holds the account menu", async ({
+test("the sidebar's logo leads to the Course list, and it holds the account menu", async ({
   page,
   student,
 }) => {
@@ -120,6 +120,9 @@ test("the sidebar links to the dashboard and holds the account menu", async ({
   await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await page.getByRole("link", { name: "Dashboard" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByRole("link", { name: "Project Mastery" }).click();
+  await expect(page).toHaveURL(/\/courses$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Courses" }),
+  ).toBeVisible();
 });
