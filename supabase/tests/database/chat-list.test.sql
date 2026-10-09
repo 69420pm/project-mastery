@@ -10,10 +10,13 @@ values
   ('33333333-3333-3333-3333-333333333333', 'carol@example.com');
 
 -- Two Chats from yesterday: an older and a newer one.
-insert into public.chats (id, owner, created_at, last_message_at)
+insert into public.courses (id, owner, name)
+values ('cccccccc-c000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'Chemistry');
+
+insert into public.chats (id, owner, course_id, created_at, last_message_at)
 values
-  ('cccccccc-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', now() - interval '2 days', now() - interval '2 days'),
-  ('cccccccc-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', now() - interval '1 day', now() - interval '1 day');
+  ('cccccccc-0000-0000-0000-000000000001', '33333333-3333-3333-3333-333333333333', 'cccccccc-c000-0000-0000-000000000001', now() - interval '2 days', now() - interval '2 days'),
+  ('cccccccc-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'cccccccc-c000-0000-0000-000000000001', now() - interval '1 day', now() - interval '1 day');
 
 select is(
   (select last_message_at from public.chats where id = 'cccccccc-0000-0000-0000-000000000001'),

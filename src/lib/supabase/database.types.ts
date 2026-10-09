@@ -106,6 +106,7 @@ export type Database = {
       };
       chats: {
         Row: {
+          course_id: string;
           created_at: string;
           id: string;
           last_message_at: string;
@@ -117,6 +118,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          course_id: string;
           created_at?: string;
           id?: string;
           last_message_at?: string;
@@ -128,6 +130,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          course_id?: string;
           created_at?: string;
           id?: string;
           last_message_at?: string;
@@ -139,6 +142,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "chats_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "chats_owner_fkey";
             columns: ["owner"];
