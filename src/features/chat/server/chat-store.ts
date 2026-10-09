@@ -52,9 +52,11 @@ export async function findChat(
 }
 
 /**
- * Creates a Chat owned by the signed-in Student in their Course `courseId`, with `replyId` as its
- * latest reply (see `startReply`). Returns null when the id is taken, which
- * for the Student means it belongs to someone else.
+ * Creates a Chat owned by the signed-in Student in their Course `courseId`,
+ * with `replyId` as its latest reply (see `startReply`). Refuses with
+ * "taken" when the id is taken, which for the Student means it belongs to
+ * someone else, and with "no course" when the Course is not (or no longer)
+ * theirs.
  */
 export async function createChat(
   supabase: Supabase,
@@ -64,7 +66,7 @@ export async function createChat(
     modelChoice,
     replyId,
   }: { courseId: string; modelChoice: string; replyId: string },
-): Promise<StoredChat | null> {
+): Promise<StoredChat | "taken" | "no course"> {
   const { data, error } = await supabase
     .from("chats")
     .insert({
@@ -75,7 +77,9 @@ export async function createChat(
     })
     .select("id, course_id, title, model_choice")
     .single();
-  if (error?.code === "23505") return null;
+  if (error?.code === "23505") return "taken";
+  // The insert policy, or the foreign key once the Course is deleted.
+  if (error?.code === "42501" || error?.code === "23503") return "no course";
   if (error) fail("Creating the Chat", error);
   return toStoredChat(data);
 }
