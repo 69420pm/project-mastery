@@ -1,7 +1,6 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
-import { messageText } from "@/features/chat/domain/message-text";
 import type { ChatUIMessage } from "@/features/chat/types";
 
 /**
@@ -140,13 +139,17 @@ export async function renameChat(
 
 /**
  * The Student's Chats in a Course, newest message first, each with its title
- * and the text of its first message.
+ * and the parts of its first message.
  */
 export async function listChats(
   supabase: Supabase,
   courseId: string,
 ): Promise<
-  { id: string; title: string | null; firstMessage: string | null }[]
+  {
+    id: string;
+    title: string | null;
+    firstMessage: ChatUIMessage["parts"] | null;
+  }[]
 > {
   const { data, error } = await supabase
     .from("chats")
@@ -162,7 +165,7 @@ export async function listChats(
       id: chat.id,
       title: chat.title,
       firstMessage: first
-        ? messageText(first.parts as ChatUIMessage["parts"])
+        ? (first.parts as unknown as ChatUIMessage["parts"])
         : null,
     };
   });
@@ -215,6 +218,22 @@ export async function loadMessages(
     .order("created_at", { ascending: true });
   if (error) fail("Loading the messages", error);
   return data.map(toUIMessage);
+}
+
+/** Whether the Chat has a message with this id. */
+export async function hasMessage(
+  supabase: Supabase,
+  chatId: string,
+  messageId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("id")
+    .eq("chat_id", chatId)
+    .eq("id", messageId)
+    .maybeSingle();
+  if (error) fail("Loading the message", error);
+  return data !== null;
 }
 
 function messageRow(chatId: string, message: ChatUIMessage) {

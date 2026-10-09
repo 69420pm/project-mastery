@@ -15,18 +15,23 @@ let db = createDb();
  */
 function createDb() {
   return fakeSupabase({
-    tables: { courses: [], materials: [] },
+    tables: { courses: [], materials: [], chats: [], chat_messages: [] },
     userId: signedIn ?? undefined,
     defaults: {
       courses: () => ({ owner: signedIn }),
       materials: () => ({ owner: signedIn }),
     },
     canAccess: (table, row, tables) =>
-      row.owner === signedIn &&
-      (table !== "materials" ||
-        tables.courses.some(
-          (course) => course.id === row.course_id && course.owner === signedIn,
-        )),
+      table === "chat_messages"
+        ? tables.chats.some(
+            (chat) => chat.id === row.chat_id && chat.owner === signedIn,
+          )
+        : row.owner === signedIn &&
+          (table !== "materials" ||
+            tables.courses.some(
+              (course) =>
+                course.id === row.course_id && course.owner === signedIn,
+            )),
   });
 }
 
@@ -38,6 +43,7 @@ vi.mock("@/lib/auth/user", () => ({
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 
 const {
+  countMaterialChats,
   createCourse,
   deleteCourse,
   deleteMaterial,
@@ -540,5 +546,62 @@ describe("openMaterial", () => {
     const result = await openMaterial({ materialId: material.id });
 
     expect(result).toEqual(materialNotFound);
+  });
+});
+
+describe("countMaterialChats", () => {
+  /** A Chat of `owner` whose messages attach these Materials, one each. */
+  function seedChatAttaching(owner: string, materialIds: string[]) {
+    const chatId = randomUUID();
+    db.tables.chats.push({ id: chatId, owner });
+    for (const materialId of [...materialIds, null]) {
+      db.tables.chat_messages.push({
+        id: randomUUID(),
+        chat_id: chatId,
+        role: "user",
+        parts: [
+          { type: "text", text: "Look at this" },
+          ...(materialId
+            ? [
+                {
+                  type: "data-material",
+                  data: { materialId, name: "Lecture 1", mediaType: PDF },
+                },
+              ]
+            : []),
+        ],
+      });
+    }
+    return chatId;
+  }
+
+  test("counts the Chats whose messages attach the Material, each once", async () => {
+    const courseId = seedCourse(STUDENT, "Analysis");
+    const material = seedMaterial(STUDENT, courseId);
+    const other = seedMaterial(STUDENT, courseId, "Lecture 2");
+    seedChatAttaching(STUDENT, [material.id, material.id]);
+    seedChatAttaching(STUDENT, [other.id, material.id]);
+    seedChatAttaching(STUDENT, [other.id]);
+
+    const result = await countMaterialChats({ materialId: material.id });
+
+    expect(result).toEqual({ ok: true, data: { chatCount: 2 } });
+  });
+
+  test("is zero for a Material attached nowhere", async () => {
+    const material = seedMaterial(STUDENT, seedCourse(STUDENT, "Analysis"));
+
+    const result = await countMaterialChats({ materialId: material.id });
+
+    expect(result).toEqual({ ok: true, data: { chatCount: 0 } });
+  });
+
+  test("never counts another Student's Chats", async () => {
+    const material = seedMaterial(STUDENT, seedCourse(STUDENT, "Analysis"));
+    seedChatAttaching(CLASSMATE, [material.id]);
+
+    const result = await countMaterialChats({ materialId: material.id });
+
+    expect(result).toEqual({ ok: true, data: { chatCount: 0 } });
   });
 });

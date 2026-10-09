@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import type { MaterialReference } from "@/features/courses";
 
 /** What the server attaches to an AI message. */
 export type ChatMessageMetadata = {
@@ -8,8 +9,14 @@ export type ChatMessageMetadata = {
   stopped?: boolean;
 };
 
+/** The custom data parts of Chat messages, by name without `data-`. */
+export type ChatDataParts = {
+  /** A Material the Student attached to their message. */
+  material: MaterialReference;
+};
+
 /** A message of a Chat, as `useChat` shows it and the database stores it. */
-export type ChatUIMessage = UIMessage<ChatMessageMetadata>;
+export type ChatUIMessage = UIMessage<ChatMessageMetadata, ChatDataParts>;
 
 /** A stored Chat with its messages, for the Chat page. */
 export type ChatWithMessages = {
