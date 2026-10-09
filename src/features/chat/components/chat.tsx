@@ -280,7 +280,11 @@ export function Chat({
       if (files.length === 0) return;
       event.preventDefault();
       event.stopPropagation();
-      if (!limitReached) uploadFilesRef.current(files);
+      if (limitReached) {
+        setInputError("You have reached today's limit. Try again tomorrow.");
+      } else {
+        uploadFilesRef.current(files);
+      }
     };
     const onPaste = (event: ClipboardEvent) =>
       takeFiles(

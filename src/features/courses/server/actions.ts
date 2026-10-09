@@ -75,6 +75,14 @@ export async function renameCourse(input: {
 }
 
 /**
+ * Drops the cached pages, for a client that registered Materials with
+ * `refresh: false` and is leaving its page.
+ */
+export async function invalidatePages(): Promise<void> {
+  revalidatePath("/", "layout");
+}
+
+/**
  * Registers a file the browser uploaded to Storage as a Material of the
  * Course. The upload went to `<owner>/<course>/<material id>` first, because
  * Server Action bodies are too small for the file. When registering fails,
