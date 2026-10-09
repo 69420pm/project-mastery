@@ -44,8 +44,13 @@ export function fakeStorage(userId: string | undefined) {
     if (!bucket) buckets.set(name, (bucket = new Map()));
     return bucket;
   };
-  const owns = (path: string) =>
-    userId !== undefined && path.split("/")[0] === userId;
+  // Like `storage.foldername(name)[1]`: a bare `<user id>` has no folder.
+  const owns = (path: string) => {
+    const segments = path.split("/");
+    return (
+      userId !== undefined && segments.length >= 2 && segments[0] === userId
+    );
+  };
   const make = (bytes: Uint8Array, contentType: string): StoredObject => ({
     bytes,
     contentType,
