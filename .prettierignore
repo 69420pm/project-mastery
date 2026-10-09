@@ -7,3 +7,4 @@ next-env.d.ts
 CHANGELOG.md
 .claude/worktrees/
 .claude/skills/
+supabase/.temp/

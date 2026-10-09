@@ -7,6 +7,12 @@ source "$(dirname "$0")/env.sh"
 file=$(jq -r '.tool_input.file_path // empty')
 [[ -n "$file" && -f "$file" && "$file" == "$CLAUDE_PROJECT_DIR"/* ]] || exit 0
 
+# Lint from the file's own checkout, so edits in agent worktrees are linted too.
+root=$(checkout_root "$(dirname "$file")") || exit 0
+cd "$root" || exit 0
+# A worktree before `pnpm install`: nothing to lint with yet.
+[[ -d node_modules ]] || exit 0
+
 if [[ "$file" =~ \.(ts|tsx|js|jsx|mjs|cjs)$ ]]; then
   if ! out=$(pnpm exec eslint --fix --max-warnings=0 --no-warn-ignored "$file" 2>&1); then
     pnpm exec prettier --write --ignore-unknown "$file" >/dev/null 2>&1
