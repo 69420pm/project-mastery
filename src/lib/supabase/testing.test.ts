@@ -57,6 +57,12 @@ describe("fakeSupabase Storage", () => {
     expect(files.paths(bucket)).toEqual([]);
   });
 
+  it("refuses a bare user id with no folder, as the policy does", async () => {
+    const { store } = setup();
+    const { error } = await store.upload(me, pdf("x"));
+    expect(error).toMatchObject({ status: 403 });
+  });
+
   it("refuses everything when nobody is signed in", async () => {
     const db = fakeSupabase({ tables: {} });
     const { error } = await db.storage.from(bucket).upload(mine, pdf("x"));

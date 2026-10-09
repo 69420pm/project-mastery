@@ -21,9 +21,9 @@ export type FakeSupabaseOptions<Table extends string> = {
   tables: Record<Table, FakeRow[]>;
   /** Column defaults per table, like the schema's `default` clauses. */
   defaults?: Partial<Record<Table, () => FakeRow>>;
-  /** Row Level Security: whether the current user may see and write `row`. */
   /** The signed-in user, whose folder in Storage the fake lets them use. */
   userId?: string;
+  /** Row Level Security: whether the current user may see and write `row`. */
   canAccess?: (
     table: Table,
     row: FakeRow,
