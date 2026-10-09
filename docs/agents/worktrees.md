@@ -27,7 +27,7 @@ Library and environment gotchas verified in earlier work are in `docs/agents/not
 All checkouts share one local Supabase, the user's AI quota and the machine's ports.
 
 - **Database**: apply migrations with `pnpm exec supabase migration up --local --include-all`. A reset wipes other agents' data, so the Bash guard refuses it. The database can hold other tickets' tables, so after `pnpm db:types` keep only the changes for your own migrations in `database.types.ts`.
-- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. Evals and live model calls spend the user's free-tier quota (about 10 requests per model per day), so they run once at the end of a spec, by the orchestrator, after the user agrees.
+- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. Evals and live model calls spend the user's free-tier quota (20 requests per flash model per day, see [the Gemini free-tier note](notes/gemini-free-tier.md)), so they run once at the end of a spec, by the orchestrator, after the user agrees.
 - **Ports**: `pnpm -s agent up` and Playwright pick a port for each checkout. Leave `PORT` unset.
 
 ## Tests
