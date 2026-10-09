@@ -40,12 +40,12 @@ const studentMessageSchema = z.object({
 
 /**
  * The body `useChat` posts to the Chat route: only the new message, as in the
- * AI SDK message persistence guide. `newChat` allows creating the Chat with
- * this id; without it the Chat must exist.
+ * AI SDK message persistence guide. `courseId` allows creating the Chat with
+ * this id in that Course; without it the Chat must exist.
  */
 export const chatRequestSchema = z.object({
   chatId: z.uuid(),
-  newChat: z.boolean().optional(),
+  courseId: z.uuid().optional(),
   /**
    * The key of the Student's model choice for this message, never a model
    * id. The server checks it against the offered choices. Without one, the

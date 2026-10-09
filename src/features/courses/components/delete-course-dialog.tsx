@@ -13,15 +13,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { deleteCourse } from "@/features/courses/server/actions";
-import type { CourseListItem } from "@/features/courses/types";
+import type { CourseWithCounts } from "@/features/courses/types";
 
 type DeleteCourseDialogProps = {
-  course: CourseListItem;
+  course: CourseWithCounts;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-/** Asks before deleting a Course for good. */
+/** What the confirmation says goes with the Course. */
+function deletedWith({ name, chatCount }: CourseWithCounts): string {
+  const chats =
+    chatCount === 0
+      ? ""
+      : chatCount === 1
+        ? " and its 1 chat"
+        : ` and its ${chatCount} chats`;
+  return `“${name}”${chats} will be deleted for good. This cannot be undone.`;
+}
+
+/** Asks before deleting a Course for good, with its Chats. */
 export function DeleteCourseDialog({
   course,
   open,
@@ -54,9 +65,7 @@ export function DeleteCourseDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete course?</AlertDialogTitle>
-          <AlertDialogDescription>
-            “{course.name}” will be deleted for good. This cannot be undone.
-          </AlertDialogDescription>
+          <AlertDialogDescription>{deletedWith(course)}</AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
           <p role="alert" className="text-sm text-destructive">

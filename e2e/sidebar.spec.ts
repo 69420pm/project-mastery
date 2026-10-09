@@ -10,19 +10,20 @@ function messageInput(page: Page) {
 test("the sidebar lists only the Student's own Chats, newest first, and opens one", async ({
   page,
   student,
+  course,
 }) => {
   const now = Date.now();
-  const older = await seedChat(student.id, {
+  const older = await seedChat(student.id, course.id, {
     firstMessage: "How do I integrate by parts when both factors are tricky?",
     at: new Date(now - 2 * HOUR),
   });
-  await seedChat(student.id, {
+  await seedChat(student.id, course.id, {
     title: "Eigenvalues",
     firstMessage: "What is an eigenvalue?",
     at: new Date(now - HOUR),
   });
 
-  await page.goto("/chat");
+  await page.goto(course.chatPath);
   const chats = await openSidebar(page);
 
   await expect(chats.getByRole("link")).toHaveText([
@@ -32,7 +33,7 @@ test("the sidebar lists only the Student's own Chats, newest first, and opens on
 
   await chats.getByRole("link", { name: /^How do I integrate/ }).click();
 
-  await expect(page).toHaveURL(`/chat/${older}`);
+  await expect(page).toHaveURL(`${course.chatPath}/${older}`);
   await expect(
     page.getByRole("log").getByText(/^How do I integrate by parts/),
   ).toBeVisible();
@@ -49,17 +50,17 @@ test("the sidebar lists only the Student's own Chats, newest first, and opens on
   ).not.toHaveAttribute("aria-current");
 });
 
-test("New chat opens an empty Chat", async ({ page, student }) => {
-  const chatId = await seedChat(student.id, {
+test("New chat opens an empty Chat", async ({ page, student, course }) => {
+  const chatId = await seedChat(student.id, course.id, {
     firstMessage: "Explain limits",
     at: new Date(),
   });
-  await page.goto(`/chat/${chatId}`);
+  await page.goto(`${course.chatPath}/${chatId}`);
   await openSidebar(page);
 
   await page.getByRole("link", { name: "New chat" }).click();
 
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(course.chatPath);
   await expect(
     page.getByRole("heading", { name: "What are you studying?" }),
   ).toBeVisible();
@@ -69,16 +70,17 @@ test("New chat opens an empty Chat", async ({ page, student }) => {
 test("a new Chat appears in the list with its first message, then gets a title after the reply", async ({
   page,
   student,
+  course,
 }) => {
-  await seedChat(student.id, {
+  await seedChat(student.id, course.id, {
     firstMessage: "An earlier Chat",
     at: new Date(Date.now() - HOUR),
   });
-  await page.goto("/chat");
+  await page.goto(course.chatPath);
 
   await messageInput(page).fill("What is the derivative of x^3?");
   await messageInput(page).press("Enter");
-  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(new RegExp(`${course.chatPath}/[0-9a-f-]{36}$`));
   const chatId = page.url().split("/").at(-1);
 
   // The mock reply takes seconds to stream, so the list still shows the
@@ -98,7 +100,7 @@ test("a new Chat appears in the list with its first message, then gets a title a
   await expect(chats.getByRole("link").first()).toHaveText(title);
   await expect(chats.getByRole("link").first()).toHaveAttribute(
     "href",
-    `/chat/${chatId}`,
+    `${course.chatPath}/${chatId}`,
   );
 
   await page.reload();
@@ -111,8 +113,9 @@ test("a new Chat appears in the list with its first message, then gets a title a
 test("the sidebar's logo leads to the Course list, and it holds the account menu", async ({
   page,
   student,
+  course,
 }) => {
-  await page.goto("/chat");
+  await page.goto(course.chatPath);
   await openSidebar(page);
 
   await page.getByRole("button", { name: "Account menu" }).click();

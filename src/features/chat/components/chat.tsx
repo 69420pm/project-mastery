@@ -41,6 +41,7 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
@@ -65,7 +66,10 @@ type ChatProps = {
    * (`newChat`). Without a title, it gets one after a reply.
    */
   chat: ChatWithMessages;
-  /** True on `/chat`: the first message creates the Chat with its id. */
+  /**
+   * True on a Course's new Chat page: the first message creates the Chat
+   * with its id, in its Course.
+   */
   isNew: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
@@ -161,7 +165,7 @@ export function Chat({
         body: {
           ...body,
           chatId,
-          newChat: isNew,
+          ...(isNew && { courseId: chat.courseId }),
           message: messages.at(-1),
         },
       }),
@@ -172,7 +176,7 @@ export function Chat({
   // Once the reply streams, the message is stored: a new Chat gets its own
   // address without remounting, so reloading or bookmarking it works, and the
   // Chat moves to the top of the sidebar.
-  const path = `/chat/${chatId}`;
+  const path = chatPath(chat.courseId, chatId);
   const firstMessage = messages[0] ? messageText(messages[0].parts) : null;
   useEffect(() => {
     if (status !== "streaming") return;

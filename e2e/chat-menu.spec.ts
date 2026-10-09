@@ -17,12 +17,12 @@ function messageInput(page: Page) {
   return page.getByRole("textbox", { name: "Message" });
 }
 
-test("Rename names a Chat for good", async ({ page, student }) => {
-  const chatId = await seedChat(student.id, {
+test("Rename names a Chat for good", async ({ page, student, course }) => {
+  const chatId = await seedChat(student.id, course.id, {
     firstMessage: "What is a limit?",
     at: new Date(),
   });
-  await page.goto(`/chat/${chatId}`);
+  await page.goto(`${course.chatPath}/${chatId}`);
   const chats = await openSidebar(page);
 
   const menu = await openChatMenu(chats, "What is a limit?");
@@ -56,16 +56,17 @@ test("Rename names a Chat for good", async ({ page, student }) => {
 test("Delete asks for confirmation, then removes the Chat for good", async ({
   page,
   student,
+  course,
 }) => {
-  const open = await seedChat(student.id, {
+  const open = await seedChat(student.id, course.id, {
     firstMessage: "Open Chat",
     at: new Date(),
   });
-  const other = await seedChat(student.id, {
+  const other = await seedChat(student.id, course.id, {
     firstMessage: "Chat to delete",
     at: new Date(Date.now() - HOUR),
   });
-  await page.goto(`/chat/${open}`);
+  await page.goto(`${course.chatPath}/${open}`);
   const chats = await openSidebar(page);
 
   await (
@@ -91,21 +92,22 @@ test("Delete asks for confirmation, then removes the Chat for good", async ({
 
   await expect(confirm).toBeHidden();
   await expect(chats.getByRole("link")).toHaveText(["Open Chat"]);
-  await expect(page).toHaveURL(`/chat/${open}`);
+  await expect(page).toHaveURL(`${course.chatPath}/${open}`);
 
-  await page.goto(`/chat/${other}`);
+  await page.goto(`${course.chatPath}/${other}`);
   await expect(page.getByText("This page could not be found.")).toBeVisible();
 });
 
 test("deleting the open Chat lands on a new Chat", async ({
   page,
   student,
+  course,
 }) => {
-  const chatId = await seedChat(student.id, {
+  const chatId = await seedChat(student.id, course.id, {
     firstMessage: "Open Chat",
     at: new Date(),
   });
-  await page.goto(`/chat/${chatId}`);
+  await page.goto(`${course.chatPath}/${chatId}`);
   const chats = await openSidebar(page);
 
   await (
@@ -118,7 +120,7 @@ test("deleting the open Chat lands on a new Chat", async ({
     .getByRole("button", { name: "Delete" })
     .click();
 
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(course.chatPath);
   await expect(
     page.getByRole("heading", { name: "What are you studying?" }),
   ).toBeVisible();

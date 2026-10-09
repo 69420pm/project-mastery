@@ -2,7 +2,9 @@ import { createContext, useContext } from "react";
 import type { ChatListItem } from "@/features/chat/types";
 
 export type ChatListContextValue = {
-  /** The Student's Chats, newest message first. */
+  /** The Course whose Chats these are. */
+  courseId: string;
+  /** The Student's Chats in the Course, newest message first. */
   chats: ChatListItem[];
   /**
    * Moves a Chat to the top of the list once a message was sent in it, adding
@@ -14,6 +16,7 @@ export type ChatListContextValue = {
 };
 
 export const ChatListContext = createContext<ChatListContextValue>({
+  courseId: "",
   chats: [],
   noteChatActivity: () => {},
   relabelChat: () => {},

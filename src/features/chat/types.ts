@@ -14,6 +14,8 @@ export type ChatUIMessage = UIMessage<ChatMessageMetadata>;
 /** A stored Chat with its messages, for the Chat page. */
 export type ChatWithMessages = {
   id: string;
+  /** The Course the Chat belongs to. */
+  courseId: string;
   title: string | null;
   /**
    * The key of the model choice the Chat answers with: its last choice, or

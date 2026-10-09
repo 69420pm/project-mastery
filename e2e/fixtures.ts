@@ -9,10 +9,11 @@ import { createClient } from "@supabase/supabase-js";
  * playwright.config.ts). Import `test` and `expect` from here instead of
  * `@playwright/test`.
  *
- *   test("…", async ({ page, student }) => { await page.goto("/chat"); });
+ *   test("…", async ({ page, course }) => { await page.goto(course.chatPath); });
  *
  * Using `student` creates a fresh Student through the local auth admin API,
- * signs the browser in as them and deletes them after the test. Tests that
+ * signs the browser in as them and deletes them after the test. Using
+ * `course` also gives them a Course. Tests that
  * use it are skipped against a deployment (PLAYWRIGHT_BASE_URL), which has
  * neither the local admin API nor the mock AI.
  */
@@ -127,12 +128,30 @@ async function signIn(
   );
 }
 
+/** A stored Course and the page of a new Chat in it. */
+export type SeededCourse = { id: string; name: string; chatPath: string };
+
+/** Stores a Course for a Student. */
+export async function seedCourse(
+  owner: string,
+  name: string,
+): Promise<SeededCourse> {
+  const { data, error } = await adminClient()
+    .from("courses")
+    .insert({ owner, name })
+    .select("id")
+    .single();
+  if (error) throw new Error(`Seeding a Course failed: ${error.message}`);
+  return { id: data.id, name, chatPath: `/courses/${data.id}/chat` };
+}
+
 /**
- * Stores a Chat for a Student with one message from them, as if they had sent
- * it at `at`, for tests that need existing Chats.
+ * Stores a Chat in a Student's Course with one message from them, as if they
+ * had sent it at `at`, for tests that need existing Chats.
  */
 export async function seedChat(
   owner: string,
+  courseId: string,
   {
     firstMessage,
     title = null,
@@ -149,6 +168,7 @@ export async function seedChat(
   const chat = await admin.from("chats").insert({
     id,
     owner,
+    course_id: courseId,
     title,
     created_at: time,
     last_message_at: time,
@@ -166,7 +186,14 @@ export async function seedChat(
   return id;
 }
 
-export const test = base.extend<{ student: Student }>({
+export const test = base.extend<{
+  student: Student;
+  /** A Course of the Student's, named "Calculus". */
+  course: SeededCourse;
+}>({
+  course: async ({ student }, provide) => {
+    await provide(await seedCourse(student.id, "Calculus"));
+  },
   student: async ({ context, baseURL }, provide, testInfo) => {
     testInfo.skip(
       isDeployment,
@@ -180,13 +207,17 @@ export const test = base.extend<{ student: Student }>({
 });
 
 /**
- * The sidebar's Chat list. On a phone the sidebar is a slide-over that opens
+ * The sidebar's Chat list inside a Course, or its Course list on `/courses`
+ * (`list: "Courses"`). On a phone the sidebar is a slide-over that opens
  * from the menu button first.
  */
-export async function openSidebar(page: Page) {
+export async function openSidebar(
+  page: Page,
+  list: "Chats" | "Courses" = "Chats",
+) {
   const toggle = page.getByRole("button", { name: "Toggle Sidebar" });
   if (test.info().project.name === "mobile") await toggle.click();
-  return page.getByRole("navigation", { name: "Chats" });
+  return page.getByRole("navigation", { name: list });
 }
 
 export { expect } from "@playwright/test";
