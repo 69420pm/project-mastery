@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase/upload", () => ({
   },
 }));
 vi.mock("@/features/courses/server/actions", () => ({
+  invalidatePages: async () => {},
   registerMaterial: async ({ materialId }: { materialId: string }) => {
     registered.calls++;
     return { ok: true, data: { id: materialId } };

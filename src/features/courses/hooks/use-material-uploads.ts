@@ -10,7 +10,10 @@ import {
   materialFileSchema,
   type MaterialReference,
 } from "@/features/courses/schemas";
-import { registerMaterial } from "@/features/courses/server/actions";
+import {
+  invalidatePages,
+  registerMaterial,
+} from "@/features/courses/server/actions";
 import { removeUploadedFile, uploadFile } from "@/lib/supabase/upload";
 
 /** One file the Student added, while it uploads or when it did not work. */
@@ -77,11 +80,16 @@ export function useMaterialUploads({
     setUploads((current) => current.filter((upload) => upload.key !== key));
   }, []);
 
-  // Leaving the page cancels unfinished uploads.
+  // Leaving the page cancels unfinished uploads. Registering did not refresh
+  // the page, so leaving after one drops the router's cached pages: Back then
+  // shows the new Material, on the Materials page and in the Chat.
+  const unrefreshed = useRef({ registered: false });
   useEffect(() => {
     const running = controllers.current;
+    const state = unrefreshed.current;
     return () => {
       for (const controller of running.values()) controller.abort();
+      if (state.registered) void invalidatePages();
     };
   }, []);
 
@@ -147,6 +155,7 @@ export function useMaterialUploads({
       }
       controllers.current.delete(key);
       if (result.ok) {
+        if (!refreshPage) unrefreshed.current.registered = true;
         registeredCallback.current?.({
           materialId,
           name: materialNameFromFilename(file.name),
