@@ -72,4 +72,35 @@ describe("useMaterialUploads", () => {
     await waitFor(() => expect(result.current.uploads).toEqual([]));
     expect(storage.removed).toEqual([]);
   });
+
+  test("reports the registered Material with its id, name and type", async () => {
+    const onRegistered = vi.fn();
+    const { result } = renderHook(() =>
+      useMaterialUploads({ ownerId: OWNER, courseId: COURSE, onRegistered }),
+    );
+
+    act(() => result.current.add([pdf()]));
+
+    await waitFor(() => expect(onRegistered).toHaveBeenCalledTimes(1));
+    expect(onRegistered).toHaveBeenCalledWith({
+      materialId: storage.uploaded[0]?.split("/")[2],
+      name: "Lecture 1",
+      mediaType: "application/pdf",
+    });
+  });
+
+  test("does not report an upload that failed", async () => {
+    storage.outcome = "failed";
+    const onRegistered = vi.fn();
+    const { result } = renderHook(() =>
+      useMaterialUploads({ ownerId: OWNER, courseId: COURSE, onRegistered }),
+    );
+
+    act(() => result.current.add([pdf()]));
+
+    await waitFor(() =>
+      expect(result.current.uploads[0]?.status).toBe("failed"),
+    );
+    expect(onRegistered).not.toHaveBeenCalled();
+  });
 });

@@ -3,6 +3,7 @@
 export { CourseList } from "./components/course-list";
 export { CourseNav } from "./components/course-nav";
 export { CourseSwitcher } from "./components/course-switcher";
+export { useMaterialUploads } from "./hooks/use-material-uploads";
 export { MaterialChip } from "./components/material-chip";
 export { MaterialPicker } from "./components/material-picker";
 export { MaterialViewer } from "./components/material-viewer";
@@ -15,6 +16,7 @@ export {
 } from "./domain/course-paths";
 export {
   courseNotFoundMessage,
+  MATERIAL_MEDIA_TYPES,
   materialReferenceSchema,
   type MaterialReference,
 } from "./schemas";

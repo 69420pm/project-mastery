@@ -15,7 +15,7 @@ export default async function NewChatPage({
   params,
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
-  await requireUser(`/courses/${courseId}/chat`);
+  const user = await requireUser(`/courses/${courseId}/chat`);
   const [course, dailyLimit, materials] = await Promise.all([
     getCourse(courseId),
     getDailyLimitStatus(),
@@ -31,6 +31,7 @@ export default async function NewChatPage({
       isNew
       modelOptions={chatModelOptions()}
       materials={materials}
+      ownerId={user.id}
       dailyLimit={dailyLimit}
     />
   );

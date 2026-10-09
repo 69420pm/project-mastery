@@ -79,9 +79,12 @@ export async function renameCourse(input: {
  * Course. The upload went to `<owner>/<course>/<material id>` first, because
  * Server Action bodies are too small for the file. When registering fails,
  * the uploaded file is removed again, so no file stays behind without a
- * Material.
+ * Material. The page refreshes to show it, unless `refresh` is false: a new
+ * Chat's page would then be replaced, with the message being written.
  */
 export async function registerMaterial(input: {
+  /** Whether to refresh the page, true unless false. */
+  refresh?: boolean;
   materialId: string;
   courseId: string;
   name: string;
@@ -141,7 +144,7 @@ export async function registerMaterial(input: {
     return courseNotFound;
   }
 
-  revalidatePath("/", "layout");
+  if (input.refresh !== false) revalidatePath("/", "layout");
   return { ok: true, data: { id: material.materialId } };
 }
 

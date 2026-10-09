@@ -10,6 +10,7 @@ import {
   PaperclipIcon,
   RefreshCwIcon,
   RotateCcwIcon,
+  UploadIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -54,6 +55,7 @@ import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import {
   MAX_ATTACHED_MATERIALS,
   MAX_MESSAGE_LENGTH,
+  tooManyMaterialsMessage,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
@@ -63,9 +65,11 @@ import type {
   ModelOption,
 } from "@/features/chat/types";
 import {
+  MATERIAL_MEDIA_TYPES,
   MaterialChip,
   MaterialPicker,
   MaterialViewer,
+  useMaterialUploads,
   type MaterialListItem,
   type MaterialReference,
 } from "@/features/courses";
@@ -93,6 +97,8 @@ type ChatProps = {
    * under their current names.
    */
   materials: MaterialListItem[];
+  /** The signed-in Student, whose Storage folder uploads go to. */
+  ownerId: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
@@ -129,7 +135,8 @@ export function Chat({
   chat,
   isNew,
   modelOptions,
-  materials,
+  materials: courseMaterials,
+  ownerId,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
   const chatId = chat.id;
@@ -140,7 +147,37 @@ export function Chat({
   const [attached, setAttached] = useState<MaterialReference[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [opened, setOpened] = useState<MaterialListItem | null>(null);
+  /** Materials uploaded from this message box since the page loaded. */
+  const [uploaded, setUploaded] = useState<MaterialListItem[]>([]);
+  const materials = [...uploaded, ...courseMaterials];
   const materialsById = new Map(materials.map((m) => [m.id, m]));
+  const fileInput = useRef<HTMLInputElement>(null);
+  const dropZone = useRef<HTMLDivElement>(null);
+  const {
+    uploads,
+    add: addUploads,
+    retry: retryUpload,
+    remove: removeUpload,
+  } = useMaterialUploads({
+    ownerId,
+    courseId: chat.courseId,
+    // A refresh would replace a new Chat and the message in it.
+    refreshPage: false,
+    onRegistered: (material) => {
+      setUploaded((current) => [
+        {
+          id: material.materialId,
+          name: material.name,
+          mediaType: material.mediaType,
+          sizeBytes: 0,
+          createdAt: new Date().toISOString(),
+        },
+        ...current,
+      ]);
+      setAttached((current) => [...current, material]);
+    },
+  });
+  const uploading = uploads.length > 0;
   const limitReached = dailyLimit.level === "reached";
   const { noteChatActivity, relabelChat } = useChatList();
   const titled = useRef(chat.title !== null);
@@ -218,6 +255,52 @@ export function Chat({
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
 
+  /** Uploads picked, pasted or dropped files, within the message's limit. */
+  function uploadFiles(files: Iterable<File>) {
+    const picked = [...files];
+    const room = Math.max(
+      MAX_ATTACHED_MATERIALS - attached.length - uploads.length,
+      0,
+    );
+    if (picked.length > room) setInputError(tooManyMaterialsMessage);
+    else setInputError(null);
+    addUploads(picked.slice(0, room));
+  }
+
+  // Files pasted or dropped on the message box are uploaded like the ones
+  // "Upload file" picks, not left to the prompt input's own attachments.
+  const uploadFilesRef = useRef(uploadFiles);
+  useEffect(() => {
+    uploadFilesRef.current = uploadFiles;
+  });
+  useEffect(() => {
+    const zone = dropZone.current;
+    if (!zone) return;
+    const takeFiles = (event: Event, files: File[]) => {
+      if (files.length === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (!limitReached) uploadFilesRef.current(files);
+    };
+    const onPaste = (event: ClipboardEvent) =>
+      takeFiles(
+        event,
+        [...(event.clipboardData?.items ?? [])].flatMap((item) => {
+          const file = item.kind === "file" ? item.getAsFile() : null;
+          return file ? [file] : [];
+        }),
+      );
+    const onDrop = (event: DragEvent) =>
+      takeFiles(event, [...(event.dataTransfer?.files ?? [])]);
+    // Capture, to run before the prompt input's own handlers.
+    zone.addEventListener("paste", onPaste, true);
+    zone.addEventListener("drop", onDrop, true);
+    return () => {
+      zone.removeEventListener("paste", onPaste, true);
+      zone.removeEventListener("drop", onDrop, true);
+    };
+  }, [limitReached]);
+
   function toggleAttached(material: MaterialListItem) {
     setAttached((current) =>
       current.some(({ materialId }) => materialId === material.id)
@@ -237,7 +320,8 @@ export function Chat({
     if (
       (text.trim() === "" && attached.length === 0) ||
       isBusy ||
-      limitReached
+      limitReached ||
+      uploading
     ) {
       throw new Error("Nothing to send.");
     }
@@ -350,12 +434,28 @@ export function Chat({
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+      <div
+        ref={dropZone}
+        className="mx-auto flex w-full max-w-3xl flex-col gap-2"
+      >
         <DailyLimitNotice status={dailyLimit} />
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          aria-label="Upload file"
+          accept={MATERIAL_MEDIA_TYPES.join(",")}
+          // Opened by "Upload file" in the attach menu.
+          hidden
+          onChange={(event) => {
+            if (event.target.files) uploadFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
         {/* Controlled, so a refused message stays in the input. */}
         <PromptInputProvider>
           <PromptInput onSubmit={handleSubmit}>
-            {attached.length > 0 && (
+            {(attached.length > 0 || uploading) && (
               <PromptInputHeader aria-label="Attached materials">
                 {attached.map((material) => (
                   <MaterialChip
@@ -372,6 +472,29 @@ export function Chat({
                             materialId !== material.materialId,
                         ),
                       )
+                    }
+                  />
+                ))}
+                {uploads.map((upload) => (
+                  <MaterialChip
+                    key={upload.key}
+                    name={upload.filename}
+                    mediaType={upload.mediaType}
+                    progress={
+                      upload.status === "failed" ? undefined : upload.progress
+                    }
+                    error={
+                      upload.status === "failed" ? upload.message : undefined
+                    }
+                    onRetry={
+                      upload.canRetry
+                        ? () => retryUpload(upload.key)
+                        : undefined
+                    }
+                    onRemove={
+                      upload.status === "registering"
+                        ? undefined
+                        : () => removeUpload(upload.key)
                     }
                   />
                 ))}
@@ -398,6 +521,12 @@ export function Chat({
                     <PaperclipIcon className="size-4" />
                   </PromptInputActionMenuTrigger>
                   <PromptInputActionMenuContent>
+                    <PromptInputActionMenuItem
+                      onSelect={() => fileInput.current?.click()}
+                    >
+                      <UploadIcon />
+                      Upload file
+                    </PromptInputActionMenuItem>
                     <PromptInputActionMenuItem
                       onSelect={() => setPickerOpen(true)}
                     >
@@ -440,7 +569,7 @@ export function Chat({
               <PromptInputSubmit
                 status={status}
                 onStop={() => void stop()}
-                disabled={!isBusy && limitReached}
+                disabled={!isBusy && (limitReached || uploading)}
               />
             </PromptInputFooter>
           </PromptInput>
@@ -449,7 +578,10 @@ export function Chat({
           open={pickerOpen}
           onOpenChange={setPickerOpen}
           materials={materials}
-          pickedIds={attached.map(({ materialId }) => materialId)}
+          pickedIds={[
+            ...attached.map(({ materialId }) => materialId),
+            ...uploads.map(({ key }) => key),
+          ]}
           max={MAX_ATTACHED_MATERIALS}
           onToggle={toggleAttached}
         />
