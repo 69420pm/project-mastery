@@ -32,6 +32,7 @@ Break the work into **tracer bullet** tickets.
 - A completed slice is demoable or verifiable on its own
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first
+- Tickets that can run at the same time change different modules: two tickets that both reshape one module conflict when they merge, so make one block the other, or prefactor the shared part into its own ticket first
 
 </vertical-slice-rules>
 
@@ -76,6 +77,10 @@ Do NOT close or modify any parent issue.
 
 **Status:** ready-for-agent
 
+**Spec sections:** the headings of the spec sections this ticket relies on.
+
+**Testing:** the seams this ticket tests at, and the signal async tests wait on.
+
 - [ ] Acceptance criterion 1
 - [ ] Acceptance criterion 2
 
@@ -96,10 +101,20 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Context
+
+The headings of the spec sections this ticket relies on, each with the one or two decisions from it that this ticket must honour.
+
+## Testing
+
+The seams this ticket tests at, taken from the spec's Testing Decisions, and for async behaviour the signal a test waits on.
+
 ## Blocked by
 
 - A reference to each blocking ticket, or "None (can start immediately)". Omit this section when blockers were set as native edges.
 
 </issue-template>
+
+An implementer reads its ticket and the spec sections the ticket names, never the whole spec, so each ticket carries everything else it needs.
 
 In either form, avoid specific file paths or code snippets: they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
