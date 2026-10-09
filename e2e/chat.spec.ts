@@ -10,6 +10,11 @@ function messageInput(page: Page) {
   return page.getByRole("textbox", { name: "Message" });
 }
 
+/** The address of a stored Chat in the Course. */
+function chatUrlIn(courseId: string) {
+  return new RegExp(`/courses/${courseId}/chat/[0-9a-f-]{36}$`);
+}
+
 async function sendMessage(page: Page, text: string) {
   await messageInput(page).fill(text);
   await messageInput(page).press("Enter");
@@ -42,8 +47,9 @@ test.describe("signed in", () => {
 
   test("a first message creates a Chat, streams the reply and keeps the history", async ({
     page,
+    course,
   }) => {
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     await expect(
       page.getByRole("heading", { name: "What are you studying?" }),
     ).toBeVisible();
@@ -54,7 +60,7 @@ test.describe("signed in", () => {
     await expect(log.getByText("What is $x^2$ for x = 3?")).toBeVisible();
     // The reply streams in: its beginning shows before its end.
     await expect(log.getByText(/Mock reply to/)).toBeVisible();
-    await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(chatUrlIn(course.id));
     await expect(log.getByText(REPLY_END, { exact: false })).toBeVisible();
     // The quoted message renders its math with KaTeX.
     await expect(log.locator(".katex").first()).toBeVisible();
@@ -68,6 +74,8 @@ test.describe("signed in", () => {
     ).toBeVisible();
     await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(2);
 
+    // The reply is stored as its stream ends, after its last text shows.
+    await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
     await page.reload();
 
     expect(page.url()).toBe(chatUrl);
@@ -81,8 +89,9 @@ test.describe("signed in", () => {
 
   test("a message over 10,000 characters is refused in the input", async ({
     page,
+    course,
   }) => {
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
 
     await sendMessage(page, "x".repeat(10_001));
 
@@ -90,13 +99,14 @@ test.describe("signed in", () => {
       "Your message is too long. Keep it under 10,000 characters.",
     );
     await expect(messageInput(page)).toHaveValue("x".repeat(10_001));
-    await expect(page).toHaveURL(/\/chat$/);
+    await expect(page).toHaveURL(course.chatPath);
   });
 
   test("the model picker applies a choice from the next message on and the Chat remembers it", async ({
     page,
+    course,
   }) => {
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     const picker = page.getByRole("combobox", { name: "Model" });
     // A new Chat starts on Balanced.
     await expect(picker).toHaveText("Balanced");
@@ -104,7 +114,7 @@ test.describe("signed in", () => {
     await sendMessage(page, "First question");
     const log = page.getByRole("log");
     await expect(log.getByText(REPLY_END, { exact: false })).toBeVisible();
-    await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(chatUrlIn(course.id));
     const chatId = page.url().split("/").at(-1);
 
     // Each choice shows its model's name under its label.
@@ -145,17 +155,20 @@ test.describe("signed in", () => {
     await page.reload();
     await expect(picker).toHaveText("Thorough");
 
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     await expect(picker).toHaveText("Balanced");
   });
 
   test("Stop ends a reply early and the stopped reply stays after a reload", async ({
     page,
+    course,
   }) => {
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     await sendMessage(page, "Explain limits");
     const log = page.getByRole("log");
-    await expect(log.getByText(/Mock reply to/)).toBeVisible();
+    // Stop only once the echoed prompt is on screen, so the partial reply
+    // always holds it. A bare "Mock reply to" can be cut mid-prompt.
+    await expect(log.getByText(/Mock reply to "Explain limits"/)).toBeVisible();
 
     await page.getByRole("button", { name: "Stop" }).click();
 
@@ -182,9 +195,10 @@ test.describe("signed in", () => {
   test("Regenerate replaces the last reply, and Copy copies a message", async ({
     page,
     context,
+    course,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     await sendMessage(page, "What is a group?");
     const log = page.getByRole("log");
     await expect(log.getByText(REPLY_END, { exact: false })).toBeVisible();
@@ -216,28 +230,41 @@ test.describe("signed in", () => {
     );
   });
 
-  test("an unknown Chat shows not-found", async ({ page }) => {
-    const response = await page.goto(`/chat/${randomUUID()}`);
+  test("an unknown Chat or Course shows not-found", async ({
+    page,
+    course,
+  }) => {
+    for (const path of [
+      `${course.chatPath}/${randomUUID()}`,
+      `/courses/${randomUUID()}/chat`,
+    ]) {
+      const response = await page.goto(path);
 
-    expect(response?.status()).toBe(404);
-    await expect(page.getByText("This page could not be found.")).toBeVisible();
+      expect(response?.status()).toBe(404);
+      await expect(
+        page.getByText("This page could not be found."),
+      ).toBeVisible();
+    }
   });
 });
 
-test("signed out, /chat redirects to sign-in and returns there afterwards", async ({
+test("signed out, a Chat page redirects to sign-in and returns there afterwards", async ({
   page,
   context,
   student,
+  course,
 }) => {
   await context.clearCookies();
 
-  await page.goto("/chat");
-  await expect(page).toHaveURL(/\/login\?next=%2Fchat$/);
+  await page.goto(course.chatPath);
+  await expect(page).toHaveURL(
+    `/login?next=${encodeURIComponent(course.chatPath)}`,
+  );
 
   await page.getByLabel("Email").fill(student.email);
   await page.getByLabel("Password").fill(student.password);
   await page.getByRole("button", { name: "Sign in" }).last().click();
 
-  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page).toHaveURL(course.chatPath);
   await expect(messageInput(page)).toBeVisible();
 });

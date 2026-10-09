@@ -82,7 +82,7 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ADR
 ```bash
 pnpm -s agent up              # start Supabase and the dev server, create test users
 pnpm -s agent login student   # sign in the browser session as a test user
-pnpm -s agent open /dashboard # URL, page snapshot and new errors
+pnpm -s agent open /courses   # URL, page snapshot and new errors
 pnpm -s agent check           # compile issues, runtime and server errors
 ```
 

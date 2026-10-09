@@ -9,6 +9,11 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const CLASSMATE = "22222222-2222-2222-2222-222222222222";
+/** The Student's Course, and one of their classmate's. */
+const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
+const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
+/** Another Course of the Student. */
+const OTHER_COURSE = "aaaaaaaa-c000-4000-8000-000000000002";
 
 let signedIn: string | null = STUDENT;
 let db = createDb();
@@ -16,7 +21,19 @@ let db = createDb();
 /** The local tables, with the ownership rules of the real policies. */
 function createDb() {
   return fakeSupabase({
-    tables: { chats: [], chat_messages: [], ai_usage: [] },
+    tables: {
+      courses: [
+        { id: COURSE, owner: STUDENT, name: "Calculus" },
+        { id: CLASSMATE_COURSE, owner: CLASSMATE, name: "Biology" },
+        { id: OTHER_COURSE, owner: STUDENT, name: "Physics" },
+      ] as FakeRow[],
+      chats: [],
+      chat_messages: [],
+      ai_usage: [],
+      materials: [],
+    },
+    // The Storage folder the Student may use.
+    userId: STUDENT,
     defaults: {
       chats: () => ({
         owner: signedIn,
@@ -34,8 +51,26 @@ function createDb() {
       }),
     },
     canAccess: (table, row, tables) => {
-      if (table === "chats" || table === "ai_usage") {
+      if (table === "chats") {
+        return (
+          row.owner === signedIn &&
+          tables.courses.some(
+            (course) =>
+              course.id === row.course_id && course.owner === signedIn,
+          )
+        );
+      }
+      if (table === "courses" || table === "materials") {
         return row.owner === signedIn;
+      }
+      if (table === "ai_usage") {
+        return (
+          row.owner === signedIn &&
+          (row.chat_id === null ||
+            tables.chats.some(
+              (chat) => chat.id === row.chat_id && chat.owner === signedIn,
+            ))
+        );
       }
       return tables.chats.some(
         (chat) => chat.id === row.chat_id && chat.owner === signedIn,
@@ -127,6 +162,7 @@ function seedChat(owner: string, messages: FakeRow[] = []) {
   db.tables.chats.push({
     id: chatId,
     owner,
+    course_id: owner === STUDENT ? COURSE : CLASSMATE_COURSE,
     title: null,
     title_set_manually: false,
     model_choice: "balanced",
@@ -152,14 +188,18 @@ describe("a first message", () => {
 
     const reply = await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("What is a derivative?"),
     });
 
     expect(reply.status).toBe(200);
     expect(reply.text).toBe("Show me your attempt first.");
     expect(db.tables.chats).toEqual([
-      expect.objectContaining({ id: chatId, owner: STUDENT }),
+      expect.objectContaining({
+        id: chatId,
+        owner: STUDENT,
+        course_id: COURSE,
+      }),
     ]);
     expect(storedMessages(chatId)).toEqual([
       { role: "user", text: "What is a derivative?", modelId: null },
@@ -293,7 +333,7 @@ describe("the model choice", () => {
 
     await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       modelChoice: choice.key,
       message: userMessage("Hi"),
     });
@@ -346,7 +386,7 @@ describe("the model choice", () => {
     for (const modelChoice of ["turbo", otherChoice().model]) {
       const reply = await send({
         chatId,
-        newChat: true,
+        courseId: COURSE,
         modelChoice,
         message: userMessage("Hi"),
       });
@@ -369,10 +409,10 @@ describe("refusals", () => {
       { role: "user", parts: [{ type: "text", text: "Private" }] },
     ]);
 
-    for (const newChat of [false, true]) {
+    for (const courseId of [undefined, COURSE]) {
       const reply = await send({
         chatId,
-        newChat,
+        courseId,
         message: userMessage("Let me in"),
       });
       expect(reply).toEqual({
@@ -401,13 +441,58 @@ describe("refusals", () => {
     expect(db.tables.chats).toEqual([]);
   });
 
+  test("a new Chat in another Student's Course or an unknown Course is refused as not found, without a model call", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+
+    for (const courseId of [CLASSMATE_COURSE, randomUUID()]) {
+      const reply = await send({
+        chatId: randomUUID(),
+        courseId,
+        message: userMessage("Let me in"),
+      });
+      expect(reply).toEqual({
+        status: 404,
+        refusal: "This course does not exist.",
+      });
+    }
+
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(db.tables.chats).toEqual([]);
+    expect(db.tables.chat_messages).toEqual([]);
+  });
+
+  test("a Course deleted just before the Chat is created is refused as not found", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    // The Course is found, then gone when the Chat is inserted.
+    const courses = db.tables.courses;
+    let reads = 0;
+    Object.defineProperty(db.tables, "courses", {
+      get: () => (reads++ === 0 ? courses : []),
+    });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: userMessage("Hello?"),
+    });
+
+    expect(reply).toEqual({
+      status: 404,
+      refusal: "This course does not exist.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(db.tables.chats).toEqual([]);
+  });
+
   test("a message over 10,000 characters is refused before a Chat is created", async () => {
     const model = mockTextModel("Never sent.");
     useMockModels({ chat: model });
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("x".repeat(10_001)),
     });
 
@@ -424,7 +509,7 @@ describe("refusals", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("x".repeat(10_000)),
     });
 
@@ -436,7 +521,7 @@ describe("refusals", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -457,7 +542,7 @@ test("a failed reply streams an error and stores no reply", async () => {
 
   const reply = await send({
     chatId,
-    newChat: true,
+    courseId: COURSE,
     message: userMessage("Hi"),
   });
 
@@ -471,7 +556,7 @@ describe("usage", () => {
     useMockModels({ chat: mockTextModel("Try it yourself first.") });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     const replyUsage = db.tables.ai_usage.filter(({ task }) => task === "chat");
     expect(replyUsage).toEqual([
@@ -490,12 +575,43 @@ describe("usage", () => {
     ]);
   });
 
+  test("a Course deleted while the reply streams drops the reply but still records its usage", async () => {
+    const reply = mockTextModel("Gone before I end.");
+    const doStream = reply.doStream.bind(reply);
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async (options) => {
+          // The Course goes, and with it, by cascade, its Chats.
+          db.tables.courses.splice(0);
+          db.tables.chats.splice(0);
+          return doStream(options);
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const chatId = randomUUID();
+
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
+
+    expect(
+      db.tables.chat_messages.filter(({ role }) => role === "assistant"),
+    ).toEqual([]);
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        owner: STUDENT,
+        task: "chat",
+        output_tokens: 20,
+        chat_id: null,
+      }),
+    ]);
+  });
+
   test("a reply from a gateway fallback is stored and priced as the fallback model", async () => {
     const [fallback] = AI_TASKS.chat.fallbacks;
     useMockModels({ chat: answeredByModel(fallback, "From the fallback.") });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     expect(storedMessages(chatId).at(-1)).toMatchObject({
       text: "From the fallback.",
@@ -521,7 +637,7 @@ describe("usage", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Hi") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({
@@ -597,7 +713,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("One more?"),
     });
 
@@ -617,7 +733,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Last one"),
     });
 
@@ -633,7 +749,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -646,7 +762,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -662,7 +778,7 @@ describe("the Daily limit", () => {
 
     const reply = await send({
       chatId: randomUUID(),
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -680,7 +796,7 @@ describe("the Chat title", () => {
 
     await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("What is a derivative?"),
     });
 
@@ -714,7 +830,7 @@ describe("the Chat title", () => {
     });
     const chatId = randomUUID();
 
-    await send({ chatId, newChat: true, message: userMessage("Limits?") });
+    await send({ chatId, courseId: COURSE, message: userMessage("Limits?") });
 
     expect(db.tables.chats[0]?.title).toBe(
       "Limits and continuity of functions in real analysis, with…",
@@ -752,7 +868,7 @@ describe("the Chat title", () => {
 
     const reply = await send({
       chatId,
-      newChat: true,
+      courseId: COURSE,
       message: userMessage("Hi"),
     });
 
@@ -845,7 +961,7 @@ describe("a stopped reply", () => {
     useMockModels({ chat: stalledModel("The first step is ") });
     const chatId = randomUUID();
 
-    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+    await sendAndStop({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     await vi.waitFor(() =>
       expect(db.tables.chat_messages.at(-1)).toMatchObject({
@@ -864,7 +980,7 @@ describe("a stopped reply", () => {
     useMockModels({ chat: stalledModel("The first step is ") });
     const chatId = randomUUID();
 
-    await sendAndStop({ chatId, newChat: true, message: userMessage("Hi") });
+    await sendAndStop({ chatId, courseId: COURSE, message: userMessage("Hi") });
 
     await vi.waitFor(() => expect(db.tables.ai_usage).toHaveLength(1));
     expect(db.tables.ai_usage[0]).toMatchObject({
@@ -925,5 +1041,443 @@ describe("a stopped reply", () => {
       "Never mind, how?",
       "Next reply.",
     ]);
+  });
+});
+
+describe("attached Materials", () => {
+  type MaterialRef = { id: string; name: string; mediaType: string };
+
+  /**
+   * A Material with its file in Storage. Its stored size is the file's,
+   * unless `sizeBytes` says otherwise.
+   */
+  function seedMaterial({
+    owner = STUDENT,
+    courseId = COURSE,
+    name,
+    mediaType = "application/pdf",
+    body = `%PDF ${name}`,
+    sizeBytes,
+  }: {
+    owner?: string;
+    courseId?: string;
+    name: string;
+    mediaType?: string;
+    body?: string;
+    sizeBytes?: number;
+  }): MaterialRef {
+    const id = randomUUID();
+    const storagePath = `${owner}/${courseId}/${id}`;
+    db.files.seed("course-files", storagePath, {
+      body,
+      contentType: mediaType,
+    });
+    db.tables.materials.push({
+      id,
+      owner,
+      course_id: courseId,
+      name,
+      media_type: mediaType,
+      size_bytes: sizeBytes ?? new TextEncoder().encode(body).byteLength,
+      storage_path: storagePath,
+    });
+    return { id, name, mediaType };
+  }
+
+  /** A reference to a Material, as a Student message carries it. */
+  function materialPart(material: MaterialRef) {
+    return {
+      type: "data-material",
+      data: {
+        materialId: material.id,
+        name: material.name,
+        mediaType: material.mediaType,
+      },
+    };
+  }
+
+  /** A Student message with optional text and attached Materials. */
+  function messageWith(
+    text: string,
+    materials: MaterialRef[],
+    id: string = randomUUID(),
+  ) {
+    return {
+      id,
+      role: "user",
+      parts: [
+        ...(text ? [{ type: "text", text }] : []),
+        ...materials.map(materialPart),
+      ],
+    };
+  }
+
+  /**
+   * The parts of the last user message in a model call, with file bytes as
+   * text.
+   */
+  function receivedParts(model: MockLanguageModelV4, call = 0) {
+    const prompt = model.doStreamCalls[call]?.prompt ?? [];
+    const message = prompt.findLast(({ role }) => role === "user");
+    return (
+      (message?.content ?? []) as unknown as Array<Record<string, unknown>>
+    ).map((part) =>
+      part.type === "file"
+        ? {
+            type: "file",
+            filename: part.filename,
+            mediaType: part.mediaType,
+            text: new TextDecoder().decode(
+              (part.data as { data: Uint8Array }).data,
+            ),
+          }
+        : { type: part.type, text: part.text },
+    );
+  }
+
+  test("are sent to the model as files, under their current names", async () => {
+    const model = mockTextModel("Let's look at it.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    db.tables.materials[0]!.name = "Lecture 3: Eigenvalues";
+
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: messageWith("Explain this", [lecture]),
+    });
+
+    expect(reply.status).toBe(200);
+    expect(receivedParts(model)).toEqual([
+      { type: "text", text: "Explain this" },
+      {
+        type: "file",
+        filename: "Lecture 3: Eigenvalues",
+        mediaType: "application/pdf",
+        text: "%PDF Lecture 3",
+      },
+    ]);
+  });
+
+  test("a message with only Materials is answered and stored as references", async () => {
+    const model = mockTextModel("What would you like to know?");
+    useMockModels({ chat: model });
+    const sheet = seedMaterial({ name: "Sheet 1", mediaType: "image/png" });
+    const chatId = randomUUID();
+
+    const reply = await send({
+      chatId,
+      courseId: COURSE,
+      message: messageWith("", [sheet]),
+    });
+
+    expect(reply.text).toBe("What would you like to know?");
+    expect(receivedParts(model)).toEqual([
+      {
+        type: "file",
+        filename: "Sheet 1",
+        mediaType: "image/png",
+        text: "%PDF Sheet 1",
+      },
+    ]);
+    // Only the reference is stored, never the file.
+    expect(db.tables.chat_messages[0]!.parts).toEqual([materialPart(sheet)]);
+  });
+
+  test("an empty message without Materials is refused", async () => {
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: messageWith("  ", []),
+    });
+
+    expect(reply).toEqual({ status: 400, refusal: "Your message is empty." });
+  });
+
+  test("more than five Materials are refused", async () => {
+    const materials = Array.from({ length: 6 }, (_, index) =>
+      seedMaterial({ name: `Lecture ${index + 1}` }),
+    );
+
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: messageWith("All of them", materials),
+    });
+
+    expect(reply).toEqual({
+      status: 400,
+      refusal: "Attach up to 5 materials to a message.",
+    });
+  });
+
+  test.each([
+    {
+      case: "another Student's Material",
+      seed: () => seedMaterial({ owner: CLASSMATE, name: "Notes" }),
+      refusal: "An attached material does not exist.",
+    },
+    {
+      case: "a Material from another of the Student's Courses",
+      seed: () => seedMaterial({ courseId: OTHER_COURSE, name: "Optics" }),
+      refusal: "An attached material belongs to another course.",
+    },
+    {
+      case: "a missing Material",
+      seed: () => ({
+        id: randomUUID(),
+        name: "Gone",
+        mediaType: "application/pdf",
+      }),
+      refusal: "An attached material does not exist.",
+    },
+  ])(
+    "$case is refused without a model call or a new Chat",
+    async ({ seed, refusal }) => {
+      const model = mockTextModel("Never sent.");
+      useMockModels({ chat: model });
+
+      const reply = await send({
+        chatId: randomUUID(),
+        courseId: COURSE,
+        message: messageWith("Explain this", [seed()]),
+      });
+
+      expect(reply).toEqual({ status: 400, refusal });
+      expect(model.doStreamCalls).toHaveLength(0);
+      expect(db.tables.chats).toHaveLength(0);
+    },
+  );
+
+  test("a new message to a stored Chat attaching a Material deleted in another tab is refused and not stored", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const chatId = seedChat(STUDENT, [
+      { role: "user", parts: [{ type: "text", text: "Hi" }] },
+      { role: "assistant", parts: [{ type: "text", text: "Hello." }] },
+    ]);
+    db.tables.materials = [];
+
+    const reply = await send({
+      chatId,
+      message: messageWith("Explain this", [lecture]),
+    });
+
+    expect(reply).toEqual({
+      status: 400,
+      refusal: "An attached material does not exist.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Hi",
+      "Hello.",
+    ]);
+  });
+
+  test("are sent again on later turns, and a deleted one as a note", async () => {
+    const model = mockTextModel("Sure.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const removed = seedMaterial({ name: "Old exam" });
+    const chatId = seedChat(STUDENT, [
+      {
+        role: "user",
+        parts: [materialPart(lecture), materialPart(removed)],
+      },
+      {
+        role: "assistant",
+        parts: [{ type: "text", text: "What about them?" }],
+      },
+    ]);
+    db.tables.materials = db.tables.materials.filter(
+      (material) => material.id !== removed.id,
+    );
+
+    await send({ chatId, message: userMessage("Page 2, please") });
+
+    const firstMessage = model.doStreamCalls[0]!.prompt[1]!;
+    expect(firstMessage.role).toBe("user");
+    expect(JSON.stringify(firstMessage.content)).toContain(
+      '"filename":"Lecture 3"',
+    );
+    expect(JSON.stringify(firstMessage.content)).toContain(
+      'The attached file \\"Old exam\\" was deleted.',
+    );
+    expect(JSON.stringify(firstMessage.content)).not.toContain(
+      '"filename":"Old exam"',
+    );
+  });
+
+  test("regenerating a reply reads the Materials again", async () => {
+    const model = mockTextModel("Another look.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const message = messageWith("Explain this", [lecture]);
+    const chatId = seedChat(STUDENT, [
+      { id: message.id, role: "user", parts: message.parts },
+      { role: "assistant", parts: [{ type: "text", text: "First look." }] },
+    ]);
+
+    await send({ chatId, message });
+
+    expect(receivedParts(model)).toContainEqual({
+      type: "file",
+      filename: "Lecture 3",
+      mediaType: "application/pdf",
+      text: "%PDF Lecture 3",
+    });
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Explain this",
+      "Another look.",
+    ]);
+  });
+
+  test("retrying a message whose Material was deleted since answers with the note", async () => {
+    const model = mockTextModel("It is gone.");
+    useMockModels({ chat: model });
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const message = messageWith("Explain this", [lecture]);
+    const chatId = seedChat(STUDENT, [
+      { id: message.id, role: "user", parts: message.parts },
+    ]);
+    db.tables.materials = [];
+
+    const reply = await send({ chatId, message });
+
+    expect(reply.status).toBe(200);
+    expect(receivedParts(model)).toEqual([
+      { type: "text", text: "Explain this" },
+      { type: "text", text: '[The attached file "Lecture 3" was deleted.]' },
+    ]);
+  });
+
+  test("resending a stored message's id with other Materials answers the stored message and stores nothing new", async () => {
+    const model = mockTextModel("Here it is again.");
+    useMockModels({ chat: model });
+    const foreign = seedMaterial({ owner: CLASSMATE, name: "Their notes" });
+    const otherCourse = seedMaterial({
+      courseId: OTHER_COURSE,
+      name: "Optics",
+    });
+    const messageId = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      {
+        id: messageId,
+        role: "user",
+        parts: [{ type: "text", text: "Explain this" }],
+      },
+      { role: "assistant", parts: [{ type: "text", text: "First look." }] },
+    ]);
+
+    const reply = await send({
+      chatId,
+      message: messageWith("Explain this", [foreign, otherCourse], messageId),
+    });
+
+    expect(reply.status).toBe(200);
+    expect(receivedParts(model)).toEqual([
+      { type: "text", text: "Explain this" },
+    ]);
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toMatch(
+      /Their notes|Optics/,
+    );
+    const student = db.tables.chat_messages.find(({ id }) => id === messageId);
+    expect(student!.parts).toEqual([{ type: "text", text: "Explain this" }]);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Explain this",
+      "Here it is again.",
+    ]);
+  });
+
+  test("over 20 MB of Materials in one request are refused before any model call, keeping the message", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    const big = seedMaterial({ name: "Script", sizeBytes: 12 * 1024 * 1024 });
+    const chatId = seedChat(STUDENT, [
+      { role: "user", parts: [materialPart(big)] },
+      { role: "assistant", parts: [{ type: "text", text: "Got it." }] },
+    ]);
+
+    const reply = await send({
+      chatId,
+      message: messageWith("And again", [big]),
+    });
+
+    expect(reply).toEqual({
+      status: 413,
+      refusal:
+        "The materials in this chat are too large for the AI together. Start a new chat or attach fewer materials.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "",
+      "Got it.",
+      "And again",
+    ]);
+  });
+
+  test("exactly 20 MB of Materials are sent", async () => {
+    const model = mockTextModel("Fine.");
+    useMockModels({ chat: model });
+    const big = seedMaterial({ name: "Script", sizeBytes: 20 * 1024 * 1024 });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: messageWith("", [big]),
+    });
+
+    expect(reply.status).toBe(200);
+  });
+
+  test("a failed reply's estimated cost counts the Materials sent", async () => {
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // About 20 pages, at about 260 tokens each.
+    const script = seedMaterial({ name: "Script", sizeBytes: 1_000_000 });
+
+    await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: messageWith("", [script]),
+    });
+
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({ estimated: true }),
+    ]);
+    expect(db.tables.ai_usage[0]!.input_tokens).toBeGreaterThan(20 * 260);
+  });
+
+  test("a failed Storage read refuses with 503 and keeps the message for Retry", async () => {
+    const model = mockTextModel("Read it now.");
+    useMockModels({ chat: model });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const lecture = seedMaterial({ name: "Lecture 3" });
+    const message = messageWith("Explain this", [lecture]);
+    const chatId = randomUUID();
+    db.files.fail("download");
+
+    const failed = await send({ chatId, courseId: COURSE, message });
+
+    expect(failed).toEqual({
+      status: 503,
+      refusal: "Your materials could not be loaded. Please try again.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Explain this",
+    ]);
+
+    db.files.heal();
+    const retried = await send({ chatId, message });
+
+    expect(retried.text).toBe("Read it now.");
   });
 });

@@ -3,6 +3,7 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { newChatPath } from "@/features/chat/domain/chat-paths";
 import {
   chatIdSchema,
   chatNotFoundMessage,
@@ -66,7 +67,8 @@ export async function getChatTitle(input: {
 /**
  * Deletes one of the Student's Chats with its messages, permanently. Its
  * usage records stay, without the Chat reference. Refreshes the sidebar, and
- * with `leave`, as when the Chat is open, lands the Student on a new Chat.
+ * with `leave`, as when the Chat is open, lands the Student on a new Chat
+ * in its Course.
  */
 export async function deleteChat(input: {
   chatId: string;
@@ -83,6 +85,6 @@ export async function deleteChat(input: {
   if (!deleted) return chatNotFound;
 
   revalidatePath("/", "layout");
-  if (parsed.data.leave) redirect("/chat");
+  if (parsed.data.leave) redirect(newChatPath(deleted.courseId));
   return { ok: true, data: undefined };
 }

@@ -44,20 +44,51 @@ export function costUsd(modelId: string, usage: TokenUsage): number {
 
 const CHARACTERS_PER_TOKEN = 4;
 
+/** Tokens Gemini counts per PDF page. */
+const PDF_TOKENS_PER_PAGE = 260;
+
+/**
+ * About how many bytes a PDF page takes, to guess the page count from the
+ * size. Lecture slides are often larger, so this tends to overcount.
+ */
+const PDF_BYTES_PER_PAGE = 50_000;
+
+/** Tokens counted per image, about Gemini's count at its default resolution. */
+const IMAGE_TOKENS = 1_120;
+
+/** A file sent to a model, for estimating its tokens. */
+export type SentFile = { mediaType: string; sizeBytes: number };
+
+function fileTokens({ mediaType, sizeBytes }: SentFile): number {
+  if (mediaType === "application/pdf") {
+    const pages = Math.max(1, Math.ceil(sizeBytes / PDF_BYTES_PER_PAGE));
+    return pages * PDF_TOKENS_PER_PAGE;
+  }
+  return IMAGE_TOKENS;
+}
+
 /**
  * Estimated token counts of an aborted or failed call, for which providers
  * report no usage: about four characters per token of the text sent and
- * received.
+ * received, plus the files sent (PDF pages guessed from their size, a fixed
+ * amount per image).
  */
-export function estimatedUsage(text: {
+export function estimatedUsage({
+  input,
+  output,
+  files = [],
+}: {
   input: string;
   output: string;
+  files?: SentFile[];
 }): TokenUsage {
   const tokens = (value: string) =>
     Math.ceil(value.length / CHARACTERS_PER_TOKEN);
   return {
-    inputTokens: tokens(text.input),
+    inputTokens:
+      tokens(input) +
+      files.reduce((total, file) => total + fileTokens(file), 0),
     cachedInputTokens: 0,
-    outputTokens: tokens(text.output),
+    outputTokens: tokens(output),
   };
 }

@@ -2,7 +2,7 @@
 export const CONFIRM_PATH = "/auth/confirm";
 
 /** Where signing in leads when there is no `next` path to return to. */
-export const SIGNED_IN_PATH = "/chat";
+export const SIGNED_IN_PATH = "/courses";
 
 /**
  * Turns an untrusted redirect target (a `next` query parameter or form field)

@@ -19,10 +19,11 @@ async function expectNoDollarAmounts(page: Page) {
 test("below 80% of the Daily limit the Chat shows no notice", async ({
   page,
   student,
+  course,
 }) => {
   await seedAiSpend(student, 0.5);
 
-  await page.goto("/chat");
+  await page.goto(course.chatPath);
 
   await expect(messageInput(page)).toBeEditable();
   await expect(page.getByText(WARNING)).toHaveCount(0);
@@ -31,10 +32,11 @@ test("below 80% of the Daily limit the Chat shows no notice", async ({
 test("from 80% of the Daily limit the Chat shows a notice and keeps the input open", async ({
   page,
   student,
+  course,
 }) => {
   await seedAiSpend(student, 0.85);
 
-  await page.goto("/chat");
+  await page.goto(course.chatPath);
 
   await expect(page.getByText(WARNING)).toBeVisible();
   await expect(messageInput(page)).toBeEditable();
@@ -48,10 +50,11 @@ test.describe("at the Daily limit", () => {
   test("the input is disabled and shows the reset in local time", async ({
     page,
     student,
+    course,
   }) => {
     await seedAiSpend(student, 1);
 
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
 
     await expect(
       page.getByText(
@@ -66,9 +69,10 @@ test.describe("at the Daily limit", () => {
   test("a reply that reaches the limit finishes, then the input is disabled", async ({
     page,
     student,
+    course,
   }) => {
     await seedAiSpend(student, 0.99996);
-    await page.goto("/chat");
+    await page.goto(course.chatPath);
     await expect(page.getByText(WARNING)).toBeVisible();
 
     await messageInput(page).fill("One last question");

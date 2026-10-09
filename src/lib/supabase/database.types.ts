@@ -106,6 +106,7 @@ export type Database = {
       };
       chats: {
         Row: {
+          course_id: string;
           created_at: string;
           id: string;
           last_message_at: string;
@@ -117,6 +118,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          course_id: string;
           created_at?: string;
           id?: string;
           last_message_at?: string;
@@ -128,6 +130,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          course_id?: string;
           created_at?: string;
           id?: string;
           last_message_at?: string;
@@ -140,7 +143,97 @@ export type Database = {
         };
         Relationships: [
           {
+            foreignKeyName: "chats_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "chats_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      courses: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          owner: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          owner?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          owner?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "courses_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      materials: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          media_type: string;
+          name: string;
+          owner: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          media_type: string;
+          name: string;
+          owner?: string;
+          size_bytes: number;
+          storage_path: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          media_type?: string;
+          name?: string;
+          owner?: string;
+          size_bytes?: number;
+          storage_path?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "materials_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "materials_owner_fkey";
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";

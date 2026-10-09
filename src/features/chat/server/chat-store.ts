@@ -1,7 +1,6 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
-import { messageText } from "@/features/chat/domain/message-text";
 import type { ChatUIMessage } from "@/features/chat/types";
 
 /**
@@ -11,11 +10,27 @@ import type { ChatUIMessage } from "@/features/chat/types";
 
 export type StoredChat = {
   id: string;
+  /** The Course the Chat belongs to. It never moves. */
+  courseId: string;
   title: string | null;
   modelChoice: string;
 };
 
 type MessageRow = Database["public"]["Tables"]["chat_messages"]["Row"];
+
+function toStoredChat(row: {
+  id: string;
+  course_id: string;
+  title: string | null;
+  model_choice: string;
+}): StoredChat {
+  return {
+    id: row.id,
+    courseId: row.course_id,
+    title: row.title,
+    modelChoice: row.model_choice,
+  };
+}
 
 function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
@@ -28,33 +43,44 @@ export async function findChat(
 ): Promise<StoredChat | null> {
   const { data, error } = await supabase
     .from("chats")
-    .select("id, title, model_choice")
+    .select("id, course_id, title, model_choice")
     .eq("id", chatId)
     .maybeSingle();
   if (error) fail("Loading the Chat", error);
-  return data
-    ? { id: data.id, title: data.title, modelChoice: data.model_choice }
-    : null;
+  return data ? toStoredChat(data) : null;
 }
 
 /**
- * Creates a Chat owned by the signed-in Student, with `replyId` as its
- * latest reply (see `startReply`). Returns null when the id is taken, which
- * for the Student means it belongs to someone else.
+ * Creates a Chat owned by the signed-in Student in their Course `courseId`,
+ * with `replyId` as its latest reply (see `startReply`). Refuses with
+ * "taken" when the id is taken, which for the Student means it belongs to
+ * someone else, and with "no course" when the Course is not (or no longer)
+ * theirs.
  */
 export async function createChat(
   supabase: Supabase,
   chatId: string,
-  { modelChoice, replyId }: { modelChoice: string; replyId: string },
-): Promise<StoredChat | null> {
+  {
+    courseId,
+    modelChoice,
+    replyId,
+  }: { courseId: string; modelChoice: string; replyId: string },
+): Promise<StoredChat | "taken" | "no course"> {
   const { data, error } = await supabase
     .from("chats")
-    .insert({ id: chatId, model_choice: modelChoice, latest_reply_id: replyId })
-    .select("id, title, model_choice")
+    .insert({
+      id: chatId,
+      course_id: courseId,
+      model_choice: modelChoice,
+      latest_reply_id: replyId,
+    })
+    .select("id, course_id, title, model_choice")
     .single();
-  if (error?.code === "23505") return null;
+  if (error?.code === "23505") return "taken";
+  // The insert policy, or the foreign key once the Course is deleted.
+  if (error?.code === "42501" || error?.code === "23503") return "no course";
   if (error) fail("Creating the Chat", error);
-  return { id: data.id, title: data.title, modelChoice: data.model_choice };
+  return toStoredChat(data);
 }
 
 /**
@@ -112,17 +138,23 @@ export async function renameChat(
 }
 
 /**
- * The Student's Chats, newest message first, each with its title and the
- * text of its first message.
+ * The Student's Chats in a Course, newest message first, each with its title
+ * and the parts of its first message.
  */
 export async function listChats(
   supabase: Supabase,
+  courseId: string,
 ): Promise<
-  { id: string; title: string | null; firstMessage: string | null }[]
+  {
+    id: string;
+    title: string | null;
+    firstMessage: ChatUIMessage["parts"] | null;
+  }[]
 > {
   const { data, error } = await supabase
     .from("chats")
     .select("id, title, chat_messages(parts)")
+    .eq("course_id", courseId)
     .order("last_message_at", { ascending: false })
     .order("created_at", { referencedTable: "chat_messages", ascending: true })
     .limit(1, { referencedTable: "chat_messages" });
@@ -133,7 +165,7 @@ export async function listChats(
       id: chat.id,
       title: chat.title,
       firstMessage: first
-        ? messageText(first.parts as ChatUIMessage["parts"])
+        ? (first.parts as unknown as ChatUIMessage["parts"])
         : null,
     };
   });
@@ -141,19 +173,20 @@ export async function listChats(
 
 /**
  * Deletes a Chat with its messages. Its usage records stay, without the Chat
- * reference. Returns false when the Chat is missing or not the Student's.
+ * reference. Returns the Course it was in, or null when the Chat is missing
+ * or not the Student's.
  */
 export async function deleteChat(
   supabase: Supabase,
   chatId: string,
-): Promise<boolean> {
+): Promise<{ courseId: string } | null> {
   const { data, error } = await supabase
     .from("chats")
     .delete()
     .eq("id", chatId)
-    .select("id");
+    .select("course_id");
   if (error) fail("Deleting the Chat", error);
-  return data.length > 0;
+  return data[0] ? { courseId: data[0].course_id } : null;
 }
 
 function toUIMessage(row: MessageRow): ChatUIMessage {
@@ -185,6 +218,22 @@ export async function loadMessages(
     .order("created_at", { ascending: true });
   if (error) fail("Loading the messages", error);
   return data.map(toUIMessage);
+}
+
+/** Whether the Chat has a message with this id. */
+export async function hasMessage(
+  supabase: Supabase,
+  chatId: string,
+  messageId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("id")
+    .eq("chat_id", chatId)
+    .eq("id", messageId)
+    .maybeSingle();
+  if (error) fail("Loading the message", error);
+  return data !== null;
 }
 
 function messageRow(chatId: string, message: ChatUIMessage) {

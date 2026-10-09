@@ -4,7 +4,6 @@ import {
   APICallError,
   RetryError,
   consumeStream,
-  convertToModelMessages,
   createUIMessageStreamResponse,
   streamText,
   toUIMessageStream,
@@ -18,6 +17,7 @@ import {
   chatReplySettings,
   offeredModelChoice,
 } from "@/features/chat/ai/reply";
+import { messageGist } from "@/features/chat/domain/chat-label";
 import { messageText } from "@/features/chat/domain/message-text";
 import {
   chatMessageMetadataSchema,
@@ -28,14 +28,29 @@ import {
   createChat,
   deleteChat,
   findChat,
+  hasMessage,
   loadMessages,
   saveMessage,
   saveReply,
   startReply,
   type StoredChat,
 } from "@/features/chat/server/chat-store";
+import {
+  attachmentRefusal,
+  loadAttachedMaterials,
+  materialsTooLargeMessage,
+  materialsUnavailableMessage,
+  sentMaterials,
+  toModelMessages,
+  type LoadedMaterial,
+} from "@/features/chat/server/attached-materials";
 import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
+import {
+  courseNotFoundMessage,
+  materialReferenceSchema,
+} from "@/features/courses";
+import { getCourse } from "@/features/courses/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
@@ -54,7 +69,7 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *
  * 1. require the signed-in Student
  * 2. validate the request: the message, an offered model choice, and a Chat
- *    the Student owns or may create
+ *    the Student owns, or a new Chat in a Course the Student owns
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, or mark the new reply as the
  *    Chat's latest with its model choice, then store the Student's message
@@ -76,7 +91,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, newChat, modelChoice, message } = parsed.data;
+  const { chatId, courseId, modelChoice, message } = parsed.data;
 
   const offered = modelChoices("chat");
   const isOffered = (key: string) =>
@@ -91,7 +106,20 @@ export async function handleChatRequest(request: Request): Promise<Response> {
 
   const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
-  if (!existing && !newChat) return refuse(404, chatNotFoundMessage);
+  if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
+  if (!existing && !(await getCourse(courseId!))) {
+    return refuse(404, courseNotFoundMessage);
+  }
+
+  // A stored message, as when retrying, is answered as stored: its
+  // Materials may have been deleted since.
+  if (!existing || !(await hasMessage(supabase, existing.id, message.id))) {
+    const refusal = await attachmentRefusal(
+      message,
+      existing?.courseId ?? courseId!,
+    );
+    if (refusal) return refuse(400, refusal);
+  }
 
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
@@ -105,10 +133,13 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const chat =
     existing ??
     (await createChat(supabase, chatId, {
+      courseId: courseId!,
       modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
       replyId,
     }));
-  if (!chat) return refuse(404, chatNotFoundMessage);
+  if (chat === "taken") return refuse(404, chatNotFoundMessage);
+  // The Course was deleted since it was checked.
+  if (chat === "no course") return refuse(404, courseNotFoundMessage);
 
   // The choice applies from this message on.
   const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
@@ -119,12 +150,18 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const history = await addStudentMessage(supabase, chat, message, !existing);
   if (!history) return refuse(409, "This message was already sent.");
 
+  // After storing the message, so Retry can send it again.
+  const materials = await loadAttachedMaterials(history);
+  if (materials === "too large") return refuse(413, materialsTooLargeMessage);
+  if (materials === "failed") return refuse(503, materialsUnavailableMessage);
+
   return streamReply({
     request,
     supabase,
     chat: { ...chat, modelChoice: choice },
     userId: user.id,
     history,
+    materials,
     replyId,
   });
 }
@@ -172,6 +209,7 @@ async function streamReply({
   chat,
   userId,
   history,
+  materials,
   replyId,
 }: {
   request: Request;
@@ -179,11 +217,14 @@ async function streamReply({
   chat: StoredChat;
   userId: string;
   history: ChatUIMessage[];
+  /** The files of the Materials the history references, by id. */
+  materials: Map<string, LoadedMaterial>;
   replyId: string;
 }) {
   const messages = await validateUIMessages<ChatUIMessage>({
     messages: history,
     metadataSchema: chatMessageMetadataSchema,
+    dataSchemas: { material: materialReferenceSchema },
   });
   const settings = chatReplySettings(chat.modelChoice);
   // What the provider reports when the call completes: its usage and the
@@ -197,7 +238,7 @@ async function streamReply({
     async () =>
       streamText({
         ...settings,
-        messages: await convertToModelMessages(messages),
+        messages: await toModelMessages(messages, materials),
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
@@ -226,7 +267,7 @@ async function streamReply({
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
         const stopped = isAborted || isCancelled === true;
         // A stopped or failed call reports no usage, so its cost is
-        // estimated from the text sent and received. Otherwise stopping
+        // estimated from the text and files sent and the text received. Otherwise stopping
         // would dodge the limit.
         const usage = reportedUsage
           ? { usage: tokenUsage(reportedUsage) }
@@ -237,18 +278,21 @@ async function streamReply({
                   ...messages.map(({ parts }) => messageText(parts)),
                 ].join("\n"),
                 output: messageText(responseMessage.parts),
+                files: sentMaterials(messages, materials),
               }),
               estimated: true,
             };
+        const record = { task: "chat" as const, modelId, ...usage };
         try {
-          await recordAiUsage(supabase, {
-            task: "chat",
-            modelId,
-            ...usage,
-            chatId: chat.id,
-          });
-        } catch (error) {
-          console.error("Recording the Chat reply's usage failed:", error);
+          await recordAiUsage(supabase, { ...record, chatId: chat.id });
+        } catch {
+          // The Chat, or its Course, was deleted during the reply. The spend
+          // still counts towards the Daily limit, without the Chat.
+          try {
+            await recordAiUsage(supabase, record);
+          } catch (error) {
+            console.error("Recording the Chat reply's usage failed:", error);
+          }
         }
 
         if (outcome.status === "failed") return;
@@ -271,7 +315,7 @@ async function streamReply({
           await titleChat(supabase, {
             chatId: chat.id,
             userId,
-            firstMessage: messageText(messages[0]?.parts ?? []),
+            firstMessage: messageGist(messages[0]?.parts ?? []),
           });
         }
       },

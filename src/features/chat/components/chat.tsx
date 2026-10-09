@@ -6,8 +6,11 @@ import {
   CheckIcon,
   CircleAlertIcon,
   CopyIcon,
+  FolderOpenIcon,
+  PaperclipIcon,
   RefreshCwIcon,
   RotateCcwIcon,
+  UploadIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,8 +27,13 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuItem,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputProvider,
   PromptInputSelect,
   PromptInputSelectContent,
@@ -41,9 +49,12 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
+import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
+  MAX_ATTACHED_MATERIALS,
   MAX_MESSAGE_LENGTH,
   messageTooLongMessage,
 } from "@/features/chat/schemas";
@@ -53,6 +64,13 @@ import type {
   ChatWithMessages,
   ModelOption,
 } from "@/features/chat/types";
+import {
+  MATERIAL_MEDIA_TYPES,
+  MaterialChip,
+  MaterialPicker,
+  MaterialViewer,
+  type MaterialListItem,
+} from "@/features/courses";
 import {
   DailyLimitNotice,
   refreshDailyLimitStatus,
@@ -65,10 +83,20 @@ type ChatProps = {
    * (`newChat`). Without a title, it gets one after a reply.
    */
   chat: ChatWithMessages;
-  /** True on `/chat`: the first message creates the Chat with its id. */
+  /**
+   * True on a Course's new Chat page: the first message creates the Chat
+   * with its id, in its Course.
+   */
   isNew: boolean;
   /** The model choices to offer, in display order. */
   modelOptions: ModelOption[];
+  /**
+   * The Course's Materials, to attach to messages and to show attached ones
+   * under their current names.
+   */
+  materials: MaterialListItem[];
+  /** The signed-in Student, whose Storage folder uploads go to. */
+  ownerId: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
@@ -105,13 +133,39 @@ export function Chat({
   chat,
   isNew,
   modelOptions,
+  materials: courseMaterials,
+  ownerId,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
   const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
   const [modelChoice, setModelChoice] = useState(chat.modelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
+  const [opened, setOpened] = useState<MaterialListItem | null>(null);
   const limitReached = dailyLimit.level === "reached";
+  const {
+    attached,
+    clearAttached,
+    toggleAttached,
+    detach,
+    materials,
+    materialsById,
+    pickerOpen,
+    setPickerOpen,
+    fileInput,
+    dropZone,
+    uploadFiles,
+    uploads,
+    uploading,
+    retryUpload,
+    removeUpload,
+  } = useMessageAttachments({
+    ownerId,
+    courseId: chat.courseId,
+    courseMaterials,
+    limitReached,
+    onInputError: setInputError,
+  });
   const { noteChatActivity, relabelChat } = useChatList();
   const titled = useRef(chat.title !== null);
   const {
@@ -161,7 +215,7 @@ export function Chat({
         body: {
           ...body,
           chatId,
-          newChat: isNew,
+          ...(isNew && { courseId: chat.courseId }),
           message: messages.at(-1),
         },
       }),
@@ -172,8 +226,8 @@ export function Chat({
   // Once the reply streams, the message is stored: a new Chat gets its own
   // address without remounting, so reloading or bookmarking it works, and the
   // Chat moves to the top of the sidebar.
-  const path = `/chat/${chatId}`;
-  const firstMessage = messages[0] ? messageText(messages[0].parts) : null;
+  const path = chatPath(chat.courseId, chatId);
+  const firstMessage = messages[0]?.parts ?? null;
   useEffect(() => {
     if (status !== "streaming") return;
     if (isNew && window.location.pathname !== path) {
@@ -189,7 +243,12 @@ export function Chat({
   const lastMessage = messages.at(-1);
 
   async function handleSubmit({ text }: { text: string }) {
-    if (text.trim() === "" || isBusy || limitReached) {
+    if (
+      (text.trim() === "" && attached.length === 0) ||
+      isBusy ||
+      limitReached ||
+      uploading
+    ) {
       throw new Error("Nothing to send.");
     }
     if (text.length > MAX_MESSAGE_LENGTH) {
@@ -199,7 +258,16 @@ export function Chat({
     }
     setInputError(null);
     clearError();
-    void sendMessage({ text }, { body: { modelChoice } });
+    void sendMessage(
+      {
+        parts: [
+          ...(text.trim() === "" ? [] : [{ type: "text" as const, text }]),
+          ...attached.map((data) => ({ type: "data-material" as const, data })),
+        ],
+      },
+      { body: { modelChoice } },
+    );
+    clearAttached();
   }
 
   return (
@@ -223,9 +291,18 @@ export function Chat({
                         {messageText(message.parts)}
                       </Markdown>
                     ) : (
-                      <p className="whitespace-pre-wrap">
-                        {messageText(message.parts)}
-                      </p>
+                      <>
+                        <AttachedMaterials
+                          parts={message.parts}
+                          materialsById={materialsById}
+                          onOpen={setOpened}
+                        />
+                        {messageText(message.parts) !== "" && (
+                          <p className="whitespace-pre-wrap">
+                            {messageText(message.parts)}
+                          </p>
+                        )}
+                      </>
                     )}
                   </MessageContent>
                   {!isStreaming && (
@@ -283,11 +360,65 @@ export function Chat({
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+      <div
+        ref={dropZone}
+        className="mx-auto flex w-full max-w-3xl flex-col gap-2"
+      >
         <DailyLimitNotice status={dailyLimit} />
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          aria-label="Upload file"
+          accept={MATERIAL_MEDIA_TYPES.join(",")}
+          // Opened by "Upload file" in the attach menu.
+          hidden
+          onChange={(event) => {
+            if (event.target.files) uploadFiles(event.target.files);
+            event.target.value = "";
+          }}
+        />
         {/* Controlled, so a refused message stays in the input. */}
         <PromptInputProvider>
           <PromptInput onSubmit={handleSubmit}>
+            {(attached.length > 0 || uploading) && (
+              <PromptInputHeader aria-label="Attached materials">
+                {attached.map((material) => (
+                  <MaterialChip
+                    key={material.materialId}
+                    name={
+                      materialsById.get(material.materialId)?.name ??
+                      material.name
+                    }
+                    mediaType={material.mediaType}
+                    onRemove={() => detach(material.materialId)}
+                  />
+                ))}
+                {uploads.map((upload) => (
+                  <MaterialChip
+                    key={upload.key}
+                    name={upload.filename}
+                    mediaType={upload.mediaType}
+                    progress={
+                      upload.status === "failed" ? undefined : upload.progress
+                    }
+                    error={
+                      upload.status === "failed" ? upload.message : undefined
+                    }
+                    onRetry={
+                      upload.canRetry
+                        ? () => retryUpload(upload.key)
+                        : undefined
+                    }
+                    onRemove={
+                      upload.status === "registering"
+                        ? undefined
+                        : () => removeUpload(upload.key)
+                    }
+                  />
+                ))}
+              </PromptInputHeader>
+            )}
             <PromptInputBody>
               <PromptInputTextarea
                 aria-label="Message"
@@ -300,6 +431,29 @@ export function Chat({
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
+                <PromptInputActionMenu>
+                  <PromptInputActionMenuTrigger
+                    aria-label="Attach"
+                    tooltip="Attach"
+                    disabled={limitReached}
+                  >
+                    <PaperclipIcon className="size-4" />
+                  </PromptInputActionMenuTrigger>
+                  <PromptInputActionMenuContent>
+                    <PromptInputActionMenuItem
+                      onSelect={() => fileInput.current?.click()}
+                    >
+                      <UploadIcon />
+                      Upload file
+                    </PromptInputActionMenuItem>
+                    <PromptInputActionMenuItem
+                      onSelect={() => setPickerOpen(true)}
+                    >
+                      <FolderOpenIcon />
+                      Choose from materials
+                    </PromptInputActionMenuItem>
+                  </PromptInputActionMenuContent>
+                </PromptInputActionMenu>
                 {/* Applies from the next message on. */}
                 <PromptInputSelect
                   value={modelChoice}
@@ -334,11 +488,23 @@ export function Chat({
               <PromptInputSubmit
                 status={status}
                 onStop={() => void stop()}
-                disabled={!isBusy && limitReached}
+                disabled={!isBusy && (limitReached || uploading)}
               />
             </PromptInputFooter>
           </PromptInput>
         </PromptInputProvider>
+        <MaterialPicker
+          open={pickerOpen}
+          onOpenChange={setPickerOpen}
+          materials={materials}
+          pickedIds={[
+            ...attached.map(({ materialId }) => materialId),
+            ...uploads.map(({ key }) => key),
+          ]}
+          max={MAX_ATTACHED_MATERIALS}
+          onToggle={toggleAttached}
+        />
+        <MaterialViewer material={opened} onClose={() => setOpened(null)} />
         {inputError && (
           <p
             id="chat-input-error"
@@ -349,6 +515,41 @@ export function Chat({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Materials attached to a sent message, under their current names. A
+ * deleted one shows the name it had when attached.
+ */
+function AttachedMaterials({
+  parts,
+  materialsById,
+  onOpen,
+}: {
+  parts: ChatUIMessage["parts"];
+  materialsById: Map<string, MaterialListItem>;
+  onOpen: (material: MaterialListItem) => void;
+}) {
+  const references = parts.flatMap((part) =>
+    part.type === "data-material" ? [part.data] : [],
+  );
+  if (references.length === 0) return null;
+  return (
+    <div className="flex flex-wrap justify-end gap-1">
+      {references.map((reference, index) => {
+        const material = materialsById.get(reference.materialId);
+        return (
+          <MaterialChip
+            key={`${reference.materialId}-${index}`}
+            name={material?.name ?? reference.name}
+            mediaType={reference.mediaType}
+            deleted={!material}
+            onOpen={material && (() => onOpen(material))}
+          />
+        );
+      })}
     </div>
   );
 }

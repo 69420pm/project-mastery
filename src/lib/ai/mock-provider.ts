@@ -29,20 +29,37 @@ const finishReason = { unified: "stop" as const, raw: undefined };
 
 type Prompt = ReadonlyArray<{ role: string; content: unknown }>;
 
-function lastUserText(prompt: Prompt): string {
+type Part = {
+  type: string;
+  text?: string;
+  filename?: string;
+  mediaType?: string;
+};
+
+function lastUserParts(prompt: Prompt): Part[] {
   const message = prompt.findLast((m) => m.role === "user");
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (!Array.isArray(message.content)) return "";
-  return (message.content as Array<{ type: string; text?: string }>)
+  if (!message) return [];
+  if (typeof message.content === "string") {
+    return [{ type: "text", text: message.content }];
+  }
+  return Array.isArray(message.content) ? (message.content as Part[]) : [];
+}
+
+/**
+ * The reply to a prompt: names the question and the files sent with it, so
+ * tests can tell replies apart and see what reached the AI.
+ */
+export function mockReply(prompt: Prompt): string {
+  const parts = lastUserParts(prompt);
+  const text = parts
     .filter((part) => part.type === "text")
     .map((part) => part.text ?? "")
     .join(" ");
-}
-
-/** The reply to a prompt: names the question, so tests can tell replies apart. */
-export function mockReply(prompt: Prompt): string {
-  return `Mock reply to "${lastUserText(prompt)}". This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.`;
+  const files = parts
+    .filter((part) => part.type === "file")
+    .map((part) => `${part.filename ?? "file"} (${part.mediaType})`);
+  const attached = files.length > 0 ? ` Attached: ${files.join(", ")}.` : "";
+  return `Mock reply to "${text}".${attached} This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.`;
 }
 
 function languageModel(modelId: string) {

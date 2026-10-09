@@ -9,18 +9,24 @@ import {
 import type { ChatListItem } from "@/features/chat/types";
 
 type ChatListProviderProps = {
-  /** The stored Chats from `getChatList`. */
+  /** The Course whose Chats are listed. */
+  courseId: string;
+  /** The Course's stored Chats from `getChatList`. */
   chats: ChatListItem[];
   children: ReactNode;
 };
 
 /**
- * Holds the sidebar's Chat list for the signed-in layout. The layout is not
+ * Holds the sidebar's Chat list for a Course's layout. The layout is not
  * re-rendered on client navigation, so a Chat that gets a message is moved to
  * the top here, without reloading. A fresh list from the server, after a
  * refresh or a revalidating Server Action, replaces these local changes.
  */
-export function ChatListProvider({ chats, children }: ChatListProviderProps) {
+export function ChatListProvider({
+  courseId,
+  chats,
+  children,
+}: ChatListProviderProps) {
   const [list, setList] = useState({ stored: chats, shown: chats });
   if (list.stored !== chats) setList({ stored: chats, shown: chats });
 
@@ -39,8 +45,8 @@ export function ChatListProvider({ chats, children }: ChatListProviderProps) {
   }, []);
 
   const value = useMemo(
-    () => ({ chats: list.shown, noteChatActivity, relabelChat }),
-    [list.shown, noteChatActivity, relabelChat],
+    () => ({ courseId, chats: list.shown, noteChatActivity, relabelChat }),
+    [courseId, list.shown, noteChatActivity, relabelChat],
   );
 
   return <ChatListContext value={value}>{children}</ChatListContext>;
