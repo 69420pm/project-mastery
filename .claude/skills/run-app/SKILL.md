@@ -59,7 +59,7 @@ Check all four before calling a change done:
 - New sign-ups: fill the "Create account" tab, then `mail <email>` prints the subject and links, and `open <link>` follows one.
 - `sql "<query>"` runs as the superuser, which bypasses RLS. Use it only to set up or inspect data.
 - `sql "<query>" --as student|classmate|anon|<email>` runs with that user's role and JWT claims, exactly like the app's requests. To verify a policy, expect `(0 rows)`, `UPDATE 0` or `permission denied`.
-- `reset` rebuilds the database from migrations and recreates the test users. It wipes all local data, so ask first unless the user asked for a clean state. Then run `login` again.
+- `reset` rebuilds the database from migrations and recreates the test users. It wipes all local data, including that of agents working in parallel, so ask first unless the user asked for a clean state; the Bash guard then needs it as `ALLOW_DB_RESET=1 pnpm -s agent reset`. Then run `login` again.
 
 ## Seeing the page
 
