@@ -1352,6 +1352,44 @@ describe("attached Materials", () => {
     ]);
   });
 
+  test("resending a stored message's id with other Materials answers the stored message and stores nothing new", async () => {
+    const model = mockTextModel("Here it is again.");
+    useMockModels({ chat: model });
+    const foreign = seedMaterial({ owner: CLASSMATE, name: "Their notes" });
+    const otherCourse = seedMaterial({
+      courseId: OTHER_COURSE,
+      name: "Optics",
+    });
+    const messageId = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      {
+        id: messageId,
+        role: "user",
+        parts: [{ type: "text", text: "Explain this" }],
+      },
+      { role: "assistant", parts: [{ type: "text", text: "First look." }] },
+    ]);
+
+    const reply = await send({
+      chatId,
+      message: messageWith("Explain this", [foreign, otherCourse], messageId),
+    });
+
+    expect(reply.status).toBe(200);
+    expect(receivedParts(model)).toEqual([
+      { type: "text", text: "Explain this" },
+    ]);
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toMatch(
+      /Their notes|Optics/,
+    );
+    const student = db.tables.chat_messages.find(({ id }) => id === messageId);
+    expect(student!.parts).toEqual([{ type: "text", text: "Explain this" }]);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "Explain this",
+      "Here it is again.",
+    ]);
+  });
+
   test("over 20 MB of Materials in one request are refused before any model call, keeping the message", async () => {
     const model = mockTextModel("Never sent.");
     useMockModels({ chat: model });
