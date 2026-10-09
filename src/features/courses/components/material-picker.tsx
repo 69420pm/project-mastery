@@ -63,7 +63,10 @@ export function MaterialPicker({
       showCloseButton
     >
       <Command>
-        <CommandInput placeholder="Search materials…" />
+        <CommandInput
+          aria-label="Search materials"
+          placeholder="Search materials…"
+        />
         {limitHit && (
           <p role="alert" className="px-3 pt-2 text-sm text-destructive">
             Attach up to {max} materials to a message.
@@ -83,7 +86,6 @@ export function MaterialPicker({
                 value={`${material.name} ${material.id}`}
                 keywords={[material.name]}
                 data-checked={pickedIds.includes(material.id)}
-                aria-selected={pickedIds.includes(material.id)}
                 onSelect={() => toggle(material)}
               >
                 {material.mediaType === "application/pdf" ? (
@@ -95,6 +97,9 @@ export function MaterialPicker({
                 <span className="text-xs text-muted-foreground">
                   {materialTypeLabel(material.mediaType)}
                 </span>
+                {pickedIds.includes(material.id) && (
+                  <span className="sr-only">, attached</span>
+                )}
               </CommandItem>
             ))}
           </CommandGroup>

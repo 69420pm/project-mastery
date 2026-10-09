@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
@@ -217,6 +218,38 @@ export async function seedChat(
   if (message.error)
     throw new Error(`Seeding a message failed: ${message.error.message}`);
   return id;
+}
+
+/**
+ * Stores a Material in a Student's Course with its file, as if they had
+ * uploaded `file`, for tests that need existing Materials.
+ */
+export async function seedMaterial(
+  owner: string,
+  courseId: string,
+  { name, file, mediaType }: { name: string; file: string; mediaType: string },
+): Promise<{ id: string }> {
+  const id = randomUUID();
+  const storagePath = `${owner}/${courseId}/${id}`;
+  const body = await readFile(file);
+  const admin = adminClient();
+  const upload = await admin.storage
+    .from(MATERIALS_BUCKET)
+    .upload(storagePath, body, { contentType: mediaType });
+  if (upload.error)
+    throw new Error(`Seeding a file failed: ${upload.error.message}`);
+  const material = await admin.from("materials").insert({
+    id,
+    owner,
+    course_id: courseId,
+    name,
+    media_type: mediaType,
+    size_bytes: body.byteLength,
+    storage_path: storagePath,
+  });
+  if (material.error)
+    throw new Error(`Seeding a Material failed: ${material.error.message}`);
+  return { id };
 }
 
 export const test = base.extend<{
