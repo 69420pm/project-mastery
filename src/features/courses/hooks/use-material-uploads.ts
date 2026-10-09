@@ -101,8 +101,11 @@ export function useMaterialUploads({
         signal: controller.signal,
         onProgress: (progress) => update(key, { progress }),
       });
-      if (outcome === "cancelled") return;
-      if (outcome === "failed") {
+      if (outcome !== "uploaded") {
+        // Storage may have stored the file before the response was lost or
+        // the Student cancelled, so remove it; a missing file is harmless.
+        await removeUploadedFile(MATERIALS_BUCKET, path);
+        if (outcome === "cancelled") return;
         controllers.current.delete(key);
         update(key, { status: "failed", message: uploadFailed });
         return;

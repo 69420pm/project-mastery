@@ -19,7 +19,9 @@ type UploadOptions = {
  * user, reporting progress. supabase-js uploads with `fetch`, which reports
  * no upload progress, so this asks for a signed upload URL (the bucket
  * policies apply) and sends the same multipart body as `uploadToSignedUrl`
- * with XHR. It resolves, never rejects.
+ * with XHR. It resolves, never rejects. After "failed" or "cancelled" the
+ * file may still have been stored, since the response can be lost after
+ * Storage committed it: callers remove it with `removeUploadedFile`.
  */
 export async function uploadFile({
   bucket,
