@@ -114,7 +114,9 @@ export async function handleChatRequest(request: Request): Promise<Response> {
       modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
       replyId,
     }));
-  if (!chat) return refuse(404, chatNotFoundMessage);
+  if (chat === "taken") return refuse(404, chatNotFoundMessage);
+  // The Course was deleted since it was checked.
+  if (chat === "no course") return refuse(404, courseNotFoundMessage);
 
   // The choice applies from this message on.
   const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
@@ -246,15 +248,17 @@ async function streamReply({
               }),
               estimated: true,
             };
+        const record = { task: "chat" as const, modelId, ...usage };
         try {
-          await recordAiUsage(supabase, {
-            task: "chat",
-            modelId,
-            ...usage,
-            chatId: chat.id,
-          });
-        } catch (error) {
-          console.error("Recording the Chat reply's usage failed:", error);
+          await recordAiUsage(supabase, { ...record, chatId: chat.id });
+        } catch {
+          // The Chat, or its Course, was deleted during the reply. The spend
+          // still counts towards the Daily limit, without the Chat.
+          try {
+            await recordAiUsage(supabase, record);
+          } catch (error) {
+            console.error("Recording the Chat reply's usage failed:", error);
+          }
         }
 
         if (outcome.status === "failed") return;

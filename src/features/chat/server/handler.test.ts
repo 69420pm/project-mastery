@@ -54,8 +54,15 @@ function createDb() {
           )
         );
       }
-      if (table === "courses" || table === "ai_usage") {
-        return row.owner === signedIn;
+      if (table === "courses") return row.owner === signedIn;
+      if (table === "ai_usage") {
+        return (
+          row.owner === signedIn &&
+          (row.chat_id === null ||
+            tables.chats.some(
+              (chat) => chat.id === row.chat_id && chat.owner === signedIn,
+            ))
+        );
       }
       return tables.chats.some(
         (chat) => chat.id === row.chat_id && chat.owner === signedIn,
@@ -447,6 +454,30 @@ describe("refusals", () => {
     expect(db.tables.chat_messages).toEqual([]);
   });
 
+  test("a Course deleted just before the Chat is created is refused as not found", async () => {
+    const model = mockTextModel("Never sent.");
+    useMockModels({ chat: model });
+    // The Course is found, then gone when the Chat is inserted.
+    const courses = db.tables.courses;
+    let reads = 0;
+    Object.defineProperty(db.tables, "courses", {
+      get: () => (reads++ === 0 ? courses : []),
+    });
+
+    const reply = await send({
+      chatId: randomUUID(),
+      courseId: COURSE,
+      message: userMessage("Hello?"),
+    });
+
+    expect(reply).toEqual({
+      status: 404,
+      refusal: "This course does not exist.",
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(db.tables.chats).toEqual([]);
+  });
+
   test("a message over 10,000 characters is refused before a Chat is created", async () => {
     const model = mockTextModel("Never sent.");
     useMockModels({ chat: model });
@@ -532,6 +563,37 @@ describe("usage", () => {
         cost_usd: expect.closeTo(0.000053, 12),
         estimated: false,
         chat_id: chatId,
+      }),
+    ]);
+  });
+
+  test("a Course deleted while the reply streams drops the reply but still records its usage", async () => {
+    const reply = mockTextModel("Gone before I end.");
+    const doStream = reply.doStream.bind(reply);
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async (options) => {
+          // The Course goes, and with it, by cascade, its Chats.
+          db.tables.courses.splice(0);
+          db.tables.chats.splice(0);
+          return doStream(options);
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const chatId = randomUUID();
+
+    await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
+
+    expect(
+      db.tables.chat_messages.filter(({ role }) => role === "assistant"),
+    ).toEqual([]);
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        owner: STUDENT,
+        task: "chat",
+        output_tokens: 20,
+        chat_id: null,
       }),
     ]);
   });
