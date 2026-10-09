@@ -66,7 +66,7 @@ describe("signIn with a password", () => {
           next: "https://evil.example",
         }),
       ),
-    ).rejects.toThrow(/^redirect:\/chat$/);
+    ).rejects.toThrow(/^redirect:\/courses$/);
   });
 
   test("returns field errors without calling Supabase", async () => {
@@ -183,7 +183,7 @@ describe("signUp", () => {
     expect(auth.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
         options: {
-          emailRedirectTo: "http://localhost:3000/auth/confirm?next=%2Fchat",
+          emailRedirectTo: "http://localhost:3000/auth/confirm?next=%2Fcourses",
         },
       }),
     );
