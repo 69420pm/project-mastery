@@ -4,7 +4,6 @@ import {
   APICallError,
   RetryError,
   consumeStream,
-  convertToModelMessages,
   createUIMessageStreamResponse,
   streamText,
   toUIMessageStream,
@@ -18,6 +17,7 @@ import {
   chatReplySettings,
   offeredModelChoice,
 } from "@/features/chat/ai/reply";
+import { messageGist } from "@/features/chat/domain/chat-label";
 import { messageText } from "@/features/chat/domain/message-text";
 import {
   chatMessageMetadataSchema,
@@ -28,15 +28,28 @@ import {
   createChat,
   deleteChat,
   findChat,
+  hasMessage,
   loadMessages,
   saveMessage,
   saveReply,
   startReply,
   type StoredChat,
 } from "@/features/chat/server/chat-store";
+import {
+  attachmentRefusal,
+  loadAttachedMaterials,
+  materialsTooLargeMessage,
+  materialsUnavailableMessage,
+  sentMaterials,
+  toModelMessages,
+  type LoadedMaterial,
+} from "@/features/chat/server/attached-materials";
 import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { courseNotFoundMessage } from "@/features/courses";
+import {
+  courseNotFoundMessage,
+  materialReferenceSchema,
+} from "@/features/courses";
 import { getCourse } from "@/features/courses/server";
 import {
   checkDailyLimit,
@@ -98,6 +111,16 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     return refuse(404, courseNotFoundMessage);
   }
 
+  // A stored message, as when retrying, is answered as stored: its
+  // Materials may have been deleted since.
+  if (!existing || !(await hasMessage(supabase, existing.id, message.id))) {
+    const refusal = await attachmentRefusal(
+      message,
+      existing?.courseId ?? courseId!,
+    );
+    if (refusal) return refuse(400, refusal);
+  }
+
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
     return refuse(429, dailyLimitReachedMessage);
@@ -127,12 +150,18 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const history = await addStudentMessage(supabase, chat, message, !existing);
   if (!history) return refuse(409, "This message was already sent.");
 
+  // After storing the message, so Retry can send it again.
+  const materials = await loadAttachedMaterials(history);
+  if (materials === "too large") return refuse(413, materialsTooLargeMessage);
+  if (materials === "failed") return refuse(503, materialsUnavailableMessage);
+
   return streamReply({
     request,
     supabase,
     chat: { ...chat, modelChoice: choice },
     userId: user.id,
     history,
+    materials,
     replyId,
   });
 }
@@ -180,6 +209,7 @@ async function streamReply({
   chat,
   userId,
   history,
+  materials,
   replyId,
 }: {
   request: Request;
@@ -187,11 +217,14 @@ async function streamReply({
   chat: StoredChat;
   userId: string;
   history: ChatUIMessage[];
+  /** The files of the Materials the history references, by id. */
+  materials: Map<string, LoadedMaterial>;
   replyId: string;
 }) {
   const messages = await validateUIMessages<ChatUIMessage>({
     messages: history,
     metadataSchema: chatMessageMetadataSchema,
+    dataSchemas: { material: materialReferenceSchema },
   });
   const settings = chatReplySettings(chat.modelChoice);
   // What the provider reports when the call completes: its usage and the
@@ -205,7 +238,7 @@ async function streamReply({
     async () =>
       streamText({
         ...settings,
-        messages: await convertToModelMessages(messages),
+        messages: await toModelMessages(messages, materials),
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
@@ -234,7 +267,7 @@ async function streamReply({
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
         const stopped = isAborted || isCancelled === true;
         // A stopped or failed call reports no usage, so its cost is
-        // estimated from the text sent and received. Otherwise stopping
+        // estimated from the text and files sent and the text received. Otherwise stopping
         // would dodge the limit.
         const usage = reportedUsage
           ? { usage: tokenUsage(reportedUsage) }
@@ -245,6 +278,7 @@ async function streamReply({
                   ...messages.map(({ parts }) => messageText(parts)),
                 ].join("\n"),
                 output: messageText(responseMessage.parts),
+                files: sentMaterials(messages, materials),
               }),
               estimated: true,
             };
@@ -281,7 +315,7 @@ async function streamReply({
           await titleChat(supabase, {
             chatId: chat.id,
             userId,
-            firstMessage: messageText(messages[0]?.parts ?? []),
+            firstMessage: messageGist(messages[0]?.parts ?? []),
           });
         }
       },

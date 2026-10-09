@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Chat } from "@/features/chat";
 import { chatModelOptions, newChat } from "@/features/chat/server";
-import { getCourse } from "@/features/courses/server";
+import { getCourse, getMaterialList } from "@/features/courses/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -16,9 +16,10 @@ export default async function NewChatPage({
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
   await requireUser(`/courses/${courseId}/chat`);
-  const [course, dailyLimit] = await Promise.all([
+  const [course, dailyLimit, materials] = await Promise.all([
     getCourse(courseId),
     getDailyLimitStatus(),
+    getMaterialList(courseId),
   ]);
   if (!course) notFound();
   const chat = newChat(course.id);
@@ -29,6 +30,7 @@ export default async function NewChatPage({
       chat={chat}
       isNew
       modelOptions={chatModelOptions()}
+      materials={materials}
       dailyLimit={dailyLimit}
     />
   );

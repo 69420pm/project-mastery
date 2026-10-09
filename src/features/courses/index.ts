@@ -3,6 +3,9 @@
 export { CourseList } from "./components/course-list";
 export { CourseNav } from "./components/course-nav";
 export { CourseSwitcher } from "./components/course-switcher";
+export { MaterialChip } from "./components/material-chip";
+export { MaterialPicker } from "./components/material-picker";
+export { MaterialViewer } from "./components/material-viewer";
 export { Materials } from "./components/materials";
 export { MaterialsLink } from "./components/materials-link";
 export {
@@ -10,7 +13,11 @@ export {
   coursePath,
   materialsPath,
 } from "./domain/course-paths";
-export { courseNotFoundMessage } from "./schemas";
+export {
+  courseNotFoundMessage,
+  materialReferenceSchema,
+  type MaterialReference,
+} from "./schemas";
 export type {
   CourseListItem,
   CourseWithCounts,

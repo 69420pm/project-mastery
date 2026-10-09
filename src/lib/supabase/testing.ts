@@ -5,7 +5,7 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, lt, gt, gte, order, single, maybeSingle) and emulates Row Level
+ * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
  * Real policies are tested with pgTAP (supabase/tests/database/).
@@ -40,6 +40,30 @@ const failure = (code: string, message: string): Result => ({
   data: null,
   error: { code, message },
 });
+
+/**
+ * Postgres' jsonb `@>`: objects contain the keys of `value` with contained
+ * values, and arrays contain each element of `value` somewhere.
+ */
+function jsonContains(stored: unknown, value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return (
+      Array.isArray(stored) &&
+      value.every((wanted) => stored.some((item) => jsonContains(item, wanted)))
+    );
+  }
+  if (value !== null && typeof value === "object") {
+    return (
+      stored !== null &&
+      typeof stored === "object" &&
+      !Array.isArray(stored) &&
+      Object.entries(value).every(([key, wanted]) =>
+        jsonContains((stored as Record<string, unknown>)[key], wanted),
+      )
+    );
+  }
+  return stored === value;
+}
 
 export function fakeSupabase<Table extends string>(
   options: FakeSupabaseOptions<Table>,
@@ -163,6 +187,19 @@ export function fakeSupabase<Table extends string>(
       },
       in(column: string, values: unknown[]) {
         filters.push((row) => values.includes(row[column]));
+        return builder;
+      },
+      /**
+       * jsonb containment (`@>`) on a `jsonb` column. Like postgrest-js, a
+       * string is sent as is, so pass JSON text: postgrest-js would send an
+       * array as a Postgres array literal, which the fake refuses.
+       */
+      contains(column: string, value: string) {
+        if (typeof value !== "string") {
+          throw new Error("contains: pass JSON text for a jsonb column");
+        }
+        const wanted: unknown = JSON.parse(value);
+        filters.push((row) => jsonContains(row[column], wanted));
         return builder;
       },
       lt(column: string, value: unknown) {

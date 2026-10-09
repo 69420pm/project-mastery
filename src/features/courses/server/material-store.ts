@@ -3,7 +3,10 @@ import {
   courseFolder,
   MATERIALS_BUCKET,
 } from "@/features/courses/domain/material-storage";
-import type { MaterialListItem } from "@/features/courses/types";
+import type {
+  MaterialListItem,
+  StoredMaterial,
+} from "@/features/courses/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -138,6 +141,69 @@ export async function findMaterial(
       storagePath: data.storage_path,
     }
   );
+}
+
+/**
+ * The Student's Materials among `materialIds`. Ids of missing Materials, or
+ * of another Student's, are left out.
+ */
+export async function findMaterials(
+  supabase: Supabase,
+  materialIds: string[],
+): Promise<StoredMaterial[]> {
+  if (materialIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("materials")
+    .select("id, course_id, name, media_type, size_bytes, storage_path")
+    .in("id", materialIds);
+  if (error) fail("Loading the Materials", error);
+  return data.map((row) => ({
+    id: row.id,
+    courseId: row.course_id,
+    name: row.name,
+    mediaType: row.media_type,
+    sizeBytes: row.size_bytes,
+    storagePath: row.storage_path,
+  }));
+}
+
+/**
+ * The bytes of one of the Student's Material files: "missing" when it is
+ * gone or not theirs, "failed" when Storage failed.
+ */
+export async function downloadStoredFile(
+  supabase: Supabase,
+  path: string,
+): Promise<Uint8Array | "missing" | "failed"> {
+  const { data, error } = await supabase.storage
+    .from(MATERIALS_BUCKET)
+    .download(path);
+  if (error) {
+    if (error.message === "Object not found") return "missing";
+    console.error("Reading a Material's file failed", error);
+    return "failed";
+  }
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+/**
+ * How many of the Student's Chats have a message that attaches the Material,
+ * as a `data-material` part holding a `MaterialReference`.
+ */
+export async function countChatsAttaching(
+  supabase: Supabase,
+  materialId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("chat_id")
+    // As JSON text: postgrest-js sends arrays as Postgres array literals.
+    .contains(
+      "parts",
+      JSON.stringify([{ type: "data-material", data: { materialId } }]),
+    );
+  if (error) fail("Counting the Chats with the Material", error);
+  return new Set(data.map((row) => row.chat_id)).size;
 }
 
 /** Renames one of the Student's Materials. False when it is missing or not theirs. */

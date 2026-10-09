@@ -14,6 +14,16 @@ export type MaterialListItem = {
   createdAt: string;
 };
 
+/** A Material with where its file is, for reading the file on the server. */
+export type StoredMaterial = {
+  id: string;
+  courseId: string;
+  name: string;
+  mediaType: string;
+  sizeBytes: number;
+  storagePath: string;
+};
+
 /** A Course in the Course list, with what deleting it takes along. */
 export type CourseWithCounts = CourseListItem & {
   /** How many Chats the Course holds. */

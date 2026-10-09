@@ -74,6 +74,33 @@ describe("estimatedUsage", () => {
     ).toEqual({ inputTokens: 1_000, cachedInputTokens: 0, outputTokens: 100 });
   });
 
+  test("counts about 260 tokens per PDF page, at about 50 KB per page", () => {
+    const usage = estimatedUsage({
+      input: "",
+      output: "",
+      files: [
+        { mediaType: "application/pdf", sizeBytes: 500_000 },
+        // A tiny PDF still has a page.
+        { mediaType: "application/pdf", sizeBytes: 1_000 },
+      ],
+    });
+
+    expect(usage.inputTokens).toBe(10 * 260 + 260);
+  });
+
+  test("counts a fixed 1,120 tokens per image, whatever its size", () => {
+    const usage = estimatedUsage({
+      input: "abcd",
+      output: "",
+      files: [
+        { mediaType: "image/png", sizeBytes: 3_000_000 },
+        { mediaType: "image/jpeg", sizeBytes: 20_000 },
+      ],
+    });
+
+    expect(usage.inputTokens).toBe(1 + 2 * 1_120);
+  });
+
   test("rounds a partial token up", () => {
     expect(estimatedUsage({ input: "hello", output: "" })).toEqual({
       inputTokens: 2,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { materialReferenceSchema } from "@/features/courses";
 
 /** The longest message a Student can send, in characters. */
 export const MAX_MESSAGE_LENGTH = 10_000;
@@ -19,22 +20,47 @@ export const chatMessageMetadataSchema = z
   })
   .optional();
 
-/** A Student's message: text only. */
+/** The most Materials a Student can attach to one message. */
+export const MAX_ATTACHED_MATERIALS = 5;
+
+export const tooManyMaterialsMessage = `Attach up to ${MAX_ATTACHED_MATERIALS} materials to a message.`;
+
+/** The data part that attaches a Material to a Student's message. */
+export const materialPartSchema = z.object({
+  type: z.literal("data-material"),
+  data: materialReferenceSchema,
+});
+
+const textPartSchema = z.object({ type: z.literal("text"), text: z.string() });
+
+/** A Student's message: text, attached Materials, or both. */
 const studentMessageSchema = z.object({
   id: z.uuid(),
   role: z.literal("user"),
   parts: z
-    .array(z.object({ type: z.literal("text"), text: z.string() }))
+    .array(z.discriminatedUnion("type", [textPartSchema, materialPartSchema]))
     .min(1)
     .refine(
-      (parts) => parts.some((part) => part.text.trim() !== ""),
+      (parts) =>
+        parts.some(
+          (part) => part.type === "data-material" || part.text.trim() !== "",
+        ),
       "Your message is empty.",
     )
     .refine(
       (parts) =>
-        parts.reduce((length, part) => length + part.text.length, 0) <=
-        MAX_MESSAGE_LENGTH,
+        parts.reduce(
+          (length, part) =>
+            length + (part.type === "text" ? part.text.length : 0),
+          0,
+        ) <= MAX_MESSAGE_LENGTH,
       messageTooLongMessage,
+    )
+    .refine(
+      (parts) =>
+        parts.filter((part) => part.type === "data-material").length <=
+        MAX_ATTACHED_MATERIALS,
+      tooManyMaterialsMessage,
     ),
 });
 

@@ -1,3 +1,6 @@
+import { messageText } from "@/features/chat/domain/message-text";
+import type { ChatUIMessage } from "@/features/chat/types";
+
 /** The longest label shown for an untitled Chat, before the ellipsis. */
 const MAX_LABEL_LENGTH = 40;
 
@@ -15,19 +18,34 @@ function shortenAtWord(text: string, max: number): string {
 }
 
 /**
+ * What a message is about, in words: its text, or for a message of only
+ * attached Materials, the first Material's name.
+ */
+export function messageGist(parts: ChatUIMessage["parts"]): string {
+  const text = messageText(parts);
+  if (text.trim() !== "") return text;
+  const material = parts.find((part) => part.type === "data-material");
+  return material?.data.name ?? "";
+}
+
+/**
  * How a Chat is named in the Chat list: its title, or until it has one, its
- * first message on one line, shortened at a word.
+ * first message on one line, shortened at a word (`messageGist`).
  */
 export function chatLabel({
   title,
   firstMessage,
 }: {
   title: string | null;
-  firstMessage: string | null;
+  /** The parts of the Chat's first message. */
+  firstMessage: ChatUIMessage["parts"] | null;
 }): string {
   if (title?.trim()) return title.trim();
 
-  const text = shortenAtWord(firstMessage ?? "", MAX_LABEL_LENGTH);
+  const text = shortenAtWord(
+    firstMessage ? messageGist(firstMessage) : "",
+    MAX_LABEL_LENGTH,
+  );
   return text === "" ? "New chat" : text;
 }
 

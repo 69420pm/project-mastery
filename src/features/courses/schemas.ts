@@ -83,6 +83,18 @@ export const registerMaterialSchema = uploadIdsSchema.extend({
 /** A Material addressed by id. */
 export const materialIdSchema = z.object({ materialId: z.uuid() });
 
+/**
+ * A Material attached to a Chat message: its id, with its name and type when
+ * it was attached. Messages store this reference, never the file.
+ */
+export const materialReferenceSchema = z.object({
+  materialId: z.uuid(),
+  name: z.string().min(1).max(MAX_MATERIAL_NAME_LENGTH),
+  mediaType: z.enum(MATERIAL_MEDIA_TYPES),
+});
+
+export type MaterialReference = z.infer<typeof materialReferenceSchema>;
+
 /** Renaming a Material from its menu. */
 export const renameMaterialSchema = materialIdSchema.extend({
   name: materialNameSchema,

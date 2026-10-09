@@ -5,11 +5,16 @@ import {
   findCourse,
   listCourses,
 } from "@/features/courses/server/course-store";
-import { listMaterials } from "@/features/courses/server/material-store";
+import {
+  downloadStoredFile,
+  findMaterials,
+  listMaterials,
+} from "@/features/courses/server/material-store";
 import type {
   CourseListItem,
   CourseWithCounts,
   MaterialListItem,
+  StoredMaterial,
 } from "@/features/courses/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -33,6 +38,26 @@ export async function getMaterialList(
 ): Promise<MaterialListItem[]> {
   if (!(await getUser())) return [];
   return listMaterials(await createClient(), courseId);
+}
+
+/**
+ * The signed-in Student's Materials among `materialIds`, with where their
+ * files are. Missing Materials and other Students' are left out.
+ */
+export async function getMaterials(
+  materialIds: string[],
+): Promise<StoredMaterial[]> {
+  return findMaterials(await createClient(), materialIds);
+}
+
+/**
+ * The bytes of the signed-in Student's Material file: "missing" when the
+ * file is gone, "failed" when Storage failed.
+ */
+export async function readMaterialFile(
+  material: StoredMaterial,
+): Promise<Uint8Array | "missing" | "failed"> {
+  return downloadStoredFile(await createClient(), material.storagePath);
 }
 
 /**
