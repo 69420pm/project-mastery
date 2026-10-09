@@ -74,6 +74,8 @@ test.describe("signed in", () => {
     ).toBeVisible();
     await expect(log.getByText(REPLY_END, { exact: false })).toHaveCount(2);
 
+    // The reply is stored as its stream ends, after its last text shows.
+    await expect(page.getByRole("button", { name: "Submit" })).toBeEnabled();
     await page.reload();
 
     expect(page.url()).toBe(chatUrl);
