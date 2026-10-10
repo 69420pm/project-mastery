@@ -12,6 +12,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 [VISION.md](VISION.md) defines what this product is and what it is not. Read it before any product, UX or scope decision: proposing or planning features, writing issues, designing flows, UI or AI tutor behavior, or deciding between options that change what the user experiences. It is not needed for purely technical work such as implementing a well-specified issue, refactoring, fixing bugs, tooling or code review.
 
+For the same decisions, check `research/design-rules/` for evidence-graded rules for learning and tutoring behavior. Research itself runs in sessions started from `research/`.
+
 ## Architecture
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) records the stack, and [docs/adr/](docs/adr/) the technical decisions behind it, one ADR each. Read them before adding a dependency, introducing a new service or pattern, or changing how data, auth, AI calls or background jobs work. Changing a recorded decision means updating its ADR, or superseding it with a new one, in the same PR.
@@ -38,4 +40,3 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 - Conventional Commits for commit messages and PR titles
 - Specs and tickets are GitHub issues: read [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) before creating, reading or closing one.
 - Every change goes through a PR against `main`; never push to `main` or merge PRs. The maintainer reviews and squash-merges, so the PR title becomes the commit on `main`.
-- No AI attribution: no `Co-Authored-By` trailers or "Generated with" lines in commits or PRs.
