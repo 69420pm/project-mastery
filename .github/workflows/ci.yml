@@ -60,6 +60,13 @@ jobs:
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
+      # The agent CLI (run-app skill) signs in through the real login form, so
+      # a change to that flow fails here, not in the next agent run.
+      - name: Smoke-test the agent CLI
+        run: |
+          pnpm -s agent up
+          pnpm -s agent login student
+          pnpm -s agent down
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:

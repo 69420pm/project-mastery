@@ -39,6 +39,22 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Agents read a long file whole because they cannot tell where the part
+  // they need is: split it by behaviour instead. Generated code is exempt.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/components/ui/**",
+      "src/components/ai-elements/**",
+      "src/lib/supabase/database.types.ts",
+    ],
+    rules: {
+      "max-lines": [
+        "warn",
+        { max: 500, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
   // Folder structure and layer boundaries (docs/ARCHITECTURE.md).
   ...architecture,
   // Disable stylistic rules that conflict with Prettier; must come last.

@@ -10,7 +10,7 @@ The issue tracker and triage label vocabulary should have been provided to you. 
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching. When the spec relies on an external service (a model id, an API version, a quota), try it once and record what you found: assumed facts surface late, in the middle of implementation.
+1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the spec, and respect any ADRs in the area you're touching. When the spec relies on an external service (a model id, an API version, a quota), try it once and record what you found: assumed facts surface late, in the middle of implementation. Hand research on library docs or wide code searches to the repo's `explorer` agent, which runs on Haiku; the built-in Explore agent runs on the session's model.
 
 2. Sketch out the seams at which you're going to test the feature. Existing seams should be preferred to new ones. Use the highest seam possible. If new seams are needed, propose them at the highest point you can. The fewer seams across the codebase, the better - the ideal number is one.
 

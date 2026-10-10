@@ -252,6 +252,10 @@ export const architecture = [
         { allowed: ["src/features/*/server/actions.ts"] },
       ],
       "project/no-server-import-in-client": "error",
+      "project/server-action-validation": [
+        "error",
+        { calls: ["parseActionInput"] },
+      ],
       "check-file/filename-naming-convention": [
         "error",
         { "src/**/*.{ts,tsx}": "KEBAB_CASE" },
@@ -288,6 +292,19 @@ export const architecture = [
         },
       ],
       "import-x/no-cycle": ["error", { ignoreExternal: true }],
+    },
+  },
+  {
+    // The auth forms run before sign-in, so only they skip the user check.
+    name: "project/server-action-auth",
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/features/auth/server/actions.ts"],
+    plugins: { project },
+    rules: {
+      "project/server-action-auth": [
+        "error",
+        { calls: ["getUser", "requireUser"] },
+      ],
     },
   },
   {

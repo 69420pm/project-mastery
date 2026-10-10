@@ -33,6 +33,7 @@ Break the work into **tracer bullet** tickets.
 - Each slice is sized to fit in a single fresh context window
 - Any prefactoring should be done first
 - Tickets that can run at the same time change different modules: two tickets that both reshape one module conflict when they merge, so make one block the other, or prefactor the shared part into its own ticket first
+- Draw the graph as wide as module boundaries allow: before chaining two tickets because they share a module, look for a prefactor (a shared shell, schema or seam) that lets both start once it lands, since a chain makes the run as long as all its tickets together
 
 </vertical-slice-rules>
 
@@ -47,6 +48,7 @@ Present the proposed breakdown as a numbered list. For each ticket, show:
 - **Title**: short descriptive name
 - **Blocked by**: which other tickets (if any) must complete first
 - **What it delivers**: the end-to-end behaviour this ticket makes work
+- **Model hint**: `pattern` when it follows a pattern the codebase already has, `novel` when it touches concurrency, persistence races, auth, AI streaming, caching or a new architectural seam
 
 Ask the user:
 
@@ -77,6 +79,8 @@ Do NOT close or modify any parent issue.
 
 **Status:** ready-for-agent
 
+**Model hint:** `pattern` or `novel`, with the reason in a few words.
+
 **Spec sections:** the headings of the spec sections this ticket relies on.
 
 **Testing:** the seams this ticket tests at, and the signal async tests wait on.
@@ -101,9 +105,13 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Model hint
+
+`pattern` or `novel`, with the reason in a few words.
+
 ## Context
 
-The headings of the spec sections this ticket relies on, each with the one or two decisions from it that this ticket must honour.
+One list item per spec section this ticket relies on, starting with its exact headings in bold, then the one or two decisions from it that this ticket must honour: `- **Implementation Decisions › Overlaps and failures**: ...`. `tools/spec-run/ticket-brief.sh` reads these headings to print the sections.
 
 ## Testing
 

@@ -45,6 +45,6 @@ Add `!` (e.g. `feat!:`) for breaking changes.
   ```bash
   pnpm exec playwright install chromium   # once
   pnpm db:start
-  pnpm build && pnpm test:e2e
+  pnpm test:e2e   # rebuilds first when the code is newer than the last build
   ```
   For a signed-in test, import `test` and `expect` from `e2e/fixtures.ts` and use the `student` fixture: it creates a fresh Student through the local auth admin API and starts the test signed in. These tests skip when `PLAYWRIGHT_BASE_URL` points at a deployment.

@@ -3,9 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
-  CheckIcon,
   CircleAlertIcon,
-  CopyIcon,
   FolderOpenIcon,
   PaperclipIcon,
   RefreshCwIcon,
@@ -48,6 +46,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { CopyAction } from "@/features/chat/components/copy-action";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
@@ -100,30 +99,6 @@ type ChatProps = {
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
-
-/** Copies a message's text, confirming it briefly with a check mark. */
-function CopyAction({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timeout = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timeout);
-  }, [copied]);
-
-  return (
-    <MessageAction
-      tooltip={copied ? "Copied" : "Copy"}
-      onClick={() => {
-        navigator.clipboard.writeText(text).then(
-          () => setCopied(true),
-          () => {},
-        );
-      }}
-    >
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </MessageAction>
-  );
-}
 
 /**
  * A Chat with the AI: the messages, streamed replies and the message input.

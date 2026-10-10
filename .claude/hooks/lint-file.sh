@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # PostToolUse (Write|Edit): fix and format the edited file, then report any
 # lint errors that remain back to Claude (exit 2 sends stderr to the model).
+# Only errors block: warnings such as an unused variable are normal between
+# test-first steps, and `pnpm check` (the stop hook) still refuses them.
 set -uo pipefail
 source "$(dirname "$0")/env.sh"
 
@@ -14,7 +16,8 @@ cd "$root" || exit 0
 [[ -d node_modules ]] || exit 0
 
 if [[ "$file" =~ \.(ts|tsx|js|jsx|mjs|cjs)$ ]]; then
-  if ! out=$(pnpm exec eslint --fix --max-warnings=0 --no-warn-ignored "$file" 2>&1); then
+  if ! out=$(pnpm exec eslint --fix --quiet --no-warn-ignored \
+    --cache --cache-location node_modules/.cache/eslint-hook/ "$file" 2>&1); then
     pnpm exec prettier --write --ignore-unknown "$file" >/dev/null 2>&1
     echo "ESLint errors remain in $file:" >&2
     echo "$out" >&2

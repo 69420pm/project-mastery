@@ -5,3 +5,5 @@ disable-model-invocation: true
 ---
 
 Call the Skill tool twice, for "grilling" and "domain-modeling".
+
+Hand research on library docs or wide code searches to the repo's `explorer` agent, which runs on Haiku; the built-in Explore agent runs on the session's model.

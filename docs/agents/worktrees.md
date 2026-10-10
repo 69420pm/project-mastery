@@ -4,22 +4,17 @@ An agent worktree is a checkout under `.claude/worktrees/` that one subagent wor
 
 ## Setup
 
-The first command in a new worktree is `tools/spec-run/setup-worktree.sh <integration-branch> <ticket-number>`. It puts the worktree on the ticket branch based on the integration branch, installs dependencies and links `.env.local`. `pnpm` and `node` are on PATH as they are.
+The first command in a new worktree is `tools/spec-run/setup-worktree.sh <integration-branch> <work-id>`, where the work id is the ticket number, or a short name such as `review-spec` for other work. It puts the worktree on the branch `<integration-branch>-<work-id>` based on the integration branch, installs dependencies, links `.env.local` and, for a ticket, prints the ticket brief. `pnpm` and `node` are on PATH as they are.
 
 ## Commands
 
 Claude Code's worktree guard reads each Bash command before it runs and refuses one whose program, directory or git target is computed at runtime. Write every command with literal arguments, one command per call, run from the worktree root: `pnpm test:run src/features/chat`, `git switch -c feat/22-chat-23 feat/22-chat`. A pipe between literal commands is fine. `eval`, `$(…)`, shell variables, loops, `xargs` and `find -exec` get refused.
 
-Edit files with the Edit and Write tools. They run the lint hook, which fixes formatting and reports lint errors on every edit, so you don't need to run lint or Prettier yourself.
+Change files with the Write and Edit tools, several Edit calls in one turn for batch edits. They run the lint hook, which fixes formatting and blocks on lint errors on every edit; warnings such as unused variables wait for `pnpm check`. The Bash guard refuses shell writes (`cat >`, `tee`, `sed -i`, Python patch scripts) in worktrees, because they skip the hook.
 
 ## Reading
 
-Every turn re-reads the whole context, so read what the task needs: the ticket, the spec sections it names, and files by the range you need. A spec's sections have stable `##` headings, so one section reads with:
-
-```bash
-gh issue view 22 --json body -q .body | sed -n '/^## Testing Decisions/,/^## /p'
-```
-
+Every turn re-reads the whole context, so read what the task needs: the ticket brief (`tools/spec-run/ticket-brief.sh <ticket>`, printed by the setup), the handoff maps of earlier tickets, and files by the range you need, found with `grep -n` first. The brief ends with the spec's headings and the command that reads one more section.
 Library and environment gotchas verified in earlier work are in `docs/agents/notes/`. When you verify one that future work will need, add it there in a few lines, as part of your commit.
 
 ## Shared resources
@@ -32,7 +27,7 @@ All checkouts share one local Supabase, the user's AI quota and the machine's po
 
 ## Tests
 
-Run a new or changed e2e spec with `pnpm test:e2e --repeat-each=5 <spec>` before you finish. A test that sometimes fails is a product bug, usually a race, until you have shown otherwise: find what the test observed in the window where it failed before you change the test.
+`pnpm test:e2e` rebuilds the app first when the code is newer than the last build. Run a new or changed e2e spec with `pnpm test:e2e --repeat-each=5 <spec>` before you finish. A test that sometimes fails is a product bug, usually a race, until you have shown otherwise: find what the test observed in the window where it failed before you change the test.
 
 ## Git
 
