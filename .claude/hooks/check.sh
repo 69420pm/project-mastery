@@ -35,7 +35,7 @@ if [[ $(jq -r '.hook_event_name' <<<"$input") == SubagentStop ]]; then
     [[ "$(git rev-parse HEAD)" == "$(cat "$stamp" 2>/dev/null)" ]] && exit 0
   fi
   [[ -d node_modules ]] ||
-    block "This worktree has changes but no node_modules, so pnpm check cannot run. Run tools/spec-run/setup-worktree.sh <integration-branch> <ticket-number> first."
+    block "This worktree has changes but no node_modules, so pnpm check cannot run. Run tools/spec-run/setup-worktree.sh <integration-branch> <work-id> first."
 else
   # Nothing changed since the last commit: skip the slow check.
   [[ -z "$dirty" ]] && exit 0
