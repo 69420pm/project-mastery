@@ -56,6 +56,11 @@ echo "· merged $ticket"
 
 changed() { git diff --name-only --diff-filter=d "$before" HEAD -- "$@"; }
 
+# Start from a clean .next: leftovers of earlier builds and dev servers, such
+# as generated types for deleted routes, fail the typecheck. The build cache
+# stays, so the build below is not slower.
+find .next -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} + 2>/dev/null
+
 step 20 "install" pnpm install --frozen-lockfile --prefer-offline --reporter=silent
 if [[ -n $(changed supabase/migrations) ]]; then
   step 20 "migrations" pnpm exec supabase migration up --local --include-all
