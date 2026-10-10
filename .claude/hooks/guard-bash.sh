@@ -6,7 +6,9 @@
 # in the transcript.
 set -uo pipefail
 
-cmd=$(jq -r '.tool_input.command // empty')
+input=$(cat)
+cmd=$(jq -r '.tool_input.command // empty' <<<"$input")
+cwd=$(jq -r '.cwd // empty' <<<"$input")
 
 # Where a command starts: the beginning of a line or after ; & | ( (but not
 # a grep alternation's \|), then any VAR=value assignments. Text inside
@@ -34,5 +36,13 @@ guard ALLOW_DB_RESET \
 guard ALLOW_LIVE_AI \
   'pnpm\s+(-s\s+)?(run\s+)?evals\b|(pnpm\s+exec\s+)?tsx\s+.*evals/run\.ts|curl\s+.*(generativelanguage\.googleapis\.com|ai-gateway\.vercel\.sh)' \
   "Evals and direct model calls spend the user's free-tier AI quota, which parallel agents share. Test with AI_PROVIDER=mock."
+
+# Agent worktrees only: files written from the shell skip the lint hook, and
+# patch scripts get around Claude Code's worktree guard.
+if [[ "$cwd" == */.claude/worktrees/* ]]; then
+  guard ALLOW_SHELL_WRITE \
+    'cat\s+([^|;&]*\s)?>>?\s*[^&[:space:]]|tee\s|sed\s+(\S+\s+)*-i|perl\s+(\S+\s+)*-i|python3?\s+(-\s*)?<<|python3?\s+\S+\.py\b' \
+    "Change files with the Write and Edit tools, not from the shell: they run the lint hook on every change. For many similar edits, send several Edit calls in one turn instead of a script."
+fi
 
 exit 0
