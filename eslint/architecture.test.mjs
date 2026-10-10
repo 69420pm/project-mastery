@@ -24,6 +24,8 @@ const ARCHITECTURE_RULES = new Set([
   "project/require-server-only",
   "project/use-server-location",
   "project/no-server-import-in-client",
+  "project/server-action-auth",
+  "project/server-action-validation",
   "check-file/filename-naming-convention",
   "check-file/folder-naming-convention",
   "no-restricted-imports",
@@ -236,7 +238,7 @@ const cases = {
     {
       name: "Server Actions live only in server/actions.ts",
       file: "src/features/auth/components/example.tsx",
-      code: '"use server";\nexport async function act() {}',
+      code: '"use server";\nexport async function act() {\n  await getUser();\n}',
       expected: ["project/use-server-location"],
     },
     {
@@ -256,6 +258,44 @@ const cases = {
       file: "src/features/auth/components/example.tsx",
       code: '"use client";\nimport { signOut } from "@/features/auth/server/actions";\nexport const action = signOut;',
       expected: [],
+    },
+  ],
+  "Server Action checks": [
+    {
+      name: "a Server Action checks the user first, then validates its input",
+      file: "src/features/chat/server/actions.ts",
+      code: '"use server";\nexport async function act(input: unknown) {\n  const parsed = parseActionInput(schema, input);\n  if (!(await getUser())) return null;\n  return parsed;\n}',
+      expected: [],
+    },
+    {
+      name: "a Server Action that never checks the user",
+      file: "src/features/chat/server/actions.ts",
+      code: '"use server";\nexport async function act() {\n  return load();\n}',
+      expected: ["project/server-action-auth"],
+    },
+    {
+      name: "a Server Action that awaits other work before the user check",
+      file: "src/features/chat/server/actions.ts",
+      code: '"use server";\nexport const act = async () => {\n  const db = await createClient();\n  await requireUser();\n  return db;\n};',
+      expected: ["project/server-action-auth"],
+    },
+    {
+      name: "awaits inside nested functions do not count as the first await",
+      file: "src/features/chat/server/actions.ts",
+      code: '"use server";\nexport async function act() {\n  const later = async () => {\n    await load();\n  };\n  await requireUser();\n  return later;\n}',
+      expected: [],
+    },
+    {
+      name: "the auth forms run before sign-in",
+      file: "src/features/auth/server/actions.ts",
+      code: '"use server";\nexport async function signOut() {\n  await load();\n}',
+      expected: [],
+    },
+    {
+      name: "a Server Action that uses its input without validating it",
+      file: "src/features/chat/server/actions.ts",
+      code: '"use server";\nexport async function act(input: { id: string }) {\n  await getUser();\n  return input.id;\n}',
+      expected: ["project/server-action-validation"],
     },
   ],
   "imports and environment": [

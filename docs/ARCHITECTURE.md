@@ -91,7 +91,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
 - `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
-- `tools/spec-run/` holds the shell scripts that `/implement-spec` runs: preparing an agent worktree for a ticket, and merging a finished ticket into the integration branch behind the full checks.
+- `tools/spec-run/` holds the shell scripts that `/implement-spec` runs: preparing an agent worktree for a ticket, printing a ticket's brief, merging a finished ticket into the integration branch behind the full checks, and cleaning up the worktrees afterwards.
 
 ### Anatomy of a feature
 
@@ -123,17 +123,20 @@ Only the folders a feature needs exist. Inside a feature, files import each othe
 
 ### What the lint rules enforce
 
-| Rule                                 | Enforces                                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------------- |
-| `project/file-structure`             | Every source file matches the structure above                                           |
-| `boundaries/dependencies`            | Layer directions, feature public APIs, and where restricted modules may be used (below) |
-| `import-x/no-cycle`                  | No import cycles, including between features                                            |
-| `project/require-server-only`        | Feature server modules import `server-only`                                             |
-| `project/use-server-location`        | `"use server"` only in `server/actions.ts`, no inline Server Actions                    |
-| `project/no-server-import-in-client` | Client Components do not import server modules (Server Actions excepted)                |
-| `check-file/*`                       | Kebab-case file and folder names (route folders may use Next.js conventions)            |
-| `no-restricted-imports`              | `@/` alias instead of `../` paths                                                       |
-| `no-restricted-properties`           | `process.env` only in env modules (`env.ts`, `*-env.ts`)                                |
+| Rule                                 | Enforces                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `project/file-structure`             | Every source file matches the structure above                                               |
+| `boundaries/dependencies`            | Layer directions, feature public APIs, and where restricted modules may be used (below)     |
+| `import-x/no-cycle`                  | No import cycles, including between features                                                |
+| `project/require-server-only`        | Feature server modules import `server-only`                                                 |
+| `project/use-server-location`        | `"use server"` only in `server/actions.ts`, no inline Server Actions                        |
+| `project/no-server-import-in-client` | Client Components do not import server modules (Server Actions excepted)                    |
+| `project/server-action-auth`         | Every Server Action's first `await` is `getUser()` or `requireUser()` (auth forms excepted) |
+| `project/server-action-validation`   | A Server Action that takes input calls `parseActionInput`                                   |
+| `max-lines`                          | At most 500 lines of code per file (generated code excepted): split by behaviour            |
+| `check-file/*`                       | Kebab-case file and folder names (route folders may use Next.js conventions)                |
+| `no-restricted-imports`              | `@/` alias instead of `../` paths                                                           |
+| `no-restricted-properties`           | `process.env` only in env modules (`env.ts`, `*-env.ts`)                                    |
 
 Restricted modules: `@supabase/*` only in `lib/supabase/` (type imports are allowed anywhere); the admin client only in `workflows/`; Supabase clients never directly in `app/`; `workflow` only in features' `workflows/` and `server/`; AI provider packages only in `lib/ai/`; Langfuse and OpenTelemetry only in `lib/tracing/` and `evals/`.
 
