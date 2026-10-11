@@ -18,5 +18,11 @@ export default async function MaterialChunksPage({
   const material = await getMaterialChunks(materialId);
   if (!material || material.courseId !== courseId) notFound();
 
-  return <ChunkList material={material} backHref={materialsPath(courseId)} />;
+  return (
+    <ChunkList
+      material={material}
+      backHref={materialsPath(courseId)}
+      materialHref={(id) => materialChunksPath(courseId, id)}
+    />
+  );
 }

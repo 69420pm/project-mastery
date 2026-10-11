@@ -31,7 +31,20 @@ export type ChunkView = {
   } | null;
   exerciseNumber: string | null;
   points: number | null;
+  /** An exercise subtask's solution; null for other chunks. */
+  solution: ExerciseSolution | null;
 };
+
+/** The solution an exercise is paired with, possibly in another Material. */
+export type ExerciseSolution =
+  | {
+      status: "paired";
+      chunkId: string;
+      materialId: string;
+      materialName: string;
+      exerciseNumber: string | null;
+    }
+  | { status: "no_solution" };
 
 /** A parsed Material with its chunks, for the chunk view. */
 export type MaterialChunks = {
