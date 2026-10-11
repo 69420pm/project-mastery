@@ -179,7 +179,8 @@ export async function renameMaterial(input: {
 /**
  * Deletes one of the Student's Materials for good: its file, page images and
  * figure crops first, then the Material, so no file stays behind without
- * one. A parse that is still running stops at its next step.
+ * one, then the files again. A parse that is still running stops at its next
+ * step.
  */
 export async function deleteMaterial(input: {
   materialId: string;
@@ -198,6 +199,10 @@ export async function deleteMaterial(input: {
     };
   }
   await removeMaterial(supabase, parsed.data.materialId);
+  // A running parse may have stored page images or crops between the two
+  // removals. Anything it stores later, it removes itself, as it finds the
+  // Material gone. A failure here is logged; the Material is gone.
+  await removeMaterialFiles(supabase, material.storagePath);
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
@@ -280,6 +285,8 @@ export async function deleteCourse(input: {
   }
   const deleted = await removeCourse(supabase, courseId);
   if (!deleted) return courseNotFound;
+  // Again for files a running parse stored meanwhile, as in deleteMaterial.
+  await removeCourseFiles(supabase, user.id, courseId);
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
