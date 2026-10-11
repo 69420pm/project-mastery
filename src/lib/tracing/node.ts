@@ -1,8 +1,8 @@
 import { LangfuseSpanProcessor } from "@langfuse/otel";
-import { LangfuseVercelAiSdkIntegration } from "@langfuse/vercel-ai-sdk";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { registerTelemetry } from "ai";
 import { isVercelDeployment } from "@/lib/deployment-env";
+import { langfuseAiSdkTelemetry } from "./ai-sdk-telemetry";
 import { getTracingEnvironment, isLangfuseConfigured } from "./env";
 
 /**
@@ -29,6 +29,6 @@ export function startTracing(): NodeTracerProvider | undefined {
   });
   provider.register();
   // AI SDK 7 emits telemetry only through registered integrations.
-  registerTelemetry(new LangfuseVercelAiSdkIntegration());
+  registerTelemetry(langfuseAiSdkTelemetry());
   return provider;
 }
