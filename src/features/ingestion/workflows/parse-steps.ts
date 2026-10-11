@@ -4,12 +4,14 @@ import {
   pageCallSettings,
   pageMessages,
   pageResultSchema,
+  storedUnitsSchema,
 } from "@/features/ingestion/ai/page-units";
 import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
 import { chunksFromPages } from "@/features/ingestion/domain/page-chunks";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
+import { storeFigures } from "@/features/ingestion/workflows/store-figures";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { answeringModel } from "@/lib/ai/models";
@@ -196,7 +198,17 @@ export async function readPage(
     { studentId },
   );
 
-  const { units } = pageResultSchema.parse(result.output);
+  const units = await storeFigures(
+    supabase,
+    {
+      bucket: BUCKET,
+      storagePath: material.storage_path,
+      pageNumber: page.pageNumber,
+      pageImagePath: page.imagePath,
+      pageImage: image,
+    },
+    pageResultSchema.parse(result.output).units,
+  );
   const stored = await supabase.from("material_pages").insert({
     owner: studentId,
     material_id: materialId,
@@ -250,7 +262,7 @@ export async function writeChunks(materialId: string): Promise<void> {
   const chunks = chunksFromPages(
     pages.data.map((page) => ({
       pageNumber: page.page_number,
-      units: pageResultSchema.shape.units.parse(page.units),
+      units: storedUnitsSchema.parse(page.units),
     })),
   );
 

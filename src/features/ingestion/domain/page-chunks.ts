@@ -6,7 +6,7 @@ type StoredUnit = {
   label: ChunkLabel;
   exerciseNumber: string | null;
   points: number | null;
-  figure: { description: string } | null;
+  figure: { description: string; cropPath: string | null } | null;
 };
 
 /** A chunk before it is stored. */
@@ -41,7 +41,7 @@ export function chunksFromPages(
       markdown: unit.markdown,
       figure: unit.figure && {
         description: unit.figure.description,
-        cropPath: null,
+        cropPath: unit.figure.cropPath,
       },
       exerciseNumber: unit.exerciseNumber,
       points: unit.points,
