@@ -280,6 +280,34 @@ describe("pairing exercises with solutions", () => {
     ]);
   });
 
+  test("a parse whose pass is outdated by one that never writes still ends with every exercise paired", async () => {
+    upload(SHEET, "Sheet 7");
+    const { model } = pageModel([
+      { units: [exercise("1", "Prove it."), exercise("2", "Compute it.")] },
+    ]);
+    useMockModels({ ingest: model });
+    // Right after this parse's first request, another pass is requested
+    // (another parse finishing), and that pass fails for good.
+    const rpc = db.rpc;
+    let interrupted = false;
+    db.rpc = async (name, args) => {
+      const result = await rpc(name, args);
+      if (name === "request_exercise_pairing" && !interrupted) {
+        interrupted = true;
+        await rpc(name, args);
+      }
+      return result;
+    };
+
+    await parseMaterial(SHEET);
+
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+    expect(storedPairs(db)).toEqual([
+      { exercise: "Compute it.", solution: null, status: "no_solution" },
+      { exercise: "Prove it.", solution: null, status: "no_solution" },
+    ]);
+  });
+
   test("of two passes that overlap, the later requested one is stored", async () => {
     upload(SHEET, "Sheet 7");
     upload(SOLUTIONS, "Solutions 7");
