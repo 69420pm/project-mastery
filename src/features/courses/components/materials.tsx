@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import {
+  type DragEvent,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -41,7 +47,13 @@ import {
 } from "@/features/courses/schemas";
 import { renameMaterial } from "@/features/courses/server/actions";
 import type { MaterialListItem } from "@/features/courses/types";
-import { isParseRunning, parseStateLabel } from "@/features/ingestion";
+import {
+  canStartParse,
+  isParseRunning,
+  parseStateLabel,
+  type ParseState,
+  startMaterialParse,
+} from "@/features/ingestion";
 import { cn } from "@/lib/utils";
 
 type MaterialsProps = {
@@ -247,6 +259,9 @@ function ParseStateLine({
         {parseStateLabel(parse)}
         {parse.status === "failed" && parse.failure && `: ${parse.failure}`}
       </span>
+      {canStartParse(parse, new Date()) && (
+        <ParseButton materialId={material.id} status={parse.status} />
+      )}
       {parse.status === "parsed" && (
         <Link
           href={materialChunksPath(courseId, material.id)}
@@ -259,16 +274,63 @@ function ParseStateLine({
   );
 }
 
+/**
+ * Starts a Material's parse: Retry after a failed one, Parse for one never
+ * parsed or never started. A retry resumes where the last parse stopped.
+ */
+function ParseButton({
+  materialId,
+  status,
+}: {
+  materialId: string;
+  status: ParseState["status"];
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const label = status === "failed" ? "Retry" : "Parse";
+
+  return (
+    <>
+      <Button
+        variant="link"
+        size="sm"
+        className="h-auto p-0"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            setError(null);
+            const result = await startMaterialParse({ materialId });
+            if (!result.ok) setError(result.message);
+            router.refresh();
+          })
+        }
+      >
+        {isPending && <Spinner className="size-3" />}
+        {label}
+      </Button>
+      {error && (
+        <span role="alert" className="text-destructive">
+          {error}
+        </span>
+      )}
+    </>
+  );
+}
+
 /** How often the page refreshes while a parse runs. */
 const PARSE_POLL_MS = 2000;
 
 /**
  * Refreshes the page's data while any Material waits or parses, so its
- * state moves on without a reload.
+ * state moves on without a reload. A parse that never started, which offers
+ * Parse instead, does not count.
  */
 function useParsePolling(materials: MaterialListItem[]) {
   const router = useRouter();
-  const running = materials.some((material) => isParseRunning(material.parse));
+  const running = materials.some(
+    ({ parse }) => isParseRunning(parse) && !canStartParse(parse, new Date()),
+  );
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(() => router.refresh(), PARSE_POLL_MS);

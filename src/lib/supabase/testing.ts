@@ -21,6 +21,22 @@ export type FakeSupabaseOptions<Table extends string> = {
   tables: Record<Table, FakeRow[]>;
   /** Column defaults per table, like the schema's `default` clauses. */
   defaults?: Partial<Record<Table, () => FakeRow>>;
+  /**
+   * Foreign keys per table, as `{ column: referenced table }` on its `id`:
+   * inserting a row whose referenced row is missing fails with `23503`.
+   */
+  foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
+  /**
+   * Database functions that `rpc(name, args)` runs, with the tables. A test
+   * defines what it needs of the real function; pgTAP tests the real one.
+   */
+  functions?: Record<
+    string,
+    (
+      args: Record<string, unknown>,
+      tables: Record<NoInfer<Table>, FakeRow[]>,
+    ) => unknown
+  >;
   /** The signed-in user, whose folder in Storage the fake lets them use. */
   userId?: string;
   /** Row Level Security: whether the current user may see and write `row`. */
@@ -102,6 +118,20 @@ export function fakeSupabase<Table extends string>(
         ...row,
       }));
       for (const row of prepared) {
+        for (const [column, referenced] of Object.entries(
+          options.foreignKeys?.[table] ?? {},
+        )) {
+          const value = (row as FakeRow)[column];
+          if (
+            value != null &&
+            !rowsOf(referenced as Table).some((other) => other.id === value)
+          ) {
+            return failure(
+              "23503",
+              `insert or update on table "${table}" violates foreign key constraint "${table}_${column}_fkey"`,
+            );
+          }
+        }
         if (!visible(table, row)) {
           return failure(
             "42501",
@@ -236,5 +266,19 @@ export function fakeSupabase<Table extends string>(
     return builder;
   }
 
-  return { from, tables, ...fakeStorage(options.userId) };
+  async function rpc(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<Result> {
+    const run = options.functions?.[name];
+    if (!run) {
+      return failure(
+        "PGRST202",
+        `Could not find the function public.${name} in the schema cache`,
+      );
+    }
+    return { data: run(args, tables), error: null };
+  }
+
+  return { from, rpc, tables, ...fakeStorage(options.userId) };
 }
