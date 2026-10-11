@@ -1,7 +1,12 @@
 import "server-only";
 import { costUsd, type TokenUsage } from "@/lib/ai/cost";
 import type { AiTask } from "@/lib/ai/models";
-import type { Supabase } from "@/lib/supabase/types";
+import { isAdminClient } from "@/lib/supabase/admin-brand";
+import type {
+  AdminSupabase,
+  SessionSupabase,
+  Supabase,
+} from "@/lib/supabase/types";
 
 /**
  * Records and sums AI usage. With the Student's session client, Row Level
@@ -19,6 +24,25 @@ export type StudentScope = {
   studentId?: string;
 };
 
+/** The scope the admin client needs: always an explicit Student. */
+export type AdminStudentScope = Required<StudentScope>;
+
+/**
+ * Refuses the admin client without a Student id, which would record usage
+ * for no one or sum every Student's spend. The overloads catch this at
+ * compile time; this catches a client whose type was widened.
+ */
+export function assertStudentScope(
+  supabase: Supabase,
+  { studentId }: StudentScope,
+) {
+  if (studentId === undefined && isAdminClient(supabase)) {
+    throw new Error(
+      "AI usage with the admin client needs a Student id: it bypasses Row Level Security.",
+    );
+  }
+}
+
 /** One AI call made for the Student, as recorded. */
 export type AiUsageRecord = {
   task: AiTask;
@@ -34,13 +58,25 @@ export type AiUsageRecord = {
 /**
  * Records one AI call for the signed-in Student, or for `studentId` when
  * given, priced in US dollars from the price table (ADR 0006). Throws when
- * the model has no price or the insert fails.
+ * the model has no price, the insert fails, or the admin client comes
+ * without a Student id.
  */
+export async function recordAiUsage(
+  supabase: AdminSupabase,
+  record: AiUsageRecord,
+  scope: AdminStudentScope,
+): Promise<void>;
+export async function recordAiUsage(
+  supabase: SessionSupabase,
+  record: AiUsageRecord,
+  scope?: StudentScope,
+): Promise<void>;
 export async function recordAiUsage(
   supabase: Supabase,
   { task, modelId, usage, estimated = false, chatId }: AiUsageRecord,
   { studentId }: StudentScope = {},
 ): Promise<void> {
+  assertStudentScope(supabase, { studentId });
   const { error } = await supabase.from("ai_usage").insert({
     // Without it, the column defaults to the session's Student (auth.uid()).
     ...(studentId === undefined ? {} : { owner: studentId }),
@@ -58,13 +94,14 @@ export async function recordAiUsage(
 
 /**
  * The signed-in Student's AI spend in US dollars since `since`, or that of
- * `studentId` when given.
+ * `studentId` when given. Throws for the admin client without a Student id.
  */
 export async function spentSinceUsd(
   supabase: Supabase,
   since: Date,
   { studentId }: StudentScope = {},
 ): Promise<number> {
+  assertStudentScope(supabase, { studentId });
   let query = supabase
     .from("ai_usage")
     .select("cost_usd")

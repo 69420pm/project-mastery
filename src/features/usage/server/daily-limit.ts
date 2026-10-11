@@ -6,12 +6,18 @@ import {
 } from "@/features/usage/domain/daily-limit";
 import { getDailyLimitUsd } from "@/features/usage/server/daily-limit-env";
 import {
+  assertStudentScope,
   spentSinceUsd,
+  type AdminStudentScope,
   type StudentScope,
 } from "@/features/usage/server/usage-store";
 import type { DailyLimitStatus } from "@/features/usage/types";
 import { createClient } from "@/lib/supabase/server";
-import type { Supabase } from "@/lib/supabase/types";
+import type {
+  AdminSupabase,
+  SessionSupabase,
+  Supabase,
+} from "@/lib/supabase/types";
 
 /** The refusal a Student sees when an AI call is refused at the Daily limit. */
 export const dailyLimitReachedMessage =
@@ -22,11 +28,21 @@ export const dailyLimitReachedMessage =
  * given (for workflows on the admin client): their AI spend since 00:00 UTC
  * against `AI_DAILY_LIMIT_USD`. Run it before every AI call and refuse the
  * call when the level is `reached`; a call that has started always finishes.
+ * Throws for the admin client without a Student id, even with no limit set.
  */
+export async function checkDailyLimit(
+  supabase: AdminSupabase,
+  options: AdminStudentScope & { now?: Date },
+): Promise<DailyLimitStatus>;
+export async function checkDailyLimit(
+  supabase: SessionSupabase,
+  options?: StudentScope & { now?: Date },
+): Promise<DailyLimitStatus>;
 export async function checkDailyLimit(
   supabase: Supabase,
   { studentId, now = new Date() }: StudentScope & { now?: Date } = {},
 ): Promise<DailyLimitStatus> {
+  assertStudentScope(supabase, { studentId });
   const limitUsd = getDailyLimitUsd();
   const resetsAt = dailyLimitReset(now).toISOString();
   if (limitUsd === undefined) return { level: "ok", resetsAt };

@@ -9,6 +9,7 @@ export {
 } from "./server/daily-limit";
 export {
   recordAiUsage,
+  type AdminStudentScope,
   type AiUsageRecord,
   type StudentScope,
 } from "./server/usage-store";
