@@ -10,3 +10,11 @@ export function coursePath(courseId: string): string {
 export function materialsPath(courseId: string): string {
   return `${COURSE_LIST_PATH}/${courseId}/materials`;
 }
+
+/** The chunk view of a parsed Material. */
+export function materialChunksPath(
+  courseId: string,
+  materialId: string,
+): string {
+  return `${materialsPath(courseId)}/${materialId}`;
+}

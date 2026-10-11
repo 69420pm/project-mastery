@@ -7,8 +7,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every path except static files, image optimization, metadata files and
-    // common static assets, which never need a session.
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)",
+    // Every path except static files, image optimization, metadata files,
+    // common static assets, which never need a session, and Vercel
+    // Workflow's internal routes, which the proxy would break.
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|\\.well-known/workflow/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|woff2?)$).*)",
   ],
 };

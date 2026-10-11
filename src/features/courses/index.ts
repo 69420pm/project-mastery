@@ -12,6 +12,7 @@ export { MaterialsLink } from "./components/materials-link";
 export {
   COURSE_LIST_PATH,
   coursePath,
+  materialChunksPath,
   materialsPath,
 } from "./domain/course-paths";
 export {

@@ -30,6 +30,7 @@ import {
   signFileUrl,
   updateMaterialName,
 } from "@/features/courses/server/material-store";
+import { startParse } from "@/features/ingestion/server";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -143,6 +144,9 @@ export async function registerMaterial(input: {
     return courseNotFound;
   }
 
+  // A new Material starts `queued` (the column default); its parse runs in
+  // the background.
+  await startParse(material.materialId);
   return { ok: true, data: { id: material.materialId } };
 }
 

@@ -11,7 +11,7 @@ import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { answeringModel } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Supabase } from "@/lib/supabase/types";
+import type { AdminSupabase } from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
 
 /**
@@ -50,7 +50,7 @@ function fail(action: string, error: { message: string }): never {
 }
 
 async function loadMaterial(
-  supabase: Supabase,
+  supabase: AdminSupabase,
   materialId: string,
 ): Promise<ParseMaterialRow | null> {
   const { data, error } = await supabase
@@ -62,7 +62,7 @@ async function loadMaterial(
   return data;
 }
 
-async function download(supabase: Supabase, path: string) {
+async function download(supabase: AdminSupabase, path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).download(path);
   if (error) fail(`Reading ${path}`, error);
   return new Uint8Array(await data.arrayBuffer());

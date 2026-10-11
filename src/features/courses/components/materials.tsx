@@ -11,8 +11,11 @@ import {
   UploadIcon,
   XIcon,
 } from "lucide-react";
-import { type DragEvent, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +26,7 @@ import {
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
 import { DeleteMaterialDialog } from "@/features/courses/components/delete-material-dialog";
 import { MaterialViewer } from "@/features/courses/components/material-viewer";
+import { materialChunksPath } from "@/features/courses/domain/course-paths";
 import {
   formatFileSize,
   materialTypeLabel,
@@ -37,6 +41,7 @@ import {
 } from "@/features/courses/schemas";
 import { renameMaterial } from "@/features/courses/server/actions";
 import type { MaterialListItem } from "@/features/courses/types";
+import { isParseRunning, parseStateLabel } from "@/features/ingestion";
 import { cn } from "@/lib/utils";
 
 type MaterialsProps = {
@@ -59,6 +64,7 @@ export function Materials({ ownerId, courseId, materials }: MaterialsProps) {
   });
   const [opened, setOpened] = useState<MaterialListItem | null>(null);
   const [dragging, setDragging] = useState(false);
+  useParsePolling(materials);
   const input = useRef<HTMLInputElement>(null);
 
   function handleDrop(event: DragEvent) {
@@ -135,6 +141,7 @@ export function Materials({ ownerId, courseId, materials }: MaterialsProps) {
           {materials.map((material) => (
             <MaterialEntry
               key={material.id}
+              courseId={courseId}
               material={material}
               onOpen={() => setOpened(material)}
             />
@@ -217,11 +224,65 @@ function MaterialIcon({ mediaType }: { mediaType: string }) {
   return <FileIcon className={className} />;
 }
 
+/** A Material's parse state, linking to its chunks once parsed. */
+function ParseStateLine({
+  courseId,
+  material,
+}: {
+  courseId: string;
+  material: MaterialListItem;
+}) {
+  const { parse } = material;
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 text-sm">
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5",
+          parse.status === "failed"
+            ? "text-destructive"
+            : "text-muted-foreground",
+        )}
+      >
+        {isParseRunning(parse) && <Spinner className="size-3" />}
+        {parseStateLabel(parse)}
+        {parse.status === "failed" && parse.failure && `: ${parse.failure}`}
+      </span>
+      {parse.status === "parsed" && (
+        <Link
+          href={materialChunksPath(courseId, material.id)}
+          className="font-medium underline-offset-4 hover:underline"
+        >
+          View chunks
+        </Link>
+      )}
+    </span>
+  );
+}
+
+/** How often the page refreshes while a parse runs. */
+const PARSE_POLL_MS = 2000;
+
+/**
+ * Refreshes the page's data while any Material waits or parses, so its
+ * state moves on without a reload.
+ */
+function useParsePolling(materials: MaterialListItem[]) {
+  const router = useRouter();
+  const running = materials.some((material) => isParseRunning(material.parse));
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => router.refresh(), PARSE_POLL_MS);
+    return () => clearInterval(timer);
+  }, [running, router]);
+}
+
 /** One Material, opening in the viewer, with its "…" menu. */
 function MaterialEntry({
+  courseId,
   material,
   onOpen,
 }: {
+  courseId: string;
   material: MaterialListItem;
   onOpen: () => void;
 }) {
@@ -246,6 +307,7 @@ function MaterialEntry({
             {dateFormat.format(new Date(material.createdAt))}
           </time>
         </span>
+        <ParseStateLine courseId={courseId} material={material} />
       </div>
       {/* Not modal, so focus moves cleanly into a dialog opened from it. */}
       <DropdownMenu modal={false}>

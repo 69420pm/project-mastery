@@ -41,6 +41,10 @@ vi.mock("@/lib/auth/user", () => ({
   getUser: async () => (signedIn ? { id: signedIn, email: undefined } : null),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
+// Workflows started by the actions, as Vercel Workflow's start() receives them.
+const startWorkflow = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+vi.mock("workflow/api", () => ({ start: startWorkflow }));
+const { parseMaterial } = await import("@/features/ingestion/server");
 
 const {
   countMaterialChats,
@@ -56,6 +60,7 @@ const {
 beforeEach(() => {
   signedIn = STUDENT;
   db = createDb();
+  startWorkflow.mockClear();
 });
 
 describe("createCourse", () => {
@@ -244,6 +249,19 @@ describe("registerMaterial", () => {
       }),
     ]);
     expect(db.files.paths(BUCKET)).toEqual([path]);
+  });
+
+  test("starts parsing the new Material, but not a refused one", async () => {
+    const courseId = seedCourse(STUDENT, "Analysis");
+    await registerMaterial({ ...uploadFile(courseId).input, name: " " });
+    expect(startWorkflow).not.toHaveBeenCalled();
+
+    const { input } = uploadFile(courseId);
+    await registerMaterial(input);
+
+    expect(startWorkflow).toHaveBeenCalledExactlyOnceWith(parseMaterial, [
+      input.materialId,
+    ]);
   });
 
   test.each([

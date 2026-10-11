@@ -4,7 +4,9 @@ import path from "node:path";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useMockModels } from "@/lib/ai/testing";
+import { markAdminClient } from "@/lib/supabase/admin-brand";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+import type { Supabase } from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -32,7 +34,9 @@ function createDb() {
 }
 
 let db = createDb();
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => db }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => markAdminClient(db as unknown as Supabase),
+}));
 
 const { parseMaterial } = await import("./parse-material");
 
