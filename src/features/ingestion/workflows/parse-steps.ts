@@ -7,7 +7,12 @@ import {
 } from "@/features/ingestion/ai/page-units";
 import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
-import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
+import {
+  dailyLimitReason,
+  fileUnreadableReason,
+  pageUnreadableReason,
+  parseFailureError,
+} from "@/features/ingestion/domain/parse-failure";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
 import { storeFigures } from "@/features/ingestion/workflows/store-figures";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
@@ -69,6 +74,24 @@ async function download(supabase: AdminSupabase, path: string) {
   return new Uint8Array(await data.arrayBuffer());
 }
 
+/**
+ * Opens a PDF Material. A missing file or one that is no readable PDF fails
+ * with the file's reason for the Student; a Storage failure does not.
+ */
+async function openMaterialPdf(supabase: AdminSupabase, path: string) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error?.message === "Object not found") {
+    throw parseFailureError(fileUnreadableReason);
+  }
+  if (error) fail(`Reading ${path}`, error);
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  try {
+    return await openPdf(bytes);
+  } catch {
+    throw parseFailureError(fileUnreadableReason);
+  }
+}
+
 /** Where a rendered PDF page is stored: under the Material's own path. */
 function pageImagePath(storagePath: string, pageNumber: number): string {
   return `${storagePath}/pages/${pageNumber}.png`;
@@ -111,7 +134,7 @@ export async function preparePages(
   let pages: PreparedPage[];
   let pageCount = 1;
   if (material.media_type === "application/pdf") {
-    const pdf = await openPdf(await download(supabase, material.storage_path));
+    const pdf = await openMaterialPdf(supabase, material.storage_path);
     pageCount = pdf.pageCount;
     pages = [];
     for (const pageNumber of missingPages(pdf.pageCount, stored)) {
@@ -186,7 +209,7 @@ export async function readPage(
         ...settings,
         messages: pageMessages(image, page.mediaType),
       }),
-  ).catch(dailyQuotaAsNull);
+  ).catch((error) => pageCallFailed(error, page.pageNumber));
   if (!result) return { ok: false, reason: dailyLimitReason };
   await recordAiUsage(
     supabase,
@@ -207,7 +230,7 @@ export async function readPage(
       pageImagePath: page.imagePath,
       pageImage: image,
     },
-    pageResultSchema.parse(result.output).units,
+    pageUnits(() => result.output, page.pageNumber),
   );
   const stored = await supabase.from("material_pages").insert({
     owner: studentId,
@@ -248,6 +271,27 @@ async function removeFiles(
 export function dailyQuotaAsNull(error: unknown): null {
   if (isDailyQuotaError(error)) return null;
   throw error;
+}
+
+/**
+ * A failed page call: null for a used-up daily quota of the provider, and
+ * otherwise the page's reason for the Student once the step's retries are
+ * spent.
+ */
+function pageCallFailed(error: unknown, pageNumber: number): null {
+  if (isDailyQuotaError(error)) return null;
+  console.error(`The page call for page ${pageNumber} failed:`, error);
+  throw parseFailureError(pageUnreadableReason(pageNumber));
+}
+
+/** The units of a page call's output, or the page's reason when it has none. */
+function pageUnits(output: () => unknown, pageNumber: number) {
+  try {
+    return pageResultSchema.parse(output()).units;
+  } catch (error) {
+    console.error(`The page call for page ${pageNumber} gave no units:`, error);
+    throw parseFailureError(pageUnreadableReason(pageNumber));
+  }
 }
 
 /** Sets the Material's progress to the count of its stored page results. */

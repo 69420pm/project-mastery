@@ -178,6 +178,66 @@ describe("a page that cannot be read", () => {
   });
 });
 
+describe("a page call whose answer is not a page result", () => {
+  test("fails the parse with a reason that names the page", async () => {
+    await seedLecture();
+    useMockModels({
+      ingest: pageModel([pageResult("Page one"), { units: "nope" } as never])
+        .model,
+    });
+
+    await parseMaterial(MATERIAL);
+
+    expect(material()).toMatchObject({
+      parse_status: "failed",
+      parse_failure: "The AI could not read page 2",
+    });
+  });
+});
+
+describe("a failure of the app's own services", () => {
+  const generic = "The material could not be parsed. Please try again.";
+
+  test("while storing the page images fails the parse with the general reason", async () => {
+    await seedLecture();
+    useMockModels({ ingest: pageModel([]).model });
+    db.files.fail("upload");
+
+    await parseMaterial(MATERIAL);
+
+    expect(material()).toMatchObject({
+      parse_status: "failed",
+      parse_failure: generic,
+    });
+  });
+
+  test("while reading a page fails the parse with the general reason", async () => {
+    await seedLecture();
+    const model = pageModel([pageResult("Page one")]);
+    useMockModels({ ingest: model.model });
+    // The page images are stored, then Storage fails to read them.
+    const from = db.storage.from;
+    db.storage.from = (bucket: string) => {
+      const store = from(bucket);
+      return {
+        ...store,
+        download: async (path: string) =>
+          path.includes("/pages/")
+            ? { data: null, error: { message: "Storage failure", status: 500 } }
+            : store.download(path),
+      } as typeof store;
+    };
+
+    await parseMaterial(MATERIAL);
+
+    expect(model.calls()).toBe(0);
+    expect(material()).toMatchObject({
+      parse_status: "failed",
+      parse_failure: generic,
+    });
+  });
+});
+
 describe("a file that cannot be opened", () => {
   test("fails the parse with that reason, without a model call", async () => {
     await seedLecture();

@@ -1,45 +1,45 @@
 import { describe, expect, test } from "vitest";
-import { canStartParse, type ParseState } from "./parse-state";
-
-const now = new Date("2026-10-11T12:00:00.000Z");
+import {
+  canStartParse,
+  isParseRunning,
+  parseStateLabel,
+  type ParseState,
+} from "./parse-state";
 
 const state = (
   status: ParseState["status"],
-  updatedAt = "2026-10-11T11:59:00.000Z",
+  startFailed = false,
 ): ParseState => ({
   status,
   pagesDone: 0,
   pagesTotal: null,
   failure: null,
-  updatedAt,
+  startFailed,
 });
 
 describe("canStartParse", () => {
   test.each(["not_parsed", "failed"] as const)(
     "is true for a %s Material",
     (status) => {
-      expect(canStartParse(state(status), now)).toBe(true);
+      expect(canStartParse(state(status))).toBe(true);
     },
   );
 
-  test.each(["parsing", "parsed"] as const)(
+  test.each(["queued", "parsing", "parsed"] as const)(
     "is false for a %s Material",
     (status) => {
-      expect(
-        canStartParse(state(status, "2026-10-01T00:00:00.000Z"), now),
-      ).toBe(false);
+      expect(canStartParse(state(status))).toBe(false);
     },
   );
 
-  test("is false for a Material that waits less than 5 minutes for its parse", () => {
-    expect(
-      canStartParse(state("queued", "2026-10-11T11:55:01.000Z"), now),
-    ).toBe(false);
+  test("is true for a queued Material whose parse could not start", () => {
+    expect(canStartParse(state("queued", true))).toBe(true);
   });
+});
 
-  test("is true for a Material that waited 5 minutes without its parse starting", () => {
-    expect(
-      canStartParse(state("queued", "2026-10-11T11:54:59.000Z"), now),
-    ).toBe(true);
+describe("a queued Material whose parse could not start", () => {
+  test("reads as not started, and the page stops refreshing for it", () => {
+    expect(parseStateLabel(state("queued", true))).toBe("Not started");
+    expect(isParseRunning(state("queued", true))).toBe(false);
   });
 });
