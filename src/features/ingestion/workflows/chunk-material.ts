@@ -39,6 +39,17 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
   if (!material) return { ok: true };
   const studentId = material.owner;
 
+  // Chunks are written in one transaction after every page is read, so
+  // existing ones are complete: a parse started again after a failed embed
+  // keeps them, and their vectors, instead of paying for another file call.
+  const existing = await supabase
+    .from("chunks")
+    .select("id")
+    .eq("material_id", materialId)
+    .limit(1);
+  if (existing.error) fail("Loading the chunks", existing.error);
+  if (existing.data.length > 0) return { ok: true };
+
   const pages = await supabase
     .from("material_pages")
     .select("page_number, units")

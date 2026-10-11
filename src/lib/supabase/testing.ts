@@ -105,6 +105,7 @@ export function fakeSupabase<Table extends string>(
     const orders: Array<{ column: string; ascending: boolean }> = [];
     let returning = false;
     let single: "one" | "maybe" | undefined;
+    let limitTo = Infinity;
 
     const matching = () =>
       rowsOf(table).filter(
@@ -171,7 +172,7 @@ export function fakeSupabase<Table extends string>(
           }
           return 0;
         });
-        result = { data: rows, error: null };
+        result = { data: rows.slice(0, limitTo), error: null };
       }
       if (result.error) return result;
       const rows = result.data as FakeRow[];
@@ -253,6 +254,10 @@ export function fakeSupabase<Table extends string>(
       },
       order(column: string, { ascending = true } = {}) {
         orders.push({ column, ascending });
+        return builder;
+      },
+      limit(count: number) {
+        limitTo = count;
         return builder;
       },
       single() {
