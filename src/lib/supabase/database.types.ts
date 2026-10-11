@@ -162,6 +162,7 @@ export type Database = {
         Row: {
           course_id: string;
           created_at: string;
+          embedding: string | null;
           exercise_number: string | null;
           figure: Json | null;
           id: string;
@@ -177,6 +178,7 @@ export type Database = {
         Insert: {
           course_id: string;
           created_at?: string;
+          embedding?: string | null;
           exercise_number?: string | null;
           figure?: Json | null;
           id?: string;
@@ -192,6 +194,7 @@ export type Database = {
         Update: {
           course_id?: string;
           created_at?: string;
+          embedding?: string | null;
           exercise_number?: string | null;
           figure?: Json | null;
           id?: string;

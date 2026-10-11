@@ -1,6 +1,10 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { MockLanguageModelV4 } from "ai/test";
+import {
+  mockEmbeddingModel,
+  useMockModels as useModels,
+} from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
@@ -20,6 +24,14 @@ export const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 export const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
 export const STORAGE_PATH = `${STUDENT}/${COURSE}/${MATERIAL}`;
 export const BUCKET = "course-files";
+
+/**
+ * `useMockModels` for a parse test: the `embed` task answers too, unless the
+ * test gives its own, because every parse ends by embedding its chunks.
+ */
+export function useMockModels(models: Parameters<typeof useModels>[0]) {
+  useModels({ embed: mockEmbeddingModel(), ...models });
+}
 
 /** The admin client a workflow has: no session, no Row Level Security. */
 export function createParseDb() {
