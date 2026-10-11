@@ -15,8 +15,8 @@ import {
   STORAGE_PATH,
   STUDENT,
   unit,
+  useMockModels,
 } from "@/features/ingestion/workflows/parse-testing";
-import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -178,6 +178,7 @@ describe("parsing a PDF Material", () => {
       }),
       expect.objectContaining({ owner: STUDENT, task: "ingest" }),
       expect.objectContaining({ owner: STUDENT, task: "ingest" }),
+      expect.objectContaining({ owner: STUDENT, task: "embed" }),
     ]);
   });
 });
