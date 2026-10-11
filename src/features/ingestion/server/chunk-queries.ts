@@ -7,6 +7,7 @@ import {
   type ParseStatus,
 } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
+import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -14,8 +15,7 @@ const figureSchema = z
   .object({ description: z.string(), cropPath: z.string().nullable() })
   .nullable();
 
-/** The Storage bucket of Materials, their page images and figure crops. */
-const BUCKET = "course-files";
+const BUCKET = MATERIALS_BUCKET;
 
 /** How long the link to a figure's picture works: one viewing session. */
 const FIGURE_URL_SECONDS = 60 * 60;

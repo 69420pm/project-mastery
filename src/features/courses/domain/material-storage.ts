@@ -1,5 +1,4 @@
-/** The Storage bucket that holds the files of Materials. */
-export const MATERIALS_BUCKET = "course-files";
+export { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 
 /** The folder in `MATERIALS_BUCKET` that holds a Course's files. */
 export function courseFolder(owner: string, courseId: string): string {

@@ -4,10 +4,12 @@
 
 **Decision.** Ingest each upload once in a background workflow: render each page to an image, convert it with a vision model to markdown with LaTeX, split it into chunks that keep their page reference, embed the chunks into pgvector, and derive the topic map. Every feature reuses this result.
 
-The parse makes two kinds of call, both on the `ingest` task:
+The parse makes three kinds of model call: two on the `ingest` task, described next, and an embedding call on the `embed` task (see below):
 
 - **One vision call per page.** It gets the page image (a PDF page rendered to PNG at scale 2, or the uploaded image itself) and returns structured units: markdown in the source language with LaTeX formulas and Mermaid for flowcharts and trees, one of seven labels (content, definition, example, exercise, solution, figure, admin), an optional exercise number and points, an optional figure with a description and a box normalized to the page, and whether the unit continues across a page break. Each page's result is stored, so a retried parse skips finished pages.
 - **One text call per file.** It merges units into chunks across page breaks, splits exercises into subtasks and recognises old exams, working on unit ids so the markdown is not generated twice. Code checks that every unit lands in exactly one chunk of neighbouring units and every page is covered, or the step fails and retries; the chunks then replace any earlier ones in one transaction (`public.replace_material_chunks`).
+
+The chunks are then embedded (`embedMany` on the `embed` task, only chunks without a vector, in batches so a retry loses little), and the parse ends with a pairing pass: every exercise subtask of the Course is paired with its solution chunk, or "no solution". Pairing runs on every parse and after every delete of a Material, and is recomputed for the whole Course, so upload order does not matter. It matches by normalized exercise number first, then sends what is left in one content-matching text call on the `ingest` task. A pass takes a request number first (`request_exercise_pairing`) and writes only while it is still the Course's latest request (`replace_exercise_solutions`), so of overlapping passes only the last writes.
 
 Figures keep an image crop of the page, cut by code from the model's box, with the whole page as the fallback for a bad box. The starting model is `google/gemini-3.5-flash-lite`, the cheapest vision model with a free-tier quota large enough to parse whole scripts; the task can move to a flash model in `src/lib/ai/models.ts` when real material needs it. Every call is recorded against the Student's Daily limit, and there is no page cap.
 
