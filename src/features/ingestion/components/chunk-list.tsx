@@ -152,10 +152,8 @@ function SolutionLine({
   return (
     <p className="text-sm">
       <Link href={href} className="font-medium underline underline-offset-4">
-        Solution
-        {solution.exerciseNumber !== null && ` ${solution.exerciseNumber}`}
+        Solution in {solution.materialName}
       </Link>
-      <span className="text-muted-foreground"> in {solution.materialName}</span>
     </p>
   );
 }
