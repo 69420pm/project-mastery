@@ -54,6 +54,17 @@ export function createParseDb() {
       ai_usage: () => ({ created_at: new Date().toISOString() }),
     },
     functions: {
+      // supabase/migrations/…_create_set_chunk_embeddings.sql.
+      set_chunk_embeddings: (args, tables) => {
+        for (const { id, embedding } of args.p_embeddings as Array<{
+          id: string;
+          embedding: string;
+        }>) {
+          const chunk = tables.chunks.find((row) => row.id === id);
+          if (chunk) chunk.embedding = embedding;
+        }
+        return null;
+      },
       // supabase/migrations/…_create_replace_material_chunks.sql, one
       // transaction there; tested with pgTAP.
       replace_material_chunks: (args, tables) => {

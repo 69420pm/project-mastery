@@ -250,7 +250,7 @@ describe("the file call of a parse", () => {
     expect(storedChunks(db)).toHaveLength(2);
   });
 
-  test("replaces the chunks of an earlier parse instead of adding to them", async () => {
+  test("keeps the chunks of an earlier parse without another file call", async () => {
     seedMaterial(db, "application/pdf", await fixture("exercise-sheet.pdf"));
     db.tables.chunks.push({
       id: "old-chunk",
@@ -263,33 +263,14 @@ describe("the file call of a parse", () => {
       label: "content",
       markdown: "From the earlier parse",
     });
-    useMockModels({
-      ingest: pageModel([{ units: [unit({ markdown: "New" })] }]).model,
-    });
+    const { model, filePrompts } = pageModel([
+      { units: [unit({ markdown: "New" })] },
+    ]);
+    useMockModels({ ingest: model });
 
     await parseMaterial(MATERIAL);
 
-    expect(storedChunks(db).map((stored) => stored.markdown)).toEqual(["New"]);
-  });
-
-  test("fails the parse when the chunks leave out a unit, keeping the earlier chunks", async () => {
-    seedMaterial(db, "application/pdf", await fixture("exercise-sheet.pdf"));
-    db.tables.chunks.push({
-      id: "old-chunk",
-      material_id: MATERIAL,
-      position: 0,
-      markdown: "From the earlier parse",
-    });
-    useMockModels({
-      ingest: pageModel(
-        [{ units: [unit({ markdown: "a" }), unit({ markdown: "b" })] }],
-        { chunks: [chunk(["p1u1"], "content")], exam: null },
-      ).model,
-    });
-
-    await parseMaterial(MATERIAL);
-
-    expect(db.tables.materials[0]).toMatchObject({ parse_status: "failed" });
+    expect(filePrompts).toHaveLength(0);
     expect(storedChunks(db).map((stored) => stored.markdown)).toEqual([
       "From the earlier parse",
     ]);

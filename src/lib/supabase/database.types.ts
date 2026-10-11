@@ -494,6 +494,10 @@ export type Database = {
         Args: { p_course_id: string };
         Returns: number;
       };
+      set_chunk_embeddings: {
+        Args: { p_embeddings: Json };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;
