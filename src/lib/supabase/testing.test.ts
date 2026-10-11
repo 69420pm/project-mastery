@@ -153,3 +153,41 @@ describe("fakeSupabase Storage", () => {
     expect((await store.upload(mine, pdf("x"))).error).toBeNull();
   });
 });
+
+describe("fakeSupabase rpc", () => {
+  it("runs the test's stand-in for a Postgres function on the tables", async () => {
+    const db = fakeSupabase({
+      tables: { notes: [{ id: "1", text: "old" }] },
+      functions: {
+        rename_note: (args, tables) => {
+          for (const note of tables.notes) {
+            if (note.id === args.p_id) note.text = args.p_text;
+          }
+          return tables.notes.length;
+        },
+      },
+    });
+
+    const result = await db.rpc("rename_note", { p_id: "1", p_text: "new" });
+
+    expect(result).toEqual({ data: 1, error: null });
+    expect(db.tables.notes).toEqual([{ id: "1", text: "new" }]);
+  });
+
+  it("fails like PostgREST for an unknown function or one that throws", async () => {
+    const db = fakeSupabase({
+      tables: {},
+      functions: {
+        failing: () => {
+          throw new Error("check constraint violated");
+        },
+      },
+    });
+
+    expect((await db.rpc("missing", {})).error?.code).toBe("PGRST202");
+    expect((await db.rpc("failing", {})).error).toEqual({
+      code: "P0001",
+      message: "check constraint violated",
+    });
+  });
+});

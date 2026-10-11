@@ -5,7 +5,6 @@ import {
   pageMessages,
   pageResultSchema,
 } from "@/features/ingestion/ai/page-units";
-import { chunksFromPages } from "@/features/ingestion/domain/page-chunks";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
@@ -45,11 +44,11 @@ type ParseMaterialRow = {
   storage_path: string;
 };
 
-function fail(action: string, error: { message: string }): never {
+export function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
-async function loadMaterial(
+export async function loadMaterial(
   supabase: AdminSupabase,
   materialId: string,
 ): Promise<ParseMaterialRow | null> {
@@ -183,59 +182,6 @@ export async function readPage(
     .eq("id", materialId);
   if (progress.error) fail("Recording the progress", progress.error);
   return { ok: true };
-}
-
-/**
- * Writes the Material's chunks from its stored page results, replacing any
- * earlier ones, and marks it parsed.
- */
-export async function writeChunks(materialId: string): Promise<void> {
-  "use step";
-  const supabase = createAdminClient();
-  const material = await loadMaterial(supabase, materialId);
-  if (!material) return;
-
-  const pages = await supabase
-    .from("material_pages")
-    .select("page_number, units")
-    .eq("material_id", materialId);
-  if (pages.error) fail("Loading the page results", pages.error);
-  const chunks = chunksFromPages(
-    pages.data.map((page) => ({
-      pageNumber: page.page_number,
-      units: pageResultSchema.shape.units.parse(page.units),
-    })),
-  );
-
-  const removed = await supabase
-    .from("chunks")
-    .delete()
-    .eq("material_id", materialId);
-  if (removed.error) fail("Replacing the chunks", removed.error);
-  if (chunks.length > 0) {
-    const inserted = await supabase.from("chunks").insert(
-      chunks.map((chunk) => ({
-        owner: material.owner,
-        course_id: material.course_id,
-        material_id: materialId,
-        position: chunk.position,
-        page_from: chunk.pageFrom,
-        page_to: chunk.pageTo,
-        label: chunk.label,
-        markdown: chunk.markdown,
-        figure: chunk.figure,
-        exercise_number: chunk.exerciseNumber,
-        points: chunk.points,
-      })),
-    );
-    if (inserted.error) fail("Storing the chunks", inserted.error);
-  }
-
-  const { error } = await supabase
-    .from("materials")
-    .update({ parse_status: "parsed", parse_failure: null })
-    .eq("id", materialId);
-  if (error) fail("Finishing the parse", error);
 }
 
 /** Marks the parse failed with a reason for the Student. */

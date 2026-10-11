@@ -70,8 +70,9 @@ type SchemaDefinition = JSONSchema7 | boolean;
 
 /**
  * A deterministic value that fits a JSON schema, for structured output
- * (`Output.object`): required properties only, one item per array, the
- * first enum value, null where null is allowed, and strings with a formula.
+ * (`Output.object`): required properties only, one item per array (every
+ * value for an array of enum values), the first enum value, null where null
+ * is allowed, and strings with a formula.
  */
 export function mockObject(definition: SchemaDefinition | undefined): unknown {
   const schema = typeof definition === "object" ? definition : {};
@@ -92,8 +93,13 @@ export function mockObject(definition: SchemaDefinition | undefined): unknown {
           mockObject(schema.properties?.[key]),
         ]),
       );
-    case "array":
-      return [mockObject([schema.items].flat()[0])];
+    case "array": {
+      const items = [schema.items].flat()[0];
+      // Every value of an enum, such as ids a prompt offers, so a caller that
+      // must see each id once gets a valid answer.
+      if (typeof items === "object" && items.enum) return [...items.enum];
+      return [mockObject(items)];
+    }
     case "string":
       return MOCK_OBJECT_TEXT;
     case "number":

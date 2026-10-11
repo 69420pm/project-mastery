@@ -78,4 +78,23 @@ describe("structured output on AI_PROVIDER=mock", () => {
     });
     vi.unstubAllEnvs();
   });
+
+  test("lists every value of an array of enum values, so ids from the prompt all come back", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    const { generateText, Output } = await import("ai");
+    const { z } = await import("zod");
+    const { aiTask } = await import("./models");
+    const schema = z.object({
+      groups: z.array(z.object({ ids: z.array(z.enum(["a", "b", "c"])) })),
+    });
+
+    const { output } = await generateText({
+      ...aiTask("ingest"),
+      output: Output.object({ schema }),
+      prompt: "Group these.",
+    });
+
+    expect(output).toEqual({ groups: [{ ids: ["a", "b", "c"] }] });
+    vi.unstubAllEnvs();
+  });
 });

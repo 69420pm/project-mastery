@@ -403,7 +403,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      replace_material_chunks: {
+        Args: {
+          p_chunks: Json;
+          p_exam_total_points?: number;
+          p_exam_year?: number;
+          p_is_exam: boolean;
+          p_material_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;
