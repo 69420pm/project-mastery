@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // machine at <machine>.orb.local; Next.js otherwise blocks live reload
   // from any hostname but localhost. Development only.
   allowedDevOrigins: ["*.orb.local"],
+  // Native bindings (.node files) load from node_modules at runtime; bundled,
+  // they fail with "Cannot find native binding". Used to render PDF pages.
+  serverExternalPackages: ["@napi-rs/canvas"],
 };
 
 // Compiles "use workflow" / "use step" directives (Vercel Workflow).
