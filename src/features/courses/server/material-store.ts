@@ -158,18 +158,20 @@ export async function findMaterial(
   supabase: Supabase,
   materialId: string,
 ): Promise<{
+  courseId: string;
   name: string;
   mediaType: string;
   storagePath: string;
 } | null> {
   const { data, error } = await supabase
     .from("materials")
-    .select("name, media_type, storage_path")
+    .select("course_id, name, media_type, storage_path")
     .eq("id", materialId)
     .maybeSingle();
   if (error) fail("Loading the Material", error);
   return (
     data && {
+      courseId: data.course_id,
       name: data.name,
       mediaType: data.media_type,
       storagePath: data.storage_path,
