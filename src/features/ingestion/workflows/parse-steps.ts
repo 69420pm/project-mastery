@@ -19,6 +19,7 @@ import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { answeringModel } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
 
@@ -29,8 +30,10 @@ import { withTraceAttributes } from "@/lib/tracing";
  * does nothing when it is gone.
  */
 
-/** The Storage bucket of Materials and their page images. */
-const BUCKET = "course-files";
+const BUCKET = MATERIALS_BUCKET;
+
+/** Postgres error code of a row that points at a deleted parent. */
+const FOREIGN_KEY_VIOLATION = "23503";
 
 /** One page of a Material, as the page calls read it. */
 export type PreparedPage = {
@@ -251,8 +254,6 @@ export async function readPage(
   if (stored.error) fail(`Storing page ${page.pageNumber}`, stored.error);
   return recordProgress(supabase, materialId);
 }
-
-const FOREIGN_KEY_VIOLATION = "23503";
 
 /**
  * Removes files a step stored for a Material that was deleted meanwhile,

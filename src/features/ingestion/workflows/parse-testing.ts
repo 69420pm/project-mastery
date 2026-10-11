@@ -5,6 +5,7 @@ import {
   mockEmbeddingModel,
   useMockModels as useModels,
 } from "@/lib/ai/testing";
+import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
@@ -23,7 +24,7 @@ export const STUDENT = "11111111-1111-1111-1111-111111111111";
 export const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 export const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
 export const STORAGE_PATH = `${STUDENT}/${COURSE}/${MATERIAL}`;
-export const BUCKET = "course-files";
+export const BUCKET = MATERIALS_BUCKET;
 
 /**
  * `useMockModels` for a parse test: the `embed` task answers too, unless the
