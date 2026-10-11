@@ -403,6 +403,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      queue_material_parse: { Args: { material_id: string }; Returns: boolean };
       replace_material_chunks: {
         Args: {
           p_chunks: Json;

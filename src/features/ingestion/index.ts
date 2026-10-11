@@ -3,8 +3,10 @@
 // feature, which starts parses and links to the chunk view.
 export { ChunkList } from "./components/chunk-list";
 export {
+  canStartParse,
   isParseRunning,
   parseStateLabel,
   type ParseState,
 } from "./domain/parse-state";
+export { startMaterialParse } from "./server/actions";
 export type { ChunkLabel, MaterialChunks, ParseStatus } from "./types";

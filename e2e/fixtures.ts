@@ -116,7 +116,7 @@ export async function storedFilePaths(
 }
 
 /** Every file under `folder`, in subfolders too. */
-async function allFilePaths(folder: string): Promise<string[]> {
+export async function allFilePaths(folder: string): Promise<string[]> {
   const { data, error } = await adminClient()
     .storage.from(MATERIALS_BUCKET)
     .list(folder, { limit: 1000 });

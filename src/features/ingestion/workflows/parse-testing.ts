@@ -30,6 +30,10 @@ export function createParseDb() {
       chunks: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
+    foreignKeys: {
+      material_pages: { material_id: "materials" },
+      chunks: { material_id: "materials" },
+    },
     // The fake's Storage lets this user write their folder.
     userId: STUDENT,
     defaults: {
@@ -120,28 +124,25 @@ export type CannedFileResult = {
 };
 
 /**
- * The file call's answer when a test gives none: one chunk per unit, and an
- * admin chunk for the placeholder unit of a page without units.
+ * A file call's answer when a test gives none: one chunk per unit the call
+ * offered, with the unit's own label, number and points.
  */
-function chunkPerUnit(pages: CannedPage[]): CannedFileResult {
+export function answerFileCall(filePrompt: unknown): CannedFileResult {
   return {
-    chunks: pages.flatMap((page, pageIndex) =>
-      (page.units.length > 0 ? page.units : [unit({ label: "admin" })]).map(
-        (pageUnit, unitIndex) => ({
-          unitIds: [`p${pageIndex + 1}u${unitIndex + 1}`],
-          label: String(pageUnit.label),
-          exerciseNumber: (pageUnit.exerciseNumber as string | null) ?? null,
-          points: (pageUnit.points as number | null) ?? null,
-        }),
-      ),
-    ),
+    chunks: sentUnits(filePrompt).map((offered) => ({
+      unitIds: [String(offered.id)],
+      label: String(offered.label),
+      exerciseNumber: (offered.exerciseNumber as string | null) ?? null,
+      points: (offered.points as number | null) ?? null,
+    })),
     exam: null,
   };
 }
 
 type Prompt = Array<{ role: string; content: unknown }>;
 
-const sentAFile = (prompt: unknown) =>
+/** Whether a call is a page call: it carries the page image. */
+export const isPageCall = (prompt: unknown) =>
   (prompt as Prompt).some(
     (message) =>
       Array.isArray(message.content) &&
@@ -153,20 +154,20 @@ const sentAFile = (prompt: unknown) =>
 /**
  * The `ingest` model of a parse: answers each page call (it carries the page
  * image) with the next canned page result, and the file call with `file`,
- * one chunk per unit unless given. Remembers what each kind of call was sent.
+ * or one chunk per offered unit. Remembers what each kind of call was sent.
  */
-export function pageModel(pages: CannedPage[], file = chunkPerUnit(pages)) {
+export function pageModel(pages: CannedPage[], file?: CannedFileResult) {
   const prompts: unknown[] = [];
   const filePrompts: unknown[] = [];
   const model = new MockLanguageModelV4({
     doGenerate: async ({ prompt }) => {
       let answer: unknown;
-      if (sentAFile(prompt)) {
+      if (isPageCall(prompt)) {
         prompts.push(prompt);
         answer = pages[prompts.length - 1] ?? { units: [] };
       } else {
         filePrompts.push(prompt);
-        answer = file;
+        answer = file ?? answerFileCall(prompt);
       }
       return {
         content: [{ type: "text", text: JSON.stringify(answer) }],

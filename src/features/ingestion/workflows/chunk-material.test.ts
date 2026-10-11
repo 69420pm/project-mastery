@@ -1,9 +1,12 @@
 // @vitest-environment node
+import { APICallError } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   COURSE,
   createParseDb,
   fixture,
+  isPageCall,
   MATERIAL,
   pageModel,
   seedMaterial,
@@ -333,6 +336,50 @@ describe("the file call of a parse", () => {
 
     expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
     expect(storedChunks(db).map(({ page_from }) => page_from)).toEqual([1, 2]);
+  });
+
+  test("fails the parse as a Daily limit when the file call hits the provider's daily quota", async () => {
+    seedMaterial(db, "application/pdf", await fixture("exercise-sheet.pdf"));
+    const page = pageModel([{ units: [unit({ markdown: "a" })] }]);
+    const quotaError = new APICallError({
+      message: "Quota exceeded",
+      url: "https://example.test",
+      requestBodyValues: {},
+      statusCode: 429,
+      responseBody: JSON.stringify({
+        error: {
+          code: 429,
+          status: "RESOURCE_EXHAUSTED",
+          details: [
+            {
+              "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+              violations: [
+                {
+                  quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+      isRetryable: false,
+    });
+    useMockModels({
+      ingest: new MockLanguageModelV4({
+        doGenerate: async (options) => {
+          if (isPageCall(options.prompt)) return page.model.doGenerate(options);
+          throw quotaError;
+        },
+      }),
+    });
+
+    await parseMaterial(MATERIAL);
+
+    expect(db.tables.materials[0]).toMatchObject({
+      parse_status: "failed",
+      parse_failure: "Daily limit reached",
+    });
+    expect(db.tables.chunks).toEqual([]);
   });
 
   test("checks the Daily limit before the file call, and a reached limit fails the parse", async () => {

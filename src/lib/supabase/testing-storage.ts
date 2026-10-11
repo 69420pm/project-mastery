@@ -197,18 +197,35 @@ export function fakeStorage(userId: string | undefined) {
       list(folder = "") {
         return guarded("list", () => {
           const prefix = folder ? `${folder.replace(/\/$/, "")}/` : "";
-          return [...bucket]
-            .filter(([path]) => owns(path) && path.startsWith(prefix))
+          const inFolder = [...bucket].filter(
+            ([path]) => owns(path) && path.startsWith(prefix),
+          );
+          const objects = inFolder
             .map(([path, object]) => ({
               name: path.slice(prefix.length),
-              id: object.id,
-              created_at: object.createdAt,
+              id: object.id as string | null,
+              created_at: object.createdAt as string | null,
               metadata: {
                 size: object.bytes.byteLength,
                 mimetype: object.contentType,
-              },
+              } as { size: number; mimetype: string } | null,
             }))
             .filter((entry) => !entry.name.includes("/"));
+          // A sub-folder is one entry without an id or metadata.
+          const folders = [
+            ...new Set(
+              inFolder
+                .map(([path]) => path.slice(prefix.length))
+                .filter((name) => name.includes("/"))
+                .map((name) => name.split("/")[0]),
+            ),
+          ].map((name) => ({
+            name,
+            id: null,
+            created_at: null,
+            metadata: null,
+          }));
+          return [...objects, ...folders];
         });
       },
     };

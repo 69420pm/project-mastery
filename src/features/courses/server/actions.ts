@@ -26,6 +26,7 @@ import {
   insertMaterial,
   removeCourseFiles,
   removeMaterial,
+  removeMaterialFiles,
   removeStoredFiles,
   signFileUrl,
   updateMaterialName,
@@ -176,8 +177,9 @@ export async function renameMaterial(input: {
 }
 
 /**
- * Deletes one of the Student's Materials for good: its file first, then the
- * Material, so a file never stays behind without one.
+ * Deletes one of the Student's Materials for good: its file, page images and
+ * figure crops first, then the Material, so no file stays behind without
+ * one. A parse that is still running stops at its next step.
  */
 export async function deleteMaterial(input: {
   materialId: string;
@@ -189,7 +191,7 @@ export async function deleteMaterial(input: {
 
   const material = await findMaterial(supabase, parsed.data.materialId);
   if (!material) return materialNotFound;
-  if (!(await removeStoredFiles(supabase, [material.storagePath]))) {
+  if (!(await removeMaterialFiles(supabase, material.storagePath))) {
     return {
       ok: false,
       message: "The material could not be deleted. Please try again.",

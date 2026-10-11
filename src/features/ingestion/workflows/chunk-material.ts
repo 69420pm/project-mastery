@@ -12,8 +12,9 @@ import {
   materialUnits,
   type MaterialUnit,
 } from "@/features/ingestion/domain/file-chunks";
+import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  dailyLimitReason,
+  dailyQuotaAsNull,
   fail,
   loadMaterial,
   type ParseOutcome,
@@ -64,7 +65,8 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
   const result = await withTraceAttributes(
     { userId: studentId, traceName: "parse-file" },
     () => generateText({ ...settings, messages: fileMessages(units) }),
-  );
+  ).catch(dailyQuotaAsNull);
+  if (!result) return { ok: false, reason: dailyLimitReason };
   await recordAiUsage(
     supabase,
     {
