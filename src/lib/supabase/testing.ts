@@ -5,7 +5,8 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle) and emulates Row Level
+ * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle, and
+ * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
  * Real policies are tested with pgTAP (supabase/tests/database/).
@@ -29,6 +30,7 @@ export type FakeSupabaseOptions<Table extends string> = {
   /**
    * Database functions that `rpc(name, args)` runs, with the tables. A test
    * defines what it needs of the real function; pgTAP tests the real one.
+   * Throwing fails the call, as a raised Postgres error would.
    */
   functions?: Record<
     string,
@@ -277,7 +279,11 @@ export function fakeSupabase<Table extends string>(
         `Could not find the function public.${name} in the schema cache`,
       );
     }
-    return { data: run(args, tables), error: null };
+    try {
+      return { data: run(structuredClone(args), tables) ?? null, error: null };
+    } catch (error) {
+      return failure("P0001", (error as Error).message);
+    }
   }
 
   return { from, rpc, tables, ...fakeStorage(options.userId) };

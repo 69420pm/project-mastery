@@ -1,118 +1,39 @@
 // @vitest-environment node
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { MockLanguageModelV4 } from "ai/test";
 import sharp from "sharp";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  BUCKET,
+  COURSE,
+  createParseDb,
+  fixture,
+  MATERIAL,
+  pageModel,
+  seedMaterial as seedMaterialIn,
+  sentImages,
+  STORAGE_PATH,
+  STUDENT,
+  unit,
+} from "@/features/ingestion/workflows/parse-testing";
 import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
 
-const STUDENT = "11111111-1111-1111-1111-111111111111";
-const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
-const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
-const STORAGE_PATH = `${STUDENT}/${COURSE}/${MATERIAL}`;
-const BUCKET = "course-files";
-
-/** The admin client a workflow has: no session, no Row Level Security. */
-function createDb() {
-  return fakeSupabase({
-    tables: {
-      materials: [] as FakeRow[],
-      material_pages: [] as FakeRow[],
-      chunks: [] as FakeRow[],
-      ai_usage: [] as FakeRow[],
-    },
-    // The fake's Storage lets this user write their folder.
-    userId: STUDENT,
-    defaults: {
-      ai_usage: () => ({ created_at: new Date().toISOString() }),
-    },
-  });
-}
-
-let db = createDb();
+let db = createParseDb();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => markAdminClient(db as unknown as Supabase),
 }));
 
 const { parseMaterial } = await import("./parse-material");
 
-const fixture = (name: string) =>
-  readFile(path.join(import.meta.dirname, "test-files", name));
-
-function seedMaterial(mediaType: string, body: Uint8Array) {
-  db.tables.materials.push({
-    id: MATERIAL,
-    owner: STUDENT,
-    course_id: COURSE,
-    name: "Lecture 1",
-    media_type: mediaType,
-    size_bytes: body.byteLength,
-    storage_path: STORAGE_PATH,
-    parse_status: "queued",
-    pages_total: null,
-    pages_done: 0,
-  });
-  db.files.seed(BUCKET, STORAGE_PATH, { body, contentType: mediaType });
-}
-
-const unit = (overrides: Record<string, unknown>) => ({
-  markdown: "",
-  label: "content",
-  exerciseNumber: null,
-  points: null,
-  figure: null,
-  continuesFromPreviousPage: false,
-  continuesOnNextPage: false,
-  ...overrides,
-});
-
-/**
- * A page model that answers each call with the next canned page result, and
- * remembers what it was sent.
- */
-function pageModel(pages: Array<{ units: unknown[] }>) {
-  const prompts: unknown[] = [];
-  const model = new MockLanguageModelV4({
-    doGenerate: async ({ prompt }) => {
-      prompts.push(prompt);
-      const page = pages[prompts.length - 1] ?? { units: [] };
-      return {
-        content: [{ type: "text", text: JSON.stringify(page) }],
-        finishReason: { unified: "stop", raw: undefined },
-        usage: {
-          inputTokens: {
-            total: 1000,
-            noCache: 1000,
-            cacheRead: undefined,
-            cacheWrite: undefined,
-          },
-          outputTokens: { total: 200, text: 200, reasoning: undefined },
-        },
-        warnings: [],
-      };
-    },
-  });
-  return { model, prompts };
-}
-
-/** The image parts each call sent, as media types. */
-function sentImages(prompts: unknown[]) {
-  return prompts.map((prompt) =>
-    (prompt as Array<{ role: string; content: unknown }>)
-      .filter((message) => message.role === "user")
-      .flatMap((message) => message.content as Array<{ type: string }>)
-      .filter((part) => part.type === "file")
-      .map((part) => (part as unknown as { mediaType: string }).mediaType),
-  );
-}
+const seedMaterial = (mediaType: string, body: Uint8Array) =>
+  seedMaterialIn(db, mediaType, body);
 
 beforeEach(() => {
-  db = createDb();
+  db = createParseDb();
 });
 
 describe("parsing a PDF Material", () => {
@@ -236,10 +157,13 @@ describe("parsing a PDF Material", () => {
     }
   });
 
-  test("records the usage of every page call for the Student", async () => {
+  test("records the usage of every page call and the file call for the Student", async () => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({
-      ingest: pageModel([{ units: [] }, { units: [] }]).model,
+      ingest: pageModel([
+        { units: [unit({ markdown: "One" })] },
+        { units: [unit({ markdown: "Two" })] },
+      ]).model,
     });
 
     await parseMaterial(MATERIAL);
@@ -252,6 +176,7 @@ describe("parsing a PDF Material", () => {
         input_tokens: 1000,
         output_tokens: 200,
       }),
+      expect.objectContaining({ owner: STUDENT, task: "ingest" }),
       expect.objectContaining({ owner: STUDENT, task: "ingest" }),
     ]);
   });
@@ -270,7 +195,7 @@ describe("figures", () => {
     useMockModels({
       ingest: pageModel([
         { units: [figureUnit({ x: 0.1, y: 0.2, width: 0.5, height: 0.25 })] },
-        { units: [] },
+        { units: [unit({ markdown: "Page two" })] },
       ]).model,
     });
 
@@ -282,14 +207,12 @@ describe("figures", () => {
     const size = await sharp(crop?.bytes).metadata();
     // 50% x 25% of a 1224x1584 page, plus 2% of 1584px padding on each side.
     expect(size).toMatchObject({ width: 612 + 64, height: 396 + 64 });
-    expect(db.tables.chunks).toEqual([
-      expect.objectContaining({
-        figure: {
-          description: "A parabola through the origin.",
-          cropPath,
-        },
-      }),
-    ]);
+    expect(db.tables.chunks[0]).toMatchObject({
+      figure: {
+        description: "A parabola through the origin.",
+        cropPath,
+      },
+    });
   });
 
   test.each([
@@ -299,20 +222,21 @@ describe("figures", () => {
   ])("references the whole page image when the box is %s", async (_, box) => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({
-      ingest: pageModel([{ units: [figureUnit(box)] }, { units: [] }]).model,
+      ingest: pageModel([
+        { units: [figureUnit(box)] },
+        { units: [unit({ markdown: "Page two" })] },
+      ]).model,
     });
 
     await parseMaterial(MATERIAL);
 
     const pageImage = `${STORAGE_PATH}/pages/1.png`;
-    expect(db.tables.chunks).toEqual([
-      expect.objectContaining({
-        figure: {
-          description: "A parabola through the origin.",
-          cropPath: pageImage,
-        },
-      }),
-    ]);
+    expect(db.tables.chunks[0]).toMatchObject({
+      figure: {
+        description: "A parabola through the origin.",
+        cropPath: pageImage,
+      },
+    });
     expect(db.files.paths(BUCKET)).not.toContain(
       `${STORAGE_PATH}/figures/1-0.png`,
     );

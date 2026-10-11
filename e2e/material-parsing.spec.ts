@@ -35,11 +35,9 @@ test("an uploaded PDF is parsed into chunks the Student can read", async ({
     page.getByRole("heading", { name: "two-page-lecture" }),
   ).toBeVisible();
   const chunks = page.getByRole("list", { name: "Chunks" });
-  const first = chunks.getByRole("article", { name: "Content, Page 1" });
-  await expect(first).toBeVisible();
-  await expect(
-    chunks.getByRole("article", { name: "Content, Page 2" }),
-  ).toBeVisible();
-  // The mock's formula $a^2 + b^2 = c^2$, rendered by KaTeX.
-  await expect(first.locator(".katex")).toBeVisible();
+  // The mock file call joins every unit into one chunk, over both pages.
+  const chunk = chunks.getByRole("article", { name: "Content, Pages 1–2" });
+  await expect(chunk).toBeVisible();
+  // Both pages' mock formula $a^2 + b^2 = c^2$, rendered by KaTeX.
+  await expect(chunk.locator(".katex")).toHaveCount(2);
 });

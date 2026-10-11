@@ -4,11 +4,9 @@ import {
   pageCallSettings,
   pageMessages,
   pageResultSchema,
-  storedUnitsSchema,
 } from "@/features/ingestion/ai/page-units";
 import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
-import { chunksFromPages } from "@/features/ingestion/domain/page-chunks";
 import {
   dailyLimitReason,
   fileUnreadableReason,
@@ -53,11 +51,11 @@ type ParseMaterialRow = {
   storage_path: string;
 };
 
-function fail(action: string, error: { message: string }): never {
+export function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
-async function loadMaterial(
+export async function loadMaterial(
   supabase: AdminSupabase,
   materialId: string,
 ): Promise<ParseMaterialRow | null> {
@@ -269,6 +267,12 @@ async function removeFiles(
   if (error) fail("Removing the files of a deleted Material", error);
 }
 
+/** A model call's error, or null for a used-up daily quota of the provider. */
+export function dailyQuotaAsNull(error: unknown): null {
+  if (isDailyQuotaError(error)) return null;
+  throw error;
+}
+
 /**
  * A failed page call: null for a used-up daily quota of the provider, and
  * otherwise the page's reason for the Student once the step's retries are
@@ -302,59 +306,6 @@ async function recordProgress(
     .eq("id", materialId);
   if (progress.error) fail("Recording the progress", progress.error);
   return { ok: true };
-}
-
-/**
- * Writes the Material's chunks from its stored page results, replacing any
- * earlier ones, and marks it parsed.
- */
-export async function writeChunks(materialId: string): Promise<void> {
-  "use step";
-  const supabase = createAdminClient();
-  const material = await loadMaterial(supabase, materialId);
-  if (!material) return;
-
-  const pages = await supabase
-    .from("material_pages")
-    .select("page_number, units")
-    .eq("material_id", materialId);
-  if (pages.error) fail("Loading the page results", pages.error);
-  const chunks = chunksFromPages(
-    pages.data.map((page) => ({
-      pageNumber: page.page_number,
-      units: storedUnitsSchema.parse(page.units),
-    })),
-  );
-
-  const removed = await supabase
-    .from("chunks")
-    .delete()
-    .eq("material_id", materialId);
-  if (removed.error) fail("Replacing the chunks", removed.error);
-  if (chunks.length > 0) {
-    const inserted = await supabase.from("chunks").insert(
-      chunks.map((chunk) => ({
-        owner: material.owner,
-        course_id: material.course_id,
-        material_id: materialId,
-        position: chunk.position,
-        page_from: chunk.pageFrom,
-        page_to: chunk.pageTo,
-        label: chunk.label,
-        markdown: chunk.markdown,
-        figure: chunk.figure,
-        exercise_number: chunk.exerciseNumber,
-        points: chunk.points,
-      })),
-    );
-    if (inserted.error) fail("Storing the chunks", inserted.error);
-  }
-
-  const { error } = await supabase
-    .from("materials")
-    .update({ parse_status: "parsed", parse_failure: null })
-    .eq("id", materialId);
-  if (error) fail("Finishing the parse", error);
 }
 
 /** Marks the parse failed with a reason for the Student. */

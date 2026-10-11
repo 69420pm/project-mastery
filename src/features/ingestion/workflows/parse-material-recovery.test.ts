@@ -4,9 +4,14 @@ import path from "node:path";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import {
+  answerFileCall,
+  createParseDb,
+  isPageCall,
+  type CannedFileResult,
+} from "@/features/ingestion/workflows/parse-testing";
 import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -22,24 +27,7 @@ const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
 const STORAGE_PATH = `${STUDENT}/${COURSE}/${MATERIAL}`;
 const BUCKET = "course-files";
 
-function createDb() {
-  return fakeSupabase({
-    tables: {
-      materials: [] as FakeRow[],
-      material_pages: [] as FakeRow[],
-      chunks: [] as FakeRow[],
-      ai_usage: [] as FakeRow[],
-    },
-    foreignKeys: {
-      material_pages: { material_id: "materials" },
-      chunks: { material_id: "materials" },
-    },
-    userId: STUDENT,
-    defaults: {
-      ai_usage: () => ({ created_at: new Date().toISOString() }),
-    },
-  });
-}
+const createDb = createParseDb;
 
 let db = createDb();
 vi.mock("@/lib/supabase/admin", () => ({
@@ -105,16 +93,22 @@ const pageResult = (markdown: string) => ({
 type Answer = { units: unknown[] } | Error;
 
 /**
- * A page model that answers the n-th call with `answers[n]`: a page result,
- * or an error it throws. It counts its calls.
+ * A page model that answers the n-th page call with `answers[n]`: a page
+ * result, or an error it throws. It counts its page calls. The file call
+ * gets one chunk per unit and is not counted.
  */
 function pageModel(answers: Answer[], onCall?: (call: number) => void) {
   let calls = 0;
   const model = new MockLanguageModelV4({
-    doGenerate: async () => {
-      const answer = answers[calls++] ?? { units: [] };
-      onCall?.(calls);
-      if (answer instanceof Error) throw answer;
+    doGenerate: async ({ prompt }) => {
+      let answer: Answer | CannedFileResult;
+      if (isPageCall(prompt)) {
+        answer = answers[calls++] ?? { units: [] };
+        onCall?.(calls);
+        if (answer instanceof Error) throw answer;
+      } else {
+        answer = answerFileCall(prompt);
+      }
       return {
         content: [{ type: "text", text: JSON.stringify(answer) }],
         finishReason: { unified: "stop", raw: undefined },
@@ -179,7 +173,8 @@ describe("a page that cannot be read", () => {
       [1, "Page one"],
       [2, "Page two"],
     ]);
-    expect(db.tables.ai_usage).toHaveLength(2);
+    // One call per page, and the file call of the finished parse.
+    expect(db.tables.ai_usage).toHaveLength(3);
   });
 });
 

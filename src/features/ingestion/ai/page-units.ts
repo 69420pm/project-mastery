@@ -81,7 +81,8 @@ const PAGE_INSTRUCTIONS = `You transcribe one page of a Student's course materia
 - Label each unit: content, definition, example, exercise, solution, figure, or admin (organizational remarks such as "not exam-relevant" or "closed-book exam").
 - For an exercise, give its number as printed and its points, if shown.
 - For a plot, chart or technical drawing, give a figure with a description and its box on the page. Leave out decorative images such as logos.
-- Mark a unit that starts on an earlier page or continues on the next page.`;
+- Mark a unit that starts on an earlier page or continues on the next page.
+- A page without content (blank, or only a logo) still gets one admin unit that says so.`;
 
 /**
  * Call settings for one page call of a parse (task `ingest`):

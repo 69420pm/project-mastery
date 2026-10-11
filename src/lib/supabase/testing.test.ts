@@ -169,6 +169,22 @@ describe("fakeSupabase Storage", () => {
 });
 
 describe("fakeSupabase functions", () => {
+  it("fails the call when the function throws, as a raised Postgres error does", async () => {
+    const db = fakeSupabase({
+      tables: {},
+      functions: {
+        failing: () => {
+          throw new Error("check constraint violated");
+        },
+      },
+    });
+
+    expect((await db.rpc("failing", {})).error).toEqual({
+      code: "P0001",
+      message: "check constraint violated",
+    });
+  });
+
   it("runs a database function the test defines, with its arguments and the tables", async () => {
     const db = fakeSupabase({
       tables: { materials: [{ id: "material-1", parse_status: "failed" }] },
