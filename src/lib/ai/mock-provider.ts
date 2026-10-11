@@ -12,7 +12,8 @@ import { simulateReadableStream, type JSONSchema7 } from "ai";
 /** Delay between streamed words, a reply takes a few seconds in total. */
 const WORD_DELAY_MS = 75;
 
-const EMBEDDING_DIMENSIONS = 8;
+// The size of chunks.embedding, so the mock's vectors fit the column.
+const EMBEDDING_DIMENSIONS = 3072;
 
 /** Usage the mock reports, so cost recording sees real numbers. */
 const usage = {

@@ -217,6 +217,11 @@ export function fakeSupabase<Table extends string>(
         filters.push((row) => row[column] === value);
         return builder;
       },
+      /** `is(column, null)`: the column has no value. */
+      is(column: string, value: null) {
+        filters.push((row) => (row[column] ?? null) === value);
+        return builder;
+      },
       in(column: string, values: unknown[]) {
         filters.push((row) => values.includes(row[column]));
         return builder;

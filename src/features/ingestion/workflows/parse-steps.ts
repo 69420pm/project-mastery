@@ -308,6 +308,16 @@ async function recordProgress(
   return { ok: true };
 }
 
+/** Marks the Material parsed: the last step of a parse. */
+export async function markParsed(materialId: string): Promise<void> {
+  "use step";
+  const { error } = await createAdminClient()
+    .from("materials")
+    .update({ parse_status: "parsed", parse_failure: null })
+    .eq("id", materialId);
+  if (error) fail("Finishing the parse", error);
+}
+
 /** Marks the parse failed with a reason for the Student. */
 export async function failParse(
   materialId: string,

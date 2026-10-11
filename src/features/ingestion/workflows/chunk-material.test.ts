@@ -15,8 +15,8 @@ import {
   STUDENT,
   unit,
   type CannedFileResult,
+  useMockModels,
 } from "@/features/ingestion/workflows/parse-testing";
-import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 

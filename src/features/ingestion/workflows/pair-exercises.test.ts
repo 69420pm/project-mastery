@@ -11,10 +11,10 @@ import {
   storedPairs,
   STUDENT,
   unit,
+  useMockModels,
   type CannedPairing,
   type SentPairing,
 } from "@/features/ingestion/workflows/parse-testing";
-import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -110,6 +110,37 @@ describe("pairing exercises with solutions", () => {
     expect(pairingPrompts).toHaveLength(0);
   });
 
+  test("a Material shows parsed only once its exercises are paired", async () => {
+    upload(SHEET, "Sheet 7");
+    upload(SOLUTIONS, "Solutions 7");
+    const statusDuringPairing: unknown[] = [];
+    const { model } = pageModel(
+      [
+        { units: [exercise(null, "Bonus task.")] },
+        { units: [solution(null, "Bonus answer.")] },
+      ],
+      undefined,
+      (sent) => {
+        statusDuringPairing.push(
+          db.tables.materials.find((m) => m.id === SOLUTIONS)?.parse_status,
+        );
+        return pairByMarkdown([["Bonus task.", "Bonus answer."]])(sent);
+      },
+    );
+    useMockModels({ ingest: model });
+
+    await parseMaterial(SHEET);
+    await parseMaterial(SOLUTIONS);
+
+    expect(statusDuringPairing).toEqual(["parsing"]);
+    expect(
+      db.tables.materials.find((m) => m.id === SOLUTIONS)?.parse_status,
+    ).toBe("parsed");
+    expect(storedPairs(db)).toEqual([
+      { exercise: "Bonus task.", solution: "Bonus answer.", status: "paired" },
+    ]);
+  });
+
   test("a solution sheet parsed later re-pairs the earlier exercises", async () => {
     upload(SHEET, "Sheet 7");
     const { model } = pageModel([
@@ -185,8 +216,9 @@ describe("pairing exercises with solutions", () => {
     expect(offered.solutions.map((s) => s.markdown)).toEqual([
       "pi is about 3.14.",
     ]);
-    // Page call, file call and content call, each recorded for the Student.
-    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(3);
+    // Page call, file call, embedding and content call, each recorded for
+    // the Student.
+    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(4);
     expect(db.tables.ai_usage.at(-1)).toMatchObject({
       owner: STUDENT,
       task: "ingest",

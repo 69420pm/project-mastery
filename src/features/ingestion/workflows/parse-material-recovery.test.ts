@@ -9,8 +9,8 @@ import {
   createParseDb,
   isPageCall,
   type CannedFileResult,
+  useMockModels,
 } from "@/features/ingestion/workflows/parse-testing";
-import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -173,8 +173,8 @@ describe("a page that cannot be read", () => {
       [1, "Page one"],
       [2, "Page two"],
     ]);
-    // One call per page, and the file call of the finished parse.
-    expect(db.tables.ai_usage).toHaveLength(3);
+    // One call per page, the file call and the embed call of the finished parse.
+    expect(db.tables.ai_usage).toHaveLength(4);
   });
 });
 

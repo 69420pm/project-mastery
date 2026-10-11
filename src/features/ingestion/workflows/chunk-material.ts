@@ -30,8 +30,7 @@ import { withTraceAttributes } from "@/lib/tracing";
  * (task `ingest`) over all the Material's units groups them into its final
  * chunks and finds exam metadata. Code checks that every unit lands in
  * exactly one chunk and every page is covered, or the step throws and
- * retries. The chunks replace any earlier ones in one transaction, and the
- * Material is marked parsed.
+ * retries. The chunks replace any earlier ones in one transaction.
  */
 export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
   "use step";
@@ -105,12 +104,6 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
     p_exam_total_points: oldExam?.totalPoints ?? undefined,
   });
   if (replaced.error) fail("Storing the chunks", replaced.error);
-
-  const { error } = await supabase
-    .from("materials")
-    .update({ parse_status: "parsed", parse_failure: null })
-    .eq("id", materialId);
-  if (error) fail("Finishing the parse", error);
   return { ok: true };
 }
 
