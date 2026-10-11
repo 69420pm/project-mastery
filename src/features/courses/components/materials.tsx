@@ -259,7 +259,7 @@ function ParseStateLine({
         {parseStateLabel(parse)}
         {parse.status === "failed" && parse.failure && `: ${parse.failure}`}
       </span>
-      {canStartParse(parse, new Date()) && (
+      {canStartParse(parse) && (
         <ParseButton materialId={material.id} status={parse.status} />
       )}
       {parse.status === "parsed" && (
@@ -323,14 +323,11 @@ const PARSE_POLL_MS = 2000;
 
 /**
  * Refreshes the page's data while any Material waits or parses, so its
- * state moves on without a reload. A parse that never started, which offers
- * Parse instead, does not count.
+ * state moves on without a reload.
  */
 function useParsePolling(materials: MaterialListItem[]) {
   const router = useRouter();
-  const running = materials.some(
-    ({ parse }) => isParseRunning(parse) && !canStartParse(parse, new Date()),
-  );
+  const running = materials.some((material) => isParseRunning(material.parse));
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(() => router.refresh(), PARSE_POLL_MS);

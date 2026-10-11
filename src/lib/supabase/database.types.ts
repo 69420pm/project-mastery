@@ -319,6 +319,7 @@ export type Database = {
           pages_done: number;
           pages_total: number | null;
           parse_failure: string | null;
+          parse_start_failed: boolean;
           parse_status: string;
           size_bytes: number;
           storage_path: string;
@@ -337,6 +338,7 @@ export type Database = {
           pages_done?: number;
           pages_total?: number | null;
           parse_failure?: string | null;
+          parse_start_failed?: boolean;
           parse_status?: string;
           size_bytes: number;
           storage_path: string;
@@ -355,6 +357,7 @@ export type Database = {
           pages_done?: number;
           pages_total?: number | null;
           parse_failure?: string | null;
+          parse_start_failed?: boolean;
           parse_status?: string;
           size_bytes?: number;
           storage_path?: string;
@@ -404,6 +407,10 @@ export type Database = {
     };
     Functions: {
       queue_material_parse: { Args: { material_id: string }; Returns: boolean };
+      record_parse_start_failure: {
+        Args: { material_id: string };
+        Returns: boolean;
+      };
     };
     Enums: {
       [_ in never]: never;

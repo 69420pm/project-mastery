@@ -47,21 +47,20 @@ export function useMessageAttachments({
     // A refresh would replace a new Chat and the message in it.
     refresh: "on-leave",
     onRegistered: (material) => {
-      const now = new Date().toISOString();
       setUploaded((current) => [
         {
           id: material.materialId,
           name: material.name,
           mediaType: material.mediaType,
           sizeBytes: 0,
-          createdAt: now,
+          createdAt: new Date().toISOString(),
           // A new upload waits for its parse.
           parse: {
             status: "queued",
             pagesDone: 0,
             pagesTotal: null,
             failure: null,
-            updatedAt: now,
+            startFailed: false,
           },
         },
         ...current,

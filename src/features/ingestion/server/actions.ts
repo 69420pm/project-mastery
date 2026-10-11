@@ -10,9 +10,9 @@ import { parseActionInput, type ActionResult } from "@/lib/validation/action";
 
 /**
  * Parse and Retry: starts the parse of one of the Student's Materials when it
- * was never parsed, its parse failed, or its parse never started. Anything
- * else, such as a second press while the first one's parse waits, does
- * nothing, so it starts one parse. A retry resumes where the last parse
+ * was never parsed, its parse failed, or its workflow could not start.
+ * Anything else, such as a second press while the first one's parse waits,
+ * does nothing, so it starts one parse. A retry resumes where the last parse
  * stopped.
  */
 export async function startMaterialParse(input: {
@@ -26,12 +26,13 @@ export async function startMaterialParse(input: {
 
   // The database moves it to `queued` only from those states, so of two
   // concurrent presses only one gets `true`.
-  const { data: queued, error } = await (
-    await createClient()
-  ).rpc("queue_material_parse", { material_id: parsed.data.materialId });
+  const supabase = await createClient();
+  const { data: queued, error } = await supabase.rpc("queue_material_parse", {
+    material_id: parsed.data.materialId,
+  });
   if (error) throw new Error(`Queueing the parse failed: ${error.message}`);
   if (queued) {
-    await startParse(parsed.data.materialId);
+    await startParse(supabase, parsed.data.materialId);
     revalidatePath("/", "layout");
   }
   return { ok: true, data: undefined };

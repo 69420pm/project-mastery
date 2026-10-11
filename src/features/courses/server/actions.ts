@@ -147,7 +147,7 @@ export async function registerMaterial(input: {
 
   // A new Material starts `queued` (the column default); its parse runs in
   // the background.
-  await startParse(material.materialId);
+  await startParse(supabase, material.materialId);
   return { ok: true, data: { id: material.materialId } };
 }
 
