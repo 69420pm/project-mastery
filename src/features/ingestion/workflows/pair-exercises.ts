@@ -36,7 +36,9 @@ import { withTraceAttributes } from "@/lib/tracing";
  * (`replace_exercise_solutions`, under the Course row's lock). Of passes
  * that overlap, only the last requested one writes, and an outdated pass
  * stops before its model call. Two parses that finish together so store
- * what running them one after the other would.
+ * what running them one after the other would. A step ends only once every
+ * exercise subtask of the Course has a pair row, running a new pass when
+ * the one that outdated it has not written.
  */
 
 /** The Course's pairing pass, after one of its Materials was deleted. */
@@ -65,7 +67,52 @@ type CourseChunks = {
   solutions: Array<PairingChunk & { markdown: string }>;
 };
 
+/** How many passes one step runs before it fails and the step retries. */
+const MAX_PASSES = 3;
+
+/**
+ * Runs pairing passes until every exercise subtask of the Course has a pair
+ * row, the invariant a parse ends with. A pass that a later request
+ * outdated writes nothing; when that later pass has not written yet, or
+ * never will (its parse failed), this runs a new pass, which is then the
+ * latest. Throws after MAX_PASSES, so the step retries.
+ */
 async function pairExercises(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<void> {
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    await runPass(supabase, courseId);
+    if (await everySubtaskHasPair(supabase, courseId)) return;
+  }
+  throw new Error(
+    "Pairing left exercises of the Course without a pair: later passes kept outdating this one.",
+  );
+}
+
+/**
+ * Whether every exercise subtask of the Course has a pair row. True when
+ * the Course is gone.
+ */
+async function everySubtaskHasPair(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<boolean> {
+  const course = await loadCourseChunks(supabase, courseId);
+  if (!course) return true;
+  const { data, error } = await supabase
+    .from("exercise_solutions")
+    .select("exercise_chunk_id")
+    .eq("course_id", courseId);
+  if (error) fail("Loading the exercise pairs", error);
+  const paired = new Set(data.map((row) => row.exercise_chunk_id));
+  return exerciseSubtasks(course.exercises).every((exercise) =>
+    paired.has(exercise.id),
+  );
+}
+
+/** One pairing pass; it writes only while it is the latest request. */
+async function runPass(
   supabase: AdminSupabase,
   courseId: string,
 ): Promise<void> {
