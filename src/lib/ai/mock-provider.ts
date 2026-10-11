@@ -177,7 +177,8 @@ function embeddingModel(modelId: string) {
       embeddings: values.map(() =>
         Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5),
       ),
-      usage: { tokens: values.length },
+      // Like the Gemini API, which reports no usage for embeddings.
+      usage: undefined,
       warnings: [],
     }),
   };

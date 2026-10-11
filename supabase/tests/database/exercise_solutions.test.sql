@@ -72,7 +72,9 @@ reset role;
 
 select results_eq(
   $$select exercise_chunk_id, solution_chunk_id, status, owner, course_id
-    from public.exercise_solutions order by exercise_chunk_id$$,
+    from public.exercise_solutions
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'
+    order by exercise_chunk_id$$,
   $$values
     ('cccccccc-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000003'::uuid, 'paired',
       '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid),

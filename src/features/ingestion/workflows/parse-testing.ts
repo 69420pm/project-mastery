@@ -34,9 +34,25 @@ export function useMockModels(models: Parameters<typeof useModels>[0]) {
   useModels({ embed: mockEmbeddingModel(), ...models });
 }
 
-/** The admin client a workflow has: no session, no Row Level Security. */
-export function createParseDb() {
-  return fakeSupabase({
+type ParseTable =
+  | "courses"
+  | "materials"
+  | "material_pages"
+  | "chunks"
+  | "exercise_solutions"
+  | "ai_usage";
+
+/**
+ * The admin client a workflow has: no session, no Row Level Security.
+ * `canAccess` lets a test make writes to a table fail.
+ */
+export function createParseDb({
+  canAccess,
+}: {
+  canAccess?: (table: ParseTable) => boolean;
+} = {}) {
+  return fakeSupabase<ParseTable>({
+    canAccess,
     tables: {
       courses: [] as FakeRow[],
       materials: [] as FakeRow[],
