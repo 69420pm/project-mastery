@@ -56,6 +56,22 @@ export const pageResultSchema = z.object({ units: z.array(pageUnitSchema) });
 
 export type PageUnit = z.infer<typeof pageUnitSchema>;
 
+/**
+ * A unit as stored in a page result: its figure also names the picture the
+ * chunk view shows (the crop, or the whole page image when there was no
+ * usable box).
+ */
+export const storedUnitSchema = pageUnitSchema.extend({
+  figure: pageUnitSchema.shape.figure
+    .unwrap()
+    .extend({
+      cropPath: z.string().nullable(),
+    })
+    .nullable(),
+});
+
+export const storedUnitsSchema = z.array(storedUnitSchema);
+
 const PAGE_INSTRUCTIONS = `You transcribe one page of a Student's course material (slides, a script, an exercise sheet, a solution sheet or an old exam) into ordered units.
 
 - Split the page by its own structure: a slide, a heading section, a definition, an example, an exercise or subtask, a solution. Not by length.

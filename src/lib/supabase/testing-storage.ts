@@ -85,6 +85,7 @@ export function fakeStorage(userId: string | undefined) {
         object && {
           size: object.bytes.byteLength,
           contentType: object.contentType,
+          bytes: new Uint8Array(object.bytes),
           text: new TextDecoder().decode(object.bytes),
         }
       );

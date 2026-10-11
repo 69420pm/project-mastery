@@ -23,7 +23,12 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  figure: { description: string; cropPath: string | null } | null;
+  figure: {
+    description: string;
+    cropPath: string | null;
+    /** A short-lived link to the picture at `cropPath`, or null. */
+    imageUrl: string | null;
+  } | null;
   exerciseNumber: string | null;
   points: number | null;
 };

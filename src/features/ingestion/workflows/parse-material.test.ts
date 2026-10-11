@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { MockLanguageModelV4 } from "ai/test";
+import sharp from "sharp";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
@@ -253,6 +254,68 @@ describe("parsing a PDF Material", () => {
       }),
       expect.objectContaining({ owner: STUDENT, task: "ingest" }),
     ]);
+  });
+});
+
+describe("figures", () => {
+  const figureUnit = (box: unknown) =>
+    unit({
+      label: "figure",
+      markdown: "Plot of $y = x^2$",
+      figure: { description: "A parabola through the origin.", box },
+    });
+
+  test("crops a figure from its page image, stores the crop and references it from the chunk", async () => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    useMockModels({
+      ingest: pageModel([
+        { units: [figureUnit({ x: 0.1, y: 0.2, width: 0.5, height: 0.25 })] },
+        { units: [] },
+      ]).model,
+    });
+
+    await parseMaterial(MATERIAL);
+
+    const cropPath = `${STORAGE_PATH}/figures/1-0.png`;
+    const crop = db.files.read(BUCKET, cropPath);
+    expect(crop?.contentType).toBe("image/png");
+    const size = await sharp(crop?.bytes).metadata();
+    // 50% x 25% of a 1224x1584 page, plus 2% of 1584px padding on each side.
+    expect(size).toMatchObject({ width: 612 + 64, height: 396 + 64 });
+    expect(db.tables.chunks).toEqual([
+      expect.objectContaining({
+        figure: {
+          description: "A parabola through the origin.",
+          cropPath,
+        },
+      }),
+    ]);
+  });
+
+  test.each([
+    ["missing", null],
+    ["inverted", { x: 0.6, y: 0.5, width: -0.3, height: -0.2 }],
+    ["out of range", { x: 0.5, y: 0.5, width: 2, height: 0.2 }],
+  ])("references the whole page image when the box is %s", async (_, box) => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    useMockModels({
+      ingest: pageModel([{ units: [figureUnit(box)] }, { units: [] }]).model,
+    });
+
+    await parseMaterial(MATERIAL);
+
+    const pageImage = `${STORAGE_PATH}/pages/1.png`;
+    expect(db.tables.chunks).toEqual([
+      expect.objectContaining({
+        figure: {
+          description: "A parabola through the origin.",
+          cropPath: pageImage,
+        },
+      }),
+    ]);
+    expect(db.files.paths(BUCKET)).not.toContain(
+      `${STORAGE_PATH}/figures/1-0.png`,
+    );
   });
 });
 
