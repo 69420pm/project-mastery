@@ -1,5 +1,6 @@
 import { parseFailureReason } from "@/features/ingestion/domain/parse-failure";
 import { chunkMaterial } from "@/features/ingestion/workflows/chunk-material";
+import { pairMaterialCourse } from "@/features/ingestion/workflows/pair-exercises";
 import {
   failParse,
   preparePages,
@@ -28,7 +29,11 @@ export async function parseMaterial(materialId: string): Promise<void> {
       }
     }
     const outcome = await chunkMaterial(materialId);
-    if (!outcome.ok) await failParse(materialId, outcome.reason);
+    if (!outcome.ok) {
+      await failParse(materialId, outcome.reason);
+      return;
+    }
+    await pairMaterialCourse(materialId);
   } catch (error) {
     await failParse(materialId, parseFailureReason(error));
   }
