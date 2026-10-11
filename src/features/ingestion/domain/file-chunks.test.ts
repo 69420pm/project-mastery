@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  chunksFromFileResult,
   coverageProblems,
   materialUnits,
   type FileChunk,
@@ -62,6 +63,46 @@ describe("materialUnits", () => {
       points: null,
       figure: null,
     });
+  });
+});
+
+describe("chunksFromFileResult", () => {
+  const withFigure = (
+    markdown: string,
+    description: string,
+    cropPath: string,
+  ) => ({
+    ...unit(markdown),
+    figure: { description, cropPath },
+  });
+
+  test("keeps the description of every figure a chunk merges, and the first crop", () => {
+    const units = materialUnits([
+      {
+        pageNumber: 1,
+        units: [
+          withFigure("a", "A parabola.", "m/figures/1-0.png"),
+          withFigure("b", "A line.", "m/figures/1-1.png"),
+          unit("c"),
+        ],
+      },
+    ]);
+
+    const [stored] = chunksFromFileResult(units, [
+      chunk(["p1u1", "p1u2", "p1u3"]),
+    ]);
+
+    expect(stored?.figure).toEqual({
+      description: "A parabola.\n\nA line.",
+      cropPath: "m/figures/1-0.png",
+    });
+  });
+
+  test("gives a chunk without a figure none", () => {
+    const [stored] = chunksFromFileResult(materialUnits(pages), [
+      chunk(["p1u1", "p1u2"]),
+    ]);
+    expect(stored?.figure).toBeNull();
   });
 });
 

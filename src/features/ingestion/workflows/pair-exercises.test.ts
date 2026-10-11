@@ -15,6 +15,8 @@ import {
   type CannedPairing,
   type SentPairing,
 } from "@/features/ingestion/workflows/parse-testing";
+import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
+import { mockEmbeddingModel } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -251,6 +253,40 @@ describe("pairing exercises with solutions", () => {
     expect(storedPairs(db)).toEqual([
       { exercise: "Bonus task.", solution: null, status: "no_solution" },
     ]);
+  });
+
+  test("a parse that reaches the Daily limit while pairing fails with that reason", async () => {
+    upload(SHEET, "Sheet 7");
+    upload(SOLUTIONS, "Solutions 7");
+    const { model, pairingPrompts } = pageModel([
+      { units: [exercise(null, "Bonus task.")] },
+      { units: [solution(null, "Bonus answer.")] },
+    ]);
+    // The solution sheet's embeds use up the rest of the Daily limit.
+    const embed = mockEmbeddingModel();
+    const doEmbed = embed.doEmbed;
+    let embeds = 0;
+    embed.doEmbed = async (options) => {
+      if (++embeds === 2) {
+        vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+        db.tables.ai_usage.push({
+          owner: STUDENT,
+          task: "chat",
+          cost_usd: 1000,
+          created_at: new Date().toISOString(),
+        });
+      }
+      return doEmbed.call(embed, options);
+    };
+    useMockModels({ ingest: model, embed });
+
+    await parseMaterial(SHEET);
+    await parseMaterial(SOLUTIONS);
+
+    const solutions = db.tables.materials.find((m) => m.id === SOLUTIONS);
+    expect(solutions?.parse_status).toBe("failed");
+    expect(solutions?.parse_failure).toBe(dailyLimitReason);
+    expect(pairingPrompts).toHaveLength(0);
   });
 
   test("deleting the solution Material un-pairs its exercises when pairing runs again", async () => {

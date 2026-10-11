@@ -41,7 +41,11 @@ export async function parseMaterial(materialId: string): Promise<void> {
       await failParse(materialId, embedded.reason);
       return;
     }
-    await pairMaterialCourse(materialId);
+    const paired = await pairMaterialCourse(materialId);
+    if (!paired.ok) {
+      await failParse(materialId, paired.reason);
+      return;
+    }
     await markParsed(materialId);
   } catch (error) {
     await failParse(materialId, parseFailureReason(error));
