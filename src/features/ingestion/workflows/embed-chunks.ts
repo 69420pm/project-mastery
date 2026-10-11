@@ -69,14 +69,14 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
       { studentId },
     );
 
-    for (const [index, chunk] of batch.entries()) {
-      const { error } = await supabase
-        .from("chunks")
-        // pgvector reads its text form, such as "[0.1,0.2]".
-        .update({ embedding: JSON.stringify(result.embeddings[index]) })
-        .eq("id", chunk.id);
-      if (error) fail("Storing a chunk's embedding", error);
-    }
+    // One transaction per batch. pgvector reads the text form "[0.1,0.2]".
+    const { error } = await supabase.rpc("set_chunk_embeddings", {
+      p_embeddings: batch.map((chunk, index) => ({
+        id: chunk.id,
+        embedding: JSON.stringify(result.embeddings[index]),
+      })),
+    });
+    if (error) fail("Storing the chunk embeddings", error);
   }
   return { ok: true };
 }

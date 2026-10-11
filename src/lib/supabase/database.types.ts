@@ -424,6 +424,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      set_chunk_embeddings: {
+        Args: { p_embeddings: Json };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

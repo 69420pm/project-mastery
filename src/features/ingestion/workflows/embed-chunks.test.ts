@@ -97,6 +97,33 @@ describe("the embed step of a parse", () => {
     expect(embed.doEmbedCalls).toHaveLength(0);
   });
 
+  test("a parse started again after a failed embed keeps the chunks and embeds only those without a vector", async () => {
+    seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
+    const { model, filePrompts } = twoPages();
+    const embed = mockEmbeddingModel(4);
+    useMockModels({ ingest: model, embed });
+    await parseMaterial(db.tables.materials[0]!.id as string);
+
+    // The embed step stored a vector for the first chunk, then failed.
+    const [first, ...rest] = db.tables.chunks.toSorted(
+      (a, b) => Number(a.position) - Number(b.position),
+    );
+    for (const chunk of rest) delete chunk.embedding;
+    const firstId = first!.id;
+    db.tables.materials[0]!.parse_status = "failed";
+    embed.doEmbedCalls.length = 0;
+    const usageBefore = db.tables.ai_usage.length;
+
+    await parseMaterial(db.tables.materials[0]!.id as string);
+
+    expect(filePrompts).toHaveLength(1);
+    expect(db.tables.chunks.map((chunk) => chunk.id)).toContain(firstId);
+    expect(embeddedValues(embed).toSorted()).toEqual(["Beta.", "Gamma."]);
+    expect(db.tables.chunks.every((chunk) => chunk.embedding)).toBe(true);
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+    expect(db.tables.ai_usage).toHaveLength(usageBefore + 1);
+  });
+
   test("a retry embeds only the chunks without a vector", async () => {
     seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
     const embed = mockEmbeddingModel(4);
