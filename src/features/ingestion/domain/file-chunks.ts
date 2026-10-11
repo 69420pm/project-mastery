@@ -148,8 +148,9 @@ export function coverageProblems(
 /**
  * The chunks to store from a file call's chunks that passed
  * `coverageProblems`, in reading order. A chunk's markdown is its units'
- * markdown joined, not regenerated, and its pages and figure (the first one
- * of its units) come from its units.
+ * markdown joined, not regenerated, and its pages and figure come from its
+ * units. A chunk has one figure: the crop of its first figure, described by
+ * the descriptions of all its units' figures, so none is lost.
  */
 export function chunksFromFileResult(
   units: readonly MaterialUnit[],
@@ -167,7 +168,8 @@ export function chunksFromFileResult(
       (a, b) => (indexOf.get(a.first.id) ?? 0) - (indexOf.get(b.first.id) ?? 0),
     )
     .map(({ chunk, members, first, last }, position) => {
-      const figure = members.find(({ unit }) => unit.figure)?.unit.figure;
+      const figures = members.flatMap(({ unit }) => unit.figure ?? []);
+      const figure = figures[0];
       return {
         position,
         pageFrom: first.pageNumber,
@@ -176,7 +178,9 @@ export function chunksFromFileResult(
         markdown: members.map(({ unit }) => unit.markdown).join("\n\n"),
         figure: figure
           ? {
-              description: figure.description,
+              description: figures
+                .map(({ description }) => description)
+                .join("\n\n"),
               cropPath: figure.cropPath,
             }
           : null,

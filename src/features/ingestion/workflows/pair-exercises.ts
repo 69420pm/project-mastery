@@ -12,10 +12,12 @@ import {
   type ExercisePair,
   type PairingChunk,
 } from "@/features/ingestion/domain/exercise-pairing";
+import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
   dailyQuotaAsNull,
   fail,
   loadMaterial,
+  type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
@@ -49,16 +51,24 @@ export async function pairCourse(courseId: string): Promise<void> {
 
 async function pairCourseStep(courseId: string): Promise<void> {
   "use step";
-  await pairExercises(createAdminClient(), courseId);
+  // No parse to fail: what the Daily limit leaves has no solution until the
+  // next pass.
+  await pairExercises(createAdminClient(), courseId, "leave-unpaired");
 }
 
-/** The pairing pass of a parse, for the Course of its Material. */
-export async function pairMaterialCourse(materialId: string): Promise<void> {
+/**
+ * The pairing pass of a parse, for the Course of its Material. A reached
+ * Daily limit ends it with that reason, storing nothing, so the parse fails
+ * and a retry pairs again.
+ */
+export async function pairMaterialCourse(
+  materialId: string,
+): Promise<ParseOutcome> {
   "use step";
   const supabase = createAdminClient();
   const material = await loadMaterial(supabase, materialId);
-  if (!material) return;
-  await pairExercises(supabase, material.course_id);
+  if (!material) return { ok: true };
+  return pairExercises(supabase, material.course_id, "fail");
 }
 
 type CourseChunks = {
@@ -66,6 +76,9 @@ type CourseChunks = {
   exercises: Array<PairingChunk & { markdown: string }>;
   solutions: Array<PairingChunk & { markdown: string }>;
 };
+
+/** What a pass does at the Daily limit: fail the parse, or store no solution. */
+type AtLimit = "fail" | "leave-unpaired";
 
 /** How many passes one step runs before it fails and the step retries. */
 const MAX_PASSES = 3;
@@ -80,10 +93,13 @@ const MAX_PASSES = 3;
 async function pairExercises(
   supabase: AdminSupabase,
   courseId: string,
-): Promise<void> {
+  atLimit: AtLimit,
+): Promise<ParseOutcome> {
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    await runPass(supabase, courseId);
-    if (await everySubtaskHasPair(supabase, courseId)) return;
+    if ((await runPass(supabase, courseId, atLimit)) === "limit") {
+      return { ok: false, reason: dailyLimitReason };
+    }
+    if (await everySubtaskHasPair(supabase, courseId)) return { ok: true };
   }
   throw new Error(
     "Pairing left exercises of the Course without a pair: later passes kept outdating this one.",
@@ -111,21 +127,25 @@ async function everySubtaskHasPair(
   );
 }
 
-/** One pairing pass; it writes only while it is the latest request. */
+/**
+ * One pairing pass; it writes only while it is the latest request. "limit"
+ * when the Daily limit stopped it and `atLimit` is "fail": it wrote nothing.
+ */
 async function runPass(
   supabase: AdminSupabase,
   courseId: string,
-): Promise<void> {
+  atLimit: AtLimit,
+): Promise<"done" | "limit"> {
   const requested = await supabase.rpc("request_exercise_pairing", {
     p_course_id: courseId,
   });
   if (requested.error) fail("Requesting a pairing pass", requested.error);
   // The Course is gone.
-  if (requested.data === null) return;
+  if (requested.data === null) return "done";
   const request = requested.data;
 
   const course = await loadCourseChunks(supabase, courseId);
-  if (!course) return;
+  if (!course) return "done";
   const subtasks = exerciseSubtasks(course.exercises);
   const byNumber = pairByNumber(subtasks, course.solutions);
   const byContent = await pairByContent(
@@ -134,13 +154,13 @@ async function runPass(
     withMarkdown(byNumber.unpairedExercises, course.exercises),
     withMarkdown(byNumber.unpairedSolutions, course.solutions),
   );
-  if (byContent === "outdated") return;
+  if (byContent === "outdated") return "done";
+  if (byContent === "limit" && atLimit === "fail") return "limit";
 
   const solutionOf = new Map(
-    [...byNumber.pairs, ...byContent].map((pair) => [
-      pair.exerciseId,
-      pair.solutionId,
-    ]),
+    [...byNumber.pairs, ...(byContent === "limit" ? [] : byContent)].map(
+      (pair) => [pair.exerciseId, pair.solutionId],
+    ),
   );
   const written = await supabase.rpc("replace_exercise_solutions", {
     p_course_id: courseId,
@@ -151,6 +171,7 @@ async function runPass(
     })),
   });
   if (written.error) fail("Storing the exercise pairs", written.error);
+  return "done";
 }
 
 /** The Course's owner with its exercise and solution chunks, in order. */
@@ -201,16 +222,16 @@ function withMarkdown(
 
 /**
  * Pairs what numbers left by content, in one call: none when either side is
- * empty, the Daily limit is reached or the provider's daily quota is used
- * up, so those exercises have no solution until the next pass. "outdated"
- * when a later pass was requested meanwhile, before spending the call.
+ * empty. "limit" when the Daily limit is reached or the provider's daily
+ * quota is used up. "outdated" when a later pass was requested meanwhile,
+ * before spending the call.
  */
 async function pairByContent(
   supabase: AdminSupabase,
   pass: { courseId: string; request: number; studentId: string },
   exercises: Array<PairingChunk & { markdown: string }>,
   solutions: Array<PairingChunk & { markdown: string }>,
-): Promise<ExercisePair[] | "outdated"> {
+): Promise<ExercisePair[] | "outdated" | "limit"> {
   const offeredExercises = offer(exercises, "e");
   const offeredSolutions = offer(solutions, "s");
   if (!isNonEmpty(offeredExercises) || !isNonEmpty(offeredSolutions)) {
@@ -220,7 +241,7 @@ async function pairByContent(
 
   const { studentId } = pass;
   const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") return [];
+  if (dailyLimit.level === "reached") return "limit";
   const settings = contentPairingSettings(offeredExercises, offeredSolutions);
   const result = await withTraceAttributes(
     { userId: studentId, traceName: "pair-exercises" },
@@ -230,7 +251,7 @@ async function pairByContent(
         messages: contentPairingMessages(offeredExercises, offeredSolutions),
       }),
   ).catch(dailyQuotaAsNull);
-  if (!result) return [];
+  if (!result) return "limit";
   await recordAiUsage(
     supabase,
     {
