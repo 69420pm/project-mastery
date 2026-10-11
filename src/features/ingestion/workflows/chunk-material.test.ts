@@ -292,6 +292,49 @@ describe("the file call of a parse", () => {
     ]);
   });
 
+  test("parses a Material with a blank page, which gets an admin chunk", async () => {
+    seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
+    const { model, filePrompts } = pageModel([
+      { units: [unit({ markdown: "Content" })] },
+      { units: [] },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+    expect(sentUnits(filePrompts[0]).map(({ id, page }) => [id, page])).toEqual(
+      [
+        ["p1u1", 1],
+        ["p2u1", 2],
+      ],
+    );
+    expect(storedChunks(db)).toEqual([
+      expect.objectContaining({ page_from: 1, markdown: "Content" }),
+      expect.objectContaining({
+        page_from: 2,
+        page_to: 2,
+        label: "admin",
+        markdown: "This page has no content.",
+      }),
+    ]);
+  });
+
+  test("parses a Material whose every page is blank", async () => {
+    seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
+    useMockModels({
+      ingest: pageModel([{ units: [] }, { units: [] }], {
+        chunks: [chunk(["p1u1"], "admin"), chunk(["p2u1"], "admin")],
+        exam: null,
+      }).model,
+    });
+
+    await parseMaterial(MATERIAL);
+
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+    expect(storedChunks(db).map(({ page_from }) => page_from)).toEqual([1, 2]);
+  });
+
   test("checks the Daily limit before the file call, and a reached limit fails the parse", async () => {
     // The page call's own cost reaches this limit.
     vi.stubEnv("AI_DAILY_LIMIT_USD", "0.0000001");

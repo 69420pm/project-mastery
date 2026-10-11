@@ -119,16 +119,21 @@ export type CannedFileResult = {
   } | null;
 };
 
-/** The file call's answer when a test gives none: one chunk per unit. */
+/**
+ * The file call's answer when a test gives none: one chunk per unit, and an
+ * admin chunk for the placeholder unit of a page without units.
+ */
 function chunkPerUnit(pages: CannedPage[]): CannedFileResult {
   return {
     chunks: pages.flatMap((page, pageIndex) =>
-      page.units.map((unit, unitIndex) => ({
-        unitIds: [`p${pageIndex + 1}u${unitIndex + 1}`],
-        label: String(unit.label),
-        exerciseNumber: (unit.exerciseNumber as string | null) ?? null,
-        points: (unit.points as number | null) ?? null,
-      })),
+      (page.units.length > 0 ? page.units : [unit({ label: "admin" })]).map(
+        (pageUnit, unitIndex) => ({
+          unitIds: [`p${pageIndex + 1}u${unitIndex + 1}`],
+          label: String(pageUnit.label),
+          exerciseNumber: (pageUnit.exerciseNumber as string | null) ?? null,
+          points: (pageUnit.points as number | null) ?? null,
+        }),
+      ),
     ),
     exam: null,
   };

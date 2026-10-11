@@ -44,6 +44,25 @@ describe("materialUnits", () => {
       ["p3u1", 3, "d"],
     ]);
   });
+
+  test("gives a page without units one admin unit, so a chunk can cover it", () => {
+    const units = materialUnits([
+      { pageNumber: 1, units: [unit("a")] },
+      { pageNumber: 2, units: [] },
+    ]);
+
+    expect(units.map(({ id, pageNumber }) => [id, pageNumber])).toEqual([
+      ["p1u1", 1],
+      ["p2u1", 2],
+    ]);
+    expect(units[1]?.unit).toMatchObject({
+      label: "admin",
+      markdown: "This page has no content.",
+      exerciseNumber: null,
+      points: null,
+      figure: null,
+    });
+  });
 });
 
 describe("coverageProblems", () => {
@@ -81,6 +100,16 @@ describe("coverageProblems", () => {
   });
 
   test("reports a page no chunk covers", () => {
+    expect(
+      coverageProblems(
+        units,
+        [chunk(["p1u1", "p1u2"]), chunk(["p2u1"]), chunk(["p3u1"])],
+        [1, 2, 3, 4],
+      ),
+    ).toEqual(["Page 4 is in no chunk."]);
+  });
+
+  test("covers a stored page without units through its placeholder unit", () => {
     const withBlankPage = materialUnits([
       ...pages,
       { pageNumber: 4, units: [] },
@@ -88,16 +117,20 @@ describe("coverageProblems", () => {
     expect(
       coverageProblems(
         withBlankPage,
-        [chunk(["p1u1", "p1u2"]), chunk(["p2u1"]), chunk(["p3u1"])],
+        [
+          chunk(["p1u1", "p1u2"]),
+          chunk(["p2u1"]),
+          chunk(["p3u1"]),
+          chunk(["p4u1"]),
+        ],
         [1, 2, 3, 4],
       ),
-    ).toEqual(["Page 4 is in no chunk."]);
+    ).toEqual([]);
   });
 
   test("counts a page inside a chunk's page range as covered", () => {
     const withMiddleFigure = materialUnits([
       { pageNumber: 1, units: [unit("a")] },
-      { pageNumber: 2, units: [] },
       { pageNumber: 3, units: [unit("b")] },
     ]);
     expect(

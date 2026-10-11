@@ -40,8 +40,23 @@ export type FileChunk = {
 };
 
 /**
+ * Stands in for the units of a page the page call found nothing on (blank,
+ * or only a logo), so a chunk covers every page.
+ */
+const EMPTY_PAGE_UNIT: StoredUnit = {
+  markdown: "This page has no content.",
+  label: "admin",
+  exerciseNumber: null,
+  points: null,
+  figure: null,
+  continuesFromPreviousPage: false,
+  continuesOnNextPage: false,
+};
+
+/**
  * Every unit of a Material in reading order, by page and then by its place
- * on the page, each with an id such as `p2u1` (page 2, first unit).
+ * on the page, each with an id such as `p2u1` (page 2, first unit). A page
+ * without units gets one admin unit saying so.
  */
 export function materialUnits(
   pages: ReadonlyArray<{ pageNumber: number; units: readonly StoredUnit[] }>,
@@ -49,7 +64,7 @@ export function materialUnits(
   return pages
     .toSorted((a, b) => a.pageNumber - b.pageNumber)
     .flatMap(({ pageNumber, units }) =>
-      units.map((unit, index) => ({
+      (units.length > 0 ? units : [EMPTY_PAGE_UNIT]).map((unit, index) => ({
         id: `p${pageNumber}u${index + 1}`,
         pageNumber,
         unit,
