@@ -23,9 +23,13 @@ function createDb() {
             row.id === material_id &&
             row.owner === signedIn &&
             (row.parse_status === "not_parsed" ||
-              row.parse_status === "failed"),
+              row.parse_status === "failed" ||
+              (row.parse_status === "queued" && row.parse_start_failed)),
         );
-        if (material) material.parse_status = "queued";
+        if (material) {
+          material.parse_status = "queued";
+          material.parse_start_failed = false;
+        }
         return Boolean(material);
       },
     },
@@ -44,11 +48,12 @@ vi.mock("workflow/api", () => ({ start: startWorkflow }));
 const { parseMaterial } = await import("@/features/ingestion/server");
 const { startMaterialParse } = await import("./actions");
 
-function seedMaterial(parseStatus: string) {
+function seedMaterial(parseStatus: string, startFailed = false) {
   db.tables.materials.push({
     id: MATERIAL,
     owner: STUDENT,
     parse_status: parseStatus,
+    parse_start_failed: startFailed,
   });
 }
 
@@ -86,6 +91,19 @@ describe("startMaterialParse", () => {
       expect(startWorkflow).not.toHaveBeenCalled();
     },
   );
+
+  test("starts the parse of a queued Material whose workflow did not start, once", async () => {
+    seedMaterial("queued", true);
+
+    await Promise.all([
+      startMaterialParse({ materialId: MATERIAL }),
+      startMaterialParse({ materialId: MATERIAL }),
+    ]);
+
+    expect(startWorkflow).toHaveBeenCalledExactlyOnceWith(parseMaterial, [
+      MATERIAL,
+    ]);
+  });
 
   test("starts one parse when pressed twice at once", async () => {
     seedMaterial("failed");

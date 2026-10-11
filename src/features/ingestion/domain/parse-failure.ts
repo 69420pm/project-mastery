@@ -14,6 +14,28 @@ export function pageUnreadableReason(pageNumber: number): string {
   return `The AI could not read page ${pageNumber}`;
 }
 
-/** Any other step failed for good. */
+/** Any other step failed for good, such as a Database or Storage failure. */
 export const parseFailedReason =
   "The material could not be parsed. Please try again.";
+
+const REASON_PREFIX = "Parse failure: ";
+
+/**
+ * An error a step throws when it knows the Student's reason: the file or the
+ * page call is at fault. The reason travels in the message, which the
+ * workflow runtime keeps when it hands a step's error to the workflow.
+ */
+export function parseFailureError(reason: string): Error {
+  return new Error(`${REASON_PREFIX}${reason}`);
+}
+
+/**
+ * The Student's reason for a parse that failed with `error`: the one a step
+ * gave, or the general reason for any other error.
+ */
+export function parseFailureReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  return message.startsWith(REASON_PREFIX)
+    ? message.slice(REASON_PREFIX.length)
+    : parseFailedReason;
+}
