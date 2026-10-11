@@ -1,6 +1,6 @@
 ---
 id: Q-013
-status: awaiting-pdfs
+status: done
 priority: high
 principles: [2, 3, 4, 8]
 ---
@@ -29,4 +29,9 @@ Read [ARCHITECTURE-PROPOSAL.md](../ARCHITECTURE-PROPOSAL.md) for how the topic m
 
 ## Outcome
 
-Not researched yet.
+[Synthesis](../syntheses/Q-013.md), overall grade C for the two-layer unit and the build pipeline, D for knowledge kinds and map repair. Rules:
+
+- [DR-001](../design-rules/DR-001-kcs-for-tagging-topics-for-estimates.md): Tag everything to knowledge components; estimate and report readiness on topics. Grade C.
+- [DR-002](../design-rules/DR-002-build-map-from-anchored-kcs.md): Build the map from task-anchored, de-duplicated KCs with soft prerequisite edges. Grade C.
+- [DR-003](../design-rules/DR-003-knowledge-kind-as-item-hint.md): Use a KC's knowledge kind only as a hint for item design. Grade D.
+- [DR-004](../design-rules/DR-004-versioned-map-and-kc-event-log.md): Version the map and log attempts against stable KC ids so it can be repaired from pooled data. Grade D.

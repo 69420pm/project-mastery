@@ -3,7 +3,7 @@ doi: 10.48550/arxiv.2511.09935
 read: abstract
 type: lab experiment
 quality: low
-transfer: near
+transfer: medium
 questions: [Q-013]
 ---
 
