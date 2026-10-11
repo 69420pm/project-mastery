@@ -294,7 +294,7 @@ export async function listMaterials(
   const { data, error } = await supabase
     .from("materials")
     .select(
-      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure",
+      "id, name, media_type, size_bytes, created_at, updated_at, parse_status, pages_done, pages_total, parse_failure",
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -310,6 +310,7 @@ export async function listMaterials(
       pagesDone: row.pages_done,
       pagesTotal: row.pages_total,
       failure: row.parse_failure,
+      updatedAt: row.updated_at,
     },
   }));
 }

@@ -247,12 +247,22 @@ describe("the daily quota of the model provider", () => {
 describe("deleting the Material while it parses", () => {
   test("stops the parse quietly and leaves no rows or files behind", async () => {
     await seedLecture();
-    const model = pageModel(
-      [pageResult("Page one"), pageResult("Page two")],
-      (call) => {
-        if (call === 1) deleteMaterial();
-      },
-    );
+    // Page one has a figure, whose crop is stored after the delete.
+    const withFigure = {
+      units: [
+        {
+          ...pageResult("Plot of $y = x^2$").units[0],
+          label: "figure",
+          figure: {
+            description: "A parabola.",
+            box: { x: 0.1, y: 0.2, width: 0.5, height: 0.25 },
+          },
+        },
+      ],
+    };
+    const model = pageModel([withFigure, pageResult("Page two")], (call) => {
+      if (call === 1) deleteMaterial();
+    });
     useMockModels({ ingest: model.model });
 
     await parseMaterial(MATERIAL);
@@ -287,6 +297,29 @@ describe("deleting the Material while it parses", () => {
     expect(model.calls()).toBe(0);
     expect(db.tables.materials).toEqual([]);
     expect(db.files.paths(BUCKET)).toEqual([]);
+  });
+});
+
+describe("a started parse", () => {
+  test("leaves `queued` before its pages render, so Parse is not offered while it runs", async () => {
+    await seedLecture();
+    useMockModels({ ingest: pageModel([]).model });
+    const statuses: unknown[] = [];
+    const from = db.storage.from;
+    db.storage.from = (bucket: string) => {
+      const store = from(bucket);
+      return {
+        ...store,
+        upload: async (...args: Parameters<typeof store.upload>) => {
+          statuses.push(material()?.parse_status);
+          return store.upload(...args);
+        },
+      };
+    };
+
+    await parseMaterial(MATERIAL);
+
+    expect(statuses).toEqual(["parsing", "parsing"]);
   });
 });
 

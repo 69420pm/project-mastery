@@ -168,6 +168,31 @@ describe("fakeSupabase Storage", () => {
   });
 });
 
+describe("fakeSupabase functions", () => {
+  it("runs a database function the test defines, with its arguments and the tables", async () => {
+    const db = fakeSupabase({
+      tables: { materials: [{ id: "material-1", parse_status: "failed" }] },
+      functions: {
+        status_of: ({ material_id }, tables) =>
+          tables.materials.find((row) => row.id === material_id)?.parse_status,
+      },
+    });
+
+    expect(await db.rpc("status_of", { material_id: "material-1" })).toEqual({
+      data: "failed",
+      error: null,
+    });
+  });
+
+  it("fails an unknown function as PostgREST does", async () => {
+    const db = fakeSupabase({ tables: {} });
+
+    expect((await db.rpc("missing", {})).error).toMatchObject({
+      code: "PGRST202",
+    });
+  });
+});
+
 describe("fakeSupabase foreign keys", () => {
   it("refuses a row whose referenced row is missing, as Postgres does", async () => {
     const db = fakeSupabase({

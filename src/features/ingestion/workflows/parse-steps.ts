@@ -102,6 +102,12 @@ export async function preparePages(
   const supabase = createAdminClient();
   const material = await loadMaterial(supabase, materialId);
   if (!material) return null;
+  // Out of `queued` at once, where Parse is offered when a start failed.
+  const started = await supabase
+    .from("materials")
+    .update({ parse_status: "parsing", parse_failure: null })
+    .eq("id", materialId);
+  if (started.error) fail("Starting the parse", started.error);
   const stored = await storedPageNumbers(supabase, materialId);
 
   let pages: PreparedPage[];
@@ -141,15 +147,11 @@ export async function preparePages(
     .select("id");
   if (error) fail("Starting the parse", error);
   if (data.length === 0) {
-    // Deleted while its pages rendered: the delete may have run before the
-    // last uploads, so remove the page images again.
-    const rendered = pages
-      .map((page) => page.imagePath)
-      .filter((path) => path !== material.storage_path);
-    if (rendered.length > 0) {
-      const removed = await supabase.storage.from(BUCKET).remove(rendered);
-      if (removed.error) fail("Removing the page images", removed.error);
-    }
+    // Deleted while its pages rendered.
+    await removeFiles(
+      supabase,
+      pages.map((page) => page.imagePath),
+    );
     return null;
   }
   return pages;
@@ -216,13 +218,33 @@ export async function readPage(
     image_path: page.imagePath,
     units,
   });
-  // 23503: the Material was deleted during the call, so stop quietly.
-  if (stored.error?.code === FOREIGN_KEY_VIOLATION) return { ok: true };
+  // 23503: the Material was deleted during the call, so stop quietly, and
+  // remove the crops stored after its files were removed.
+  if (stored.error?.code === FOREIGN_KEY_VIOLATION) {
+    await removeFiles(
+      supabase,
+      units.flatMap((unit) => unit.figure?.cropPath ?? []),
+    );
+    return { ok: true };
+  }
   if (stored.error) fail(`Storing page ${page.pageNumber}`, stored.error);
   return recordProgress(supabase, materialId);
 }
 
 const FOREIGN_KEY_VIOLATION = "23503";
+
+/**
+ * Removes files a step stored for a Material that was deleted meanwhile,
+ * since the delete may have removed its files before the step stored them.
+ */
+async function removeFiles(
+  supabase: AdminSupabase,
+  paths: string[],
+): Promise<void> {
+  if (paths.length === 0) return;
+  const { error } = await supabase.storage.from(BUCKET).remove(paths);
+  if (error) fail("Removing the files of a deleted Material", error);
+}
 
 /** A model call's error, or null for a used-up daily quota of the provider. */
 function dailyQuotaAsNull(error: unknown): null {
