@@ -1,3 +1,5 @@
+import type { ParseState } from "@/features/ingestion";
+
 /** A Course as the Course list shows it. */
 export type CourseListItem = {
   id: string;
@@ -12,6 +14,8 @@ export type MaterialListItem = {
   sizeBytes: number;
   /** When it was uploaded, as an ISO timestamp. */
   createdAt: string;
+  /** How far its parse is. */
+  parse: ParseState;
 };
 
 /** A Material with where its file is, for reading the file on the server. */

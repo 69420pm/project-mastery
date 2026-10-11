@@ -7,6 +7,7 @@ import type {
   MaterialListItem,
   StoredMaterial,
 } from "@/features/courses/types";
+import type { ParseStatus } from "@/features/ingestion";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -259,7 +260,9 @@ export async function listMaterials(
 ): Promise<MaterialListItem[]> {
   const { data, error } = await supabase
     .from("materials")
-    .select("id, name, media_type, size_bytes, created_at")
+    .select(
+      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure",
+    )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
   if (error) fail("Loading the Materials", error);
@@ -269,5 +272,11 @@ export async function listMaterials(
     mediaType: row.media_type,
     sizeBytes: row.size_bytes,
     createdAt: row.created_at,
+    parse: {
+      status: row.parse_status as ParseStatus,
+      pagesDone: row.pages_done,
+      pagesTotal: row.pages_total,
+      failure: row.parse_failure,
+    },
   }));
 }

@@ -109,19 +109,36 @@ export async function storedFilePaths(
     .storage.from(MATERIALS_BUCKET)
     .list(folder, { limit: 1000 });
   if (error) throw new Error(`Listing files failed: ${error.message}`);
-  return data.map((file) => `${folder}/${file.name}`);
+  // Folders (no id), such as a Material's rendered pages, are not uploads.
+  return data
+    .filter((file) => file.id !== null)
+    .map((file) => `${folder}/${file.name}`);
 }
 
-/** Removes a Student's uploaded files, which deleting them leaves behind. */
-async function deleteStudentFiles(student: Student) {
-  const bucket = adminClient().storage.from(MATERIALS_BUCKET);
-  const { data: courses, error } = await bucket.list(student.id, {
-    limit: 1000,
-  });
+/** Every file under `folder`, in subfolders too. */
+async function allFilePaths(folder: string): Promise<string[]> {
+  const { data, error } = await adminClient()
+    .storage.from(MATERIALS_BUCKET)
+    .list(folder, { limit: 1000 });
   if (error) throw new Error(`Listing files failed: ${error.message}`);
-  for (const course of courses) {
-    const paths = await storedFilePaths(student.id, course.name);
-    if (paths.length > 0) await bucket.remove(paths);
+  const nested = await Promise.all(
+    data.map(async (entry) =>
+      entry.id === null
+        ? allFilePaths(`${folder}/${entry.name}`)
+        : [`${folder}/${entry.name}`],
+    ),
+  );
+  return nested.flat();
+}
+
+/**
+ * Removes a Student's uploaded files and rendered pages, which deleting the
+ * Student leaves behind.
+ */
+async function deleteStudentFiles(student: Student) {
+  const paths = await allFilePaths(student.id);
+  if (paths.length > 0) {
+    await adminClient().storage.from(MATERIALS_BUCKET).remove(paths);
   }
 }
 

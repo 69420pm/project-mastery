@@ -158,6 +158,76 @@ export type Database = {
           },
         ];
       };
+      chunks: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          exercise_number: string | null;
+          figure: Json | null;
+          id: string;
+          label: string;
+          markdown: string;
+          material_id: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          points: number | null;
+          position: number;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          exercise_number?: string | null;
+          figure?: Json | null;
+          id?: string;
+          label: string;
+          markdown: string;
+          material_id: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          points?: number | null;
+          position: number;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          exercise_number?: string | null;
+          figure?: Json | null;
+          id?: string;
+          label?: string;
+          markdown?: string;
+          material_id?: string;
+          owner?: string;
+          page_from?: number;
+          page_to?: number;
+          points?: number | null;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chunks_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chunks_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chunks_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       courses: {
         Row: {
           created_at: string;
@@ -190,14 +260,66 @@ export type Database = {
           },
         ];
       };
+      material_pages: {
+        Row: {
+          created_at: string;
+          id: string;
+          image_path: string;
+          material_id: string;
+          owner: string;
+          page_number: number;
+          units: NonNullable<Json>;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          image_path: string;
+          material_id: string;
+          owner: string;
+          page_number: number;
+          units: NonNullable<Json>;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          image_path?: string;
+          material_id?: string;
+          owner?: string;
+          page_number?: number;
+          units?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "material_pages_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "material_pages_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       materials: {
         Row: {
           course_id: string;
           created_at: string;
+          exam_total_points: number | null;
+          exam_year: number | null;
           id: string;
+          is_exam: boolean | null;
           media_type: string;
           name: string;
           owner: string;
+          pages_done: number;
+          pages_total: number | null;
+          parse_failure: string | null;
+          parse_status: string;
           size_bytes: number;
           storage_path: string;
           updated_at: string;
@@ -205,10 +327,17 @@ export type Database = {
         Insert: {
           course_id: string;
           created_at?: string;
+          exam_total_points?: number | null;
+          exam_year?: number | null;
           id?: string;
+          is_exam?: boolean | null;
           media_type: string;
           name: string;
           owner?: string;
+          pages_done?: number;
+          pages_total?: number | null;
+          parse_failure?: string | null;
+          parse_status?: string;
           size_bytes: number;
           storage_path: string;
           updated_at?: string;
@@ -216,10 +345,17 @@ export type Database = {
         Update: {
           course_id?: string;
           created_at?: string;
+          exam_total_points?: number | null;
+          exam_year?: number | null;
           id?: string;
+          is_exam?: boolean | null;
           media_type?: string;
           name?: string;
           owner?: string;
+          pages_done?: number;
+          pages_total?: number | null;
+          parse_failure?: string | null;
+          parse_status?: string;
           size_bytes?: number;
           storage_path?: string;
           updated_at?: string;
