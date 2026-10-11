@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
-import type { Supabase } from "@/lib/supabase/types";
+import { markAdminClient } from "@/lib/supabase/admin-brand";
+import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -15,12 +16,14 @@ const STUDENT_B = "22222222-2222-2222-2222-222222222222";
 const NOW = new Date("2026-01-01T12:00:00.000Z");
 
 let rows: FakeRow[];
-let admin: Supabase;
+let admin: AdminSupabase;
 
 beforeEach(() => {
   rows = [];
   // The admin client a workflow has: no session, no Row Level Security.
-  admin = fakeSupabase({ tables: { ai_usage: rows } }) as unknown as Supabase;
+  admin = markAdminClient(
+    fakeSupabase({ tables: { ai_usage: rows } }) as unknown as Supabase,
+  );
 });
 
 // Google Gemini 3.5 Flash-Lite at $0.30 input and $2.50 output per million
@@ -92,5 +95,37 @@ describe("usage recorded for an explicit Student id", () => {
     });
     expect(viaAdmin.level).toBe("reached");
     expect(viaAdmin).toEqual(viaSession);
+  });
+});
+
+describe("the admin client without a Student id", () => {
+  test("refuses to check the Daily limit instead of summing every Student's spend", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    await recordAiUsage(admin, PARSE_CALL, { studentId: STUDENT_B });
+
+    // @ts-expect-error The admin client needs a Student id.
+    await expect(checkDailyLimit(admin, { now: NOW })).rejects.toThrow(
+      /Student id/,
+    );
+    // Even when its type was widened to a plain client.
+    const widened: Supabase = admin;
+    await expect(checkDailyLimit(widened, { now: NOW })).rejects.toThrow(
+      /Student id/,
+    );
+  });
+
+  test("refuses to check even without AI_DAILY_LIMIT_USD", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "");
+
+    // @ts-expect-error The admin client needs a Student id.
+    await expect(checkDailyLimit(admin)).rejects.toThrow(/Student id/);
+  });
+
+  test("refuses to record usage and stores nothing", async () => {
+    // @ts-expect-error The admin client needs a Student id.
+    await expect(recordAiUsage(admin, PARSE_CALL)).rejects.toThrow(
+      /Student id/,
+    );
+    expect(rows).toEqual([]);
   });
 });
