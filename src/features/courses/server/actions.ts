@@ -26,10 +26,12 @@ import {
   insertMaterial,
   removeCourseFiles,
   removeMaterial,
+  removeMaterialFiles,
   removeStoredFiles,
   signFileUrl,
   updateMaterialName,
 } from "@/features/courses/server/material-store";
+import { startPairing, startParse } from "@/features/ingestion/server";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -143,6 +145,9 @@ export async function registerMaterial(input: {
     return courseNotFound;
   }
 
+  // A new Material starts `queued` (the column default); its parse runs in
+  // the background.
+  await startParse(supabase, material.materialId);
   return { ok: true, data: { id: material.materialId } };
 }
 
@@ -172,8 +177,10 @@ export async function renameMaterial(input: {
 }
 
 /**
- * Deletes one of the Student's Materials for good: its file first, then the
- * Material, so a file never stays behind without one.
+ * Deletes one of the Student's Materials for good: its file, page images and
+ * figure crops first, then the Material, so no file stays behind without
+ * one, then the files again. A parse that is still running stops at its next
+ * step.
  */
 export async function deleteMaterial(input: {
   materialId: string;
@@ -185,13 +192,19 @@ export async function deleteMaterial(input: {
 
   const material = await findMaterial(supabase, parsed.data.materialId);
   if (!material) return materialNotFound;
-  if (!(await removeStoredFiles(supabase, [material.storagePath]))) {
+  if (!(await removeMaterialFiles(supabase, material.storagePath))) {
     return {
       ok: false,
       message: "The material could not be deleted. Please try again.",
     };
   }
   await removeMaterial(supabase, parsed.data.materialId);
+  // A running parse may have stored page images or crops between the two
+  // removals. Anything it stores later, it removes itself, as it finds the
+  // Material gone. A failure here is logged; the Material is gone.
+  await removeMaterialFiles(supabase, material.storagePath);
+  // Its exercises and solutions left their pairs; pair the rest again.
+  await startPairing(material.courseId);
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
@@ -274,6 +287,8 @@ export async function deleteCourse(input: {
   }
   const deleted = await removeCourse(supabase, courseId);
   if (!deleted) return courseNotFound;
+  // Again for files a running parse stored meanwhile, as in deleteMaterial.
+  await removeCourseFiles(supabase, user.id, courseId);
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };

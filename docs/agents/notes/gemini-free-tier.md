@@ -66,6 +66,10 @@ There is no way to ask the API key for remaining quota or usage:
 
 So an agent finds out by spending a request: send a tiny prompt (`"hi"`, `maxOutputTokens: 5`) to the model and read the status. That costs one RPD, so do it on flash-lite or not at all. `countTokens` is free of generation quota and is the way to size a prompt against TPM.
 
+## Embeddings
+
+`gemini-embedding-2` has its own quota, `embed_content_free_tier_requests` (limit 100 seen in a live 429, with "Please retry in 21s", so probably per minute; not confirmed). Each value in a `batchEmbedContents` call counts as one request, so one call of 28 chunks spends 28.
+
 ## Odd behaviour seen
 
 - A call to `gemini-3.7-flash` came back with `modelVersion: gemini-3.8-flash`, so older ids may be aliases and may share a quota. Check `modelVersion` before assuming which model answered.

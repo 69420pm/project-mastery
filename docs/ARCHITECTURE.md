@@ -41,7 +41,8 @@ flowchart LR
 | Database, auth, storage  | Supabase: Postgres with pgvector, Auth, Storage, Row Level Security       |
 | Data access              | supabase-js with generated types, SQL migrations through the Supabase CLI |
 | AI                       | Vercel AI SDK through Vercel AI Gateway                                   |
-| Background jobs          | Durable workflows: Vercel Workflow, to be confirmed against Inngest       |
+| Background jobs          | Durable workflows: Vercel Workflow                                        |
+| PDF pages to images      | unpdf with @napi-rs/canvas                                                |
 | Spaced repetition        | FSRS (`ts-fsrs`)                                                          |
 | LLM tracing and evals    | Langfuse                                                                  |
 | Errors, analytics, email | Sentry, PostHog, Resend                                                   |
@@ -87,7 +88,7 @@ app ──► features ──► components ──► hooks ──► lib
 ```
 
 - **`app/`** contains only Next.js files: `page`, `layout`, `loading`, `error`, `not-found`, `route` and metadata files. Pages fetch data through feature server code and compose feature components. Route handlers delegate to a feature in one line. Signed-in pages go in the `(app)` route group, and each page calls `requireUser` with its own path; its layouts only read the user for the shell (`components/app-shell.tsx`), since layouts do not re-render on navigation.
-- **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors. For example, `chat` depends on `courses`: a Chat belongs to a Course and attaches its Materials. `courses` never imports `chat`.
+- **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors. For example, `chat` depends on `courses`: a Chat belongs to a Course and attaches its Materials. `courses` never imports `chat`. Likewise `courses` depends on `ingestion`, which parses its Materials, and `ingestion` never imports `courses`.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
 - `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
@@ -120,6 +121,7 @@ Only the folders a feature needs exist. Inside a feature, files import each othe
 - **AI streaming:** `useChat` posts to a route handler in `app/api/`, which delegates to a handler exported from the feature's `server.ts`, which calls models through `aiTask`.
 - **File uploads:** Materials live in the private Storage bucket `course-files`, at `<owner id>/<course id>/<material id>`. The browser uploads the file straight to Storage, which its policies allow only under the Student's own id, then calls the `registerMaterial` Server Action in the `courses` feature, which checks the upload and stores the Material row. Files never pass through a server function, so their size is not bound by its request limit.
 - **Background jobs:** server code starts a workflow from the feature's `workflows/`. Steps that run without a user use the admin client and report progress to the database, where the UI reads it.
+- **Parsing:** the `ingestion` feature parses every Material once ([ADR 0007](adr/0007-ingest-each-upload-once.md)). `registerMaterial` in `courses` starts its workflow; the Material moves from `queued` through `parsing` to `parsed` or `failed`, and the Materials page polls while any Material is waiting or parsing. A PDF's pages are rendered to `<material path>/pages/<n>.png` in `course-files`, next to the upload; an image Material is its own one page. Page results go to `material_pages`, chunks to `chunks`, both readable only by their owner. The chunks are embedded, and every exercise of the Course is paired with its solution, again after a Material is deleted (ADR 0007). A step that fails for good sets `failed` with a short reason. Parse and Retry share the `startMaterialParse` Server Action. It queues the Material through the `queue_material_parse` database function, a conditional update, so two presses start one workflow. A retry renders and reads only the pages without a stored result. Deleting a Material or Course removes everything under its path in Storage, and a running parse stops at its next step.
 
 ### What the lint rules enforce
 
@@ -170,6 +172,5 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 
 ## Open questions
 
-- Durable workflow engine: Vercel Workflow (set up) or Inngest ([ADR 0009](adr/0009-durable-background-jobs.md)).
 - Models for ingestion, the Chat and embeddings, chosen by testing on real course materials.
 - Design direction: typography, color and motion.

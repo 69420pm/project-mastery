@@ -1,0 +1,134 @@
+// @vitest-environment node
+import { beforeEach, expect, test, vi } from "vitest";
+import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+import type { Supabase } from "@/lib/supabase/types";
+
+vi.mock("server-only", () => ({}));
+
+const STUDENT = "11111111-1111-1111-1111-111111111111";
+const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
+const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
+const CROP = `${STUDENT}/${COURSE}/${MATERIAL}/figures/1-0.png`;
+
+let db = fakeSupabase({ tables: {}, userId: STUDENT });
+vi.mock("@/lib/auth/user", () => ({ getUser: async () => ({ id: STUDENT }) }));
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => db as unknown as Supabase,
+}));
+
+const { getMaterialChunks } = await import("./chunk-queries");
+
+beforeEach(() => {
+  db = fakeSupabase({
+    tables: {
+      materials: [
+        {
+          id: MATERIAL,
+          course_id: COURSE,
+          name: "Lecture 1",
+          parse_status: "parsed",
+          is_exam: false,
+          exam_year: null,
+          exam_total_points: null,
+        },
+      ] as FakeRow[],
+      chunks: [
+        {
+          id: "c1",
+          material_id: MATERIAL,
+          position: 0,
+          page_from: 1,
+          page_to: 1,
+          label: "figure",
+          markdown: "Plot",
+          figure: { description: "A parabola.", cropPath: CROP },
+          exercise_number: null,
+          points: null,
+        },
+        {
+          id: "c2",
+          material_id: MATERIAL,
+          position: 1,
+          page_from: 2,
+          page_to: 2,
+          label: "content",
+          markdown: "Text",
+          figure: null,
+          exercise_number: null,
+          points: null,
+        },
+      ] as FakeRow[],
+      exercise_solutions: [] as FakeRow[],
+    },
+    userId: STUDENT,
+  });
+  db.files.seed("course-files", CROP, {
+    body: new Uint8Array([1]),
+    contentType: "image/png",
+  });
+});
+
+test("a figure chunk carries a short-lived signed URL for its picture, with its description", async () => {
+  const material = await getMaterialChunks(MATERIAL);
+
+  const [figure, text] = material?.chunks ?? [];
+  expect(figure?.figure).toEqual({
+    description: "A parabola.",
+    cropPath: CROP,
+    imageUrl: expect.stringContaining(`/course-files/${CROP}?`),
+  });
+  expect(figure?.figure?.imageUrl).toContain("expiresIn=3600");
+  expect(text?.figure).toBeNull();
+});
+
+test("an exercise carries its paired solution in another Material, or no solution", async () => {
+  const SOLUTIONS = "aaaaaaaa-0000-4000-8000-000000000051";
+  const exercise = (id: string, position: number, number: string) => ({
+    id,
+    material_id: MATERIAL,
+    position,
+    page_from: 3,
+    page_to: 3,
+    label: "exercise",
+    markdown: `Exercise ${number}`,
+    figure: null,
+    exercise_number: number,
+    points: 2,
+  });
+  const tables = db.tables as Record<string, FakeRow[]>;
+  tables.materials!.push({
+    id: SOLUTIONS,
+    course_id: COURSE,
+    name: "Solutions 7",
+    parse_status: "parsed",
+  });
+  tables.chunks!.push(exercise("e1", 2, "7.2a"), exercise("e2", 3, "7.2b"), {
+    id: "s1",
+    material_id: SOLUTIONS,
+    position: 0,
+    page_from: 1,
+    page_to: 1,
+    label: "solution",
+    markdown: "Since ...",
+    figure: null,
+    exercise_number: "7.2 a)",
+    points: null,
+  });
+  tables.exercise_solutions!.push(
+    { exercise_chunk_id: "e1", solution_chunk_id: "s1", status: "paired" },
+    { exercise_chunk_id: "e2", solution_chunk_id: null, status: "no_solution" },
+  );
+
+  const material = await getMaterialChunks(MATERIAL);
+
+  const [figure, , first, second] = material?.chunks ?? [];
+  expect(first?.solution).toEqual({
+    status: "paired",
+    chunkId: "s1",
+    materialId: SOLUTIONS,
+    materialName: "Solutions 7",
+    exerciseNumber: "7.2 a)",
+  });
+  expect(second?.solution).toEqual({ status: "no_solution" });
+  expect(figure?.solution).toBeNull();
+});

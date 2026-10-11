@@ -64,7 +64,7 @@ export const AI_TASKS = {
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
-    model: "google/gemini-3.8-flash",
+    model: "google/gemini-3.5-flash-lite",
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_INGEST",
   },

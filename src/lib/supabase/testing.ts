@@ -5,7 +5,8 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle) and emulates Row Level
+ * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle, and
+ * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
  * Real policies are tested with pgTAP (supabase/tests/database/).
@@ -21,6 +22,23 @@ export type FakeSupabaseOptions<Table extends string> = {
   tables: Record<Table, FakeRow[]>;
   /** Column defaults per table, like the schema's `default` clauses. */
   defaults?: Partial<Record<Table, () => FakeRow>>;
+  /**
+   * Foreign keys per table, as `{ column: referenced table }` on its `id`:
+   * inserting a row whose referenced row is missing fails with `23503`.
+   */
+  foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
+  /**
+   * Database functions that `rpc(name, args)` runs, with the tables. A test
+   * defines what it needs of the real function; pgTAP tests the real one.
+   * Throwing fails the call, as a raised Postgres error would.
+   */
+  functions?: Record<
+    string,
+    (
+      args: Record<string, unknown>,
+      tables: Record<NoInfer<Table>, FakeRow[]>,
+    ) => unknown
+  >;
   /** The signed-in user, whose folder in Storage the fake lets them use. */
   userId?: string;
   /** Row Level Security: whether the current user may see and write `row`. */
@@ -87,6 +105,7 @@ export function fakeSupabase<Table extends string>(
     const orders: Array<{ column: string; ascending: boolean }> = [];
     let returning = false;
     let single: "one" | "maybe" | undefined;
+    let limitTo = Infinity;
 
     const matching = () =>
       rowsOf(table).filter(
@@ -102,6 +121,20 @@ export function fakeSupabase<Table extends string>(
         ...row,
       }));
       for (const row of prepared) {
+        for (const [column, referenced] of Object.entries(
+          options.foreignKeys?.[table] ?? {},
+        )) {
+          const value = (row as FakeRow)[column];
+          if (
+            value != null &&
+            !rowsOf(referenced as Table).some((other) => other.id === value)
+          ) {
+            return failure(
+              "23503",
+              `insert or update on table "${table}" violates foreign key constraint "${table}_${column}_fkey"`,
+            );
+          }
+        }
         if (!visible(table, row)) {
           return failure(
             "42501",
@@ -139,7 +172,7 @@ export function fakeSupabase<Table extends string>(
           }
           return 0;
         });
-        result = { data: rows, error: null };
+        result = { data: rows.slice(0, limitTo), error: null };
       }
       if (result.error) return result;
       const rows = result.data as FakeRow[];
@@ -185,6 +218,11 @@ export function fakeSupabase<Table extends string>(
         filters.push((row) => row[column] === value);
         return builder;
       },
+      /** `is(column, null)`: the column has no value. */
+      is(column: string, value: null) {
+        filters.push((row) => (row[column] ?? null) === value);
+        return builder;
+      },
       in(column: string, values: unknown[]) {
         filters.push((row) => values.includes(row[column]));
         return builder;
@@ -218,6 +256,10 @@ export function fakeSupabase<Table extends string>(
         orders.push({ column, ascending });
         return builder;
       },
+      limit(count: number) {
+        limitTo = count;
+        return builder;
+      },
       single() {
         single = "one";
         return builder;
@@ -236,5 +278,23 @@ export function fakeSupabase<Table extends string>(
     return builder;
   }
 
-  return { from, tables, ...fakeStorage(options.userId) };
+  async function rpc(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<Result> {
+    const run = options.functions?.[name];
+    if (!run) {
+      return failure(
+        "PGRST202",
+        `Could not find the function public.${name} in the schema cache`,
+      );
+    }
+    try {
+      return { data: run(structuredClone(args), tables) ?? null, error: null };
+    } catch (error) {
+      return failure("P0001", (error as Error).message);
+    }
+  }
+
+  return { from, rpc, tables, ...fakeStorage(options.userId) };
 }

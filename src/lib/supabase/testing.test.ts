@@ -129,6 +129,20 @@ describe("fakeSupabase Storage", () => {
     expect(theirList.data).toEqual([]);
   });
 
+  it("lists a sub-folder as one entry without an id, as the API does", async () => {
+    const { store } = setup();
+    await store.upload(`${me}/course-1/a`, pdf("x"));
+    await store.upload(`${me}/course-1/a/pages/1.png`, pdf("x"));
+    await store.upload(`${me}/course-1/a/pages/2.png`, pdf("x"));
+
+    const { data } = await store.list(`${me}/course-1`);
+
+    expect(data).toEqual([
+      expect.objectContaining({ name: "a", id: expect.any(String) }),
+      expect.objectContaining({ name: "a", id: null }),
+    ]);
+  });
+
   it("keeps buckets apart", async () => {
     const { db, files } = setup();
     await db.storage.from("other-bucket").upload(mine, pdf("x"));
@@ -151,5 +165,66 @@ describe("fakeSupabase Storage", () => {
 
     files.heal();
     expect((await store.upload(mine, pdf("x"))).error).toBeNull();
+  });
+});
+
+describe("fakeSupabase functions", () => {
+  it("fails the call when the function throws, as a raised Postgres error does", async () => {
+    const db = fakeSupabase({
+      tables: {},
+      functions: {
+        failing: () => {
+          throw new Error("check constraint violated");
+        },
+      },
+    });
+
+    expect((await db.rpc("failing", {})).error).toEqual({
+      code: "P0001",
+      message: "check constraint violated",
+    });
+  });
+
+  it("runs a database function the test defines, with its arguments and the tables", async () => {
+    const db = fakeSupabase({
+      tables: { materials: [{ id: "material-1", parse_status: "failed" }] },
+      functions: {
+        status_of: ({ material_id }, tables) =>
+          tables.materials.find((row) => row.id === material_id)?.parse_status,
+      },
+    });
+
+    expect(await db.rpc("status_of", { material_id: "material-1" })).toEqual({
+      data: "failed",
+      error: null,
+    });
+  });
+
+  it("fails an unknown function as PostgREST does", async () => {
+    const db = fakeSupabase({ tables: {} });
+
+    expect((await db.rpc("missing", {})).error).toMatchObject({
+      code: "PGRST202",
+    });
+  });
+});
+
+describe("fakeSupabase foreign keys", () => {
+  it("refuses a row whose referenced row is missing, as Postgres does", async () => {
+    const db = fakeSupabase({
+      tables: { materials: [{ id: "material-1" }], material_pages: [] },
+      foreignKeys: { material_pages: { material_id: "materials" } },
+    });
+
+    const kept = await db
+      .from("material_pages")
+      .insert({ material_id: "material-1" });
+    const orphan = await db
+      .from("material_pages")
+      .insert({ material_id: "material-2" });
+
+    expect(kept.error).toBeNull();
+    expect(orphan.error).toMatchObject({ code: "23503" });
+    expect(db.tables.material_pages).toHaveLength(1);
   });
 });

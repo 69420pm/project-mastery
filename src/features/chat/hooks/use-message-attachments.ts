@@ -54,6 +54,14 @@ export function useMessageAttachments({
           mediaType: material.mediaType,
           sizeBytes: 0,
           createdAt: new Date().toISOString(),
+          // A new upload waits for its parse.
+          parse: {
+            status: "queued",
+            pagesDone: 0,
+            pagesTotal: null,
+            failure: null,
+            startFailed: false,
+          },
         },
         ...current,
       ]);

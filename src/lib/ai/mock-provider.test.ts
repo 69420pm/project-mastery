@@ -40,3 +40,61 @@ describe("mockReply", () => {
     expect(reply).not.toContain("Attached");
   });
 });
+
+describe("structured output on AI_PROVIDER=mock", () => {
+  test("answers with an object that fits the schema, its text holding a formula", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    const { generateText, Output } = await import("ai");
+    const { z } = await import("zod");
+    const { aiTask } = await import("./models");
+    const schema = z.object({
+      items: z.array(
+        z.object({
+          text: z.string(),
+          kind: z.enum(["first", "second"]),
+          note: z.string().nullable(),
+          count: z.number(),
+          done: z.boolean(),
+        }),
+      ),
+    });
+
+    const { output } = await generateText({
+      ...aiTask("ingest"),
+      output: Output.object({ schema }),
+      prompt: "Read this page.",
+    });
+
+    expect(output).toEqual({
+      items: [
+        {
+          text: expect.stringMatching(/\$[^$]+\$/),
+          kind: "first",
+          note: null,
+          count: 1,
+          done: false,
+        },
+      ],
+    });
+    vi.unstubAllEnvs();
+  });
+
+  test("lists every value of an array of enum values, so ids from the prompt all come back", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    const { generateText, Output } = await import("ai");
+    const { z } = await import("zod");
+    const { aiTask } = await import("./models");
+    const schema = z.object({
+      groups: z.array(z.object({ ids: z.array(z.enum(["a", "b", "c"])) })),
+    });
+
+    const { output } = await generateText({
+      ...aiTask("ingest"),
+      output: Output.object({ schema }),
+      prompt: "Group these.",
+    });
+
+    expect(output).toEqual({ groups: [{ ids: ["a", "b", "c"] }] });
+    vi.unstubAllEnvs();
+  });
+});

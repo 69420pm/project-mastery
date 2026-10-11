@@ -1,5 +1,5 @@
 import "server-only";
-import { simulateReadableStream } from "ai";
+import { simulateReadableStream, type JSONSchema7 } from "ai";
 
 /**
  * Deterministic models for AI_PROVIDER=mock, so end-to-end tests run the real
@@ -12,7 +12,8 @@ import { simulateReadableStream } from "ai";
 /** Delay between streamed words, a reply takes a few seconds in total. */
 const WORD_DELAY_MS = 75;
 
-const EMBEDDING_DIMENSIONS = 8;
+// The size of chunks.embedding, so the mock's vectors fit the column.
+const EMBEDDING_DIMENSIONS = 3072;
 
 /** Usage the mock reports, so cost recording sees real numbers. */
 const usage = {
@@ -62,14 +63,83 @@ export function mockReply(prompt: Prompt): string {
   return `Mock reply to "${text}".${attached} This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.`;
 }
 
+/** The text of every string in a mock object: inline math, so it renders. */
+const MOCK_OBJECT_TEXT =
+  "Mock text from the mock AI, with a formula: $a^2 + b^2 = c^2$.";
+
+type SchemaDefinition = JSONSchema7 | boolean;
+
+/**
+ * A deterministic value that fits a JSON schema, for structured output
+ * (`Output.object`): required properties only, one item per array (every
+ * value for an array of enum values), the first enum value, null where null
+ * is allowed, and strings with a formula.
+ */
+export function mockObject(definition: SchemaDefinition | undefined): unknown {
+  const schema = typeof definition === "object" ? definition : {};
+  const options = schema.anyOf ?? schema.oneOf;
+  if (options) {
+    const isNull = (option: SchemaDefinition) =>
+      typeof option === "object" && option.type === "null";
+    return options.some(isNull) ? null : mockObject(options[0]);
+  }
+  if (schema.enum) return schema.enum[0];
+  const types = [schema.type ?? "object"].flat();
+  if (types.includes("null")) return null;
+  switch (types[0]) {
+    case "object":
+      return Object.fromEntries(
+        (schema.required ?? []).map((key) => [
+          key,
+          mockObject(schema.properties?.[key]),
+        ]),
+      );
+    case "array": {
+      const items = [schema.items].flat()[0];
+      // Every value of an enum, such as ids a prompt offers, so a caller that
+      // must see each id once gets a valid answer.
+      if (typeof items === "object" && items.enum) return [...items.enum];
+      return [mockObject(items)];
+    }
+    case "string":
+      return MOCK_OBJECT_TEXT;
+    case "number":
+    case "integer":
+      return 1;
+    case "boolean":
+      return false;
+    default:
+      return null;
+  }
+}
+
+type ResponseFormat =
+  { type: "text" } | { type: "json"; schema?: JSONSchema7 } | undefined;
+
+/** The text a mock call answers: JSON for structured output, else a reply. */
+function mockText(prompt: Prompt, responseFormat: ResponseFormat): string {
+  if (responseFormat?.type === "json") {
+    return JSON.stringify(mockObject(responseFormat.schema));
+  }
+  return mockReply(prompt);
+}
+
 function languageModel(modelId: string) {
   return {
     specificationVersion: "v4" as const,
     provider: "mock",
     modelId,
     supportedUrls: {},
-    doGenerate: async ({ prompt }: { prompt: Prompt }) => ({
-      content: [{ type: "text" as const, text: mockReply(prompt) }],
+    doGenerate: async ({
+      prompt,
+      responseFormat,
+    }: {
+      prompt: Prompt;
+      responseFormat?: ResponseFormat;
+    }) => ({
+      content: [
+        { type: "text" as const, text: mockText(prompt, responseFormat) },
+      ],
       finishReason,
       usage,
       warnings: [],
@@ -107,7 +177,8 @@ function embeddingModel(modelId: string) {
       embeddings: values.map(() =>
         Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5),
       ),
-      usage: { tokens: values.length },
+      // Like the Gemini API, which reports no usage for embeddings.
+      usage: undefined,
       warnings: [],
     }),
   };
