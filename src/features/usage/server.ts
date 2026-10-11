@@ -7,4 +7,8 @@ export {
   dailyLimitReachedMessage,
   getDailyLimitStatus,
 } from "./server/daily-limit";
-export { recordAiUsage, type AiUsageRecord } from "./server/usage-store";
+export {
+  recordAiUsage,
+  type AiUsageRecord,
+  type StudentScope,
+} from "./server/usage-store";
