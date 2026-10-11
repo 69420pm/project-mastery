@@ -101,6 +101,15 @@ function ChunkCard({ chunk }: { chunk: ChunkView }) {
       <Markdown className="min-w-0">{chunk.markdown}</Markdown>
       {chunk.figure && (
         <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+          {chunk.figure.imageUrl && (
+            // A short-lived signed Storage URL, so next/image has nothing to optimize.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={chunk.figure.imageUrl}
+              alt={chunk.figure.description}
+              className="mb-2 max-h-96 w-auto max-w-full rounded-md border bg-white"
+            />
+          )}
           <figcaption className="font-medium">Figure</figcaption>
           <p className="text-muted-foreground">{chunk.figure.description}</p>
         </figure>

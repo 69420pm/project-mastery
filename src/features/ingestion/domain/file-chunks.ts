@@ -18,7 +18,8 @@ export type StoredUnit = {
   label: ChunkLabel;
   exerciseNumber: string | null;
   points: number | null;
-  figure: { description: string; cropPath?: string | null } | null;
+  /** `cropPath` names the crop, or the whole page image without a box. */
+  figure: { description: string; cropPath: string | null } | null;
   continuesFromPreviousPage: boolean;
   continuesOnNextPage: boolean;
 };
@@ -161,7 +162,7 @@ export function chunksFromFileResult(
         figure: figure
           ? {
               description: figure.description,
-              cropPath: figure.cropPath ?? null,
+              cropPath: figure.cropPath,
             }
           : null,
         exerciseNumber: chunk.exerciseNumber,

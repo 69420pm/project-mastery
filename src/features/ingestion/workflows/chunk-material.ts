@@ -5,7 +5,7 @@ import {
   fileMessages,
   fileResultSchema,
 } from "@/features/ingestion/ai/file-chunks";
-import { pageResultSchema } from "@/features/ingestion/ai/page-units";
+import { storedUnitsSchema } from "@/features/ingestion/ai/page-units";
 import {
   chunksFromFileResult,
   coverageProblems,
@@ -47,7 +47,7 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
   const units = materialUnits(
     pages.data.map((page) => ({
       pageNumber: page.page_number,
-      units: pageResultSchema.shape.units.parse(page.units),
+      units: storedUnitsSchema.parse(page.units),
     })),
   );
   const pageNumbers = pages.data.map((page) => page.page_number);
