@@ -58,34 +58,67 @@ export async function removeStoredFiles(
 const LIST_PAGE_SIZE = 1000;
 
 /**
- * Removes every file in a Course's folder, including files whose upload was
- * never registered as a Material. True when they are gone, false when
- * Storage failed.
+ * Removes every file in a folder and its sub-folders. True when they are
+ * gone, false when Storage failed.
  */
-export async function removeCourseFiles(
+async function removeFolder(
   supabase: Supabase,
-  owner: string,
-  courseId: string,
+  folder: string,
 ): Promise<boolean> {
   const bucket = supabase.storage.from(MATERIALS_BUCKET);
-  const folder = courseFolder(owner, courseId);
   for (;;) {
     // Each round lists from the start, since the last round removed its page.
     const { data, error } = await bucket.list(folder, {
       limit: LIST_PAGE_SIZE,
     });
     if (error) {
-      console.error("Listing a Course's files failed", error);
+      console.error("Listing Material files failed", error);
       return false;
     }
     if (data.length === 0) return true;
+    // A sub-folder is listed without an id, a file with one.
+    for (const entry of data.filter((entry) => entry.id === null)) {
+      if (!(await removeFolder(supabase, `${folder}/${entry.name}`))) {
+        return false;
+      }
+    }
     const removed = await removeStoredFiles(
       supabase,
-      data.map((file) => `${folder}/${file.name}`),
+      data
+        .filter((entry) => entry.id !== null)
+        .map((file) => `${folder}/${file.name}`),
     );
     if (!removed) return false;
     if (data.length < LIST_PAGE_SIZE) return true;
   }
+}
+
+/**
+ * Removes a Material's file and everything stored under its path: the page
+ * images and figure crops of its parse. True when they are gone, false when
+ * Storage failed.
+ */
+export async function removeMaterialFiles(
+  supabase: Supabase,
+  storagePath: string,
+): Promise<boolean> {
+  return (
+    (await removeFolder(supabase, storagePath)) &&
+    (await removeStoredFiles(supabase, [storagePath]))
+  );
+}
+
+/**
+ * Removes every file in a Course's folder, including files whose upload was
+ * never registered as a Material and the page images and figure crops of
+ * its Materials. True when they are gone, false when Storage failed.
+ */
+export async function removeCourseFiles(
+  supabase: Supabase,
+  owner: string,
+  courseId: string,
+): Promise<boolean> {
+  return removeFolder(supabase, courseFolder(owner, courseId));
 }
 
 export type NewMaterial = {

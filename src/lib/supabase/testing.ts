@@ -21,6 +21,11 @@ export type FakeSupabaseOptions<Table extends string> = {
   tables: Record<Table, FakeRow[]>;
   /** Column defaults per table, like the schema's `default` clauses. */
   defaults?: Partial<Record<Table, () => FakeRow>>;
+  /**
+   * Foreign keys per table, as `{ column: referenced table }` on its `id`:
+   * inserting a row whose referenced row is missing fails with `23503`.
+   */
+  foreignKeys?: Partial<Record<Table, Record<string, Table>>>;
   /** The signed-in user, whose folder in Storage the fake lets them use. */
   userId?: string;
   /** Row Level Security: whether the current user may see and write `row`. */
@@ -102,6 +107,20 @@ export function fakeSupabase<Table extends string>(
         ...row,
       }));
       for (const row of prepared) {
+        for (const [column, referenced] of Object.entries(
+          options.foreignKeys?.[table] ?? {},
+        )) {
+          const value = row[column];
+          if (
+            value != null &&
+            !rowsOf(referenced as Table).some((other) => other.id === value)
+          ) {
+            return failure(
+              "23503",
+              `insert or update on table "${table}" violates foreign key constraint "${table}_${column}_fkey"`,
+            );
+          }
+        }
         if (!visible(table, row)) {
           return failure(
             "42501",
