@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type {
   ChunkLabel,
   ChunkView,
+  ExerciseSolution,
   MaterialChunks,
 } from "@/features/ingestion/types";
 
@@ -33,14 +34,23 @@ type ChunkListProps = {
   material: MaterialChunks;
   /** Where "Back to materials" leads. */
   backHref: string;
+  /** The chunk view of a Material of the same Course, for solution links. */
+  materialHref: (materialId: string) => string;
 };
+
+/** The anchor of a chunk in its Material's chunk view. */
+const chunkAnchor = (chunkId: string) => `chunk-${chunkId}`;
 
 /**
  * A parsed Material's chunks, read-only, in reading order: each with its
  * label, pages and markdown rendered like the AI's answers (math with KaTeX,
  * Mermaid as a code block).
  */
-export function ChunkList({ material, backHref }: ChunkListProps) {
+export function ChunkList({
+  material,
+  backHref,
+  materialHref,
+}: ChunkListProps) {
   const { exam } = material;
 
   return (
@@ -75,7 +85,7 @@ export function ChunkList({ material, backHref }: ChunkListProps) {
         <ol aria-label="Chunks" className="flex flex-col gap-4">
           {material.chunks.map((chunk) => (
             <li key={chunk.id}>
-              <ChunkCard chunk={chunk} />
+              <ChunkCard chunk={chunk} materialHref={materialHref} />
             </li>
           ))}
         </ol>
@@ -84,11 +94,18 @@ export function ChunkList({ material, backHref }: ChunkListProps) {
   );
 }
 
-function ChunkCard({ chunk }: { chunk: ChunkView }) {
+function ChunkCard({
+  chunk,
+  materialHref,
+}: {
+  chunk: ChunkView;
+  materialHref: ChunkListProps["materialHref"];
+}) {
   return (
     <article
+      id={chunkAnchor(chunk.id)}
       aria-label={`${LABEL_NAMES[chunk.label]}, ${pageRange(chunk)}`}
-      className="flex flex-col gap-3 rounded-xl border px-4 py-3"
+      className="flex scroll-mt-4 flex-col gap-3 rounded-xl border px-4 py-3 target:ring-2 target:ring-ring"
     >
       <header className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Badge variant="secondary">{LABEL_NAMES[chunk.label]}</Badge>
@@ -114,6 +131,31 @@ function ChunkCard({ chunk }: { chunk: ChunkView }) {
           <p className="text-muted-foreground">{chunk.figure.description}</p>
         </figure>
       )}
+      {chunk.solution && (
+        <SolutionLine solution={chunk.solution} materialHref={materialHref} />
+      )}
     </article>
+  );
+}
+
+function SolutionLine({
+  solution,
+  materialHref,
+}: {
+  solution: ExerciseSolution;
+  materialHref: ChunkListProps["materialHref"];
+}) {
+  if (solution.status === "no_solution") {
+    return <p className="text-sm text-muted-foreground">No solution</p>;
+  }
+  const href = `${materialHref(solution.materialId)}#${chunkAnchor(solution.chunkId)}`;
+  return (
+    <p className="text-sm">
+      <Link href={href} className="font-medium underline underline-offset-4">
+        Solution
+        {solution.exerciseNumber !== null && ` ${solution.exerciseNumber}`}
+      </Link>
+      <span className="text-muted-foreground"> in {solution.materialName}</span>
+    </p>
   );
 }

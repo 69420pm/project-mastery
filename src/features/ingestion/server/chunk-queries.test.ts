@@ -58,6 +58,7 @@ beforeEach(() => {
           points: null,
         },
       ] as FakeRow[],
+      exercise_solutions: [] as FakeRow[],
     },
     userId: STUDENT,
   });
@@ -78,4 +79,56 @@ test("a figure chunk carries a short-lived signed URL for its picture, with its 
   });
   expect(figure?.figure?.imageUrl).toContain("expiresIn=3600");
   expect(text?.figure).toBeNull();
+});
+
+test("an exercise carries its paired solution in another Material, or no solution", async () => {
+  const SOLUTIONS = "aaaaaaaa-0000-4000-8000-000000000051";
+  const exercise = (id: string, position: number, number: string) => ({
+    id,
+    material_id: MATERIAL,
+    position,
+    page_from: 3,
+    page_to: 3,
+    label: "exercise",
+    markdown: `Exercise ${number}`,
+    figure: null,
+    exercise_number: number,
+    points: 2,
+  });
+  const tables = db.tables as Record<string, FakeRow[]>;
+  tables.materials!.push({
+    id: SOLUTIONS,
+    course_id: COURSE,
+    name: "Solutions 7",
+    parse_status: "parsed",
+  });
+  tables.chunks!.push(exercise("e1", 2, "7.2a"), exercise("e2", 3, "7.2b"), {
+    id: "s1",
+    material_id: SOLUTIONS,
+    position: 0,
+    page_from: 1,
+    page_to: 1,
+    label: "solution",
+    markdown: "Since ...",
+    figure: null,
+    exercise_number: "7.2 a)",
+    points: null,
+  });
+  tables.exercise_solutions!.push(
+    { exercise_chunk_id: "e1", solution_chunk_id: "s1", status: "paired" },
+    { exercise_chunk_id: "e2", solution_chunk_id: null, status: "no_solution" },
+  );
+
+  const material = await getMaterialChunks(MATERIAL);
+
+  const [figure, , first, second] = material?.chunks ?? [];
+  expect(first?.solution).toEqual({
+    status: "paired",
+    chunkId: "s1",
+    materialId: SOLUTIONS,
+    materialName: "Solutions 7",
+    exerciseNumber: "7.2 a)",
+  });
+  expect(second?.solution).toEqual({ status: "no_solution" });
+  expect(figure?.solution).toBeNull();
 });
