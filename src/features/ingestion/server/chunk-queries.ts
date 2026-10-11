@@ -7,10 +7,29 @@ import {
 } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 
 const figureSchema = z
   .object({ description: z.string(), cropPath: z.string().nullable() })
   .nullable();
+
+/** The Storage bucket of Materials, their page images and figure crops. */
+const BUCKET = "course-files";
+
+/** How long the link to a figure's picture works: one viewing session. */
+const FIGURE_URL_SECONDS = 60 * 60;
+
+/** A link to a figure's picture, or null when it cannot be signed. */
+async function signFigureUrl(supabase: Supabase, path: string) {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, FIGURE_URL_SECONDS);
+  if (error) {
+    console.error("Signing a figure's link failed", error);
+    return null;
+  }
+  return data.signedUrl;
+}
 
 /**
  * The signed-in Student's Material with its chunks in reading order, or null
@@ -47,6 +66,19 @@ export async function getMaterialChunks(
     throw new Error(`Loading the chunks failed: ${chunks.error.message}`);
   }
 
+  const figures = await Promise.all(
+    chunks.data.map(async (chunk) => {
+      const figure = figureSchema.parse(chunk.figure ?? null);
+      if (!figure) return null;
+      return {
+        ...figure,
+        imageUrl: figure.cropPath
+          ? await signFigureUrl(supabase, figure.cropPath)
+          : null,
+      };
+    }),
+  );
+
   const row = material.data;
   return {
     materialId: row.id,
@@ -62,14 +94,14 @@ export async function getMaterialChunks(
               : Number(row.exam_total_points),
         }
       : null,
-    chunks: chunks.data.map((chunk) => ({
+    chunks: chunks.data.map((chunk, index) => ({
       id: chunk.id,
       position: chunk.position,
       pageFrom: chunk.page_from,
       pageTo: chunk.page_to,
       label: z.enum(CHUNK_LABELS).parse(chunk.label),
       markdown: chunk.markdown,
-      figure: figureSchema.parse(chunk.figure ?? null),
+      figure: figures[index] ?? null,
       exerciseNumber: chunk.exercise_number,
       points: chunk.points === null ? null : Number(chunk.points),
     })),

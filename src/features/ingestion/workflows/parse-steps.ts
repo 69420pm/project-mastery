@@ -4,9 +4,11 @@ import {
   pageCallSettings,
   pageMessages,
   pageResultSchema,
+  storedUnitsSchema,
 } from "@/features/ingestion/ai/page-units";
 import { chunksFromPages } from "@/features/ingestion/domain/page-chunks";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
+import { storeFigures } from "@/features/ingestion/workflows/store-figures";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { answeringModel } from "@/lib/ai/models";
@@ -162,7 +164,17 @@ export async function readPage(
     { studentId },
   );
 
-  const { units } = pageResultSchema.parse(result.output);
+  const units = await storeFigures(
+    supabase,
+    {
+      bucket: BUCKET,
+      storagePath: material.storage_path,
+      pageNumber: page.pageNumber,
+      pageImagePath: page.imagePath,
+      pageImage: image,
+    },
+    pageResultSchema.parse(result.output).units,
+  );
   const stored = await supabase.from("material_pages").insert({
     owner: studentId,
     material_id: materialId,
@@ -203,7 +215,7 @@ export async function writeChunks(materialId: string): Promise<void> {
   const chunks = chunksFromPages(
     pages.data.map((page) => ({
       pageNumber: page.page_number,
-      units: pageResultSchema.shape.units.parse(page.units),
+      units: storedUnitsSchema.parse(page.units),
     })),
   );
 
