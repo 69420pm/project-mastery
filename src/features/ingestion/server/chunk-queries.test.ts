@@ -8,7 +8,8 @@ vi.mock("server-only", () => ({}));
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
-const CROP = `${STUDENT}/${COURSE}/${MATERIAL}/figures/1-0.png`;
+const FILE = `${STUDENT}/${COURSE}/${MATERIAL}`;
+const BOX = { x: 0.1, y: 0.2, width: 0.5, height: 0.3 };
 
 let db = fakeSupabase({ tables: {}, userId: STUDENT });
 vi.mock("@/lib/auth/user", () => ({ getUser: async () => ({ id: STUDENT }) }));
@@ -26,6 +27,8 @@ beforeEach(() => {
           id: MATERIAL,
           course_id: COURSE,
           name: "Lecture 1",
+          media_type: "application/pdf",
+          storage_path: FILE,
           parse_status: "parsed",
           is_exam: false,
           exam_year: null,
@@ -41,7 +44,7 @@ beforeEach(() => {
           page_to: 1,
           label: "figure",
           markdown: "Plot",
-          figure: { description: "A parabola.", cropPath: CROP },
+          figure: { description: "A parabola.", page: 2, box: BOX },
           exercise_number: null,
           points: null,
         },
@@ -62,23 +65,35 @@ beforeEach(() => {
     },
     userId: STUDENT,
   });
-  db.files.seed("course-files", CROP, {
+  db.files.seed("course-files", FILE, {
     body: new Uint8Array([1]),
-    contentType: "image/png",
+    contentType: "application/pdf",
   });
 });
 
-test("a figure chunk carries a short-lived signed URL for its picture, with its description", async () => {
+test("a figure chunk carries its page, box and description, and the Material gets a short-lived signed URL for its file", async () => {
   const material = await getMaterialChunks(MATERIAL);
 
   const [figure, text] = material?.chunks ?? [];
   expect(figure?.figure).toEqual({
     description: "A parabola.",
-    cropPath: CROP,
-    imageUrl: expect.stringContaining(`/course-files/${CROP}?`),
+    page: 2,
+    box: BOX,
   });
-  expect(figure?.figure?.imageUrl).toContain("expiresIn=3600");
   expect(text?.figure).toBeNull();
+  expect(material?.file).toEqual({
+    url: expect.stringContaining(`/course-files/${FILE}?`),
+    mediaType: "application/pdf",
+  });
+  expect(material?.file?.url).toContain("expiresIn=3600");
+});
+
+test("a Material without figures gets no URL signed", async () => {
+  (db.tables as Record<string, FakeRow[]>).chunks!.splice(0, 1);
+
+  const material = await getMaterialChunks(MATERIAL);
+
+  expect(material?.file).toBeNull();
 });
 
 test("an exercise carries its paired solution in another Material, or no solution", async () => {

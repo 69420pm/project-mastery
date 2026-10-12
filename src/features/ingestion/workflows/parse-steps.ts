@@ -6,6 +6,7 @@ import {
   pageResultSchema,
 } from "@/features/ingestion/ai/page-units";
 import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
+import { usableBox } from "@/features/ingestion/domain/figure-box";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
 import {
   dailyLimitReason,
@@ -14,7 +15,6 @@ import {
   parseFailureError,
 } from "@/features/ingestion/domain/parse-failure";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
-import { storeFigures } from "@/features/ingestion/workflows/store-figures";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { answeringModel } from "@/lib/ai/models";
@@ -35,13 +35,8 @@ const BUCKET = MATERIALS_BUCKET;
 /** Postgres error code of a row that points at a deleted parent. */
 const FOREIGN_KEY_VIOLATION = "23503";
 
-/** One page of a Material, as the page calls read it. */
-export type PreparedPage = {
-  pageNumber: number;
-  /** The page image in the bucket. */
-  imagePath: string;
-  mediaType: string;
-};
+/** One page of a Material that still has to be read. */
+export type PreparedPage = { pageNumber: number };
 
 /** Why a parse stopped, for the Student. */
 export type ParseOutcome = { ok: true } | { ok: false; reason: string };
@@ -95,9 +90,24 @@ async function openMaterialPdf(supabase: AdminSupabase, path: string) {
   }
 }
 
-/** Where a rendered PDF page is stored: under the Material's own path. */
-function pageImagePath(storagePath: string, pageNumber: number): string {
-  return `${storagePath}/pages/${pageNumber}.png`;
+/**
+ * The image a page call reads: a PDF page rendered from the Material's file,
+ * or the uploaded image itself. Rendered afresh by each page step and never
+ * stored, so a PDF is stored once.
+ */
+async function pageImage(
+  supabase: AdminSupabase,
+  material: ParseMaterialRow,
+  pageNumber: number,
+): Promise<{ bytes: Uint8Array; mediaType: string }> {
+  if (material.media_type !== "application/pdf") {
+    return {
+      bytes: await download(supabase, material.storage_path),
+      mediaType: material.media_type,
+    };
+  }
+  const pdf = await openMaterialPdf(supabase, material.storage_path);
+  return { bytes: await pdf.renderPage(pageNumber), mediaType: "image/png" };
 }
 
 /** The page numbers of the Material's stored page results. */
@@ -115,9 +125,8 @@ async function storedPageNumbers(
 
 /**
  * Opens the Material and records its page count. The pages without a stored
- * page result are returned for reading: a PDF's are rendered to PNGs and
- * stored under the Material's path, and an image is its own one page. Null
- * when the Material is gone, also when it went while its pages rendered.
+ * page result are returned for reading. Null when the Material is gone, also
+ * when it went meanwhile.
  */
 export async function preparePages(
   materialId: string,
@@ -134,30 +143,14 @@ export async function preparePages(
   if (started.error) fail("Starting the parse", started.error);
   const stored = await storedPageNumbers(supabase, materialId);
 
-  let pages: PreparedPage[];
-  let pageCount = 1;
-  if (material.media_type === "application/pdf") {
-    const pdf = await openMaterialPdf(supabase, material.storage_path);
-    pageCount = pdf.pageCount;
-    pages = [];
-    for (const pageNumber of missingPages(pdf.pageCount, stored)) {
-      const imagePath = pageImagePath(material.storage_path, pageNumber);
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(imagePath, await pdf.renderPage(pageNumber), {
-          contentType: "image/png",
-          upsert: true,
-        });
-      if (error) fail(`Storing page ${pageNumber}`, error);
-      pages.push({ pageNumber, imagePath, mediaType: "image/png" });
-    }
-  } else {
-    pages = missingPages(1, stored).map((pageNumber) => ({
-      pageNumber,
-      imagePath: material.storage_path,
-      mediaType: material.media_type,
-    }));
-  }
+  // An image is its own one page.
+  const pageCount =
+    material.media_type === "application/pdf"
+      ? (await openMaterialPdf(supabase, material.storage_path)).pageCount
+      : 1;
+  const pages = missingPages(pageCount, stored).map((pageNumber) => ({
+    pageNumber,
+  }));
 
   const { data, error } = await supabase
     .from("materials")
@@ -170,15 +163,7 @@ export async function preparePages(
     .eq("id", materialId)
     .select("id");
   if (error) fail("Starting the parse", error);
-  if (data.length === 0) {
-    // Deleted while its pages rendered.
-    await removeFiles(
-      supabase,
-      pages.map((page) => page.imagePath),
-    );
-    return null;
-  }
-  return pages;
+  return data.length === 0 ? null : pages;
 }
 
 /**
@@ -203,14 +188,14 @@ export async function readPage(
     return { ok: false, reason: dailyLimitReason };
   }
 
-  const image = await download(supabase, page.imagePath);
+  const image = await pageImage(supabase, material, page.pageNumber);
   const settings = pageCallSettings();
   const result = await withTraceAttributes(
     { userId: studentId, traceName: "parse-page" },
     () =>
       generateText({
         ...settings,
-        messages: pageMessages(image, page.mediaType),
+        messages: pageMessages(image.bytes, image.mediaType),
       }),
   ).catch((error) => pageCallFailed(error, page.pageNumber));
   if (!result) return { ok: false, reason: dailyLimitReason };
@@ -224,48 +209,21 @@ export async function readPage(
     { studentId },
   );
 
-  const units = await storeFigures(
-    supabase,
-    {
-      bucket: BUCKET,
-      storagePath: material.storage_path,
-      pageNumber: page.pageNumber,
-      pageImagePath: page.imagePath,
-      pageImage: image,
-    },
-    pageUnits(() => result.output, page.pageNumber),
+  const units = pageUnits(() => result.output, page.pageNumber).map((unit) =>
+    unit.figure
+      ? { ...unit, figure: { ...unit.figure, box: usableBox(unit.figure.box) } }
+      : unit,
   );
   const stored = await supabase.from("material_pages").insert({
     owner: studentId,
     material_id: materialId,
     page_number: page.pageNumber,
-    image_path: page.imagePath,
     units,
   });
-  // 23503: the Material was deleted during the call, so stop quietly, and
-  // remove the crops stored after its files were removed.
-  if (stored.error?.code === FOREIGN_KEY_VIOLATION) {
-    await removeFiles(
-      supabase,
-      units.flatMap((unit) => unit.figure?.cropPath ?? []),
-    );
-    return { ok: true };
-  }
+  // 23503: the Material was deleted during the call, so stop quietly.
+  if (stored.error?.code === FOREIGN_KEY_VIOLATION) return { ok: true };
   if (stored.error) fail(`Storing page ${page.pageNumber}`, stored.error);
   return recordProgress(supabase, materialId);
-}
-
-/**
- * Removes files a step stored for a Material that was deleted meanwhile,
- * since the delete may have removed its files before the step stored them.
- */
-async function removeFiles(
-  supabase: AdminSupabase,
-  paths: string[],
-): Promise<void> {
-  if (paths.length === 0) return;
-  const { error } = await supabase.storage.from(BUCKET).remove(paths);
-  if (error) fail("Removing the files of a deleted Material", error);
 }
 
 /** A model call's error, or null for a used-up daily quota of the provider. */

@@ -1,4 +1,15 @@
+import type { NormalizedBox } from "@/features/ingestion/domain/figure-box";
 import type { ChunkLabel } from "@/features/ingestion/types";
+
+/**
+ * A chunk's figure: where it is in the Material's file, a page and a box on
+ * it, or the whole page without a box.
+ */
+export type ChunkFigure = {
+  description: string;
+  page: number;
+  box: NormalizedBox | null;
+};
 
 /** A chunk before it is stored. */
 export type NewChunk = {
@@ -7,7 +18,7 @@ export type NewChunk = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  figure: { description: string; cropPath: string | null } | null;
+  figure: ChunkFigure | null;
   exerciseNumber: string | null;
   points: number | null;
 };
@@ -18,8 +29,8 @@ export type StoredUnit = {
   label: ChunkLabel;
   exerciseNumber: string | null;
   points: number | null;
-  /** `cropPath` names the crop, or the whole page image without a box. */
-  figure: { description: string; cropPath: string | null } | null;
+  /** `box` is null when the figure has no usable box: it is the whole page. */
+  figure: { description: string; box: NormalizedBox | null } | null;
   continuesFromPreviousPage: boolean;
   continuesOnNextPage: boolean;
 };
@@ -149,7 +160,7 @@ export function coverageProblems(
  * The chunks to store from a file call's chunks that passed
  * `coverageProblems`, in reading order. A chunk's markdown is its units'
  * markdown joined, not regenerated, and its pages and figure come from its
- * units. A chunk has one figure: the crop of its first figure, described by
+ * units. A chunk has one figure: the place of its first figure, described by
  * the descriptions of all its units' figures, so none is lost.
  */
 export function chunksFromFileResult(
@@ -168,7 +179,9 @@ export function chunksFromFileResult(
       (a, b) => (indexOf.get(a.first.id) ?? 0) - (indexOf.get(b.first.id) ?? 0),
     )
     .map(({ chunk, members, first, last }, position) => {
-      const figures = members.flatMap(({ unit }) => unit.figure ?? []);
+      const figures = members.flatMap(({ pageNumber, unit }) =>
+        unit.figure ? [{ pageNumber, ...unit.figure }] : [],
+      );
       const figure = figures[0];
       return {
         position,
@@ -181,7 +194,8 @@ export function chunksFromFileResult(
               description: figures
                 .map(({ description }) => description)
                 .join("\n\n"),
-              cropPath: figure.cropPath,
+              page: figure.pageNumber,
+              box: figure.box,
             }
           : null,
         exerciseNumber: chunk.exerciseNumber,

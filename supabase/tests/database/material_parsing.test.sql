@@ -31,10 +31,10 @@ values
   );
 
 -- The workflow's rows, written as the service role.
-insert into public.material_pages (owner, material_id, page_number, image_path, units)
+insert into public.material_pages (owner, material_id, page_number, units)
 values
-  ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-1111-0000-0000-000000000001', 1, 'alice/page-1.png', '[]'),
-  ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-1111-0000-0000-000000000001', 1, 'bob/page-1.png', '[]');
+  ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-1111-0000-0000-000000000001', 1, '[]'),
+  ('22222222-2222-2222-2222-222222222222', 'bbbbbbbb-1111-0000-0000-000000000001', 1, '[]');
 
 insert into public.chunks (owner, course_id, material_id, position, page_from, page_to, label, markdown)
 values
@@ -67,7 +67,7 @@ set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", 
 
 select results_eq('select markdown from public.chunks', array['A *vector space* is ...'],
   'a Student reads only their own chunks');
-select results_eq('select image_path from public.material_pages', array['alice/page-1.png'],
+select results_eq('select material_id from public.material_pages', array['aaaaaaaa-1111-0000-0000-000000000001'::uuid],
   'a Student reads only their own material pages');
 
 select throws_ok(
@@ -79,8 +79,8 @@ select throws_ok($$update public.chunks set markdown = 'edited'$$, '42501', null
   'a Student cannot change chunks');
 select throws_ok($$delete from public.chunks$$, '42501', null, 'a Student cannot delete chunks');
 select throws_ok(
-  $$insert into public.material_pages (owner, material_id, page_number, image_path, units)
-    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-1111-0000-0000-000000000001', 2, 'x.png', '[]')$$,
+  $$insert into public.material_pages (owner, material_id, page_number, units)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-1111-0000-0000-000000000001', 2, '[]')$$,
   '42501', null, 'a Student cannot add material pages');
 
 -- Parse columns are the workflow's.

@@ -23,11 +23,12 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
+  /** Where the figure is in the Material's file: a page and a box on it. */
   figure: {
     description: string;
-    cropPath: string | null;
-    /** A short-lived link to the picture at `cropPath`, or null. */
-    imageUrl: string | null;
+    page: number;
+    /** Normalized to the page; null when the figure is the whole page. */
+    box: { x: number; y: number; width: number; height: number } | null;
   } | null;
   exerciseNumber: string | null;
   points: number | null;
@@ -52,6 +53,11 @@ export type MaterialChunks = {
   courseId: string;
   name: string;
   parseStatus: ParseStatus;
+  /**
+   * A short-lived link to the Material's file, for the pages of the figures.
+   * Null when no chunk has a figure, or the link could not be signed.
+   */
+  file: { url: string; mediaType: string } | null;
   exam: { year: number | null; totalPoints: number | null } | null;
   chunks: ChunkView[];
 };

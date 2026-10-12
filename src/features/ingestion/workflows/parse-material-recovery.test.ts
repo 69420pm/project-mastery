@@ -198,31 +198,20 @@ describe("a page call whose answer is not a page result", () => {
 describe("a failure of the app's own services", () => {
   const generic = "The material could not be parsed. Please try again.";
 
-  test("while storing the page images fails the parse with the general reason", async () => {
-    await seedLecture();
-    useMockModels({ ingest: pageModel([]).model });
-    db.files.fail("upload");
-
-    await parseMaterial(MATERIAL);
-
-    expect(material()).toMatchObject({
-      parse_status: "failed",
-      parse_failure: generic,
-    });
-  });
-
   test("while reading a page fails the parse with the general reason", async () => {
     await seedLecture();
     const model = pageModel([pageResult("Page one")]);
     useMockModels({ ingest: model.model });
-    // The page images are stored, then Storage fails to read them.
+    // The file opens for the page count, then Storage fails to read it again
+    // for the first page.
     const from = db.storage.from;
+    let downloads = 0;
     db.storage.from = (bucket: string) => {
       const store = from(bucket);
       return {
         ...store,
         download: async (path: string) =>
-          path.includes("/pages/")
+          ++downloads > 1
             ? { data: null, error: { message: "Storage failure", status: 500 } }
             : store.download(path),
       } as typeof store;
@@ -302,7 +291,6 @@ describe("the daily quota of the model provider", () => {
 describe("deleting the Material while it parses", () => {
   test("stops the parse quietly and leaves no rows or files behind", async () => {
     await seedLecture();
-    // Page one has a figure, whose crop is stored after the delete.
     const withFigure = {
       units: [
         {
@@ -328,23 +316,24 @@ describe("deleting the Material while it parses", () => {
     expect(db.tables.chunks).toEqual([]);
     expect(db.files.paths(BUCKET)).toEqual([]);
   });
+});
 
-  test("while its pages are rendered, removes the page images stored after the delete", async () => {
+describe("a Material deleted while its file opens", () => {
+  test("stops the parse quietly before any page is read", async () => {
     await seedLecture();
     const model = pageModel([]);
     useMockModels({ ingest: model.model });
-    // The Student deletes the Material once its first page image is stored.
     const from = db.storage.from;
     db.storage.from = (bucket: string) => {
       const store = from(bucket);
       return {
         ...store,
-        upload: async (...args: Parameters<typeof store.upload>) => {
-          const result = await store.upload(...args);
-          if (args[0].endsWith("/pages/1.png")) deleteMaterial();
+        download: async (path: string) => {
+          const result = await store.download(path);
+          deleteMaterial();
           return result;
         },
-      };
+      } as typeof store;
     };
 
     await parseMaterial(MATERIAL);
@@ -356,7 +345,7 @@ describe("deleting the Material while it parses", () => {
 });
 
 describe("a started parse", () => {
-  test("leaves `queued` before its pages render, so Parse is not offered while it runs", async () => {
+  test("leaves `queued` before its file opens, so Parse is not offered while it runs", async () => {
     await seedLecture();
     useMockModels({ ingest: pageModel([]).model });
     const statuses: unknown[] = [];
@@ -365,27 +354,23 @@ describe("a started parse", () => {
       const store = from(bucket);
       return {
         ...store,
-        upload: async (...args: Parameters<typeof store.upload>) => {
+        download: async (path: string) => {
           statuses.push(material()?.parse_status);
-          return store.upload(...args);
+          return store.download(path);
         },
-      };
+      } as typeof store;
     };
 
     await parseMaterial(MATERIAL);
 
-    expect(statuses).toEqual(["parsing", "parsing"]);
+    expect(statuses[0]).toBe("parsing");
   });
 });
 
 describe("a page step that runs again after it stored its page", () => {
   test("neither calls the model nor records usage again, and keeps one page result", async () => {
     await seedLecture();
-    const page = {
-      pageNumber: 1,
-      imagePath: STORAGE_PATH,
-      mediaType: "application/pdf",
-    };
+    const page = { pageNumber: 1 };
     const model = pageModel([pageResult("Page one"), pageResult("Again")]);
     useMockModels({ ingest: model.model });
 

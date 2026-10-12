@@ -268,9 +268,6 @@ importers:
       shadcn:
         specifier: ^4.21.1
         version: 4.21.1(supports-color@8.1.1)(typescript@5.9.3)
-      sharp:
-        specifier: ^0.35.5
-        version: 0.35.5(@types/node@24.19.1)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -368,6 +365,9 @@ importers:
       prettier-plugin-tailwindcss:
         specifier: ^0.8.1
         version: 0.8.1(prettier@3.9.9)
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@24.19.1)
       supabase:
         specifier: ^2.119.0
         version: 2.119.0

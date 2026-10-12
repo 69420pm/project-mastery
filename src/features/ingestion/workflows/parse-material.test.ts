@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   BUCKET,
@@ -120,7 +119,7 @@ describe("parsing a PDF Material", () => {
     expect(sentImages(prompts)).toEqual([["image/png"], ["image/png"]]);
   });
 
-  test("stores each rendered page as a PNG under the Material's path, with its page result", async () => {
+  test("stores each page's result, and no page image in Storage", async () => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({
       ingest: pageModel([
@@ -148,13 +147,7 @@ describe("parsing a PDF Material", () => {
         units: [expect.objectContaining({ markdown: "Page two" })],
       }),
     ]);
-    for (const page of pages) {
-      const image = db.files.read(BUCKET, String(page.image_path));
-      expect(String(page.image_path)).toMatch(new RegExp(`^${STORAGE_PATH}/`));
-      expect(image?.contentType).toBe("image/png");
-      // PNG signature
-      expect(image?.text.slice(1, 4)).toBe("PNG");
-    }
+    expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
   });
 
   test("records the usage of every page call and the file call for the Student", async () => {
@@ -191,36 +184,37 @@ describe("figures", () => {
       figure: { description: "A parabola through the origin.", box },
     });
 
-  test("crops a figure from its page image, stores the crop and references it from the chunk", async () => {
+  test("references a figure from its chunk by page and box, padded, without storing a picture", async () => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({
       ingest: pageModel([
+        { units: [unit({ markdown: "Page one" })] },
         { units: [figureUnit({ x: 0.1, y: 0.2, width: 0.5, height: 0.25 })] },
-        { units: [unit({ markdown: "Page two" })] },
       ]).model,
     });
 
     await parseMaterial(MATERIAL);
 
-    const cropPath = `${STORAGE_PATH}/figures/1-0.png`;
-    const crop = db.files.read(BUCKET, cropPath);
-    expect(crop?.contentType).toBe("image/png");
-    const size = await sharp(crop?.bytes).metadata();
-    // 50% x 25% of a 1224x1584 page, plus 2% of 1584px padding on each side.
-    expect(size).toMatchObject({ width: 612 + 64, height: 396 + 64 });
-    expect(db.tables.chunks[0]).toMatchObject({
+    expect(db.tables.chunks[1]).toMatchObject({
       figure: {
         description: "A parabola through the origin.",
-        cropPath,
+        page: 2,
+        box: {
+          x: expect.closeTo(0.08),
+          y: expect.closeTo(0.18),
+          width: expect.closeTo(0.54),
+          height: expect.closeTo(0.29),
+        },
       },
     });
+    expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
   });
 
   test.each([
     ["missing", null],
     ["inverted", { x: 0.6, y: 0.5, width: -0.3, height: -0.2 }],
     ["out of range", { x: 0.5, y: 0.5, width: 2, height: 0.2 }],
-  ])("references the whole page image when the box is %s", async (_, box) => {
+  ])("references the whole page when the box is %s", async (_, box) => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({
       ingest: pageModel([
@@ -231,16 +225,13 @@ describe("figures", () => {
 
     await parseMaterial(MATERIAL);
 
-    const pageImage = `${STORAGE_PATH}/pages/1.png`;
     expect(db.tables.chunks[0]).toMatchObject({
       figure: {
         description: "A parabola through the origin.",
-        cropPath: pageImage,
+        page: 1,
+        box: null,
       },
     });
-    expect(db.files.paths(BUCKET)).not.toContain(
-      `${STORAGE_PATH}/figures/1-0.png`,
-    );
   });
 });
 
@@ -263,7 +254,7 @@ describe("parsing an image Material", () => {
       pages_done: 1,
     });
     expect(db.tables.material_pages).toEqual([
-      expect.objectContaining({ page_number: 1, image_path: STORAGE_PATH }),
+      expect.objectContaining({ page_number: 1 }),
     ]);
     expect(db.tables.chunks).toEqual([
       expect.objectContaining({

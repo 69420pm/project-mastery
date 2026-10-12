@@ -38,7 +38,7 @@ select lives_ok(
     'aaaaaaaa-1111-0000-0000-000000000001',
     '[
       {"position": 0, "page_from": 1, "page_to": 2, "label": "definition", "markdown": "A limit ...", "figure": null, "exercise_number": null, "points": null},
-      {"position": 1, "page_from": 3, "page_to": 3, "label": "exercise", "markdown": "a) Show ...", "figure": {"description": "A plot", "cropPath": null}, "exercise_number": "7.2a", "points": 2.5}
+      {"position": 1, "page_from": 3, "page_to": 3, "label": "exercise", "markdown": "a) Show ...", "figure": {"description": "A plot", "page": 3, "box": null}, "exercise_number": "7.2a", "points": 2.5}
     ]',
     true, 2023, 60)$$,
   'the workflow replaces the chunks');
@@ -56,7 +56,7 @@ select results_eq(
 
 select is(
   (select figure from public.chunks where material_id = 'aaaaaaaa-1111-0000-0000-000000000001' and position = 1),
-  '{"description": "A plot", "cropPath": null}'::jsonb,
+  '{"description": "A plot", "page": 3, "box": null}'::jsonb,
   'a chunk keeps its figure');
 
 select results_eq(
