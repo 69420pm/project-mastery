@@ -12,7 +12,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 [VISION.md](VISION.md) defines what this product is and what it is not. Read it before any product, UX or scope decision: proposing or planning features, writing issues, designing flows, UI or AI tutor behavior, or deciding between options that change what the user experiences. It is not needed for purely technical work such as implementing a well-specified issue, refactoring, fixing bugs, tooling or code review.
 
-For the same decisions, check `research/design-rules/` for evidence-graded rules for learning and tutoring behavior. Research itself runs in sessions started from `research/`.
+## Domain language
+
+Name domain concepts in code, issues and UI with the terms in [GLOSSARY.md](GLOSSARY.md), and avoid the synonyms it lists.
 
 ## Architecture
 
@@ -38,7 +40,7 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 
 - Conventional Commits for commit messages and PR titles.
 - Every change goes through a PR against `main`; never push to `main` or merge PRs. Read [docs/agents/pull-requests.md](docs/agents/pull-requests.md) before creating a branch or opening a PR.
-- Specs and tickets are GitHub issues: read [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) before creating, reading or closing one.
+- Specs are GitHub issues: read [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) before creating, reading or closing one.
 
 ## Live AI calls
 

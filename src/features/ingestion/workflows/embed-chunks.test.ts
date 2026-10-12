@@ -39,7 +39,7 @@ const twoPages = () =>
     },
   ]);
 
-/** An error answer of the Gemini API (see the gemini-free-tier note). */
+/** An error answer of the Gemini API (see docs/agents/live-ai.md). */
 const geminiError = (statusCode: number, error: Record<string, unknown>) =>
   new APICallError({
     message: "Gemini API error",

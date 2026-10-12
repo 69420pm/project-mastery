@@ -2,7 +2,7 @@ import { APICallError, RetryError } from "ai";
 import { describe, expect, test } from "vitest";
 import { isDailyQuotaError } from "./daily-quota";
 
-/** A 429 from the Gemini API for the quota `quotaId` (see gemini-free-tier note). */
+/** A 429 from the Gemini API for the quota `quotaId` (see docs/agents/live-ai.md). */
 function quota429(quotaId: string) {
   return new APICallError({
     message: "You exceeded your current quota",

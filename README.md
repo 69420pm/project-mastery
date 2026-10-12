@@ -133,7 +133,6 @@ eslint/            Lint rules that enforce the project structure, and their test
 evals/             AI eval datasets and runner (`pnpm evals`)
 tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
 tools/build/       Worktree setup for `/build`
-tools/spec-run/    Worktree, ticket brief, merge and cleanup scripts for `/implement-spec`
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
 docs/              Architecture; adr/ holds the technical decisions
 e2e/               Playwright end-to-end tests
