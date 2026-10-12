@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Read-only review of a diff on one axis, Spec or Standards, against the brief in its prompt. Used by the code-review skill, by /build before the PR, and by /implement-spec after each ticket merges.
+description: Read-only review of a diff on one axis, Spec or Standards, against the brief in its prompt. Used by /build before the PR, and by /implement-spec after each ticket merges and before the PR.
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Bash
