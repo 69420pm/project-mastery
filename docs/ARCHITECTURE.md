@@ -92,6 +92,8 @@ app ──► features ──► components ──► hooks ──► lib
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`.
 - `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`.
+- `evals/smoke/<name>.ts` holds smoke checks, run with `pnpm smoke <name>`. Each runs one real feature path once on a small input, on `gemini-3.5-flash-lite` with at most 10 model calls, and checks the feature's invariants. Specs name theirs, and `/build` runs it before the PR. Like evals, they never run in `pnpm check` or CI.
+- `tools/build/setup.sh` prepares the worktree that `/build` works in for one spec.
 - `tools/spec-run/` holds the shell scripts that `/implement-spec` runs: preparing an agent worktree for a ticket, printing a ticket's brief, merging a finished ticket into the integration branch behind the full checks, and cleaning up the worktrees afterwards.
 
 ### Anatomy of a feature

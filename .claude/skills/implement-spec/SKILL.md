@@ -36,7 +36,7 @@ Every agent re-reads its whole context on every turn, and all agents share the u
 
 7. When a merge changes the frontier, start implementers for the newly unblocked tickets (step 4).
 
-8. Once all tickets are merged, call the Skill tool with `code-review` against `main`. Forward the findings verbatim, as in step 6: Spec findings to an `implementer` with work id `review-spec`, Standards findings to one with work id `review-standards`, both with `model: "sonnet"`. Merge their branches with the script.
+8. Once all tickets are merged, start two `reviewer` agents in parallel on `git diff origin/main...HEAD`: one on the Spec axis, with the spec issue as its brief, and one on the Standards axis, with `AGENTS.md`, `docs/ARCHITECTURE.md` and the ADRs the diff touches as its brief. Forward the findings verbatim, as in step 6: Spec findings to an `implementer` with work id `review-spec`, Standards findings to one with work id `review-standards`, both with `model: "sonnet"`. Merge their branches with the script.
 
 9. When the spec changed prompts or AI behaviour that an eval covers, ask the user before running it once with `ALLOW_LIVE_AI=1 pnpm evals <name>`.
 
