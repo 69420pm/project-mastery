@@ -29,7 +29,7 @@ Library and environment gotchas verified in earlier work are in `docs/agents/not
 All checkouts share one local Supabase, the user's AI quota and the machine's ports.
 
 - **Database**: apply migrations with `pnpm exec supabase migration up --local --include-all`. A reset wipes other agents' data, so the Bash guard refuses it. The database can hold other tickets' tables, so after `pnpm db:types` keep only the changes for your own migrations in `database.types.ts`.
-- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. Live calls spend the user's free-tier quota ([the Gemini free-tier note](notes/gemini-free-tier.md)). They are allowed sparingly on `gemini-3.5-flash-lite` (900 requests a day): the spec's smoke check, once per run, and a single call to see how a provider responds while building. That is at most about 20 calls per spec. Prefix the command with `ALLOW_LIVE_AI=1`, which the Bash guard requires. Embeddings have their own small quota, and every chunk counts as one request, so smoke-check them on a few chunks. Flash and Pro models (20 requests a day) and evals still need the user's go-ahead.
+- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. What live calls are allowed, and how, is in [live-ai.md](live-ai.md).
 - **Ports**: `pnpm -s agent up` and Playwright pick a port for each checkout. Leave `PORT` unset.
 
 ## Tests

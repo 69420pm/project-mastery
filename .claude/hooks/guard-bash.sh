@@ -35,7 +35,7 @@ guard ALLOW_DB_RESET \
 
 guard ALLOW_LIVE_AI \
   'pnpm\s+(-s\s+)?(run\s+)?(evals|smoke(:\S+)?)\b|(pnpm\s+exec\s+)?tsx\s+.*(evals/run|evals/smoke\S*)\.ts|curl\s+.*(generativelanguage\.googleapis\.com|ai-gateway\.vercel\.sh)' \
-  "Evals, smoke checks and direct model calls spend the user's free-tier AI quota. Test with AI_PROVIDER=mock; the budget for live calls is in docs/agents/worktrees.md under Shared resources."
+  "Evals, smoke checks and direct model calls spend the user's free-tier AI quota. Test with AI_PROVIDER=mock; what live calls are allowed is in docs/agents/live-ai.md."
 
 # Agent worktrees only: files written from the shell skip the lint hook, and
 # patch scripts get around Claude Code's worktree guard.
