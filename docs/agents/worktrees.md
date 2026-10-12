@@ -1,10 +1,17 @@
 # Working in an agent worktree
 
-An agent worktree is a checkout under `.claude/worktrees/` that one subagent works in while other agents work in parallel beside it. These rules keep parallel agents from blocking each other and keep each agent's context small.
+An agent worktree is a checkout under `.claude/worktrees/`. Agents work in one while the user works in the main checkout. There are two kinds:
+
+- **`/build`** (the default): the coordinator session enters one worktree for a spec, and `builder` agents work in it one after another, one slice each.
+- **`/implement-spec`** (for large specs whose tickets don't overlap): each `implementer` gets its own worktree, and several run in parallel.
+
+These rules keep agents from blocking each other or the user, and keep each agent's context small.
 
 ## Setup
 
-The first command in a new worktree is `tools/spec-run/setup-worktree.sh <integration-branch> <work-id>`, where the work id is the ticket number, or a short name such as `review-spec` for other work. It puts the worktree on the branch `<integration-branch>-<work-id>` based on the integration branch, installs dependencies, links `.env.local` and, for a ticket, prints the ticket brief. `pnpm` and `node` are on PATH as they are.
+For `/build`, the coordinator runs `tools/build/setup.sh <spec-issue>` once, right after entering the worktree. It names the branch after the spec, installs dependencies and links `.env.local`, so builders start working directly.
+
+For `/implement-spec`, the first command in a new worktree is `tools/spec-run/setup-worktree.sh <integration-branch> <work-id>`, where the work id is the ticket number, or a short name such as `review-spec` for other work. It puts the worktree on the branch `<integration-branch>-<work-id>` based on the integration branch, installs dependencies, links `.env.local` and, for a ticket, prints the ticket brief. `pnpm` and `node` are on PATH as they are.
 
 ## Commands
 
@@ -14,7 +21,7 @@ Change files with the Write and Edit tools, several Edit calls in one turn for b
 
 ## Reading
 
-Every turn re-reads the whole context, so read what the task needs: the ticket brief (`tools/spec-run/ticket-brief.sh <ticket>`, printed by the setup), the handoff maps of earlier tickets, and files by the range you need, found with `grep -n` first. The brief ends with the spec's headings and the command that reads one more section.
+Every turn re-reads the whole context, so read only what the task needs. In `/build` that is the one-page spec, the handoff maps of earlier slices, and files by the line ranges you need, found with `grep -n` first. In `/implement-spec` it is the ticket brief instead of the spec (`tools/spec-run/ticket-brief.sh <ticket>`, printed by the setup). The brief ends with the spec's headings and the command that reads one more section.
 Library and environment gotchas verified in earlier work are in `docs/agents/notes/`. When you verify one that future work will need, add it there in a few lines, as part of your commit.
 
 ## Shared resources
@@ -22,13 +29,13 @@ Library and environment gotchas verified in earlier work are in `docs/agents/not
 All checkouts share one local Supabase, the user's AI quota and the machine's ports.
 
 - **Database**: apply migrations with `pnpm exec supabase migration up --local --include-all`. A reset wipes other agents' data, so the Bash guard refuses it. The database can hold other tickets' tables, so after `pnpm db:types` keep only the changes for your own migrations in `database.types.ts`.
-- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. Evals and live model calls spend the user's free-tier quota (20 requests per flash model per day, see [the Gemini free-tier note](notes/gemini-free-tier.md)), so they run once at the end of a spec, by the orchestrator, after the user agrees.
+- **AI**: tests and runtime checks use `AI_PROVIDER=mock`. Live calls spend the user's free-tier quota ([the Gemini free-tier note](notes/gemini-free-tier.md)). They are allowed sparingly on `gemini-3.5-flash-lite` (900 requests a day): the spec's smoke check, once per run, and a single call to see how a provider responds while building. That is at most about 20 calls per spec. Prefix the command with `ALLOW_LIVE_AI=1`, which the Bash guard requires. Embeddings have their own small quota, and every chunk counts as one request, so smoke-check them on a few chunks. Flash and Pro models (20 requests a day) and evals still need the user's go-ahead.
 - **Ports**: `pnpm -s agent up` and Playwright pick a port for each checkout. Leave `PORT` unset.
 
 ## Tests
 
-`pnpm test:e2e` rebuilds the app first when the code is newer than the last build. Run a new or changed e2e spec with `pnpm test:e2e --repeat-each=5 <spec>` before you finish. A test that sometimes fails is a product bug, usually a race, until you have shown otherwise: find what the test observed in the window where it failed before you change the test.
+`pnpm test:e2e` rebuilds the app first when the code is newer than the last build. Run a new or changed e2e spec once before you finish. If it fails even once, run it with `--repeat-each=5`: a test that sometimes fails is a product bug, usually a race, until you have shown otherwise: find what the test observed in the window where it failed before you change the test.
 
 ## Git
 
-Commit on your ticket branch. The orchestrator merges, pushes and opens PRs. Commands that discard uncommitted work are refused; discard single files by name.
+Commit on your branch. In `/build`, the coordinator pushes and opens the PR. In `/implement-spec`, the orchestrator merges, pushes and opens PRs. Commands that discard uncommitted work are refused; discard single files by name.

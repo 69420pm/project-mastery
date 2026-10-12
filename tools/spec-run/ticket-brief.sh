@@ -7,7 +7,7 @@
 #
 # Implementers get it from setup-worktree.sh; the orchestrator saves it for
 # reviewers. A Context line names a section in bold, as in
-# `- **Implementation Decisions › Overlaps and failures**: ...`; the part after
+# `- **Decisions › Overlaps and failures**: ...`; the part after
 # the last › is the heading, or the start of it.
 set -euo pipefail
 
