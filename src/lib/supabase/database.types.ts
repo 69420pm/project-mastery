@@ -329,7 +329,6 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
-          image_path: string;
           material_id: string;
           owner: string;
           page_number: number;
@@ -338,7 +337,6 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
-          image_path: string;
           material_id: string;
           owner: string;
           page_number: number;
@@ -347,7 +345,6 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
-          image_path?: string;
           material_id?: string;
           owner?: string;
           page_number?: number;

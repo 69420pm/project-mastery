@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Markdown } from "@/components/markdown";
+import { PageCrop } from "@/components/page-crop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type {
@@ -51,7 +52,7 @@ export function ChunkList({
   backHref,
   materialHref,
 }: ChunkListProps) {
-  const { exam } = material;
+  const { exam, file } = material;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-4 pb-10 sm:px-6">
@@ -85,7 +86,11 @@ export function ChunkList({
         <ol aria-label="Chunks" className="flex flex-col gap-4">
           {material.chunks.map((chunk) => (
             <li key={chunk.id}>
-              <ChunkCard chunk={chunk} materialHref={materialHref} />
+              <ChunkCard
+                chunk={chunk}
+                file={file}
+                materialHref={materialHref}
+              />
             </li>
           ))}
         </ol>
@@ -96,9 +101,11 @@ export function ChunkList({
 
 function ChunkCard({
   chunk,
+  file,
   materialHref,
 }: {
   chunk: ChunkView;
+  file: MaterialChunks["file"];
   materialHref: ChunkListProps["materialHref"];
 }) {
   return (
@@ -118,13 +125,14 @@ function ChunkCard({
       <Markdown className="min-w-0">{chunk.markdown}</Markdown>
       {chunk.figure && (
         <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          {chunk.figure.imageUrl && (
-            // A short-lived signed Storage URL, so next/image has nothing to optimize.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={chunk.figure.imageUrl}
+          {file && (
+            <PageCrop
+              file={file.url}
+              mediaType={file.mediaType}
+              page={chunk.figure.page}
+              box={chunk.figure.box}
               alt={chunk.figure.description}
-              className="mb-2 max-h-96 w-auto max-w-full rounded-md border bg-white"
+              className="mb-2 max-w-xl"
             />
           )}
           <figcaption className="font-medium">Figure</figcaption>

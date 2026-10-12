@@ -3,12 +3,13 @@
 import "client-only";
 import { useControllableState } from "@radix-ui/react-use-controllable-state";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Document, Page, pdfjs, type DocumentProps } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useElementWidth } from "@/hooks/use-element-width";
 import { cn } from "@/lib/utils";
 
 // Must be set in the module that renders <Document>, see the react-pdf README.
@@ -119,21 +120,4 @@ function PageSkeleton() {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-/** Tracks an element's content width, so pages fit their container. */
-function useElementWidth(ref: React.RefObject<HTMLElement | null>) {
-  const [width, setWidth] = useState<number>();
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(Math.floor(entry.contentRect.width));
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
-
-  return width;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { NormalizedBox } from "@/features/ingestion/domain/figure-box";
 import {
   chunksFromFileResult,
   coverageProblems,
@@ -66,23 +67,25 @@ describe("materialUnits", () => {
   });
 });
 
+const FIRST_BOX = { x: 0.1, y: 0.2, width: 0.5, height: 0.3 };
+
 describe("chunksFromFileResult", () => {
   const withFigure = (
     markdown: string,
     description: string,
-    cropPath: string,
+    box: NormalizedBox | null,
   ) => ({
     ...unit(markdown),
-    figure: { description, cropPath },
+    figure: { description, box },
   });
 
-  test("keeps the description of every figure a chunk merges, and the first crop", () => {
+  test("keeps the description of every figure a chunk merges, and the place of the first", () => {
     const units = materialUnits([
       {
         pageNumber: 1,
         units: [
-          withFigure("a", "A parabola.", "m/figures/1-0.png"),
-          withFigure("b", "A line.", "m/figures/1-1.png"),
+          withFigure("a", "A parabola.", FIRST_BOX),
+          withFigure("b", "A line.", null),
           unit("c"),
         ],
       },
@@ -94,7 +97,8 @@ describe("chunksFromFileResult", () => {
 
     expect(stored?.figure).toEqual({
       description: "A parabola.\n\nA line.",
-      cropPath: "m/figures/1-0.png",
+      page: 1,
+      box: FIRST_BOX,
     });
   });
 

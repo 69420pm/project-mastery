@@ -1,20 +1,9 @@
 import "server-only";
 import { Output } from "ai";
 import { z } from "zod";
+import { boxSchema } from "@/features/ingestion/domain/figure-box";
 import { CHUNK_LABELS } from "@/features/ingestion/types";
 import { aiTask } from "@/lib/ai/models";
-
-/**
- * A box on the page, normalized to the page's size: 0 to 1, from the top
- * left. Not range-checked here: an invalid box falls back to the whole page
- * when figures are cropped, instead of failing the page.
- */
-const boxSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
-});
 
 /** One structural unit of a page, in reading order. */
 export const pageUnitSchema = z.object({
@@ -56,21 +45,8 @@ export const pageResultSchema = z.object({ units: z.array(pageUnitSchema) });
 
 export type PageUnit = z.infer<typeof pageUnitSchema>;
 
-/**
- * A unit as stored in a page result: its figure also names the picture the
- * chunk view shows (the crop, or the whole page image when there was no
- * usable box).
- */
-export const storedUnitSchema = pageUnitSchema.extend({
-  figure: pageUnitSchema.shape.figure
-    .unwrap()
-    .extend({
-      cropPath: z.string().nullable(),
-    })
-    .nullable(),
-});
-
-export const storedUnitsSchema = z.array(storedUnitSchema);
+/** The units of a stored page result: a page call's, with usable boxes. */
+export const storedUnitsSchema = z.array(pageUnitSchema);
 
 const PAGE_INSTRUCTIONS = `You transcribe one page of a Student's course material (slides, a script, an exercise sheet, a solution sheet or an old exam) into ordered units.
 
