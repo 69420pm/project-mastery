@@ -2,7 +2,7 @@
 
 Specs and tickets live in GitHub Issues on `69420pm/project-mastery`, created with `gh`. When a skill says "publish to the issue tracker", create an issue; "fetch the ticket" means read the issue with its comments.
 
-- **Spec** (`/to-spec`): one issue of about one page, labelled `type: feature` (`type: bug` for a bug) and `ready-for-agent`. `/build <spec>` implements it on the branch `<type>/<spec-issue>-<kebab-description>` in one PR.
+- **Spec** (`/to-spec`): one issue of about one page, labelled with the `type:` that fits (a refactor or chore is `type: task`) and `ready-for-agent`. `/build <spec>` implements it in one PR.
 - **Tickets** (`/to-tickets`, only for large specs built with `/implement-spec`): one issue each, labelled `type: feature` or `type: task`, created as sub-issues of the spec issue. Record blocking edges with GitHub's native "blocked by" relationship, not as text in the body.
 - **Labels**: one `type:` label per issue, plus `area:` and `priority:` when they are clear. Available:
   - `type: feature`, `type: bug`, `type: task`, `type: docs`

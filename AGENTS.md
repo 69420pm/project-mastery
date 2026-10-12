@@ -36,7 +36,10 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 
 ## Git workflow
 
-- Branches: `<type>/<kebab-description>` (feat, fix, docs, chore, refactor)
-- Conventional Commits for commit messages and PR titles
+- Conventional Commits for commit messages and PR titles.
+- Every change goes through a PR against `main`; never push to `main` or merge PRs. Read [docs/agents/pull-requests.md](docs/agents/pull-requests.md) before creating a branch or opening a PR.
 - Specs and tickets are GitHub issues: read [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) before creating, reading or closing one.
-- Every change goes through a PR against `main`; never push to `main` or merge PRs. The maintainer reviews and squash-merges, so the PR title becomes the commit on `main`.
+
+## Live AI calls
+
+Tests and app runs use `AI_PROVIDER=mock`. Read [docs/agents/live-ai.md](docs/agents/live-ai.md) before any command that calls a real model: a smoke check, an eval or a single provider call.
