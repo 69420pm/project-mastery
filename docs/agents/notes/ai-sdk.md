@@ -9,4 +9,14 @@ The installed `ai` package is version 7; most training data is version 5 or 6. R
 - **Embedding usage**: the Gemini provider's `doEmbed` returns `usage: undefined`, and `embedMany` then reports `usage.tokens` as `NaN`. Check `Number.isFinite` and estimate (`estimatedUsage`); the mocks return `undefined` too. `MockEmbeddingModelV4` defaults to one value per call unless given `maxEmbeddingsPerCall`.
 - **Retries inside a Workflow step**: pass `maxRetries: 0` and turn the `APICallError` into `RetryableError` (with the provider's delay) or `FatalError`, as `embed-chunks.ts` does; otherwise the AI SDK's retries multiply with the step's (default 3 retries, so 4 attempts).
 - **Langfuse input of embeddings**: `@ai-sdk/otel` writes `ai.values` only with its `embedding` option, which `LangfuseVercelAiSdkIntegration` does not expose, and Langfuse maps `ai.values` to metadata, not input. `src/lib/tracing/ai-sdk-telemetry.ts` sets `langfuse.observation.input` instead.
-- **Custom data parts and file parts** (`convertDataPart`, bytes in file parts, what the mock sees): `ai-sdk-file-parts.md`.
+
+## Data parts and file parts
+
+Verified in `node_modules/ai/dist/index.js` and `node_modules/ai/docs/07-reference/02-ai-sdk-ui/31-convert-to-model-messages.mdx`.
+
+- **`convertToModelMessages` is async**, and it drops `data-*` parts on user messages unless `convertDataPart` returns a text or file part for one. `src/features/chat/server/attached-materials.ts` is the worked example: it turns a `data-material` part into the Material's file.
+- **Typing**: `UIMessage<Metadata, DataParts>` types `part.data`, as `ChatUIMessage` in `src/features/chat/types.ts` does.
+- **Validation**: once `validateUIMessages` gets `dataSchemas`, as the Chat handler passes, every `data-*` part needs a schema or fails with "No data schema found for data part X".
+- **File parts in UI messages are URL-only** (`{ type: 'file', mediaType, filename?, url }`), with inline bytes as a base64 `data:` URL. A file part returned from `convertDataPart` takes `data: Uint8Array` or base64 instead.
+- **Hosted URLs get downloaded** before the call when the model does not support that URL, a signed Storage URL included, so prefer bytes already in hand.
+- **The mock** (`src/lib/ai/mock-provider.ts`) names the attached files in its reply, so a test sees what reached the AI. To check the bytes, assert on the `prompt` passed to `doGenerate` or `doStream`.

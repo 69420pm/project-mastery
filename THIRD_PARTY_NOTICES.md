@@ -1,15 +1,13 @@
 # Third-party notices
 
-The agent skills in `.claude/skills/` listed below are third-party work, installed with the [`skills`](https://github.com/vercel-labs/skills) CLI and pinned in `skills-lock.json`. They are distributed under the MIT License reproduced at the end of this file, with the copyright notices below, and are not covered by this repository's own license.
+The agent skills in `.claude/skills/` listed below are third-party work, or adapted from it. They are distributed under the MIT License reproduced at the end of this file, with the copyright notices below, and are not covered by this repository's own license. Skills pinned in `skills-lock.json` are installed with the [`skills`](https://github.com/vercel-labs/skills) CLI; the skills adapted from mattpocock/skills are maintained here and no longer updated from upstream.
 
-Skills marked _(modified)_ have been changed from the upstream version and are no longer updated from it.
-
-| Skills                                                                                                                                                                                                                                                           | Source                                                            | Copyright                        |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------- |
-| `diagnosing-bugs`, `domain-modeling`, `grill-with-docs` _(modified)_, `grilling` _(modified)_, `implement-spec` _(modified)_, `retro`, `setup-matt-pocock-skills`, `teach`, `to-spec` _(modified)_, `to-tickets` _(modified)_, `wait-what`, `writing-for-agents` | [mattpocock/skills](https://github.com/mattpocock/skills)         | Copyright (c) 2026 Matt Pocock   |
-| `shadcn`                                                                                                                                                                                                                                                         | [shadcn-ui/ui](https://github.com/shadcn-ui/ui)                   | Copyright (c) 2023 shadcn        |
-| `supabase`                                                                                                                                                                                                                                                       | [supabase/agent-skills](https://github.com/supabase/agent-skills) | Copyright (c) 2026 Supabase      |
-| `langfuse`                                                                                                                                                                                                                                                       | [langfuse/skills](https://github.com/langfuse/skills)             | Copyright (c) 2026 Langfuse GmbH |
+| Skills                                                                                                                      | Source                                                            | Copyright                        |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------- |
+| `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `grilling`, `to-spec`, `wait-what`, `writing-for-agents` (adapted) | [mattpocock/skills](https://github.com/mattpocock/skills)         | Copyright (c) 2026 Matt Pocock   |
+| `shadcn`                                                                                                                    | [shadcn-ui/ui](https://github.com/shadcn-ui/ui)                   | Copyright (c) 2023 shadcn        |
+| `supabase`                                                                                                                  | [supabase/agent-skills](https://github.com/supabase/agent-skills) | Copyright (c) 2026 Supabase      |
+| `langfuse`                                                                                                                  | [langfuse/skills](https://github.com/langfuse/skills)             | Copyright (c) 2026 Langfuse GmbH |
 
 ## MIT License
 

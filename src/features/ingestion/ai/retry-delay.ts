@@ -4,8 +4,8 @@ import type { APICallError } from "ai";
  * How long a provider asks to wait before calling again after `error`, in
  * milliseconds, or undefined when it does not say. Reads the `retry-after-ms`
  * and `retry-after` headers (AI Gateway), then the `RetryInfo` detail of a
- * Gemini API error body, which sends no headers (see the gemini-free-tier
- * note): `"retryDelay": "21s"`.
+ * Gemini API error body, which sends no headers (see docs/agents/live-ai.md):
+ * `"retryDelay": "21s"`.
  */
 export function retryDelayMs(error: APICallError): number | undefined {
   const headers = error.responseHeaders ?? {};

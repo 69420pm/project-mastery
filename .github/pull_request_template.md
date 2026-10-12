@@ -1,19 +1,17 @@
-## Summary
+<!-- One or two sentences on why the change exists. Leave out any heading that would be empty. -->
 
-<!-- What does this PR change and why? -->
-
-Closes #
-
-## Changes
+## What changes
 
 -
 
-## Testing
+## Decisions
 
-<!-- How was this verified? Unit tests, e2e, manual steps, screenshots for UI changes. -->
+## Deploying needs
 
-## Checklist
+<!-- Migrations, environment variables, provider settings, or "Nothing beyond the code". -->
 
-- [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org) (`feat:`, `fix:`, `chore:` …)
-- [ ] Tests added or updated
-- [ ] `pnpm check` passes locally
+## Checked
+
+## Not verified
+
+Closes #
