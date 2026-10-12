@@ -88,7 +88,7 @@ test("a failed parse shows its reason, and Retry finishes it", async ({
   });
 });
 
-test("deleting a parsed Material removes its page images with its file", async ({
+test("a parsed Material keeps only its file in Storage, and deleting it removes that", async ({
   page,
   student,
   course,
@@ -99,9 +99,8 @@ test("deleting a parsed Material removes its page images with its file", async (
   await expect(entry.getByText("Parsed", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
-  expect(
-    (await allFilePaths(`${student.id}/${course.id}`)).length,
-  ).toBeGreaterThan(1);
+  // Parsing stores no page images or figure crops next to the upload.
+  expect(await allFilePaths(`${student.id}/${course.id}`)).toHaveLength(1);
 
   await entry.getByRole("button", { name: "Material actions" }).click();
   await page.getByRole("menuitem", { name: "Delete" }).click();
