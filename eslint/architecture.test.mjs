@@ -110,6 +110,18 @@ const cases = {
       expected: ["boundaries/dependencies"],
     },
     {
+      name: "smoke checks live in evals/smoke/ and may use the admin client",
+      file: "evals/smoke/example.ts",
+      code: 'export { createAdminClient } from "@/lib/supabase/admin";',
+      expected: [],
+    },
+    {
+      name: "evals other than smoke checks cannot use the admin client",
+      file: "evals/example.ts",
+      code: 'export { createAdminClient } from "@/lib/supabase/admin";',
+      expected: ["boundaries/dependencies"],
+    },
+    {
       name: "the agent CLI uses packages",
       file: "tools/agent/example.ts",
       code: 'export { z } from "zod";',

@@ -32,8 +32,10 @@ const ALLOWED_FILES = [
   "src/lib/**/*.ts",
   // Next.js root files.
   "src/{proxy,instrumentation,instrumentation-client}.ts",
-  // Evaluation datasets and runner for AI behavior (ADR 0012).
+  // Evaluation datasets and runner for AI behavior (ADR 0012), and smoke
+  // checks of feature paths (`pnpm smoke`).
   "evals/*.ts",
+  "evals/smoke/*.ts",
   // CLI that lets coding agents drive the running app (ADR 0015).
   "tools/agent/*.ts",
 ];
@@ -199,9 +201,17 @@ export const architecture = [
               },
               message: `Routes read and write data through a feature's server code (the Data Access Layer), not through Supabase clients directly. ${DOCS}`,
             },
-            // The service role bypasses Row Level Security (ADR 0003).
+            // The service role bypasses Row Level Security (ADR 0003). Smoke
+            // checks use it to set up and inspect a throwaway Student locally.
             {
-              from: { file: { path: notIn(["src/features/*/workflows/**"]) } },
+              from: {
+                file: {
+                  path: notIn([
+                    "src/features/*/workflows/**",
+                    "evals/smoke{.ts,/**}",
+                  ]),
+                },
+              },
               disallow: {
                 to: {
                   element: {
@@ -211,7 +221,7 @@ export const architecture = [
                 },
               },
               message:
-                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
+                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/) and smoke checks (evals/smoke/) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
             },
             ...RESTRICTED_PACKAGES.map(({ source, allowedIn, message }) => ({
               from: { file: { path: notIn(allowedIn) } },
