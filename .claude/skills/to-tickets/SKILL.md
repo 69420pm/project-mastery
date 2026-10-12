@@ -111,11 +111,11 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
 
 ## Context
 
-One list item per spec section this ticket relies on, starting with its exact headings in bold, then the one or two decisions from it that this ticket must honour: `- **Implementation Decisions › Overlaps and failures**: ...`. `tools/spec-run/ticket-brief.sh` reads these headings to print the sections.
+One list item per spec section this ticket relies on, starting with its exact headings in bold, then the one or two decisions from it that this ticket must honour: `- **Decisions › Overlaps and failures**: ...`. `tools/spec-run/ticket-brief.sh` reads these headings to print the sections.
 
 ## Testing
 
-The seams this ticket tests at, taken from the spec's Testing Decisions, and for async behaviour the signal a test waits on.
+The seams this ticket tests at, taken from the spec's Testing section, and for async behaviour the signal a test waits on.
 
 ## Blocked by
 

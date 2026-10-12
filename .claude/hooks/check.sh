@@ -26,8 +26,12 @@ stamp=$(git rev-parse --path-format=absolute --git-path claude-checked-head)
 dirty=$(git status --porcelain)
 
 if [[ $(jq -r '.hook_event_name' <<<"$input") == SubagentStop ]]; then
-  # Subagents in the shared checkout are covered by the main session's Stop.
-  [[ "$root" == "$(checkout_root "$CLAUDE_PROJECT_DIR")" ]] && exit 0
+  # Subagents in the main checkout are covered by the main session's Stop.
+  # Compare with the main checkout itself, not CLAUDE_PROJECT_DIR: a /build
+  # session that entered a worktree runs its builders in that worktree, and
+  # they must be checked there.
+  main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+  [[ "$root" == "$main" ]] && exit 0
   # A worktree agent usually commits before it stops, so check its new
   # commits too: anything not yet pushed and not yet seen green.
   if [[ -z "$dirty" ]]; then
