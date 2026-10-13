@@ -7,11 +7,17 @@ import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { BloomLevel, KcType } from "@/features/knowledge-map/schemas";
+import type {
+  BloomLevel,
+  KcType,
+  SolutionStatus,
+} from "@/features/knowledge-map/schemas";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   BigIdeaView,
   CheckReportView,
+  ExerciseView,
+  FindingView,
   KcView,
   KnowledgeMapView,
   MapBuild,
@@ -46,8 +52,8 @@ const BUILD_POLL_MS = 2000;
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
  * Rebuild and its check report, then each big idea with its KCs and their
- * prerequisites, the prior knowledge and the semantic links. The page refreshes itself while
- * a build runs.
+ * prerequisites, the prior knowledge, the semantic links, the Exercises and
+ * the Findings. The page refreshes itself while a build runs.
  */
 export function KnowledgeMap({ map }: { map: KnowledgeMapView }) {
   const building = map.build?.status === "building";
@@ -86,6 +92,8 @@ export function KnowledgeMap({ map }: { map: KnowledgeMapView }) {
       {map.semanticLinks.length > 0 && (
         <SemanticLinks links={map.semanticLinks} />
       )}
+      {map.build?.finishedAt != null && <Exercises exercises={map.exercises} />}
+      {map.findings.length > 0 && <Findings findings={map.findings} />}
     </div>
   );
 }
@@ -231,6 +239,7 @@ function Kc({ kc }: { kc: KcView }) {
         <div className="flex flex-wrap gap-1.5">
           <Badge variant="secondary">{TYPE_NAMES[kc.type]}</Badge>
           {kc.bloom && <Badge variant="outline">{BLOOM_NAMES[kc.bloom]}</Badge>}
+          {kc.fromExercise && <Badge variant="outline">from an exercise</Badge>}
         </div>
         <div className="text-sm text-muted-foreground">
           <Markdown>{kc.description}</Markdown>
@@ -283,7 +292,96 @@ function SemanticLinks({ links }: { links: SemanticLinkView[] }) {
   );
 }
 
-/** What the last build's checks found, or that they all passed. */
+const STATUS_NAMES: Record<SolutionStatus, string> = {
+  given: "Solution given",
+  generated: "Solution generated",
+  verified: "Solution verified",
+  disputed: "Solution disputed",
+};
+
+const DIFFICULTY_NAMES = { 1: "Easy", 2: "Medium", 3: "Hard" } as const;
+
+/** Every Exercise in reading order, with what it tests. */
+function Exercises({ exercises }: { exercises: ExerciseView[] }) {
+  return (
+    <section aria-label="Exercises" className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Exercises</h2>
+      {exercises.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          The materials have no exercises.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {exercises.map((exercise) => (
+            <li key={exercise.id}>
+              <article
+                aria-label={exercise.name}
+                className="flex flex-col gap-1.5 rounded-xl border px-4 py-3"
+              >
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-medium">{exercise.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {exercise.taskType}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant={
+                      exercise.solutionStatus === "disputed"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {STATUS_NAMES[exercise.solutionStatus]}
+                  </Badge>
+                  <Badge variant="outline">
+                    {DIFFICULTY_NAMES[exercise.difficulty]}
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  <Markdown>
+                    {exercise.kcs.length > 0
+                      ? `Tests: ${exercise.kcs.join(", ")}`
+                      : "Tests no KC of the map."}
+                  </Markdown>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** What the build found wrong in the materials, with where. */
+function Findings({ findings }: { findings: FindingView[] }) {
+  return (
+    <section aria-label="Findings" className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Findings</h2>
+      <ul className="flex flex-col gap-2">
+        {findings.map((finding) => (
+          <li
+            key={finding.id}
+            className="flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm"
+          >
+            <Markdown>{finding.text}</Markdown>
+            {finding.sources.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Sources: {finding.sources.join(", ")}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * What the last build's checks found, or that they all passed, and the KCs
+ * no Exercise tests, which fail no check.
+ */
 function CheckReport({ report }: { report: CheckReportView }) {
   const findings = [
     report.uncoveredChunks.length > 0 &&
@@ -296,6 +394,8 @@ function CheckReport({ report }: { report: CheckReportView }) {
       `Prerequisites dropped to break cycles: ${report.droppedCycleEdges
         .map((edge) => `${edge.from} → ${edge.to}`)
         .join(", ")}`,
+    report.unmappedExercises.length > 0 &&
+      `Exercises without a KC: ${report.unmappedExercises.join(", ")}`,
   ].filter((finding) => finding !== false);
   return (
     <section
@@ -313,6 +413,11 @@ function CheckReport({ report }: { report: CheckReportView }) {
             </li>
           ))}
         </ul>
+      )}
+      {report.untestedKcs.length > 0 && (
+        <div className="text-muted-foreground">
+          <Markdown>{`KCs no exercise tests: ${report.untestedKcs.join(", ")}`}</Markdown>
+        </div>
       )}
     </section>
   );

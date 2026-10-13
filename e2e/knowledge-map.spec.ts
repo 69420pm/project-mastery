@@ -44,4 +44,8 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
   await expect(
     page.getByRole("region", { name: "Check report" }),
   ).toContainText("KCs without links");
+  // The mock parse labels no chunk an exercise.
+  await expect(page.getByRole("region", { name: "Exercises" })).toContainText(
+    "The materials have no exercises.",
+  );
 });

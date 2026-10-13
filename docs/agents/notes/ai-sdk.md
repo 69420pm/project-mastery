@@ -10,6 +10,12 @@ The installed `ai` package is version 7; most training data is version 5 or 6. R
 - **Retries inside a Workflow step**: pass `maxRetries: 0` and turn the `APICallError` into `RetryableError` (with the provider's delay) or `FatalError`, as `embed-chunks.ts` does; otherwise the AI SDK's retries multiply with the step's (default 3 retries, so 4 attempts).
 - **Langfuse input of embeddings**: `@ai-sdk/otel` writes `ai.values` only with its `embedding` option, which `LangfuseVercelAiSdkIntegration` does not expose, and Langfuse maps `ai.values` to metadata, not input. `src/lib/tracing/ai-sdk-telemetry.ts` sets `langfuse.observation.input` instead.
 
+## Exercise checking on flash-lite
+
+Verified 2026-10-13 with live `exercise` calls on the jet-engines Ex 7.1 (ideal Brayton, r_p = 12, true efficiency 50.8%, printed 46.5%).
+
+- **`gemini-3.5-flash-lite` with `thinkingLevel: 'medium'` does not catch the printed error.** Given the solution, it copies the printed intermediate `(1/12)^0.2857 ≈ 0.535` and answers `matchesGiven: true`, even when told never to copy given values. Without the solution it computes `12^0.2857 ≈ 2.148` (true 2.034) and answers 53.5%. Its arithmetic with fractional powers is unreliable, so `pnpm smoke map` reports Ex 7.1 `verified` on flash-lite. Catching it needs a stronger model or a calculator tool.
+
 ## Data parts and file parts
 
 Verified in `node_modules/ai/dist/index.js` and `node_modules/ai/docs/07-reference/02-ai-sdk-ui/31-convert-to-model-messages.mdx`.

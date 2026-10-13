@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   breakCycles,
   checkMap,
+  withAddedKcLinks,
   withLinks,
   withoutRedundant,
   type Prerequisite,
@@ -63,6 +64,8 @@ const map: KnowledgeMap = {
   })),
   prerequisites: [],
   semanticLinks: [],
+  exercises: [],
+  findings: [],
 };
 
 describe("withLinks", () => {
@@ -111,10 +114,63 @@ describe("withLinks", () => {
   });
 });
 
+describe("withAddedKcLinks", () => {
+  it("adds only links of the added KCs and reduces all links again", () => {
+    const linked = withAddedKcLinks(
+      { ...map, prerequisites: [edge("k1", "k3")] },
+      ["k2"],
+      {
+        prerequisites: [edge("k1", "k2"), edge("k2", "k3"), edge("k3", "k1")],
+        semanticLinks: [
+          { from: "k1", to: "k3", coreType: "causes", label: "old pair" },
+        ],
+        priorKcs: [
+          {
+            name: "Newton's laws",
+            description: "F = ma",
+            requiredBy: ["k1", "k2"],
+            extractionConfidence: 0.8,
+          },
+          {
+            name: "Calculus",
+            description: "Derivatives",
+            requiredBy: ["k3"],
+            extractionConfidence: 0.8,
+          },
+        ],
+      },
+    );
+    // k1→k3 is now implied by k1→k2→k3.
+    expect(pairs(linked.map.prerequisites)).toEqual([
+      "k1→k2",
+      "k2→k3",
+      "p4→k2",
+    ]);
+    expect(linked.map.semanticLinks).toEqual([]);
+    expect(linked.map.kcs.map((kc) => kc.name)).not.toContain("Calculus");
+    expect(linked.droppedCycleEdges).toEqual([]);
+  });
+});
+
 describe("checkMap", () => {
-  it("lists uncovered chunks, ungrounded and orphan KCs and dropped edges", () => {
+  const exercise = (name: string, kcs: string[]) => ({
+    id: name,
+    name,
+    questionChunk: "chunk-10",
+    taskType: "compute thrust",
+    solutionStatus: "verified" as const,
+    solution: null,
+    difficulty: 1,
+    kcs,
+  });
+
+  it("lists uncovered chunks, ungrounded and orphan KCs, dropped edges, unmapped exercises and untested KCs", () => {
     const report = checkMap(
-      { ...map, prerequisites: [edge("k1", "k2")] },
+      {
+        ...map,
+        prerequisites: [edge("k1", "k2")],
+        exercises: [exercise("Ex. 1", ["k1"]), exercise("Ex. 2", [])],
+      },
       [
         { id: "chunk-1", label: "content" },
         { id: "chunk-9", label: "definition" },
@@ -133,6 +189,14 @@ describe("checkMap", () => {
           extractionConfidence: 0.3,
         },
       ],
+      unmappedExercises: ["Ex. 2"],
+      untestedKcs: ["Turbine work", "Thrust"],
     });
+  });
+
+  it("reports every taught KC as untested without exercises", () => {
+    expect(checkMap(map, [], []).untestedKcs).toEqual(
+      map.kcs.filter((kc) => kc.origin !== "prior").map((kc) => kc.name),
+    );
   });
 });

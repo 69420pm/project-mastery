@@ -74,6 +74,15 @@ export const AI_TASKS = {
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_MAP",
   },
+  /**
+   * One exercise subtask of a Knowledge map build: its KCs, task type and a
+   * solution to check the given one against. Calls add medium thinking.
+   */
+  exercise: {
+    model: "google/gemini-3.5-flash-lite",
+    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    override: "AI_MODEL_EXERCISE",
+  },
   /** Chunk embeddings for pgvector. Changing it means re-embedding. */
   embed: {
     model: "google/gemini-embedding-2",
@@ -201,13 +210,13 @@ export function modelIdFor(task: AiTask, choice?: string): string {
 export function answeringModel(
   settings: {
     model: string;
-    providerOptions?: { gateway: { models: readonly string[] } };
+    providerOptions?: { gateway?: { models: readonly string[] } };
   },
   reportedModelId: string | undefined,
 ): string {
   const candidates = [
     settings.model,
-    ...(settings.providerOptions?.gateway.models ?? []),
+    ...(settings.providerOptions?.gateway?.models ?? []),
   ];
   const withoutProvider = (id: string) => id.slice(id.indexOf("/") + 1);
   return (

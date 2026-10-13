@@ -111,6 +111,8 @@ function parseArgs(args: string[]) {
 /**
  * Writes the parsed chunks as a fixture other checks insert as chunks
  * (`evals/gold/*\/chunks.json`), without ids, figure boxes or embeddings.
+ * Each exercise subtask chunk gets the position of its paired solution
+ * chunk, or null without one.
  */
 async function writeChunks(
   supabase: Parameters<SmokeCheck["run"]>[0]["supabase"],
@@ -120,16 +122,34 @@ async function writeChunks(
   const { data, error } = await supabase
     .from("chunks")
     .select(
-      "position, page_from, page_to, label, markdown, exercise_number, points, figure",
+      "id, position, page_from, page_to, label, markdown, exercise_number, points, figure",
     )
     .eq("material_id", materialId)
     .order("position");
   if (error) throw new Error(error.message);
-  const fixture = data.map(({ figure, ...chunk }) => ({
+  const pairs = await supabase
+    .from("exercise_solutions")
+    .select("exercise_chunk_id, solution_chunk_id")
+    .in(
+      "exercise_chunk_id",
+      data.map((chunk) => chunk.id),
+    );
+  if (pairs.error) throw new Error(pairs.error.message);
+  const positionOf = new Map(data.map((chunk) => [chunk.id, chunk.position]));
+  const solutionOf = new Map(
+    pairs.data.map((pair) => [
+      pair.exercise_chunk_id,
+      pair.solution_chunk_id === null
+        ? null
+        : (positionOf.get(pair.solution_chunk_id) ?? null),
+    ]),
+  );
+  const fixture = data.map(({ id, figure, ...chunk }) => ({
     ...chunk,
     figure_description:
       z.object({ description: z.string() }).safeParse(figure).data
         ?.description ?? null,
+    ...(solutionOf.has(id) && { solution_position: solutionOf.get(id) }),
   }));
   await writeFile(file, `${JSON.stringify(fixture, null, 2)}\n`);
   console.info(`Wrote ${fixture.length} chunks to ${file}.`);

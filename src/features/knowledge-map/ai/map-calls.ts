@@ -242,6 +242,32 @@ export function linksCall(
   };
 }
 
+const ADDED_KC_LINKS_INSTRUCTIONS = `${LINKS_INSTRUCTIONS} The KCs listed in newKcIds were just added; the others are linked already. Give only links that involve at least one new KC, and only prior knowledge that a new KC builds on.`;
+
+/**
+ * One links call over every KC of the map for the KCs added since the
+ * first one (`addedKcIds`), which answers links for those only.
+ */
+export function addedKcLinksCall(
+  kcs: Array<{ id: string; name: string; description: string }>,
+  addedKcIds: string[],
+) {
+  return {
+    ...callSettings(
+      ADDED_KC_LINKS_INSTRUCTIONS,
+      linksSchema(kcs.map((kc) => kc.id)),
+    ),
+    messages: userMessage({
+      kcs: kcs.map(({ id, name: kcName, description: kcDescription }) => ({
+        id,
+        name: kcName,
+        description: kcDescription,
+      })),
+      newKcIds: addedKcIds,
+    }),
+  };
+}
+
 /** One fill call over a big idea's KCs and the chunks that teach them. */
 export function fillCall(
   bigIdea: DraftBigIdea,

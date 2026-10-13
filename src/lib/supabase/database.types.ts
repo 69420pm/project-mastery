@@ -311,6 +311,56 @@ export type Database = {
           },
         ];
       };
+      exercise_kcs: {
+        Row: {
+          course_id: string;
+          exercise_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Insert: {
+          course_id: string;
+          exercise_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Update: {
+          course_id?: string;
+          exercise_id?: string;
+          kc_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercise_kcs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exercise_solutions: {
         Row: {
           course_id: string;
@@ -366,6 +416,165 @@ export type Database = {
             columns: ["solution_chunk_id"];
             isOneToOne: false;
             referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      exercises: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          difficulty: number;
+          id: string;
+          name: string;
+          owner: string;
+          position: number;
+          question_chunk_id: string;
+          solution: string | null;
+          solution_status: string;
+          task_type: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          difficulty: number;
+          id?: string;
+          name: string;
+          owner: string;
+          position: number;
+          question_chunk_id: string;
+          solution?: string | null;
+          solution_status: string;
+          task_type: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          difficulty?: number;
+          id?: string;
+          name?: string;
+          owner?: string;
+          position?: number;
+          question_chunk_id?: string;
+          solution?: string | null;
+          solution_status?: string;
+          task_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercises_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercises_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercises_question_chunk_id_fkey";
+            columns: ["question_chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finding_sources: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          finding_id: string;
+          owner: string;
+        };
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          finding_id: string;
+          owner: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          finding_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finding_sources_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_finding_id_fkey";
+            columns: ["finding_id"];
+            isOneToOne: false;
+            referencedRelation: "findings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      findings: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          owner: string;
+          position: number;
+          text: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          owner: string;
+          position: number;
+          text: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          owner?: string;
+          position?: number;
+          text?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "findings_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "findings_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

@@ -3,6 +3,7 @@ import type {
   CheckReport,
   KcType,
   SemanticLinkType,
+  SolutionStatus,
 } from "@/features/knowledge-map/schemas";
 
 /** A chunk of the Course as a build reads it. */
@@ -28,6 +29,8 @@ export type KcView = {
   description: string;
   type: KcType;
   bloom: BloomLevel | null;
+  /** Added because exercises need it while the content does not teach it. */
+  fromExercise: boolean;
   /** Where it is taught, such as "Lecture 1 p. 3", in reading order. */
   sources: string[];
   /** The names of the KCs to learn before it. */
@@ -55,6 +58,20 @@ export type BigIdeaView = {
   kcs: KcView[];
 };
 
+/** An Exercise as the map page shows it. */
+export type ExerciseView = {
+  id: string;
+  name: string;
+  taskType: string;
+  /** The names of the KCs it tests, in map order. */
+  kcs: string[];
+  solutionStatus: SolutionStatus;
+  difficulty: 1 | 2 | 3;
+};
+
+/** A Finding with its sources as "Lecture 1 p. 3". */
+export type FindingView = { id: string; text: string; sources: string[] };
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;
@@ -63,6 +80,9 @@ export type KnowledgeMapView = {
   /** Prior knowledge the material assumes, which belongs to no big idea. */
   priorKnowledge: KcView[];
   semanticLinks: SemanticLinkView[];
+  /** In reading order. */
+  exercises: ExerciseView[];
+  findings: FindingView[];
   /** Null before a build stored one. */
   checkReport: CheckReportView | null;
   /** Whether Build may start: a Material is parsed and none waits or parses. */

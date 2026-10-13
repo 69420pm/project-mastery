@@ -3,91 +3,16 @@ import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+import type { FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
+import { createMapDb } from "./build-testing";
 
 vi.mock("server-only", () => ({}));
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 
-/**
- * The admin client of the workflow. `replace_knowledge_map` stands in for the
- * database function, which pgTAP tests: it swaps in the map's big ideas,
- * KCs and sources while the build runs, and marks it built.
- */
-function createDb() {
-  return fakeSupabase({
-    tables: {
-      materials: [] as FakeRow[],
-      chunks: [] as FakeRow[],
-      knowledge_map_builds: [] as FakeRow[],
-      big_ideas: [] as FakeRow[],
-      kcs: [] as FakeRow[],
-      kc_sources: [] as FakeRow[],
-      prerequisite_links: [] as FakeRow[],
-      semantic_links: [] as FakeRow[],
-      ai_usage: [] as FakeRow[],
-    },
-    defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
-    functions: {
-      replace_knowledge_map: (args, tables) => {
-        const build = tables.knowledge_map_builds.find(
-          (row) =>
-            row.course_id === args.p_course_id && row.status === "building",
-        );
-        if (!build) return false;
-        const map = args.p_map as {
-          bigIdeas: Array<{ id: string; name: string }>;
-          kcs: Array<
-            FakeRow & { id: string; bigIdea: string | null; sources: string[] }
-          >;
-        };
-        const rowId = (id: string) => `${COURSE}:${id}`;
-        tables.big_ideas = map.bigIdeas.map((bigIdea, position) => ({
-          id: rowId(bigIdea.id),
-          name: bigIdea.name,
-          position,
-        }));
-        const links = args.p_map as {
-          prerequisites: Array<{ from: string; to: string }>;
-          semanticLinks: Array<{ from: string; to: string; label: string }>;
-        };
-        tables.prerequisite_links = links.prerequisites.map((link) => ({
-          from_kc: rowId(link.from),
-          to_kc: rowId(link.to),
-        }));
-        tables.semantic_links = links.semanticLinks.map((link) => ({
-          from_kc: rowId(link.from),
-          to_kc: rowId(link.to),
-          label: link.label,
-        }));
-        tables.kcs = map.kcs.map((kc, position) => ({
-          id: rowId(kc.id),
-          big_idea_id: kc.bigIdea && rowId(kc.bigIdea),
-          name: kc.name,
-          description: kc.description,
-          type: kc.type,
-          bloom: kc.bloom,
-          position,
-        }));
-        tables.kc_sources = map.kcs.flatMap((kc) =>
-          kc.sources.map((chunkId) => ({
-            kc_id: rowId(kc.id),
-            chunk_id: chunkId,
-          })),
-        );
-        Object.assign(build, {
-          status: "built",
-          check_report: args.p_check_report,
-          finished_at: new Date().toISOString(),
-        });
-        return true;
-      },
-    },
-  });
-}
-
+const createDb = () => createMapDb(COURSE);
 let db = createDb();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => markAdminClient(db as unknown as Supabase),
@@ -102,7 +27,9 @@ const { buildKnowledgeMap } = await import("./build-knowledge-map");
 function seedMaterial(
   name: string,
   parseStatus: string,
-  chunks: Array<[label: string, markdown: string]>,
+  chunks: Array<
+    [label: string, markdown: string, exerciseNumber?: string | null]
+  >,
 ) {
   const materialId = crypto.randomUUID();
   db.tables.materials.push({
@@ -112,7 +39,7 @@ function seedMaterial(
     name,
     parse_status: parseStatus,
   });
-  return chunks.map(([label, markdown], position) => {
+  return chunks.map(([label, markdown, exerciseNumber = null], position) => {
     const id = crypto.randomUUID();
     db.tables.chunks.push({
       id,
@@ -122,6 +49,7 @@ function seedMaterial(
       page_from: position + 1,
       label,
       markdown,
+      exercise_number: exerciseNumber,
     });
     return id;
   });
@@ -134,8 +62,8 @@ type Sent = Record<string, unknown> & {
 
 /**
  * The `map` model: answers the skeleton, each assignment and each fill call
- * with the test's function of what the call was sent, and the links call
- * with the test's links or none, and remembers what each call was sent.
+ * with the test's function of what the call was sent, and the links calls
+ * with the test's links (or its function of what was sent) or none, and remembers what each call was sent.
  */
 function mapModel(answers: {
   skeleton: unknown;
@@ -149,6 +77,7 @@ function mapModel(answers: {
     }>;
   };
   links?: unknown;
+  exercise?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
   let assignments = 0;
@@ -160,7 +89,16 @@ function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("definitions" in input) answer = answers.skeleton;
+      if ("exercise" in input) {
+        answer = answers.exercise?.(input) ?? {
+          kcIds: [],
+          newKcs: [],
+          taskType: "compute",
+          solution: "Solved.",
+          finalResult: "1",
+          steps: 1,
+        };
+      } else if ("definitions" in input) answer = answers.skeleton;
       else if ("chunks" in input) {
         // Every sent chunk, teaching nothing unless the test says so; a
         // new KC goes under each chunk that teaches it.
@@ -183,7 +121,9 @@ function mapModel(answers: {
           ),
         };
       } else if (!("bigIdea" in input))
-        answer = answers.links ?? {
+        answer = (typeof answers.links === "function"
+          ? (answers.links as (input: Sent) => unknown)(input)
+          : answers.links) ?? {
           prerequisites: [],
           semanticLinks: [],
           priorKcs: [],
@@ -358,6 +298,9 @@ describe("building a Knowledge map", () => {
           extractionConfidence: 0.2,
         },
       ],
+      // The exercise, unpaired, is answered with no KC.
+      unmappedExercises: ["Exercise on Lecture 1 p. 11"],
+      untestedKcs: ["Pressure ratio", "Turbine work"],
     });
 
     const [skeleton, first, second, fill, linksCall] = sent;
@@ -377,10 +320,158 @@ describe("building a Knowledge map", () => {
       "Turbine work",
     ]);
     expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k3"]);
-    expect(sent).toHaveLength(5);
-    expect(db.tables.ai_usage.map((row) => row.task)).toEqual(
-      Array(5).fill("map"),
+    expect(sent).toHaveLength(6);
+    expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
+      ...Array(5).fill("map"),
+      "exercise",
+    ]);
+  });
+
+  test("maps each exercise subtask to KCs and checks or generates its solution", async () => {
+    seedBuild();
+    const [, q1, s1, q2, s2, q3] = seedMaterial("Chapter 7", "parsed", [
+      ["content", "Thermal efficiency is 1 - rp^-0.2857."],
+      ["exercise", "Compute the efficiency for rp = 12.", "7.1"],
+      ["solution", "46.5%", "7.1"],
+      ["exercise", "Compute the thrust.", "7.2a"],
+      ["solution", "20 kN", "7.2a"],
+      ["exercise", "Compute the propulsive power.", "7.2b"],
+    ]);
+    db.tables.exercise_solutions.push(
+      { course_id: COURSE, exercise_chunk_id: q1, solution_chunk_id: s1 },
+      { course_id: COURSE, exercise_chunk_id: q2, solution_chunk_id: s2 },
+      { course_id: COURSE, exercise_chunk_id: q3, solution_chunk_id: null },
     );
+    const proposedKc = (name: string) => ({
+      name,
+      description: `${name}.`,
+      type: "procedure",
+      bloom: "apply",
+      bigIdea: "b1",
+    });
+    const answers: Record<string, object> = {
+      "Compute the efficiency for rp = 12.": {
+        kcIds: ["k1", "unknown"],
+        newKcs: [proposedKc("Propulsive power")],
+        taskType: "compute thermal efficiency",
+        finalResult: "50.8%",
+        givenFinalResult: "46.5%",
+        matchesGiven: false,
+      },
+      "Compute the thrust.": {
+        kcIds: ["k1"],
+        // Proposed by one subtask only, so not added.
+        newKcs: [proposedKc("Bypass ratio")],
+        taskType: "compute thrust",
+        finalResult: "20 kN",
+        givenFinalResult: "20 kN",
+        matchesGiven: true,
+      },
+      "Compute the propulsive power.": {
+        kcIds: ["k1"],
+        newKcs: [proposedKc("propulsive power")],
+        taskType: "compute thrust",
+        finalResult: "4 MW",
+        steps: 5,
+      },
+    };
+    const { model, sent } = mapModel({
+      skeleton: {
+        bigIdeas: [
+          {
+            name: "Efficiency",
+            description: "Of the cycle.",
+            kcs: [{ name: "Thermal efficiency", description: "η." }],
+          },
+        ],
+      },
+      assign: () => ({ taught: { c1: ["k1"] }, newKcs: [] }),
+      links: (input: Sent) =>
+        input.newKcIds
+          ? {
+              prerequisites: [
+                { from: "k1", to: "x1", extractionConfidence: 0.9 },
+              ],
+              semanticLinks: [],
+              priorKcs: [],
+            }
+          : undefined,
+      exercise: (input) => ({
+        newKcs: [],
+        solution: "Worked solution.",
+        steps: 2,
+        ...answers[input.exercise as string],
+      }),
+    });
+    useMockModels({ map: model });
+
+    await buildKnowledgeMap(COURSE);
+
+    expect(db.tables.knowledge_map_builds[0]).toMatchObject({
+      status: "built",
+    });
+    expect(db.tables.exercises).toMatchObject([
+      {
+        name: "Ex. 7.1",
+        question_chunk_id: q1,
+        task_type: "compute thermal efficiency",
+        solution_status: "disputed",
+        solution: null,
+        difficulty: 1,
+      },
+      { name: "Ex. 7.2a", solution_status: "verified", solution: null },
+      {
+        name: "Ex. 7.2b",
+        solution_status: "generated",
+        solution: "Worked solution.",
+        difficulty: 3,
+      },
+    ]);
+    // The KC two subtasks propose joins from their exercises, with a link
+    // from the extra links call; the unknown KC id is dropped.
+    expect(
+      db.tables.kcs.map(({ name, origin }) => `${name} (${origin})`),
+    ).toEqual(["Thermal efficiency (content)", "Propulsive power (exercise)"]);
+    const propulsive = db.tables.kcs[1]?.id;
+    expect(
+      db.tables.kc_sources
+        .filter((row) => row.kc_id === propulsive)
+        .map((row) => row.chunk_id),
+    ).toEqual([q1, q3]);
+    expect(db.tables.prerequisite_links).toMatchObject([
+      { from_kc: db.tables.kcs[0]?.id, to_kc: propulsive },
+    ]);
+    expect(
+      db.tables.exercise_kcs.filter((row) => row.kc_id === propulsive),
+    ).toHaveLength(2);
+    expect(db.tables.exercise_kcs).toHaveLength(5);
+    const addedLinksCall = sent.find((input) => "newKcIds" in input);
+    expect(addedLinksCall?.kcs?.map((kc) => kc.name)).toEqual([
+      "Thermal efficiency",
+      "Propulsive power",
+    ]);
+    expect(db.tables.findings.map((row) => row.text)).toEqual([
+      "Ex. 7.1: the given answer is 46.5%, our calculation gives 50.8%.",
+    ]);
+    expect(db.tables.finding_sources.map((row) => row.chunk_id)).toEqual([
+      q1,
+      s1,
+    ]);
+    const exerciseCalls = sent.filter((input) => "exercise" in input);
+    expect(exerciseCalls.map((input) => input.solution)).toEqual([
+      "46.5%",
+      "20 kN",
+      null,
+    ]);
+    // Task types seen earlier go into later calls.
+    expect(exerciseCalls[2]?.taskTypes).toEqual([
+      "compute thermal efficiency",
+      "compute thrust",
+    ]);
+    expect(db.tables.knowledge_map_builds[0]?.check_report).toMatchObject({
+      unmappedExercises: [],
+      untestedKcs: [],
+    });
   });
 });
 

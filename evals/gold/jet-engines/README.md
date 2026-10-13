@@ -18,7 +18,11 @@ Converted from `knowledge.json` ([#69](https://github.com/69420pm/project-master
 - The `PRE` big idea is gone: its KCs are prior knowledge, with no big idea, Bloom level or source.
 - Each `prereq` entry becomes a prerequisite with confidence 1.
 - Each free-text `rel` maps to a `coreType`, with the original kept as `label`; `rel`s without a fitting type become `other`.
-- Practice items (`items`), `explain`, `misconceptions`, `formula` and `tasks` are dropped: exercises get their own spec.
+- Practice items (`items`), `explain`, `misconceptions` and `formula` are dropped.
+- `tasks` become `exercises` ([#70](https://github.com/69420pm/project-mastery/issues/70)), without Example 7.1: their question chunk is a `chunks.json` position, task types and difficulties are set by hand, Exercise 7.1 is `disputed` with a `solution_mismatch` finding about chunks 24 and 25, and the rest are `verified`. Exercise 7.2 is one chunk, so 7.2a and 7.2b share it.
+- KC07 (propulsive power) and KC26 have `origin` `exercise`: only an exercise teaches them.
+
+`chunks.json` gives each exercise chunk the `solution_position` of its paired solution chunk, or null without one; `pnpm smoke parse --chunks-out` writes it from `exercise_solutions`. The positions in the current file were added by hand.
 
 ## `knowledge.json` is not in the #51 format
 
