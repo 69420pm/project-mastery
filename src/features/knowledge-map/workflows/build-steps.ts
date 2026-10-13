@@ -176,10 +176,9 @@ export async function assignBatch(
           kcIds,
         ]),
       ),
-      newKcs: parsed.newKcs.map((kc) => ({
-        ...kc,
-        chunkIds: kc.chunkIds.map(chunkId),
-      })),
+      newKcs: Object.entries(parsed.chunks).flatMap(([id, { newKcs }]) =>
+        newKcs.map((kc) => ({ ...kc, chunkIds: [chunkId(id)] })),
+      ),
     }),
   };
 }

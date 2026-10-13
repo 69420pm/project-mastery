@@ -5,7 +5,8 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle, and
+ * delete, eq, in, contains, lt, gt, gte, order, limit, range, single,
+ * maybeSingle, and
  * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
@@ -106,6 +107,7 @@ export function fakeSupabase<Table extends string>(
     let returning = false;
     let single: "one" | "maybe" | undefined;
     let limitTo = Infinity;
+    let offset = 0;
 
     const matching = () =>
       rowsOf(table).filter(
@@ -177,7 +179,10 @@ export function fakeSupabase<Table extends string>(
           }
           return 0;
         });
-        result = { data: rows.slice(0, limitTo), error: null };
+        result = {
+          data: rows.slice(offset, offset + limitTo),
+          error: null,
+        };
       }
       if (result.error) return result;
       const rows = result.data as FakeRow[];
@@ -263,6 +268,12 @@ export function fakeSupabase<Table extends string>(
       },
       limit(count: number) {
         limitTo = count;
+        return builder;
+      },
+      /** Rows `from` to `to`, both included, as PostgREST pages them. */
+      range(rangeFrom: number, rangeTo: number) {
+        offset = rangeFrom;
+        limitTo = rangeTo - rangeFrom + 1;
         return builder;
       },
       single() {

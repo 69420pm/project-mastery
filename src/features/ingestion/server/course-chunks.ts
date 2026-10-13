@@ -35,20 +35,33 @@ export async function getChunkPlaces(
   chunkIds: string[],
 ): Promise<ChunkPlace[]> {
   if (chunkIds.length === 0 || !(await getUser())) return [];
-  const { data, error } = await (
-    await createClient()
-  )
-    .from("chunks")
-    .select("id, material_id, page_from, position")
-    .in("id", chunkIds);
-  if (error) failed("Loading the chunks", error);
-  return data.map((chunk) => ({
-    id: chunk.id,
-    materialId: chunk.material_id,
-    pageFrom: chunk.page_from,
-    position: chunk.position,
-  }));
+  const supabase = await createClient();
+  const ids = [...new Set(chunkIds)];
+  const places: ChunkPlace[] = [];
+  // Ids go in the query string, so long lists are read in slices.
+  for (let start = 0; start < ids.length; start += ID_SLICE) {
+    const { data, error } = await supabase
+      .from("chunks")
+      .select("id, material_id, page_from, position")
+      .in("id", ids.slice(start, start + ID_SLICE));
+    if (error) failed("Loading the chunks", error);
+    for (const chunk of data) {
+      places.push({
+        id: chunk.id,
+        materialId: chunk.material_id,
+        pageFrom: chunk.page_from,
+        position: chunk.position,
+      });
+    }
+  }
+  return places;
 }
+
+/** Chunk ids per `in` filter, which keeps the query string short. */
+const ID_SLICE = 100;
+
+/** Rows per page; PostgREST returns at most 1000 rows per request. */
+const PAGE = 1000;
 
 /**
  * Every chunk of the Course's `parsed` Materials in reading order: Materials
@@ -68,26 +81,29 @@ export async function loadCourseChunks(
   if (materials.error) failed("Loading the Materials", materials.error);
   if (materials.data.length === 0) return [];
 
-  const chunks = await supabase
-    .from("chunks")
-    .select("id, material_id, position, page_from, label, markdown")
-    .in(
-      "material_id",
-      materials.data.map((material) => material.id),
-    )
-    .order("position");
-  if (chunks.error) failed("Loading the chunks", chunks.error);
-
-  return materials.data.flatMap((material) =>
-    chunks.data
-      .filter((chunk) => chunk.material_id === material.id)
-      .map((chunk) => ({
-        id: chunk.id,
-        materialId: material.id,
-        materialName: material.name,
-        pageFrom: chunk.page_from,
-        label: z.enum(CHUNK_LABELS).parse(chunk.label),
-        markdown: chunk.markdown,
-      })),
-  );
+  const chunks: CourseChunk[] = [];
+  for (const material of materials.data) {
+    // Paged, so a long Material is never cut off at the row limit.
+    for (let from = 0; ; from += PAGE) {
+      const page = await supabase
+        .from("chunks")
+        .select("id, position, page_from, label, markdown")
+        .eq("material_id", material.id)
+        .order("position")
+        .range(from, from + PAGE - 1);
+      if (page.error) failed("Loading the chunks", page.error);
+      for (const chunk of page.data) {
+        chunks.push({
+          id: chunk.id,
+          materialId: material.id,
+          materialName: material.name,
+          pageFrom: chunk.page_from,
+          label: z.enum(CHUNK_LABELS).parse(chunk.label),
+          markdown: chunk.markdown,
+        });
+      }
+      if (page.data.length < PAGE) break;
+    }
+  }
+  return chunks;
 }

@@ -89,29 +89,41 @@ async function checkBuiltMap(
   supabase: Supabase,
   courseId: string,
 ): Promise<SmokeResult[]> {
-  const [build, bigIdeas, kcs, sources, prerequisites] = await Promise.all([
-    supabase
-      .from("knowledge_map_builds")
-      .select("status, failure_reason, check_report")
-      .eq("course_id", courseId)
-      .single(),
-    supabase
-      .from("big_ideas")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase
-      .from("kcs")
-      .select("id, name, type, big_idea_id")
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase.from("kc_sources").select("kc_id").eq("course_id", courseId),
-    supabase
-      .from("prerequisite_links")
-      .select("from_kc, to_kc")
-      .eq("course_id", courseId),
-  ]);
-  for (const { error } of [build, bigIdeas, kcs, sources, prerequisites]) {
+  const [build, bigIdeas, kcs, sources, prerequisites, chunks] =
+    await Promise.all([
+      supabase
+        .from("knowledge_map_builds")
+        .select("status, failure_reason, check_report")
+        .eq("course_id", courseId)
+        .single(),
+      supabase
+        .from("big_ideas")
+        .select("id, name")
+        .eq("course_id", courseId)
+        .order("position"),
+      supabase
+        .from("kcs")
+        .select("id, name, type, big_idea_id")
+        .eq("course_id", courseId)
+        .order("position"),
+      supabase.from("kc_sources").select("kc_id").eq("course_id", courseId),
+      supabase
+        .from("prerequisite_links")
+        .select("from_kc, to_kc")
+        .eq("course_id", courseId),
+      supabase
+        .from("chunks")
+        .select("id, position, label")
+        .eq("course_id", courseId),
+    ]);
+  for (const { error } of [
+    build,
+    bigIdeas,
+    kcs,
+    sources,
+    prerequisites,
+    chunks,
+  ]) {
     if (error) throw new Error(error.message);
   }
   const { status, failure_reason, check_report } = build.data!;
@@ -133,6 +145,15 @@ async function checkBuiltMap(
   console.info(
     `${allKcs.length} KCs, ${prerequisites.data!.length} prerequisites. Check report:\n${JSON.stringify(check_report, null, 2)}`,
   );
+  // Fixture positions, which gold.json's sources use, instead of row ids.
+  const uncovered = (
+    (check_report as { uncoveredChunkIds?: string[] } | null)
+      ?.uncoveredChunkIds ?? []
+  ).map((id) => {
+    const chunk = chunks.data!.find((row) => row.id === id);
+    return chunk ? `${chunk.position} (${chunk.label})` : id;
+  });
+  console.info(`Uncovered chunk positions: ${uncovered.join(", ") || "none"}`);
 
   return [
     result(

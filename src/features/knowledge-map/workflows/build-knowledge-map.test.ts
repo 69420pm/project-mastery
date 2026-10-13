@@ -141,7 +141,12 @@ function mapModel(answers: {
   skeleton: unknown;
   assign: (call: number) => {
     taught: Record<string, string[]>;
-    newKcs: unknown[];
+    newKcs: Array<{
+      name: string;
+      description: string;
+      bigIdea: string;
+      chunkIds: string[];
+    }>;
   };
   links?: unknown;
 }) {
@@ -157,16 +162,25 @@ function mapModel(answers: {
       let answer: unknown;
       if ("definitions" in input) answer = answers.skeleton;
       else if ("chunks" in input) {
-        // Every sent chunk, teaching nothing unless the test says so.
+        // Every sent chunk, teaching nothing unless the test says so; a
+        // new KC goes under each chunk that teaches it.
         const { taught, newKcs } = answers.assign(assignments++);
         answer = {
           chunks: Object.fromEntries(
             (input.chunks ?? []).map(({ id }) => [
               id,
-              { kcIds: taught[id] ?? [] },
+              {
+                kcIds: taught[id] ?? [],
+                newKcs: newKcs
+                  .filter((kc) => kc.chunkIds.includes(id))
+                  .map(({ name, description, bigIdea }) => ({
+                    name,
+                    description,
+                    bigIdea,
+                  })),
+              },
             ]),
           ),
-          newKcs,
         };
       } else if (!("bigIdea" in input))
         answer = answers.links ?? {

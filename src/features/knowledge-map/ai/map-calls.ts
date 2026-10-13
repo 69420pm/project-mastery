@@ -70,7 +70,7 @@ export const skeletonSchema = z.object({
     .describe(`At most ${MAX_BIG_IDEAS} big ideas.`),
 });
 
-const SKELETON_INSTRUCTIONS = `You outline the knowledge map of a university course. You get the names of its materials, their markdown headings and every definition, as JSON. Give the course's big ideas, at most ${MAX_BIG_IDEAS}: the few themes everything in it serves. Give each a name and a one-line description, and list the candidate KCs it holds, each with a name and a one-line description. Later steps check every candidate against the material, so name what the headings and definitions show, not more.`;
+const SKELETON_INSTRUCTIONS = `You outline the knowledge map of a university course. You get the names of its materials, their markdown headings and every definition, as JSON. Give the course's big ideas: the few broad themes everything in it serves, usually 3 to 6 for a chapter and never more than ${MAX_BIG_IDEAS}. Give each a name and a one-line description, and list the candidate KCs it holds, each with a name and a one-line description. A section heading usually holds several KCs: the facts, concepts, formulas, procedures and decisions a Student must master in it, each small enough for one short question, so a big idea usually holds 5 to 12 of them. List them all; later steps check every candidate against the material and drop the ones no chunk teaches.`;
 
 export function skeletonCall(input: SkeletonInput) {
   return {
@@ -85,9 +85,8 @@ export function assignmentSchema(
   kcIds: string[],
   bigIdeaIds: string[],
 ) {
-  const [firstChunk, ...restChunks] = chunkIds;
   const [firstBigIdea, ...restBigIdeas] = bigIdeaIds;
-  if (firstChunk === undefined || firstBigIdea === undefined) {
+  if (chunkIds.length === 0 || firstBigIdea === undefined) {
     throw new Error("An assignment needs chunks and big ideas.");
   }
   return z.object({
@@ -98,30 +97,28 @@ export function assignmentSchema(
             id,
             z.object({
               kcIds: idList(kcIds).describe(
-                "The ids of the KCs this chunk teaches; none if it teaches none.",
+                "The ids of the listed KCs this chunk teaches.",
               ),
+              newKcs: z
+                .array(
+                  z.object({
+                    name,
+                    description: description.describe("One line."),
+                    bigIdea: z.enum([firstBigIdea, ...restBigIdeas]),
+                  }),
+                )
+                .describe(
+                  "Every other KC this chunk teaches, which the list lacks, at the one-short-question grain.",
+                ),
             }),
           ]),
         ),
       )
       .describe("Every chunk of the batch, by id."),
-    newKcs: z
-      .array(
-        z.object({
-          name,
-          description: description.describe("One line."),
-          bigIdea: z.enum([firstBigIdea, ...restBigIdeas]),
-          chunkIds: z
-            .array(z.enum([firstChunk, ...restChunks]))
-            .min(1)
-            .describe("The chunks of this batch that teach it."),
-        }),
-      )
-      .describe("KCs the chunks teach that the list lacks."),
   });
 }
 
-const ASSIGNMENT_INSTRUCTIONS = `You map the chunks of a university course to the knowledge components (KCs) they teach. You get the course's big ideas, its KCs so far and a batch of chunks in reading order, as JSON. For every chunk, give the ids of the KCs it teaches. Propose a new KC only for something a chunk teaches that no KC in the list covers, with the big idea it belongs to and the chunks that teach it.`;
+const ASSIGNMENT_INSTRUCTIONS = `You map the chunks of a university course to the knowledge components (KCs) they teach. You get the course's big ideas, its KCs so far and a batch of chunks in reading order, as JSON. Go through the chunks one by one. For each, list what it teaches: every fact, definition, formula, procedure or decision a Student must master from it. A content or definition chunk that explains something teaches at least one KC, and a paragraph usually teaches two to four. A chunk that only titles, summarises or points elsewhere (a heading, a key-points list, an exercise list, references) teaches the listed KCs it repeats, or none; a section, summary or exercise set is never a KC itself. Give the ids of the listed KCs among them, and propose each one the list lacks as a new KC of that chunk, with its big idea; do not file it under a broader KC instead. A KC proposed for an earlier chunk of the batch is listed again by the same name under a later chunk that teaches it too.`;
 
 /** One assignment call over a batch of chunks, by local chunk ids. */
 export function assignmentCall(

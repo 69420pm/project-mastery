@@ -84,6 +84,7 @@ reset role;
 select results_eq(
   $$select k.name, k.position, b.name, (select count(*)::int from public.kc_sources s where s.kc_id = k.id)
     from public.kcs k left join public.big_ideas b on b.id = k.big_idea_id
+    where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001'
     order by k.position$$,
   $$values ('Newton''s laws', 0, null::text, 0), ('Thrust', 1, 'Thrust', 1), ('Thrust equation', 2, 'Thrust', 1)$$,
   'KCs are stored in order with their big idea and existing sources');
@@ -91,13 +92,16 @@ select results_eq(
   $$select f.name, t.name, l.extraction_confidence
     from public.prerequisite_links l
     join public.kcs f on f.id = l.from_kc join public.kcs t on t.id = l.to_kc
+    where l.course_id = 'aaaaaaaa-0000-0000-0000-000000000001'
     order by f.position$$,
   $$values ('Newton''s laws', 'Thrust', 0.9::numeric), ('Thrust', 'Thrust equation', 0.6::numeric)$$,
   'prerequisites point to the stored KCs');
-select is((select count(*)::int from public.semantic_links where core_type = 'other' and label = 'quantifies'), 1,
+select is((select count(*)::int from public.semantic_links
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' and core_type = 'other' and label = 'quantifies'), 1,
   'semantic links are stored');
 select results_eq(
-  $$select status, failure_reason, check_report, finished_at is not null from public.knowledge_map_builds$$,
+  $$select status, failure_reason, check_report, finished_at is not null from public.knowledge_map_builds
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('built', null::text, '{"uncoveredChunks": []}'::jsonb, true)$$,
   'the build is built with its report');
 
@@ -108,7 +112,8 @@ select is(
     '{"bigIdeas": [], "kcs": [], "prerequisites": [], "semanticLinks": []}', '{}'),
   false, 'a replace without a running build writes nothing');
 reset role;
-select is((select count(*)::int from public.kcs), 3, 'the map is unchanged');
+select is((select count(*)::int from public.kcs where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 3,
+  'the map is unchanged');
 
 -- Owners only.
 set local role authenticated;
