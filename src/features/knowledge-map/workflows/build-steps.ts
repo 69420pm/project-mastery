@@ -1,6 +1,14 @@
 import "server-only";
 import { generateText } from "ai";
-import { loadCourseChunks } from "@/features/ingestion/server";
+import {
+  loadCourseChunks,
+  loadExerciseSolutions,
+} from "@/features/ingestion/server";
+import {
+  exerciseAnswerSchema,
+  exerciseCall,
+  givenSolutionSchema,
+} from "@/features/knowledge-map/ai/exercise-calls";
 import {
   assignmentCall,
   assignmentSchema,
@@ -12,7 +20,11 @@ import {
   skeletonSchema,
 } from "@/features/knowledge-map/ai/map-calls";
 import { dailyLimitReason } from "@/features/knowledge-map/domain/build-failure";
-import type { SkeletonInput } from "@/features/knowledge-map/domain/build-input";
+import {
+  exerciseInputs,
+  type ExerciseInput,
+  type SkeletonInput,
+} from "@/features/knowledge-map/domain/build-input";
 import {
   applyAssignment,
   draftFromSkeleton,
@@ -21,6 +33,7 @@ import {
   type DraftKc,
   type KcFill,
 } from "@/features/knowledge-map/domain/draft";
+import type { ExerciseAnswer } from "@/features/knowledge-map/domain/exercises";
 import type { LinksProposal } from "@/features/knowledge-map/domain/links";
 import {
   knowledgeMapSchema,
@@ -31,7 +44,7 @@ import type { MapChunk } from "@/features/knowledge-map/types";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { answeringModel } from "@/lib/ai/models";
+import { answeringModel, type AiTask } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withTraceAttributes } from "@/lib/tracing";
 
@@ -50,12 +63,19 @@ function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
-/** What a build reads once: whose Course it is and its chunks. */
-export type BuildInput = { studentId: string; chunks: MapChunk[] };
+/**
+ * What a build reads once: whose Course it is, its chunks and its exercise
+ * subtasks with their paired solutions.
+ */
+export type BuildInput = {
+  studentId: string;
+  chunks: MapChunk[];
+  exercises: ExerciseInput[];
+};
 
 /**
- * The owner and chunks of the Course whose build runs. Null when no build
- * runs any more, as when the Course was deleted.
+ * The owner, chunks and exercise subtasks of the Course whose build runs.
+ * Null when no build runs any more, as when the Course was deleted.
  */
 export async function loadBuildInput(
   courseId: string,
@@ -70,7 +90,10 @@ export async function loadBuildInput(
     .maybeSingle();
   if (error) fail("Loading the build", error);
   if (!data) return null;
-  const chunks = await loadCourseChunks(supabase, courseId);
+  const [chunks, pairs] = await Promise.all([
+    loadCourseChunks(supabase, courseId),
+    loadExerciseSolutions(supabase, courseId),
+  ]);
   return {
     studentId: data.owner,
     chunks: chunks.map(({ id, materialName, label, markdown }) => ({
@@ -79,6 +102,7 @@ export async function loadBuildInput(
       label,
       markdown,
     })),
+    exercises: exerciseInputs(chunks, pairs),
   };
 }
 
@@ -92,8 +116,9 @@ async function mapCall(
   traceName: string,
   call: Parameters<typeof generateText>[0] & {
     model: string;
-    providerOptions?: { gateway: { models: readonly string[] } };
+    providerOptions?: { gateway?: { models: readonly string[] } };
   },
+  task: AiTask = "map",
 ): Promise<unknown> {
   const supabase = createAdminClient();
   const dailyLimit = await checkDailyLimit(supabase, { studentId });
@@ -110,7 +135,7 @@ async function mapCall(
   await recordAiUsage(
     supabase,
     {
-      task: "map",
+      task,
       modelId: answeringModel(call, result.response.modelId),
       usage: tokenUsage(result.usage),
     },
@@ -215,6 +240,63 @@ export async function linkKcs(
   return {
     ok: true,
     value: linksSchema(map.kcs.map((kc) => kc.id)).parse(output),
+  };
+}
+
+/**
+ * Step 5, one exercise subtask (task `exercise`): the KCs of the linked map
+ * it needs, new KCs it needs, its task type, the model's own solution and,
+ * when a solution was given, whether that one matches. `taskTypes` are the
+ * ones earlier subtasks of the build got, for the model to reuse.
+ */
+export async function analyseExercise(
+  studentId: string,
+  exercise: ExerciseInput,
+  map: Pick<KnowledgeMap, "bigIdeas" | "kcs">,
+  taskTypes: string[],
+): Promise<StepOutcome<ExerciseAnswer>> {
+  "use step";
+  const solutionGiven = exercise.solution !== null;
+  const output = await mapCall(
+    studentId,
+    "map-exercise",
+    exerciseCall({
+      exercise: exercise.markdown,
+      solution: exercise.solution,
+      bigIdeas: map.bigIdeas.map(({ id, name }) => ({ id, name })),
+      kcs: map.kcs.map(({ id, name, description }) => ({
+        id,
+        name,
+        description,
+      })),
+      taskTypes,
+    }),
+    "exercise",
+  );
+  if (output === null) return limitReached;
+  const { givenFinalResult, ...answer } = exerciseAnswerSchema
+    .extend(givenSolutionSchema.partial().shape)
+    .parse(output);
+  const given = solutionGiven
+    ? givenSolutionSchema.parse({
+        givenFinalResult,
+        matchesGiven: answer.matchesGiven,
+      })
+    : null;
+  return {
+    ok: true,
+    value: {
+      kcIds: answer.kcIds,
+      newKcs: answer.newKcs,
+      taskType: answer.taskType,
+      solution: answer.solution,
+      finalResult: answer.finalResult,
+      steps: answer.steps,
+      given: given && {
+        finalResult: given.givenFinalResult,
+        matches: given.matchesGiven,
+      },
+    },
   };
 }
 

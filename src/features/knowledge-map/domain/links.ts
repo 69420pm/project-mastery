@@ -1,3 +1,4 @@
+import { checkExercises } from "@/features/knowledge-map/domain/exercises";
 import type {
   CheckReport,
   KnowledgeMap,
@@ -192,7 +193,8 @@ const COVERED_LABELS = new Set(["content", "definition"]);
 /**
  * What the build's checks found in a linked map: `content` and
  * `definition` chunks no KC cites, non-prior KCs without a source, KCs
- * without any link, and the cycle edges dropped, all by KC name.
+ * without any link, the cycle edges dropped, Exercises without a KC and
+ * KCs no Exercise tests, all by name.
  */
 export function checkMap(
   map: KnowledgeMap,
@@ -223,5 +225,6 @@ export function checkMap(
       to: named(edge.to),
       extractionConfidence: edge.extractionConfidence,
     })),
+    ...checkExercises(map),
   };
 }

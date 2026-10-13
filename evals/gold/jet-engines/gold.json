@@ -140,7 +140,7 @@
       "type": "procedure",
       "bloom": "apply",
       "bigIdea": "BI1",
-      "origin": "content",
+      "origin": "exercise",
       "sources": [26, 27]
     },
     {
@@ -330,7 +330,7 @@
       "type": "procedure",
       "bloom": "apply",
       "bigIdea": "BI3",
-      "origin": "content",
+      "origin": "exercise",
       "sources": [24, 25]
     },
     {
@@ -876,6 +876,55 @@
       "to": "KC34",
       "coreType": "contrasts_with",
       "label": "contrasts with"
+    }
+  ],
+  "exercises": [
+    {
+      "id": "T2",
+      "name": "Ex. 7.1",
+      "questionChunk": 24,
+      "taskType": "compute thermal efficiency",
+      "solutionStatus": "disputed",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC22", "KC23", "KC25", "KC26"]
+    },
+    {
+      "id": "T3",
+      "name": "Ex. 7.2a",
+      "questionChunk": 26,
+      "taskType": "compute thrust",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC05", "KC06"]
+    },
+    {
+      "id": "T4",
+      "name": "Ex. 7.2b",
+      "questionChunk": 26,
+      "taskType": "compute propulsive power",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 1,
+      "kcs": ["KC06", "KC07"]
+    },
+    {
+      "id": "T5",
+      "name": "Ex. 7.3",
+      "questionChunk": 28,
+      "taskType": "explain propulsive efficiency",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC28", "KC29", "KC31", "KC32", "KC33"]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "solution_mismatch",
+      "text": "Ex. 7.1: the given answer is 46.5%, our calculation gives 50.8%.",
+      "sources": [24, 25]
     }
   ]
 }

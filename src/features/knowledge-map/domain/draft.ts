@@ -167,5 +167,7 @@ export function completeMap(
     ),
     prerequisites: [],
     semanticLinks: [],
+    exercises: [],
+    findings: [],
   };
 }

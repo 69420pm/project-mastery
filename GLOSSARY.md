@@ -17,7 +17,7 @@ A file a Student uploaded to one Course, such as slides, a script, an exercise s
 _Avoid_: File, document, upload, attachment
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links. A rebuild replaces it whole.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. A rebuild replaces it whole.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Big idea**:
@@ -35,6 +35,14 @@ _Avoid_: Dependency, requirement
 **Semantic link**:
 A named relation between two KCs, such as "is a" or "contrasts with", that orders no learning.
 _Avoid_: Relation, edge, association
+
+**Exercise**:
+One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a task type, a difficulty and whether its solution was verified, disputed or generated. Its question is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
+_Avoid_: Task, problem, question
+
+**Finding**:
+Something a Knowledge map build found wrong in a Course's Materials, such as a printed solution that does not match the AI's, with the chunks it is about.
+_Avoid_: Issue, error, erratum
 
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.

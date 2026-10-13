@@ -187,7 +187,8 @@
     "markdown": "EXAMPLE 7.1 --- Computing Net Thrust\n\nA turbofan engine ingests air at a mass flow rate of $400\\text{ kg/s}$ while cruising at a flight speed of $250\\text{ m/s}$. The engine accelerates this air to an average exhaust velocity of $320\\text{ m/s}$. The nozzle is perfectly expanded, so the pressure term in the thrust equation is zero. Find the net thrust produced.",
     "exercise_number": "7.1",
     "points": null,
-    "figure_description": null
+    "figure_description": null,
+    "solution_position": 19
   },
   {
     "position": 19,
@@ -247,7 +248,8 @@
     "markdown": "### Exercise 7.1\n\nAn ideal Brayton cycle has a pressure ratio of $12$. Taking $\\gamma = 1.4$ for air, compute the thermal efficiency of the cycle.",
     "exercise_number": "7.1",
     "points": null,
-    "figure_description": null
+    "figure_description": null,
+    "solution_position": 25
   },
   {
     "position": 25,
@@ -267,7 +269,8 @@
     "markdown": "### Exercise 7.2\n\nA turbojet flying at $200\\text{ m/s}$ has an air mass flow rate of $50\\text{ kg/s}$ and an exhaust velocity of $600\\text{ m/s}$. The nozzle is perfectly expanded. (a) Compute the net thrust. (b) Compute the propulsive power delivered to the aircraft (thrust $\\times$ flight speed).",
     "exercise_number": "7.2",
     "points": null,
-    "figure_description": null
+    "figure_description": null,
+    "solution_position": 27
   },
   {
     "position": 27,
@@ -287,7 +290,8 @@
     "markdown": "### Exercise 7.3\n\nExplain, using the concept of propulsive efficiency, why a turbofan with a bypass ratio of $8:1$ is generally more fuel-efficient at subsonic cruise than a pure turbojet, even though the turbofan produces a lower exhaust velocity.",
     "exercise_number": "7.3",
     "points": null,
-    "figure_description": null
+    "figure_description": null,
+    "solution_position": 29
   },
   {
     "position": 29,

@@ -13,6 +13,8 @@ export type CourseChunk = {
   pageFrom: number;
   label: ChunkLabel;
   markdown: string;
+  /** As printed, such as "7.2b"; null for chunks that are no exercise. */
+  exerciseNumber: string | null;
 };
 
 function failed(action: string, error: { message: string }): never {
@@ -57,6 +59,31 @@ export async function getChunkPlaces(
   return places;
 }
 
+/**
+ * The Course's exercise subtask chunks with their paired solution chunks,
+ * as the last pairing pass stored them: exercise chunk id to solution chunk
+ * id, or null without a solution. For workflows on the admin client.
+ */
+export async function loadExerciseSolutions(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<Record<string, string | null>> {
+  const pairs: Record<string, string | null> = {};
+  for (let from = 0; ; from += PAGE) {
+    const page = await supabase
+      .from("exercise_solutions")
+      .select("exercise_chunk_id, solution_chunk_id")
+      .eq("course_id", courseId)
+      .order("exercise_chunk_id")
+      .range(from, from + PAGE - 1);
+    if (page.error) failed("Loading the exercise solutions", page.error);
+    for (const pair of page.data) {
+      pairs[pair.exercise_chunk_id] = pair.solution_chunk_id;
+    }
+    if (page.data.length < PAGE) return pairs;
+  }
+}
+
 /** Chunk ids per `in` filter, which keeps the query string short. */
 const ID_SLICE = 100;
 
@@ -87,7 +114,7 @@ export async function loadCourseChunks(
     for (let from = 0; ; from += PAGE) {
       const page = await supabase
         .from("chunks")
-        .select("id, position, page_from, label, markdown")
+        .select("id, position, page_from, label, markdown, exercise_number")
         .eq("material_id", material.id)
         .order("position")
         .range(from, from + PAGE - 1);
@@ -100,6 +127,7 @@ export async function loadCourseChunks(
           pageFrom: chunk.page_from,
           label: z.enum(CHUNK_LABELS).parse(chunk.label),
           markdown: chunk.markdown,
+          exerciseNumber: chunk.exercise_number,
         });
       }
       if (page.data.length < PAGE) break;

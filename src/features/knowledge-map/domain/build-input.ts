@@ -1,3 +1,7 @@
+import {
+  exerciseName,
+  type ExerciseSubtask,
+} from "@/features/knowledge-map/domain/exercises";
 import type { MapChunk } from "@/features/knowledge-map/types";
 
 /** Chunks per assignment call. */
@@ -16,6 +20,46 @@ export function assignmentBatches(chunks: MapChunk[]): MapChunk[][] {
     batches.push(teaching.slice(start, start + ASSIGNMENT_BATCH_SIZE));
   }
   return batches;
+}
+
+/** An exercise subtask with what its `exercise` call reads. */
+export type ExerciseInput = ExerciseSubtask & {
+  markdown: string;
+  /** The paired solution chunk's markdown, or null without one. */
+  solution: string | null;
+};
+
+/**
+ * Every `exercise` chunk as a subtask in reading order, with local ids
+ * "e1", "e2", …, its name as printed and its paired solution from `pairs`
+ * (exercise chunk id to solution chunk id). A solution chunk outside
+ * `chunks` counts as none.
+ */
+export function exerciseInputs(
+  chunks: Array<MapChunk & { pageFrom: number; exerciseNumber: string | null }>,
+  pairs: Record<string, string | null>,
+): ExerciseInput[] {
+  const markdown = new Map(chunks.map((chunk) => [chunk.id, chunk.markdown]));
+  return chunks
+    .filter((chunk) => chunk.label === "exercise")
+    .map((chunk, index) => {
+      const solutionChunkId = pairs[chunk.id] ?? null;
+      const solution =
+        solutionChunkId === null
+          ? null
+          : (markdown.get(solutionChunkId) ?? null);
+      return {
+        id: `e${index + 1}`,
+        name: exerciseName(
+          chunk.exerciseNumber,
+          `${chunk.materialName} p. ${chunk.pageFrom}`,
+        ),
+        questionChunkId: chunk.id,
+        solutionChunkId: solution === null ? null : solutionChunkId,
+        markdown: chunk.markdown,
+        solution,
+      };
+    });
 }
 
 /** What the skeleton call reads of the Course. */

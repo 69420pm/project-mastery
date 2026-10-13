@@ -12,12 +12,14 @@ import {
   withoutUnsourced,
   type KcFill,
 } from "@/features/knowledge-map/domain/draft";
+import { exerciseFromAnswer } from "@/features/knowledge-map/domain/exercises";
 import {
   checkMap,
   withLinks,
   type Prerequisite,
 } from "@/features/knowledge-map/domain/links";
 import {
+  analyseExercise,
   assignBatch,
   draftSkeleton,
   failBuild,
@@ -33,11 +35,15 @@ import {
  * candidate KCs, (2) assignment of chunks to KCs in batches, which may add
  * KCs, after which candidates no chunk teaches are dropped, and (3) a fill
  * per big idea with each KC's type and Bloom level, and (4) one links call
- * for prerequisites, semantic links and prior knowledge. (5) Code then breaks
- * prerequisite cycles, drops redundant prerequisites and checks the map, and
- * the map with its check report replaces the Course's previous one. A step that fails for good, or a reached Daily
- * limit, fails the build with a reason and leaves the previous map. A
- * deleted Course stops it quietly.
+ * for prerequisites, semantic links and prior knowledge, after which code
+ * breaks prerequisite cycles and drops redundant prerequisites. (5) One
+ * `exercise` call per exercise subtask maps it to KCs and checks or
+ * generates its solution (#70); code sets its difficulty and records a
+ * disputed solution as a Finding. (6) Code checks the map, and the map with
+ * its Exercises, Findings and check report replaces the Course's previous
+ * one. A step that fails for good, or a reached Daily limit, fails the build
+ * with a reason and leaves the previous map. A deleted Course stops it
+ * quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -91,6 +97,28 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
         return;
       }
       ({ map, droppedCycleEdges } = withLinks(map, links.value));
+    }
+
+    const taskTypes: string[] = [];
+    for (const exercise of input.exercises) {
+      const answer = await analyseExercise(studentId, exercise, map, taskTypes);
+      if (!answer.ok) {
+        await failBuild(courseId, answer.reason);
+        return;
+      }
+      const { exercise: analysed, finding } = exerciseFromAnswer(
+        exercise,
+        answer.value,
+        map,
+      );
+      if (!taskTypes.includes(analysed.taskType)) {
+        taskTypes.push(analysed.taskType);
+      }
+      map = {
+        ...map,
+        exercises: [...map.exercises, analysed],
+        findings: finding ? [...map.findings, finding] : map.findings,
+      };
     }
 
     await storeMap(courseId, map, checkMap(map, chunks, droppedCycleEdges));

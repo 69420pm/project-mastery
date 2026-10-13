@@ -63,6 +63,8 @@ const map: KnowledgeMap = {
   })),
   prerequisites: [],
   semanticLinks: [],
+  exercises: [],
+  findings: [],
 };
 
 describe("withLinks", () => {
@@ -112,9 +114,24 @@ describe("withLinks", () => {
 });
 
 describe("checkMap", () => {
-  it("lists uncovered chunks, ungrounded and orphan KCs and dropped edges", () => {
+  const exercise = (name: string, kcs: string[]) => ({
+    id: name,
+    name,
+    questionChunk: "chunk-10",
+    taskType: "compute thrust",
+    solutionStatus: "verified" as const,
+    solution: null,
+    difficulty: 1,
+    kcs,
+  });
+
+  it("lists uncovered chunks, ungrounded and orphan KCs, dropped edges, unmapped exercises and untested KCs", () => {
     const report = checkMap(
-      { ...map, prerequisites: [edge("k1", "k2")] },
+      {
+        ...map,
+        prerequisites: [edge("k1", "k2")],
+        exercises: [exercise("Ex. 1", ["k1"]), exercise("Ex. 2", [])],
+      },
       [
         { id: "chunk-1", label: "content" },
         { id: "chunk-9", label: "definition" },
@@ -133,6 +150,12 @@ describe("checkMap", () => {
           extractionConfidence: 0.3,
         },
       ],
+      unmappedExercises: ["Ex. 2"],
+      untestedKcs: ["Turbine work", "Thrust"],
     });
+  });
+
+  it("reports no untested KCs without exercises", () => {
+    expect(checkMap(map, [], []).untestedKcs).toEqual([]);
   });
 });

@@ -32,6 +32,22 @@ describe("the jet-engines gold map", () => {
       for (const source of kc.sources) expect(positions).toContain(source);
     }
   });
+
+  it("asks each exercise in an exercise chunk and disputes Ex. 7.1 with a finding", () => {
+    const exerciseChunks = chunks
+      .filter((c) => c.label === "exercise")
+      .map((c) => c.position);
+    for (const exercise of gold.exercises) {
+      expect(exerciseChunks, exercise.id).toContain(exercise.questionChunk);
+    }
+    expect(
+      gold.exercises.find((exercise) => exercise.name === "Ex. 7.1"),
+    ).toMatchObject({ solutionStatus: "disputed" });
+    expect(gold.findings.map((finding) => finding.sources)).toEqual([[24, 25]]);
+    expect(
+      gold.kcs.filter((kc) => kc.origin === "exercise").map((kc) => kc.id),
+    ).toEqual(["KC07", "KC26"]);
+  });
 });
 
 describe("knowledgeMapSchema", () => {
@@ -50,6 +66,8 @@ describe("knowledgeMapSchema", () => {
     kcs: [kc],
     prerequisites: [],
     semanticLinks: [],
+    exercises: [],
+    findings: [],
   };
 
   it("rejects prior knowledge with a Bloom level or a big idea", () => {
