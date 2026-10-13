@@ -208,8 +208,8 @@ export function withExerciseKcs(
 
 /**
  * The check report's Exercise entries: Exercises mapped to no KC, which fail
- * the check, and taught KCs no Exercise tests, reported only. A map without
- * Exercises reports no untested KCs.
+ * the check, and KCs no Exercise tests, reported only. Prior KCs are left
+ * out: the Course assumes them rather than teaches them.
  */
 export function checkExercises(map: KnowledgeMap): {
   unmappedExercises: string[];
@@ -220,11 +220,8 @@ export function checkExercises(map: KnowledgeMap): {
     unmappedExercises: map.exercises
       .filter((exercise) => exercise.kcs.length === 0)
       .map((exercise) => exercise.name),
-    untestedKcs:
-      map.exercises.length === 0
-        ? []
-        : map.kcs
-            .filter((kc) => kc.origin !== "prior" && !tested.has(kc.id))
-            .map((kc) => kc.name),
+    untestedKcs: map.kcs
+      .filter((kc) => kc.origin !== "prior" && !tested.has(kc.id))
+      .map((kc) => kc.name),
   };
 }

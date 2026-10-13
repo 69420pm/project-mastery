@@ -194,7 +194,9 @@ describe("checkMap", () => {
     });
   });
 
-  it("reports no untested KCs without exercises", () => {
-    expect(checkMap(map, [], []).untestedKcs).toEqual([]);
+  it("reports every taught KC as untested without exercises", () => {
+    expect(checkMap(map, [], []).untestedKcs).toEqual(
+      map.kcs.filter((kc) => kc.origin !== "prior").map((kc) => kc.name),
+    );
   });
 });

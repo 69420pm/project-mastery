@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { MapChunk } from "@/features/knowledge-map/types";
-import { assignmentBatches, skeletonInput } from "./build-input";
+import {
+  assignmentBatches,
+  exerciseInputs,
+  skeletonInput,
+} from "./build-input";
 
 const chunk = (
   id: string,
@@ -31,6 +35,42 @@ describe("assignmentBatches", () => {
 
   test("gives no batch when no chunk teaches", () => {
     expect(assignmentBatches([chunk("ex", "exercise")])).toEqual([]);
+  });
+});
+
+describe("exerciseInputs", () => {
+  const exercise = (
+    id: string,
+    exerciseNumber: string | null,
+    page: number,
+  ) => ({
+    ...chunk(id, "exercise"),
+    pageFrom: page,
+    exerciseNumber,
+  });
+
+  test("pairs solutions and tells apart names printed twice by their page", () => {
+    const inputs = exerciseInputs(
+      [
+        exercise("example", "7.1", 3),
+        exercise("ex71", "7.1", 9),
+        exercise("ex72", "7.2", 9),
+        {
+          ...chunk("sol", "solution", "46.5%"),
+          pageFrom: 10,
+          exerciseNumber: null,
+        },
+      ],
+      { ex71: "sol", ex72: "missing" },
+    );
+
+    expect(
+      inputs.map(({ id, name, solution }) => ({ id, name, solution })),
+    ).toEqual([
+      { id: "e1", name: "Ex. 7.1 (Lecture 1 p. 3)", solution: null },
+      { id: "e2", name: "Ex. 7.1 (Lecture 1 p. 9)", solution: "46.5%" },
+      { id: "e3", name: "Ex. 7.2", solution: null },
+    ]);
   });
 });
 

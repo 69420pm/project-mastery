@@ -33,33 +33,40 @@ export type ExerciseInput = ExerciseSubtask & {
  * Every `exercise` chunk as a subtask in reading order, with local ids
  * "e1", "e2", …, its name as printed and its paired solution from `pairs`
  * (exercise chunk id to solution chunk id). A solution chunk outside
- * `chunks` counts as none.
+ * `chunks` counts as none. A name printed more than once in the Course, such
+ * as an Example and an Exercise both numbered 7.1, gets its place appended.
  */
 export function exerciseInputs(
   chunks: Array<MapChunk & { pageFrom: number; exerciseNumber: string | null }>,
   pairs: Record<string, string | null>,
 ): ExerciseInput[] {
   const markdown = new Map(chunks.map((chunk) => [chunk.id, chunk.markdown]));
-  return chunks
+  const exercises = chunks
     .filter((chunk) => chunk.label === "exercise")
-    .map((chunk, index) => {
-      const solutionChunkId = pairs[chunk.id] ?? null;
-      const solution =
-        solutionChunkId === null
-          ? null
-          : (markdown.get(solutionChunkId) ?? null);
-      return {
-        id: `e${index + 1}`,
-        name: exerciseName(
-          chunk.exerciseNumber,
-          `${chunk.materialName} p. ${chunk.pageFrom}`,
-        ),
-        questionChunkId: chunk.id,
-        solutionChunkId: solution === null ? null : solutionChunkId,
-        markdown: chunk.markdown,
-        solution,
-      };
+    .map((chunk) => {
+      const place = `${chunk.materialName} p. ${chunk.pageFrom}`;
+      return { chunk, place, name: exerciseName(chunk.exerciseNumber, place) };
     });
+  const counts = new Map<string, number>();
+  for (const { name } of exercises) {
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return exercises.map(({ chunk, place, name }, index) => {
+    const solutionChunkId = pairs[chunk.id] ?? null;
+    const solution =
+      solutionChunkId === null ? null : (markdown.get(solutionChunkId) ?? null);
+    return {
+      id: `e${index + 1}`,
+      name:
+        (counts.get(name) ?? 0) > 1 && chunk.exerciseNumber?.trim()
+          ? `${name} (${place})`
+          : name,
+      questionChunkId: chunk.id,
+      solutionChunkId: solution === null ? null : solutionChunkId,
+      markdown: chunk.markdown,
+      solution,
+    };
+  });
 }
 
 /** What the skeleton call reads of the Course. */
