@@ -1,0 +1,312 @@
+[
+  {
+    "position": 0,
+    "page_from": 1,
+    "page_to": 1,
+    "label": "content",
+    "markdown": "Chapter 7\n\n# The Physics and Engineering of Jet Engines\n\nAn Introduction to Air-Breathing Propulsion Systems",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 1,
+    "page_from": 1,
+    "page_to": 1,
+    "label": "content",
+    "markdown": "## 7.1 The Principle of Jet Propulsion\n\nEvery jet engine, regardless of its size or configuration, operates on a single unifying physical principle: Newton's third law of motion. An engine accelerates a mass of air (and, in the case of combustion engines, the products of burned fuel) rearward through the engine, and in reaction the engine itself is pushed forward. The net forward force produced by this exchange of momentum is called **thrust**. Unlike a propeller-driven aircraft, which relies primarily on an external airfoil to generate a pressure differential, a jet engine generates thrust entirely by processing air internally: drawing it in, compressing it, energizing it, and expelling it at high velocity.\n\nThe fundamental thrust equation, derived from the conservation of linear momentum applied to a control volume surrounding the engine, is written as:\n\n$$F = \\dot{m}_a(V_e - V_0) + (p_e - p_0)A_e$$\n\nwhere $F$ is net thrust, $\\dot{m}_a$ is the mass flow rate of air through the engine, $V_e$ and $V_0$ are the exhaust and freestream (flight) velocities, $p_e$ and $p_0$ are the exhaust and ambient static pressures, and $A_e$ is the exhaust nozzle exit area. When the nozzle is perfectly expanded — exhaust pressure equal to ambient — the pressure term vanishes, giving the familiar momentum form $F = \\dot{m}_a(V_e - V_0)$.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 2,
+    "page_from": 1,
+    "page_to": 1,
+    "label": "content",
+    "markdown": "## 7.2 Anatomy of a Turbojet Engine\n\nFigure 7.1 illustrates the five principal sections found in the simplest gas-turbine jet engine, the turbojet. Air enters through the **inlet**, which slows and diffuses the incoming flow before it reaches the **compressor**. The compressor consists of many rows of rotating and stationary airfoils (rotor and stator blades) that progressively raise the pressure of the air, typically by a factor of 15 to 40 in a modern engine. This high-pressure air then enters the **combustor**, where fuel is injected and burned continuously, raising the gas temperature to between $1800\\text{ K}$ and $2000\\text{ K}$. The resulting high-energy gas expands through the **turbine**, which extracts just enough mechanical work to drive the compressor via a common shaft, before the remaining energy is converted to high-velocity exhaust in the **nozzle**, producing thrust.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 3,
+    "page_from": 2,
+    "page_to": 2,
+    "label": "figure",
+    "markdown": "Figure 1.1 — Schematic Cross-Section of a Turbojet Engine",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": "Schematic cross-section of a turbojet engine showing Air intake, Inlet, Compressor, Combustor, Turbine, Nozzle, and Thrust."
+  },
+  {
+    "position": 4,
+    "page_from": 2,
+    "page_to": 2,
+    "label": "content",
+    "markdown": "Air is drawn in at the inlet, compressed, mixed with fuel and burned in the combustor, then expanded through the turbine (which powers the compressor) before accelerating out the nozzle to generate thrust.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 5,
+    "page_from": 2,
+    "page_to": 2,
+    "label": "content",
+    "markdown": "## 7.3 Thermodynamics: The Brayton Cycle\n\nThe thermodynamic behavior of every gas-turbine engine is idealized by the **Brayton cycle** (also called the Joule cycle), consisting of four processes performed on air treated as an ideal gas. Figure 7.2 shows this cycle on pressure-volume ($P$-$v$) and temperature-entropy ($T$-$s$) coordinates.\n\n* $\\mathbf{1 \\rightarrow 2, \\text{Isentropic compression}}$: Air is compressed adiabatically and reversibly in the compressor, raising both its pressure and temperature while entropy remains constant.\n* $\\mathbf{2 \\rightarrow 3, \\text{Constant-pressure heat addition}}$: Fuel is burned in the combustor, adding heat to the air at (ideally) constant pressure and sharply increasing its temperature.\n* $\\mathbf{3 \\rightarrow 4, \\text{Isentropic expansion}}$: The hot gas expands through the turbine and nozzle, converting thermal and pressure energy into mechanical work and kinetic energy.\n* $\\mathbf{4 \\rightarrow 1, \\text{Constant-pressure heat rejection}}$: In the idealized closed cycle, the exhausted gas is imagined to reject heat to the atmosphere at constant pressure, returning it to its initial state.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 6,
+    "page_from": 2,
+    "page_to": 2,
+    "label": "figure",
+    "markdown": "Figure 2.1 — The Ideal Brayton Cycle ($1\\rightarrow 2$ Compression, $2\\rightarrow 3$ Heat Addition, $3\\rightarrow 4$ Expansion, $4\\rightarrow 1$ Heat Rejection)\n\n(a) P-v Diagram\n\n(b) T-s Diagram\n\nThe ideal Brayton cycle plotted in P-v and T-s coordinates. The enclosed area in the P-v diagram represents net specific work output; the enclosed area in the T-s diagram represents net heat converted to work.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": "(a) P-v diagram and (b) T-s diagram of the ideal Brayton cycle with states 1, 2, 3, 4."
+  },
+  {
+    "position": 7,
+    "page_from": 2,
+    "page_to": 2,
+    "label": "admin",
+    "markdown": "Chapter 7 · The Physics and Engineering of Jet Engines\t186",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 8,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "The thermal efficiency of the ideal Brayton cycle depends only on the **pressure ratio**, $r_p = p_2/p_1$, and the ratio of specific heats, $\\gamma$.\n\n$$\\eta_{th} = 1 - 1 / r_p^{(\\gamma-1)/\\gamma}$$\n\nThis remarkably simple result explains one of the central design trends in jet engine history: increasing the overall pressure ratio of the compressor is one of the most direct ways to improve fuel efficiency. Early turbojets of the 1940s operated with pressure ratios near 4:1; modern high-bypass turbofans exceed 40:1, and next-generation designs are pushing beyond 50:1.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 9,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "## 7.4 Families of Air-Breathing Jet Engines\n\nWhile all gas-turbine jet engines share the same Brayton-cycle core, engineers have developed several architectures optimized for different flight regimes.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 10,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "### Turbojet\n\nThe simplest configuration: all incoming air passes through the compressor, combustor, and turbine before exiting through a single nozzle. Turbojets produce high-velocity, low-mass-flow exhaust, which gives excellent performance at supersonic speeds but poor fuel efficiency at typical subsonic airliner cruise speeds.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 11,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "### Turbofan\n\nA large fan is added ahead of (or integrated with) the compressor. Most of the air accelerated by the fan bypasses the engine core entirely, mixing with the core exhaust downstream or exiting through a separate cold nozzle. By accelerating a much larger mass of air to a lower velocity, turbofans achieve substantially higher propulsive efficiency, following directly from the identity that propulsive power for a given thrust is minimized when exhaust velocity is close to flight velocity. This makes the turbofan the dominant architecture for commercial aviation today.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 12,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "### Turboprop and Turboshaft\n\nHere, the turbine extracts nearly all of the gas energy to drive an external propeller (turboprop) or rotor (turboshaft) through a reduction gearbox, rather than accelerating exhaust gas for thrust. This yields the highest propulsive efficiency of any configuration at low subsonic speeds, but efficiency falls sharply as flight speed approaches the transonic regime because propeller blade tips encounter compressibility losses.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 13,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "content",
+    "markdown": "### Ramjet\n\nThe ramjet eliminates rotating machinery altogether. At high supersonic speeds, the forward motion of the vehicle itself compresses the incoming air sufficiently for combustion, and expansion through a fixed nozzle produces thrust. Ramjets cannot produce static thrust and are only viable above roughly Mach 1, making them suited to missiles and high-speed research vehicles rather than general aviation.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 14,
+    "page_from": 3,
+    "page_to": 3,
+    "label": "admin",
+    "markdown": "Chapter 7 • The Physics and Engineering of Jet Engines\n187",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 15,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "figure",
+    "markdown": "Figure 4.1 --- Qualitative Comparison of Jet Engine Types",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": "A bar chart comparing Turbojet, Turbofan, Turboprop, and Ramjet engines on Propulsive efficiency (blue bars) and Suitability for high-speed flight (orange bars), on a relative scale of 0 to 100."
+  },
+  {
+    "position": 16,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "content",
+    "markdown": "A qualitative comparison of jet engine families. Turbofans dominate subsonic efficiency; turbojets and ramjets favor high-speed flight; turboprops excel at low speed but lose their advantage as flight speed increases. Values are illustrative, not measured data.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 17,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "content",
+    "markdown": "7.5 Worked Example",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 18,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "exercise",
+    "markdown": "EXAMPLE 7.1 --- Computing Net Thrust\n\nA turbofan engine ingests air at a mass flow rate of $400\\text{ kg/s}$ while cruising at a flight speed of $250\\text{ m/s}$. The engine accelerates this air to an average exhaust velocity of $320\\text{ m/s}$. The nozzle is perfectly expanded, so the pressure term in the thrust equation is zero. Find the net thrust produced.",
+    "exercise_number": "7.1",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 19,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "solution",
+    "markdown": "Solution. Using the simplified thrust equation for a perfectly expanded nozzle:\n\n$$F = \\dot{m}(V_e - V_0)$$\n\n$F = (400\\text{ kg/s})(320\\text{ m/s} - 250\\text{ m/s}) = (400)(70) = 28,000\\text{ N} \\approx 28\\text{ kN}$\n\nThis corresponds to roughly $6,300\\text{ lbf}$ of thrust --- a useful sanity check is that this figure sits in the range typical of a single engine on a modern narrow-body regional aircraft.",
+    "exercise_number": "7.1",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 20,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "content",
+    "markdown": "7.6 Key Concepts Summary",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 21,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "definition",
+    "markdown": "| Term | Definition |\n|---|---|\n| Thrust ($F$) | Net forward force from momentum exchange with the working fluid |\n| Pressure ratio ($r_p$) | Ratio of compressor exit to inlet stagnation pressure |\n| Bypass ratio | Ratio of fan bypass mass flow to core mass flow in a turbofan |\n| Propulsive efficiency | Fraction of kinetic energy imparted to the exhaust that converts to useful thrust power |\n| Thermal efficiency | Fraction of fuel heat energy converted into useful shaft or jet work |",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 22,
+    "page_from": 4,
+    "page_to": 4,
+    "label": "admin",
+    "markdown": "Chapter 7 $\\cdot$ The Physics and Engineering of Jet Engines \n 188",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 23,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "content",
+    "markdown": "## 7.7 End-of-Chapter Exercises",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 24,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "exercise",
+    "markdown": "### Exercise 7.1\n\nAn ideal Brayton cycle has a pressure ratio of $12$. Taking $\\gamma = 1.4$ for air, compute the thermal efficiency of the cycle.",
+    "exercise_number": "7.1",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 25,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "solution",
+    "markdown": "#### Solution\n\n$$\\eta_{th} = 1 - (1/r_p)^{(\\gamma-1)/\\gamma} = 1 - (1/12)^{0.2857}$$\n\n$$(1/12)^{0.2857} \\approx 0.535\\text{, so } \\eta_{th} \\approx 1 - 0.535 = \\mathbf{0.465}\\text{, or about } \\mathbf{46.5\\%}$$.",
+    "exercise_number": "7.1",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 26,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "exercise",
+    "markdown": "### Exercise 7.2\n\nA turbojet flying at $200\\text{ m/s}$ has an air mass flow rate of $50\\text{ kg/s}$ and an exhaust velocity of $600\\text{ m/s}$. The nozzle is perfectly expanded. (a) Compute the net thrust. (b) Compute the propulsive power delivered to the aircraft (thrust $\\times$ flight speed).",
+    "exercise_number": "7.2",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 27,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "solution",
+    "markdown": "#### Solution\n\n(a) $F = \\dot{m}_a (V_e - V_0) = (50)(600 - 200) = (50)(400) = \\mathbf{20,000\\text{ N} \\ (20\\text{ kN})}$.\n\n(b) Propulsive power $= F \\times V_0 = (20,000\\text{ N})(200\\text{ m/s}) = \\mathbf{4,000,000\\text{ W} \\ = 4.0\\text{ MW}}$.",
+    "exercise_number": "7.2",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 28,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "exercise",
+    "markdown": "### Exercise 7.3\n\nExplain, using the concept of propulsive efficiency, why a turbofan with a bypass ratio of $8:1$ is generally more fuel-efficient at subsonic cruise than a pure turbojet, even though the turbofan produces a lower exhaust velocity.",
+    "exercise_number": "7.3",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 29,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "solution",
+    "markdown": "#### Solution\n\nPropulsive efficiency is highest when the exhaust velocity is only slightly greater than the flight velocity, because the kinetic energy left behind in the exhaust jet (the \"wasted\" energy) is proportional to the square of the velocity difference, while the thrust delivered is only proportional to the difference itself. A turbofan achieves the same net thrust as a turbojet by accelerating a much larger mass of bypass air through a smaller velocity increment, rather than accelerating a small mass of air through a large velocity increment. This produces the same momentum change (and hence the same thrust) while leaving far less residual kinetic energy in the exhaust, so a larger fraction of the engine's power output does useful work propelling the aircraft --- that is, the propulsive efficiency is higher and less fuel energy is wasted as jet noise and heat.",
+    "exercise_number": "7.3",
+    "points": null,
+    "figure_description": null
+  },
+  {
+    "position": 30,
+    "page_from": 5,
+    "page_to": 5,
+    "label": "content",
+    "markdown": "**Further Reading:** Hill, P. & Peterson, C., Mechanics and Thermodynamics of Propulsion; Mattingly, J. D., Elements of Gas Turbine Propulsion.",
+    "exercise_number": null,
+    "points": null,
+    "figure_description": null
+  }
+]

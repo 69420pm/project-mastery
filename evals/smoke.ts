@@ -6,7 +6,7 @@
  * A smoke check runs one real feature path once, on a small input, against
  * the local Supabase and a real model, and checks the feature's invariants.
  * The runner pins every generating task to SMOKE_MODEL, gives the check a
- * throwaway Student, holds the Student's recorded AI calls to MAX_CALLS and
+ * throwaway Student, holds the Student's recorded AI calls to the check's cap (10 by default) and
  * deletes the Student with all its data afterwards. Smoke checks never run in
  * `pnpm check`, Vitest or CI.
  */
@@ -16,23 +16,25 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
+import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
 import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
-const CHECKS: SmokeCheck[] = [parseSmoke];
+const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke];
 
 /** The one model agents call (docs/agents/live-ai.md). */
 const SMOKE_MODEL = "google/gemini-3.5-flash-lite";
 
-/** The most model calls one smoke check may record. */
-const MAX_CALLS = 10;
+/** The most model calls a smoke check may record, unless it sets its own. */
+const DEFAULT_MAX_CALLS = 10;
 
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
   "AI_MODEL_TITLE",
   "AI_MODEL_INGEST",
+  "AI_MODEL_MAP",
   "AI_MODEL_JUDGE",
 ];
 
@@ -68,6 +70,7 @@ async function deleteStudent(supabase: AdminSupabase, studentId: string) {
 async function checkCalls(
   supabase: AdminSupabase,
   studentId: string,
+  maxCalls: number,
 ): Promise<SmokeResult[]> {
   const { data, error } = await supabase
     .from("ai_usage")
@@ -83,8 +86,8 @@ async function checkCalls(
   );
   return [
     {
-      name: `at most ${MAX_CALLS} model calls`,
-      ok: data.length <= MAX_CALLS,
+      name: `at most ${maxCalls} model calls`,
+      ok: data.length <= maxCalls,
       detail: `${data.length}: ${byTask.join(", ") || "none"}; $${cost.toFixed(5)}`,
     },
     {
@@ -122,7 +125,13 @@ async function main() {
   let results: SmokeResult[];
   try {
     results = await check.run({ supabase, studentId, args });
-    results.push(...(await checkCalls(supabase, studentId)));
+    results.push(
+      ...(await checkCalls(
+        supabase,
+        studentId,
+        check.maxCalls ?? DEFAULT_MAX_CALLS,
+      )),
+    );
   } finally {
     await deleteStudent(supabase, studentId);
   }

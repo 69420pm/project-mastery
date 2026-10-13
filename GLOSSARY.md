@@ -16,6 +16,26 @@ _Avoid_: Topic, subject, class, folder
 A file a Student uploaded to one Course, such as slides, a script, an exercise sheet or an old exam, under a name the Student can change.
 _Avoid_: File, document, upload, attachment
 
+**Knowledge map**:
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links. A rebuild replaces it whole.
+_Avoid_: Topic map, concept map, knowledge graph, syllabus
+
+**Big idea**:
+One of the few main themes of a Course's Knowledge map, which groups its Knowledge components.
+_Avoid_: Topic, chapter, unit, module
+
+**Knowledge component (KC)**:
+One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Prior knowledge is a KC the Materials assume but do not teach.
+_Avoid_: Skill, learning objective, concept, node
+
+**Prerequisite**:
+A link saying one KC must be learned before another. The Prerequisites of a Knowledge map form no cycle.
+_Avoid_: Dependency, requirement
+
+**Semantic link**:
+A named relation between two KCs, such as "is a" or "contrasts with", that orders no learning.
+_Avoid_: Relation, edge, association
+
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
 _Avoid_: Tutor, assistant, bot

@@ -1,7 +1,6 @@
 import "server-only";
 import { APICallError, embedMany, RetryError } from "ai";
 import { FatalError, RetryableError } from "workflow";
-import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
 import { retryDelayMs } from "@/features/ingestion/ai/retry-delay";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@/features/ingestion/workflows/parse-steps";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { estimatedUsage } from "@/lib/ai/cost";
+import { isDailyQuotaError } from "@/lib/ai/daily-quota";
 import { aiTask } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withTraceAttributes } from "@/lib/tracing";
