@@ -68,6 +68,12 @@ export const AI_TASKS = {
     fallbacks: ["xiaomi/mimo-v2.6-flash"],
     override: "AI_MODEL_INGEST",
   },
+  /** Builds a Course's Knowledge map from its chunks, one call per step. */
+  map: {
+    model: "google/gemini-3.5-flash-lite",
+    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    override: "AI_MODEL_MAP",
+  },
   /** Chunk embeddings for pgvector. Changing it means re-embedding. */
   embed: {
     model: "google/gemini-embedding-2",

@@ -3,7 +3,7 @@ import { APICallError, RetryError } from "ai";
 /**
  * Whether a model call failed because the provider's daily request quota is
  * used up: a 429 whose body names a per-day quota. Waiting does not clear it
- * before the daily reset, so a parse stops instead of retrying. A per-minute
+ * before the daily reset, so a workflow stops instead of retrying. A per-minute
  * 429 is not one; the step's retries outlast it.
  */
 export function isDailyQuotaError(error: unknown): boolean {

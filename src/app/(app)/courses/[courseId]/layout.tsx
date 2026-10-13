@@ -10,12 +10,13 @@ import {
   MaterialsLink,
 } from "@/features/courses";
 import { getCourse, getCourseList } from "@/features/courses/server";
+import { KnowledgeMapLink } from "@/features/knowledge-map";
 import { getUser } from "@/lib/auth/user";
 import { isSidebarOpen } from "@/lib/sidebar-state";
 
 /**
  * Shell inside a Course: the sidebar shows the Course switcher, New chat,
- * Materials and the Course's Chats. An unknown or another Student's Course is
+ * Materials, the Knowledge map and the Course's Chats. An unknown or another Student's Course is
  * not found.
  * It only reads the user: each page calls `requireUser` with its own path, so
  * signing in returns there. Layouts also do not re-render on client
@@ -47,6 +48,7 @@ export default async function CourseLayout({
               <CourseSwitcher course={course} courses={courses} />
               <NewChatLink />
               <MaterialsLink courseId={course.id} />
+              <KnowledgeMapLink courseId={course.id} />
             </>
           )
         }

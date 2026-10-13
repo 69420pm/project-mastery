@@ -5,7 +5,6 @@ import {
   pageMessages,
   pageResultSchema,
 } from "@/features/ingestion/ai/page-units";
-import { isDailyQuotaError } from "@/features/ingestion/ai/daily-quota";
 import { usableBox } from "@/features/ingestion/domain/figure-box";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
 import {
@@ -17,6 +16,7 @@ import {
 import { openPdf } from "@/features/ingestion/workflows/page-images";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
+import { isDailyQuotaError } from "@/lib/ai/daily-quota";
 import { answeringModel } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";

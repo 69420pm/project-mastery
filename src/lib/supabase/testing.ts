@@ -167,7 +167,12 @@ export function fakeSupabase<Table extends string>(
       } else {
         const rows = matching().sort((a, b) => {
           for (const { column, ascending } of orders) {
-            const order = String(a[column]).localeCompare(String(b[column]));
+            const [x, y] = [a[column], b[column]];
+            // Numbers in numeric order, as Postgres sorts integer columns.
+            const order =
+              typeof x === "number" && typeof y === "number"
+                ? x - y
+                : String(x).localeCompare(String(y));
             if (order !== 0) return ascending ? order : -order;
           }
           return 0;

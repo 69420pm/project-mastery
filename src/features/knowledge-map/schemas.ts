@@ -146,6 +146,9 @@ export const checkReportSchema = z.object({
   ),
 });
 
+/** The input of the Build button's Server Action. */
+export const startKnowledgeMapBuildSchema = z.object({ courseId: z.uuid() });
+
 export type KcType = (typeof KC_TYPES)[number];
 export type BloomLevel = (typeof BLOOM_LEVELS)[number];
 export type SemanticLinkType = (typeof SEMANTIC_LINK_TYPES)[number];
