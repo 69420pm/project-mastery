@@ -187,6 +187,38 @@ export function withLinks(
   };
 }
 
+/**
+ * The linked map with a second links proposal for the KCs added since
+ * (`addedKcIds`): only links and prior knowledge that touch an added KC
+ * join, then cycles are broken and redundant prerequisites go again over
+ * all of the map's links.
+ */
+export function withAddedKcLinks(
+  map: KnowledgeMap,
+  addedKcIds: string[],
+  proposal: LinksProposal,
+): { map: KnowledgeMap; droppedCycleEdges: Prerequisite[] } {
+  const added = new Set(addedKcIds);
+  const touches = (link: { from: string; to: string }) =>
+    added.has(link.from) || added.has(link.to);
+  return withLinks(map, {
+    prerequisites: [
+      ...map.prerequisites,
+      ...proposal.prerequisites.filter(touches),
+    ],
+    semanticLinks: [
+      ...map.semanticLinks,
+      ...proposal.semanticLinks.filter(touches),
+    ],
+    priorKcs: proposal.priorKcs
+      .map((prior) => ({
+        ...prior,
+        requiredBy: prior.requiredBy.filter((id) => added.has(id)),
+      }))
+      .filter((prior) => prior.requiredBy.length > 0),
+  });
+}
+
 /** The chunk labels every chunk of which some KC should cite. */
 const COVERED_LABELS = new Set(["content", "definition"]);
 

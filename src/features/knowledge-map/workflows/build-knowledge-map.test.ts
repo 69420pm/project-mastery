@@ -62,8 +62,8 @@ type Sent = Record<string, unknown> & {
 
 /**
  * The `map` model: answers the skeleton, each assignment and each fill call
- * with the test's function of what the call was sent, and the links call
- * with the test's links or none, and remembers what each call was sent.
+ * with the test's function of what the call was sent, and the links calls
+ * with the test's links (or its function of what was sent) or none, and remembers what each call was sent.
  */
 function mapModel(answers: {
   skeleton: unknown;
@@ -121,7 +121,9 @@ function mapModel(answers: {
           ),
         };
       } else if (!("bigIdea" in input))
-        answer = answers.links ?? {
+        answer = (typeof answers.links === "function"
+          ? (answers.links as (input: Sent) => unknown)(input)
+          : answers.links) ?? {
           prerequisites: [],
           semanticLinks: [],
           priorKcs: [],
@@ -340,9 +342,17 @@ describe("building a Knowledge map", () => {
       { course_id: COURSE, exercise_chunk_id: q2, solution_chunk_id: s2 },
       { course_id: COURSE, exercise_chunk_id: q3, solution_chunk_id: null },
     );
+    const proposedKc = (name: string) => ({
+      name,
+      description: `${name}.`,
+      type: "procedure",
+      bloom: "apply",
+      bigIdea: "b1",
+    });
     const answers: Record<string, object> = {
       "Compute the efficiency for rp = 12.": {
         kcIds: ["k1", "unknown"],
+        newKcs: [proposedKc("Propulsive power")],
         taskType: "compute thermal efficiency",
         finalResult: "50.8%",
         givenFinalResult: "46.5%",
@@ -350,6 +360,8 @@ describe("building a Knowledge map", () => {
       },
       "Compute the thrust.": {
         kcIds: ["k1"],
+        // Proposed by one subtask only, so not added.
+        newKcs: [proposedKc("Bypass ratio")],
         taskType: "compute thrust",
         finalResult: "20 kN",
         givenFinalResult: "20 kN",
@@ -357,6 +369,7 @@ describe("building a Knowledge map", () => {
       },
       "Compute the propulsive power.": {
         kcIds: ["k1"],
+        newKcs: [proposedKc("propulsive power")],
         taskType: "compute thrust",
         finalResult: "4 MW",
         steps: 5,
@@ -373,6 +386,16 @@ describe("building a Knowledge map", () => {
         ],
       },
       assign: () => ({ taught: { c1: ["k1"] }, newKcs: [] }),
+      links: (input: Sent) =>
+        input.newKcIds
+          ? {
+              prerequisites: [
+                { from: "k1", to: "x1", extractionConfidence: 0.9 },
+              ],
+              semanticLinks: [],
+              priorKcs: [],
+            }
+          : undefined,
       exercise: (input) => ({
         newKcs: [],
         solution: "Worked solution.",
@@ -404,8 +427,29 @@ describe("building a Knowledge map", () => {
         difficulty: 3,
       },
     ]);
-    // The unknown KC id is dropped.
-    expect(db.tables.exercise_kcs).toHaveLength(3);
+    // The KC two subtasks propose joins from their exercises, with a link
+    // from the extra links call; the unknown KC id is dropped.
+    expect(
+      db.tables.kcs.map(({ name, origin }) => `${name} (${origin})`),
+    ).toEqual(["Thermal efficiency (content)", "Propulsive power (exercise)"]);
+    const propulsive = db.tables.kcs[1]?.id;
+    expect(
+      db.tables.kc_sources
+        .filter((row) => row.kc_id === propulsive)
+        .map((row) => row.chunk_id),
+    ).toEqual([q1, q3]);
+    expect(db.tables.prerequisite_links).toMatchObject([
+      { from_kc: db.tables.kcs[0]?.id, to_kc: propulsive },
+    ]);
+    expect(
+      db.tables.exercise_kcs.filter((row) => row.kc_id === propulsive),
+    ).toHaveLength(2);
+    expect(db.tables.exercise_kcs).toHaveLength(5);
+    const addedLinksCall = sent.find((input) => "newKcIds" in input);
+    expect(addedLinksCall?.kcs?.map((kc) => kc.name)).toEqual([
+      "Thermal efficiency",
+      "Propulsive power",
+    ]);
     expect(db.tables.findings.map((row) => row.text)).toEqual([
       "Ex. 7.1: the given answer is 46.5%, our calculation gives 50.8%.",
     ]);

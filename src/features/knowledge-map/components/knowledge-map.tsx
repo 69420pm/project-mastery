@@ -239,6 +239,7 @@ function Kc({ kc }: { kc: KcView }) {
         <div className="flex flex-wrap gap-1.5">
           <Badge variant="secondary">{TYPE_NAMES[kc.type]}</Badge>
           {kc.bloom && <Badge variant="outline">{BLOOM_NAMES[kc.bloom]}</Badge>}
+          {kc.fromExercise && <Badge variant="outline">from an exercise</Badge>}
         </div>
         <div className="text-sm text-muted-foreground">
           <Markdown>{kc.description}</Markdown>

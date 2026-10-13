@@ -29,6 +29,8 @@ export type KcView = {
   description: string;
   type: KcType;
   bloom: BloomLevel | null;
+  /** Added because exercises need it while the content does not teach it. */
+  fromExercise: boolean;
   /** Where it is taught, such as "Lecture 1 p. 3", in reading order. */
   sources: string[];
   /** The names of the KCs to learn before it. */

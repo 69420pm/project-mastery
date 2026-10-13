@@ -73,7 +73,7 @@ export async function getKnowledgeMap(
       .order("position"),
     supabase
       .from("kcs")
-      .select("id, big_idea_id, name, description, type, bloom")
+      .select("id, big_idea_id, name, description, type, bloom, origin")
       .eq("course_id", courseId)
       .order("position"),
     supabase
@@ -162,6 +162,7 @@ export async function getKnowledgeMap(
     description: kc.description,
     type: z.enum(KC_TYPES).parse(kc.type),
     bloom: z.enum(BLOOM_LEVELS).nullable().parse(kc.bloom),
+    fromExercise: kc.origin === "exercise",
     sources: pagesOf(
       sources.data
         .filter((source) => source.kc_id === kc.id)

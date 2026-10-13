@@ -3,8 +3,65 @@ import {
   difficulty,
   exerciseFromAnswer,
   solutionStatus,
+  withExerciseKcs,
   type ExerciseAnswer,
+  type ProposedKc,
 } from "@/features/knowledge-map/domain/exercises";
+import type { KnowledgeMap } from "@/features/knowledge-map/schemas";
+
+describe("withExerciseKcs", () => {
+  const proposed = (name: string, bigIdea = "b1"): ProposedKc => ({
+    name,
+    description: `${name}.`,
+    type: "procedure",
+    bloom: "apply",
+    bigIdea,
+  });
+  const map: KnowledgeMap = {
+    bigIdeas: [{ id: "b1", name: "Thrust", description: "Thrust." }],
+    kcs: [
+      {
+        id: "k1",
+        name: "Thrust equation",
+        description: "F",
+        type: "concept",
+        bloom: "apply",
+        bigIdea: "b1",
+        origin: "content",
+        sources: ["c1"],
+      },
+    ],
+    prerequisites: [],
+    semanticLinks: [],
+    exercises: [],
+    findings: [],
+  };
+
+  it("adds a KC several subtasks propose once, from their exercises", () => {
+    const merged = withExerciseKcs(map, [
+      {
+        questionChunkId: "q1",
+        newKcs: [proposed("Propulsive power", "unknown"), proposed("Lone")],
+      },
+      { questionChunkId: "q2", newKcs: [proposed(" propulsive POWER ")] },
+      { questionChunkId: "q3", newKcs: [proposed("thrust equation")] },
+    ]);
+    expect(merged.addedKcIds).toEqual(["x1"]);
+    expect(merged.map.kcs.at(-1)).toEqual({
+      id: "x1",
+      name: "Propulsive power",
+      description: "Propulsive power.",
+      type: "procedure",
+      bloom: "apply",
+      bigIdea: "b1",
+      origin: "exercise",
+      sources: ["q1", "q2"],
+    });
+    // One proposal of a lone name goes; an existing name is that KC.
+    expect(merged.map.kcs).toHaveLength(2);
+    expect(merged.kcIds).toEqual([["x1"], ["x1"], ["k1"]]);
+  });
+});
 
 describe("difficulty", () => {
   it.each([

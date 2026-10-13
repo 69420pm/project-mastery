@@ -142,6 +142,70 @@ export function exerciseFromAnswer(
   return { exercise, finding };
 }
 
+const nameKey = (name: string) => name.trim().toLowerCase();
+
+/**
+ * The map with the KCs the exercise subtasks propose, and for each subtask
+ * the ids of the proposed KCs it needs. A name proposed by more than one
+ * subtask (ignoring case) is added once, with `origin = exercise`, the big
+ * idea of its first proposal naming one of the map, and the proposing
+ * subtasks' question chunks as sources. A proposed name that is already a
+ * KC of the map is that KC. Other proposals go.
+ */
+export function withExerciseKcs(
+  map: KnowledgeMap,
+  proposals: Array<{ questionChunkId: string; newKcs: ProposedKc[] }>,
+): { map: KnowledgeMap; addedKcIds: string[]; kcIds: string[][] } {
+  const bigIdeas = new Set(map.bigIdeas.map((bigIdea) => bigIdea.id));
+  const existing = new Map(map.kcs.map((kc) => [nameKey(kc.name), kc.id]));
+  const byName = new Map<
+    string,
+    { kc: ProposedKc; chunks: string[]; subtasks: Set<number> }
+  >();
+  proposals.forEach(({ questionChunkId, newKcs }, subtask) => {
+    for (const kc of newKcs) {
+      const key = nameKey(kc.name);
+      const known = byName.get(key) ?? {
+        kc,
+        chunks: [],
+        subtasks: new Set<number>(),
+      };
+      if (!bigIdeas.has(known.kc.bigIdea) && bigIdeas.has(kc.bigIdea)) {
+        known.kc = { ...known.kc, bigIdea: kc.bigIdea };
+      }
+      if (!known.chunks.includes(questionChunkId)) {
+        known.chunks.push(questionChunkId);
+      }
+      known.subtasks.add(subtask);
+      byName.set(key, known);
+    }
+  });
+
+  const kcs = [...map.kcs];
+  const addedKcIds: string[] = [];
+  const kcIds = proposals.map((): string[] => []);
+  for (const [key, { kc, chunks, subtasks }] of byName) {
+    let id = existing.get(key);
+    if (!id) {
+      if (subtasks.size < 2 || !bigIdeas.has(kc.bigIdea)) continue;
+      id = `x${addedKcIds.length + 1}`;
+      kcs.push({
+        id,
+        name: kc.name.trim(),
+        description: kc.description,
+        type: kc.type,
+        bloom: kc.bloom,
+        bigIdea: kc.bigIdea,
+        origin: "exercise",
+        sources: chunks,
+      });
+      addedKcIds.push(id);
+    }
+    for (const subtask of subtasks) kcIds[subtask]?.push(id);
+  }
+  return { map: { ...map, kcs }, addedKcIds, kcIds };
+}
+
 /**
  * The check report's Exercise entries: Exercises mapped to no KC, which fail
  * the check, and taught KCs no Exercise tests, reported only. A map without

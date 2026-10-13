@@ -10,6 +10,7 @@ import {
   givenSolutionSchema,
 } from "@/features/knowledge-map/ai/exercise-calls";
 import {
+  addedKcLinksCall,
   assignmentCall,
   assignmentSchema,
   fillCall,
@@ -236,6 +237,28 @@ export async function linkKcs(
 ): Promise<StepOutcome<LinksProposal>> {
   "use step";
   const output = await mapCall(studentId, "map-links", linksCall(map.kcs));
+  if (output === null) return limitReached;
+  return {
+    ok: true,
+    value: linksSchema(map.kcs.map((kc) => kc.id)).parse(output),
+  };
+}
+
+/**
+ * Step 6, when exercises added KCs: one more links call over all of the
+ * map's KCs, for the added ones.
+ */
+export async function linkAddedKcs(
+  studentId: string,
+  map: KnowledgeMap,
+  addedKcIds: string[],
+): Promise<StepOutcome<LinksProposal>> {
+  "use step";
+  const output = await mapCall(
+    studentId,
+    "map-added-kc-links",
+    addedKcLinksCall(map.kcs, addedKcIds),
+  );
   if (output === null) return limitReached;
   return {
     ok: true,
