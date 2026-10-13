@@ -11,9 +11,11 @@ import type { BloomLevel, KcType } from "@/features/knowledge-map/schemas";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   BigIdeaView,
+  CheckReportView,
   KcView,
   KnowledgeMapView,
   MapBuild,
+  SemanticLinkView,
 } from "@/features/knowledge-map/types";
 
 const TYPE_NAMES: Record<KcType, string> = {
@@ -43,7 +45,8 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
- * Rebuild, then each big idea with its KCs. The page refreshes itself while
+ * Rebuild and its check report, then each big idea with its KCs and their
+ * prerequisites, the prior knowledge and the semantic links. The page refreshes itself while
  * a build runs.
  */
 export function KnowledgeMap({ map }: { map: KnowledgeMapView }) {
@@ -66,6 +69,8 @@ export function KnowledgeMap({ map }: { map: KnowledgeMapView }) {
         <BuildStatus build={map.build} />
       </div>
 
+      {map.checkReport && <CheckReport report={map.checkReport} />}
+
       {map.bigIdeas.length === 0 ? (
         <EmptyMap building={building} />
       ) : (
@@ -74,6 +79,12 @@ export function KnowledgeMap({ map }: { map: KnowledgeMapView }) {
             <BigIdea key={bigIdea.id} bigIdea={bigIdea} />
           ))}
         </ol>
+      )}
+      {map.priorKnowledge.length > 0 && (
+        <PriorKnowledge kcs={map.priorKnowledge} />
+      )}
+      {map.semanticLinks.length > 0 && (
+        <SemanticLinks links={map.semanticLinks} />
       )}
     </div>
   );
@@ -224,6 +235,11 @@ function Kc({ kc }: { kc: KcView }) {
         <div className="text-sm text-muted-foreground">
           <Markdown>{kc.description}</Markdown>
         </div>
+        {kc.prerequisites.length > 0 && (
+          <div className="text-xs text-muted-foreground">
+            <Markdown>{`Needs: ${kc.prerequisites.join(", ")}`}</Markdown>
+          </div>
+        )}
         {kc.sources.length > 0 && (
           <p className="text-xs text-muted-foreground">
             Sources: {kc.sources.join(", ")}
@@ -231,5 +247,73 @@ function Kc({ kc }: { kc: KcView }) {
         )}
       </article>
     </li>
+  );
+}
+
+function PriorKnowledge({ kcs }: { kcs: KcView[] }) {
+  return (
+    <section aria-label="Prior knowledge" className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-lg font-semibold">Prior knowledge</h2>
+        <p className="text-sm text-muted-foreground">
+          What the materials assume you know already.
+        </p>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {kcs.map((kc) => (
+          <Kc key={kc.id} kc={kc} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function SemanticLinks({ links }: { links: SemanticLinkView[] }) {
+  return (
+    <section aria-label="Semantic links" className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Semantic links</h2>
+      <ul className="flex flex-col gap-1 text-sm">
+        {links.map((link, index) => (
+          <li key={index}>
+            <Markdown>{`${link.from} → *${link.label}* → ${link.to}`}</Markdown>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** What the last build's checks found, or that they all passed. */
+function CheckReport({ report }: { report: CheckReportView }) {
+  const findings = [
+    report.uncoveredChunks.length > 0 &&
+      `Pages with content no KC covers: ${report.uncoveredChunks.join(", ")}`,
+    report.ungroundedKcs.length > 0 &&
+      `KCs without a source: ${report.ungroundedKcs.join(", ")}`,
+    report.orphanKcs.length > 0 &&
+      `KCs without links: ${report.orphanKcs.join(", ")}`,
+    report.droppedCycleEdges.length > 0 &&
+      `Prerequisites dropped to break cycles: ${report.droppedCycleEdges
+        .map((edge) => `${edge.from} → ${edge.to}`)
+        .join(", ")}`,
+  ].filter((finding) => finding !== false);
+  return (
+    <section
+      aria-label="Check report"
+      className="flex flex-col gap-1.5 rounded-xl bg-muted/50 px-4 py-3 text-sm"
+    >
+      <h2 className="font-medium">Checks</h2>
+      {findings.length === 0 ? (
+        <p className="text-muted-foreground">All checks passed.</p>
+      ) : (
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+          {findings.map((finding) => (
+            <li key={finding}>
+              <Markdown>{finding}</Markdown>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

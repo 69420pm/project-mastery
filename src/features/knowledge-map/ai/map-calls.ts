@@ -9,12 +9,14 @@ import {
   BLOOM_LEVELS,
   KC_TYPES,
   MAX_BIG_IDEAS,
+  SEMANTIC_LINK_TYPES,
 } from "@/features/knowledge-map/schemas";
 import { aiTask } from "@/lib/ai/models";
 
 /**
  * The model calls of a Knowledge map build (task `map`): the skeleton, one
- * assignment per batch of chunks, and one fill per big idea. Each prompt
+ * assignment per batch of chunks, one fill per big idea, and the links over
+ * all KCs. Each prompt
  * carries the granularity rule of #51. Ids in prompts are short and local to
  * the call or the build; outputs name them through enums, so a call can only
  * name what exists.
@@ -173,6 +175,75 @@ export function fillSchema(kcIds: string[]) {
 }
 
 const FILL_INSTRUCTIONS = `You describe the knowledge components (KCs) of one big idea of a university course. You get the big idea and its KCs, each with the markdown of the chunks that teach it, as JSON. For every KC give its type (fact, concept, procedure or decision), the Bloom level a Student needs to master it (remember, understand, apply, analyze, evaluate or create), and a sharper one-line description that matches what the chunks teach.`;
+
+const confidence = z
+  .number()
+  .min(0)
+  .max(1)
+  .describe("How sure you are, from 0 to 1.");
+
+/** What the links call answers over KCs with these ids. */
+export function linksSchema(kcIds: string[]) {
+  const [first, ...rest] = kcIds;
+  if (first === undefined) throw new Error("Links need KCs.");
+  const kcId = z.enum([first, ...rest]);
+  return z.object({
+    prerequisites: z
+      .array(
+        z.object({
+          from: kcId.describe("The KC to learn first."),
+          to: kcId.describe("The KC that needs it."),
+          extractionConfidence: confidence,
+        }),
+      )
+      .describe("Direct prerequisites only, not ones implied by a chain."),
+    semanticLinks: z
+      .array(
+        z.object({
+          from: kcId,
+          to: kcId,
+          coreType: z.enum(SEMANTIC_LINK_TYPES),
+          label: name.describe(
+            'The relation in a few words, such as "occurs in".',
+          ),
+        }),
+      )
+      .describe("Relations between KCs that order no learning."),
+    priorKcs: z
+      .array(
+        z.object({
+          name,
+          description: description.describe("One line."),
+          requiredBy: z
+            .array(kcId)
+            .min(1)
+            .describe("The KCs that build on it."),
+          extractionConfidence: confidence,
+        }),
+      )
+      .describe(
+        "Knowledge the material assumes but does not teach, such as earlier courses' content.",
+      ),
+  });
+}
+
+const LINKS_INSTRUCTIONS = `You link the knowledge components (KCs) of a university course. You get every KC with its id, name and description, as JSON. Give the prerequisites: KC A is a prerequisite of KC B when a Student must know A to learn B; give only direct ones, each with how sure you are. Give the semantic links: relations between KCs that order no learning (is_a, part_of, contrasts_with, causes, special_case_of, applies_in, or other), each with a short label. Give the prior knowledge the material assumes but does not teach, as KCs of the same size, each with the KCs that build on it.`;
+
+/** One links call over every KC of the map. */
+export function linksCall(
+  kcs: Array<{ id: string; name: string; description: string }>,
+) {
+  return {
+    ...callSettings(LINKS_INSTRUCTIONS, linksSchema(kcs.map((kc) => kc.id))),
+    messages: userMessage({
+      kcs: kcs.map(({ id, name: kcName, description: kcDescription }) => ({
+        id,
+        name: kcName,
+        description: kcDescription,
+      })),
+    }),
+  };
+}
 
 /** One fill call over a big idea's KCs and the chunks that teach them. */
 export function fillCall(

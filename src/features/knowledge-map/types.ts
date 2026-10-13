@@ -1,4 +1,9 @@
-import type { BloomLevel, KcType } from "@/features/knowledge-map/schemas";
+import type {
+  BloomLevel,
+  CheckReport,
+  KcType,
+  SemanticLinkType,
+} from "@/features/knowledge-map/schemas";
 
 /** A chunk of the Course as a build reads it. */
 export type MapChunk = {
@@ -25,6 +30,21 @@ export type KcView = {
   bloom: BloomLevel | null;
   /** Where it is taught, such as "Lecture 1 p. 3", in reading order. */
   sources: string[];
+  /** The names of the KCs to learn before it. */
+  prerequisites: string[];
+};
+
+/** A semantic link between two KCs, by name. */
+export type SemanticLinkView = {
+  from: string;
+  to: string;
+  coreType: SemanticLinkType;
+  label: string;
+};
+
+/** The last build's check report, with chunks as "Lecture 1 p. 3". */
+export type CheckReportView = Omit<CheckReport, "uncoveredChunkIds"> & {
+  uncoveredChunks: string[];
 };
 
 /** A big idea with its KCs, as the map page shows it. */
@@ -40,6 +60,11 @@ export type KnowledgeMapView = {
   courseId: string;
   build: MapBuild;
   bigIdeas: BigIdeaView[];
+  /** Prior knowledge the material assumes, which belongs to no big idea. */
+  priorKnowledge: KcView[];
+  semanticLinks: SemanticLinkView[];
+  /** Null before a build stored one. */
+  checkReport: CheckReportView | null;
   /** Whether Build may start: a Material is parsed and none waits or parses. */
   canBuild: boolean;
 };

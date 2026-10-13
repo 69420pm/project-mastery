@@ -40,4 +40,8 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
   await expect(
     page.getByRole("status", { name: "Build status" }),
   ).toContainText("Last built");
+  // The mock links its one KC only to itself, so the check finds an orphan.
+  await expect(
+    page.getByRole("region", { name: "Check report" }),
+  ).toContainText("KCs without links");
 });

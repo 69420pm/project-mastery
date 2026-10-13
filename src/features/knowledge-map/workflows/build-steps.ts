@@ -6,6 +6,8 @@ import {
   assignmentSchema,
   fillCall,
   fillSchema,
+  linksCall,
+  linksSchema,
   skeletonCall,
   skeletonSchema,
 } from "@/features/knowledge-map/ai/map-calls";
@@ -19,6 +21,7 @@ import {
   type DraftKc,
   type KcFill,
 } from "@/features/knowledge-map/domain/draft";
+import type { LinksProposal } from "@/features/knowledge-map/domain/links";
 import {
   knowledgeMapSchema,
   type CheckReport,
@@ -200,13 +203,30 @@ export async function fillBigIdea(
 }
 
 /**
+ * Step 4: prerequisites, semantic links and prior knowledge over all of the
+ * map's KCs, which go to the model by their local ids.
+ */
+export async function linkKcs(
+  studentId: string,
+  map: KnowledgeMap,
+): Promise<StepOutcome<LinksProposal>> {
+  "use step";
+  const output = await mapCall(studentId, "map-links", linksCall(map.kcs));
+  if (output === null) return limitReached;
+  return {
+    ok: true,
+    value: linksSchema(map.kcs.map((kc) => kc.id)).parse(output),
+  };
+}
+
+/**
  * Stores the map with its check report and marks the build built, in one
  * transaction. Does nothing when no build runs any more.
  */
 export async function storeMap(
   courseId: string,
   map: KnowledgeMap,
-  report: CheckReport | null,
+  report: CheckReport,
 ): Promise<void> {
   "use step";
   const { error } = await createAdminClient().rpc("replace_knowledge_map", {

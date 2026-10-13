@@ -25,6 +25,8 @@ function createDb() {
       big_ideas: [] as FakeRow[],
       kcs: [] as FakeRow[],
       kc_sources: [] as FakeRow[],
+      prerequisite_links: [] as FakeRow[],
+      semantic_links: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
     defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
@@ -38,7 +40,7 @@ function createDb() {
         const map = args.p_map as {
           bigIdeas: Array<{ id: string; name: string }>;
           kcs: Array<
-            FakeRow & { id: string; bigIdea: string; sources: string[] }
+            FakeRow & { id: string; bigIdea: string | null; sources: string[] }
           >;
         };
         const rowId = (id: string) => `${COURSE}:${id}`;
@@ -47,9 +49,22 @@ function createDb() {
           name: bigIdea.name,
           position,
         }));
+        const links = args.p_map as {
+          prerequisites: Array<{ from: string; to: string }>;
+          semanticLinks: Array<{ from: string; to: string; label: string }>;
+        };
+        tables.prerequisite_links = links.prerequisites.map((link) => ({
+          from_kc: rowId(link.from),
+          to_kc: rowId(link.to),
+        }));
+        tables.semantic_links = links.semanticLinks.map((link) => ({
+          from_kc: rowId(link.from),
+          to_kc: rowId(link.to),
+          label: link.label,
+        }));
         tables.kcs = map.kcs.map((kc, position) => ({
           id: rowId(kc.id),
-          big_idea_id: rowId(kc.bigIdea),
+          big_idea_id: kc.bigIdea && rowId(kc.bigIdea),
           name: kc.name,
           description: kc.description,
           type: kc.type,
@@ -119,7 +134,8 @@ type Sent = Record<string, unknown> & {
 
 /**
  * The `map` model: answers the skeleton, each assignment and each fill call
- * with the test's function of what the call was sent, and remembers it.
+ * with the test's function of what the call was sent, and the links call
+ * with the test's links or none, and remembers what each call was sent.
  */
 function mapModel(answers: {
   skeleton: unknown;
@@ -127,6 +143,7 @@ function mapModel(answers: {
     taught: Record<string, string[]>;
     newKcs: unknown[];
   };
+  links?: unknown;
 }) {
   const sent: Sent[] = [];
   let assignments = 0;
@@ -151,7 +168,13 @@ function mapModel(answers: {
           ),
           newKcs,
         };
-      } else
+      } else if (!("bigIdea" in input))
+        answer = answers.links ?? {
+          prerequisites: [],
+          semanticLinks: [],
+          priorKcs: [],
+        };
+      else
         answer = {
           kcs: Object.fromEntries(
             (input.kcs ?? []).map((kc) => [
@@ -239,6 +262,24 @@ describe("building a Knowledge map", () => {
               ],
             }
           : { taught: { c1: ["k3"] }, newKcs: [] },
+      links: {
+        // A cycle, whose weaker edge goes.
+        prerequisites: [
+          { from: "k1", to: "k3", extractionConfidence: 0.8 },
+          { from: "k3", to: "k1", extractionConfidence: 0.2 },
+        ],
+        semanticLinks: [
+          { from: "k3", to: "k1", coreType: "causes", label: "raises" },
+        ],
+        priorKcs: [
+          {
+            name: "Ideal gas law",
+            description: "pv = RT.",
+            requiredBy: ["k1"],
+            extractionConfidence: 0.9,
+          },
+        ],
+      },
     });
     useMockModels({ map: model });
 
@@ -268,14 +309,44 @@ describe("building a Knowledge map", () => {
         bloom: "apply",
         description: "Sharp Turbine work",
       },
+      {
+        name: "Ideal gas law",
+        type: "prior",
+        bloom: null,
+        description: "pv = RT.",
+      },
     ]);
     expect(db.tables.kc_sources.map((row) => row.chunk_id)).toEqual([
       chunks[0],
       chunks[1],
       chunks[11],
     ]);
+    const nameOf = (id: unknown) =>
+      db.tables.kcs.find((row) => row.id === id)?.name;
+    const links = (table: FakeRow[]) =>
+      table.map((row) => `${nameOf(row.from_kc)} → ${nameOf(row.to_kc)}`);
+    expect(links(db.tables.prerequisite_links)).toEqual([
+      "Pressure ratio → Turbine work",
+      "Ideal gas law → Pressure ratio",
+    ]);
+    expect(links(db.tables.semantic_links)).toEqual([
+      "Turbine work → Pressure ratio",
+    ]);
+    expect(db.tables.knowledge_map_builds[0]?.check_report).toEqual({
+      // The eight fillers teach nothing.
+      uncoveredChunkIds: chunks.slice(2, 10),
+      ungroundedKcs: [],
+      orphanKcs: [],
+      droppedCycleEdges: [
+        {
+          from: "Turbine work",
+          to: "Pressure ratio",
+          extractionConfidence: 0.2,
+        },
+      ],
+    });
 
-    const [skeleton, first, second, fill] = sent;
+    const [skeleton, first, second, fill, linksCall] = sent;
     expect(skeleton).toEqual({
       materials: ["Lecture 1"],
       headings: ["Compressors"],
@@ -291,13 +362,11 @@ describe("building a Knowledge map", () => {
       "Pressure ratio",
       "Turbine work",
     ]);
-    expect(sent).toHaveLength(4);
-    expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
-      "map",
-      "map",
-      "map",
-      "map",
-    ]);
+    expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k3"]);
+    expect(sent).toHaveLength(5);
+    expect(db.tables.ai_usage.map((row) => row.task)).toEqual(
+      Array(5).fill("map"),
+    );
   });
 });
 
