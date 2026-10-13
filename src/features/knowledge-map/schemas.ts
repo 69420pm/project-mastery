@@ -1,0 +1,153 @@
+import { z } from "zod";
+
+// The course model of a Knowledge map (#51, #69). These schemas are the
+// source of truth: the tables of the knowledge map migration mirror them,
+// `replace_knowledge_map` takes a `knowledgeMapSchema` value, and the gold
+// map (`evals/gold/*/gold.json`) parses with `courseMapSchema`.
+
+export const KC_TYPES = [
+  "fact",
+  "concept",
+  "procedure",
+  "decision",
+  "prior",
+] as const;
+
+export const BLOOM_LEVELS = [
+  "remember",
+  "understand",
+  "apply",
+  "analyze",
+  "evaluate",
+  "create",
+] as const;
+
+export const SEMANTIC_LINK_TYPES = [
+  "is_a",
+  "part_of",
+  "contrasts_with",
+  "causes",
+  "special_case_of",
+  "applies_in",
+  "other",
+] as const;
+
+/** The most big ideas a map has (#51's granularity rule). */
+export const MAX_BIG_IDEAS = 15;
+
+/** Ids are local to one map; stored rows get their own. */
+const id = z.string().trim().min(1).max(100);
+const name = z.string().trim().min(1).max(200);
+const description = z.string().trim().min(1).max(1000);
+
+export const bigIdeaSchema = z.object({ id, name, description });
+
+/**
+ * A knowledge component that `source` chunks teach, or prior knowledge the
+ * material assumes, which has no Bloom level, big idea or source.
+ */
+export function kcSchema<Source extends z.ZodType>(source: Source) {
+  const common = { id, name, description, sources: z.array(source) };
+  return z.discriminatedUnion("type", [
+    z.object({
+      ...common,
+      type: z.enum(KC_TYPES).exclude(["prior"]),
+      bloom: z.enum(BLOOM_LEVELS),
+      bigIdea: id,
+      origin: z.literal("content"),
+    }),
+    z.object({
+      ...common,
+      type: z.literal("prior"),
+      bloom: z.null(),
+      bigIdea: z.null(),
+      origin: z.literal("prior"),
+      sources: z.array(source).max(0),
+    }),
+  ]);
+}
+
+/** `from` must be learned before `to`. */
+export const prerequisiteSchema = z.object({
+  from: id,
+  to: id,
+  extractionConfidence: z.number().min(0).max(1),
+});
+
+export const semanticLinkSchema = z.object({
+  from: id,
+  to: id,
+  coreType: z.enum(SEMANTIC_LINK_TYPES),
+  /** Free text, such as "occurs in". */
+  label: name,
+});
+
+/**
+ * A whole map whose KCs cite their sources as `source` values: chunk ids
+ * when stored, chunk positions in a gold set. Every reference must resolve
+ * and no link may loop on one KC; the map may still hold prerequisite
+ * cycles, which the build breaks before storing it.
+ */
+export function courseMapSchema<Source extends z.ZodType>(source: Source) {
+  return z
+    .object({
+      bigIdeas: z.array(bigIdeaSchema),
+      kcs: z.array(kcSchema(source)),
+      prerequisites: z.array(prerequisiteSchema),
+      semanticLinks: z.array(semanticLinkSchema),
+    })
+    .superRefine((map, ctx) => {
+      const issue = (message: string) =>
+        ctx.addIssue({ code: "custom", message });
+      const bigIdeas = uniqueIds(map.bigIdeas, "big idea", issue);
+      const kcs = uniqueIds(map.kcs, "KC", issue);
+      for (const kc of map.kcs) {
+        if (kc.bigIdea !== null && !bigIdeas.has(kc.bigIdea)) {
+          issue(`KC ${kc.id} names an unknown big idea ${kc.bigIdea}`);
+        }
+      }
+      for (const link of [...map.prerequisites, ...map.semanticLinks]) {
+        if (!kcs.has(link.from) || !kcs.has(link.to)) {
+          issue(`link ${link.from} → ${link.to} names an unknown KC`);
+        } else if (link.from === link.to) {
+          issue(`link ${link.from} → ${link.to} loops on one KC`);
+        }
+      }
+    });
+}
+
+function uniqueIds(
+  items: { id: string }[],
+  kind: string,
+  issue: (message: string) => void,
+) {
+  const ids = new Set<string>();
+  for (const { id: itemId } of items) {
+    if (ids.has(itemId)) issue(`duplicate ${kind} id ${itemId}`);
+    ids.add(itemId);
+  }
+  return ids;
+}
+
+/** The map `replace_knowledge_map` stores: sources are chunk ids. */
+export const knowledgeMapSchema = courseMapSchema(z.uuid());
+
+/** What the build's checks found, stored with the map it checked. */
+export const checkReportSchema = z.object({
+  /** `content` and `definition` chunks no KC cites. */
+  uncoveredChunkIds: z.array(z.uuid()),
+  /** Names of non-prior KCs without a source. */
+  ungroundedKcs: z.array(name),
+  /** Names of KCs without any link. */
+  orphanKcs: z.array(name),
+  /** The prerequisite edges dropped to break cycles, by KC name. */
+  droppedCycleEdges: z.array(
+    z.object({ from: name, to: name, extractionConfidence: z.number() }),
+  ),
+});
+
+export type KcType = (typeof KC_TYPES)[number];
+export type BloomLevel = (typeof BLOOM_LEVELS)[number];
+export type SemanticLinkType = (typeof SEMANTIC_LINK_TYPES)[number];
+export type KnowledgeMap = z.infer<typeof knowledgeMapSchema>;
+export type CheckReport = z.infer<typeof checkReportSchema>;
