@@ -5,10 +5,10 @@
  *
  * A smoke check runs one real feature path once, on a small input, against
  * the local Supabase and a real model, and checks the feature's invariants.
- * The runner pins every generating task to SMOKE_MODEL, gives the check a
- * throwaway Student, holds the Student's recorded AI calls to the check's cap (30 by default) and
- * deletes the Student with all its data afterwards. Smoke checks never run in
- * `pnpm check`, Vitest or CI.
+ * The runner pins every generating task to SMOKE_MODEL (see below), gives the
+ * check a throwaway Student, holds the Student's recorded AI calls to the
+ * check's cap (30 by default) and deletes the Student with all its data
+ * afterwards. Smoke checks never run in `pnpm check`, Vitest or CI.
  */
 // Must come first: lets smoke checks import modules that use Next.js.
 import "./next-aliases";
@@ -24,8 +24,18 @@ import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
 const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke];
 
-/** The model agents call (docs/agents/live-ai.md). */
-const SMOKE_MODEL = "xiaomi/mimo-v2.6-flash";
+/**
+ * The model every generating task is pinned to (docs/agents/live-ai.md). With
+ * a Google key, as in local development, that is the Gemini model, which
+ * answers in seconds where MiMo through DeepInfra can take minutes (ADR 0016).
+ * `AI_SMOKE_MODEL` pins another model, such as xiaomi/mimo-v2.6-flash, the
+ * model that ships.
+ */
+const SMOKE_MODEL =
+  process.env.AI_SMOKE_MODEL ??
+  (process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    ? "google/gemini-3.5-flash-lite"
+    : "xiaomi/mimo-v2.6-flash");
 
 /** The most model calls a smoke check may record, unless it sets its own. */
 const DEFAULT_MAX_CALLS = 30;
