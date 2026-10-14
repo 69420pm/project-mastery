@@ -1184,6 +1184,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      add_brief_note: {
+        Args: { course_id: string; text: string };
+        Returns: boolean;
+      };
       apply_knowledge_map_update: {
         Args: {
           p_check_report: Json;
@@ -1223,6 +1227,14 @@ export type Database = {
       request_exercise_pairing: {
         Args: { p_course_id: string };
         Returns: number;
+      };
+      save_brief: {
+        Args: {
+          course_id: string;
+          excluded_material_ids?: string[];
+          fields?: Json;
+        };
+        Returns: boolean;
       };
       set_chunk_embeddings: {
         Args: { p_embeddings: Json };

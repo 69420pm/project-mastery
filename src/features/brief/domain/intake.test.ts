@@ -1,10 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  appendNote,
-  isIntakeDone,
-  MAX_BRIEF_NOTES_LENGTH,
-  type BriefFields,
-} from "./intake";
+import { isIntakeDone, type BriefFields } from "./intake";
 
 const complete: BriefFields = {
   examDate: "2026-12-03",
@@ -42,17 +37,5 @@ describe("isIntakeDone", () => {
 
   test("is not done until the scope is confirmed", () => {
     expect(isIntakeDone({ ...complete, scopeConfirmed: false })).toBe(false);
-  });
-});
-
-describe("appendNote", () => {
-  test("starts the notes, then appends after a blank line", () => {
-    expect(appendNote(null, "First.")).toBe("First.");
-    expect(appendNote("First.", "Second.")).toBe("First.\n\nSecond.");
-  });
-
-  test("refuses notes that would grow past the limit", () => {
-    const full = "x".repeat(MAX_BRIEF_NOTES_LENGTH - 2);
-    expect(appendNote(full, "y")).toBeNull();
   });
 });

@@ -37,7 +37,8 @@ export function createAdminClient() {
 /**
  * A client signed in as the user, so Row Level Security applies as in a
  * request of theirs. It replaces the user's password: for smoke checks'
- * throwaway Students only, who never sign in themselves.
+ * throwaway Students only, who never sign in themselves. Call it only from
+ * `evals/smoke/`, never from app code: lint does not stop other callers.
  */
 export async function signInAsUser(
   admin: AdminSupabase,

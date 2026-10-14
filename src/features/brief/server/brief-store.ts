@@ -162,20 +162,6 @@ export async function loadContext(
   };
 }
 
-/** The notes of the Course's Brief, null without any (or without a Brief). */
-export async function loadNotes(
-  supabase: Supabase,
-  courseId: string,
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("briefs")
-    .select("notes")
-    .eq("course_id", courseId)
-    .maybeSingle();
-  if (error) fail("Loading the notes", error);
-  return data?.notes ?? null;
-}
-
 async function loadExcludedIds(supabase: Supabase, courseId: string) {
   const { data, error } = await supabase
     .from("brief_excluded_materials")
@@ -185,49 +171,54 @@ async function loadExcludedIds(supabase: Supabase, courseId: string) {
   return new Set(data.map((row) => row.material_id));
 }
 
-/** Changes the given columns of the Course's Brief. */
-export async function updateBrief(
+/** The fixed fields `saveBrief` can change, by column. */
+export type BriefFieldsUpdate = Pick<
+  BriefUpdate,
+  | "exam_date"
+  | "goal"
+  | "hours_per_week"
+  | "question_style"
+  | "open_book"
+  | "formula_sheet"
+  | "calculator"
+  | "scope_confirmed"
+>;
+
+/**
+ * Changes the given fields of the Course's Brief and, unless null, makes
+ * `excludedMaterialIds` (Materials of the Course) the ones the exam excludes.
+ * All or nothing, in one transaction (`save_brief`); throws when it fails.
+ */
+export async function saveBrief(
   supabase: Supabase,
   courseId: string,
-  update: Pick<
-    BriefUpdate,
-    | "exam_date"
-    | "goal"
-    | "hours_per_week"
-    | "question_style"
-    | "open_book"
-    | "formula_sheet"
-    | "calculator"
-    | "scope_confirmed"
-    | "notes"
-  >,
+  fields: BriefFieldsUpdate,
+  excludedMaterialIds: string[] | null,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("briefs")
-    .update(update)
-    .eq("course_id", courseId);
+  const { data, error } = await supabase.rpc("save_brief", {
+    course_id: courseId,
+    fields,
+    ...(excludedMaterialIds && { excluded_material_ids: excludedMaterialIds }),
+  });
   if (error) fail("Saving the Brief", error);
+  if (!data) throw new Error("Saving the Brief failed: it does not exist");
 }
 
-/** Makes `materialIds`, Materials of the Course, the ones the exam excludes. */
-export async function replaceExcludedMaterials(
+/**
+ * Appends `text` to the notes of the Course's Brief after a blank line, in one
+ * update (`add_brief_note`), so concurrent calls keep every statement. False
+ * when the notes would grow too long, and nothing changed.
+ */
+export async function addBriefNote(
   supabase: Supabase,
   courseId: string,
-  materialIds: string[],
-): Promise<void> {
-  const { error } = await supabase
-    .from("brief_excluded_materials")
-    .delete()
-    .eq("course_id", courseId);
-  if (error) fail("Including the Materials", error);
-  if (materialIds.length === 0) return;
-  const { error: insertError } = await supabase
-    .from("brief_excluded_materials")
-    .insert(
-      materialIds.map((materialId) => ({
-        course_id: courseId,
-        material_id: materialId,
-      })),
-    );
-  if (insertError) fail("Excluding the Materials", insertError);
+  text: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("add_brief_note", {
+    course_id: courseId,
+    text,
+  });
+  if (error) fail("Saving the note", error);
+  if (data === null) throw new Error("Saving the note failed: no Brief");
+  return data;
 }

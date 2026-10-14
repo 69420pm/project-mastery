@@ -21,6 +21,12 @@ const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
 let signedIn: string | null = STUDENT;
 let db = createDb();
 
+function ownBrief(briefs: FakeRow[], courseId: unknown) {
+  return briefs.find(
+    (brief) => brief.course_id === courseId && brief.owner === signedIn,
+  );
+}
+
 /** The local tables, with the ownership rules of the real policies. */
 function createDb() {
   return fakeSupabase({
@@ -53,6 +59,37 @@ function createDb() {
     primaryKeys: {
       briefs: ["course_id"],
       brief_excluded_materials: ["course_id", "material_id"],
+    },
+    // What the handler needs of the real functions; pgTAP tests those.
+    functions: {
+      save_brief: (args, tables) => {
+        const brief = ownBrief(tables.briefs, args.course_id);
+        if (!brief) return false;
+        Object.assign(brief, args.fields);
+        const ids = args.excluded_material_ids as string[] | undefined;
+        if (ids) {
+          tables.brief_excluded_materials = tables.brief_excluded_materials
+            .filter((row) => row.course_id !== args.course_id)
+            .concat(
+              [...new Set(ids)].map((id) => ({
+                course_id: args.course_id,
+                material_id: id,
+                owner: signedIn,
+              })),
+            );
+        }
+        return true;
+      },
+      add_brief_note: (args, tables) => {
+        const brief = ownBrief(tables.briefs, args.course_id);
+        if (!brief) return null;
+        const notes = brief.notes
+          ? `${brief.notes}\n\n${args.text}`
+          : (args.text as string);
+        if (notes.length > 20_000) return false;
+        brief.notes = notes;
+        return true;
+      },
     },
     defaults: {
       briefs: () => ({
@@ -321,6 +358,23 @@ describe("the tools", () => {
     expect(
       db.tables.brief_excluded_materials.map((row) => row.material_id),
     ).toEqual([LECTURE]);
+  });
+
+  test("a reply that only saved answers is stored", async () => {
+    useMockModels({
+      brief: mockToolModel(
+        [[{ toolName: "addNote", input: { text: "Bring a ruler." } }]],
+        "",
+      ),
+    });
+
+    await send({ courseId: COURSE, message: userMessage("Bring a ruler.") });
+
+    expect(stored().map(({ role }) => role)).toEqual([
+      "assistant",
+      "user",
+      "assistant",
+    ]);
   });
 
   test("a malformed call changes nothing and tells the model why", async () => {

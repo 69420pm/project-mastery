@@ -26,15 +26,6 @@ export type BriefContext = {
 };
 
 /**
- * The notes with the Student's statement appended verbatim, separated from
- * earlier ones by a blank line. Null when the result would be too long.
- */
-export function appendNote(notes: string | null, text: string): string | null {
-  const appended = notes ? `${notes}\n\n${text}` : text;
-  return appended.length > MAX_BRIEF_NOTES_LENGTH ? null : appended;
-}
-
-/**
  * Whether the Student has finished telling the AI about the exam: every fixed
  * field is answered and the scope is confirmed. The notes are free text and
  * never required.

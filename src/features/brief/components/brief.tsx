@@ -69,6 +69,9 @@ export function Brief({ brief, dailyLimit: initialDailyLimit }: BriefProps) {
     });
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
+  // A reply that only saved answers has no text: it shows while it streams.
+  const isShown = (message: BriefUIMessage) =>
+    messageText(message.parts) !== "" || (message === lastMessage && isBusy);
 
   async function handleSubmit({ text }: { text: string }) {
     if (text.trim() === "" || isBusy || limitReached) {
@@ -88,7 +91,7 @@ export function Brief({ brief, dailyLimit: initialDailyLimit }: BriefProps) {
     <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
       <Conversation className="min-h-0">
         <ConversationContent className="mx-auto w-full max-w-3xl px-0">
-          {messages.map((message) => (
+          {messages.filter(isShown).map((message) => (
             <Message from={message.role} key={message.id}>
               <MessageContent data-testid="message-text">
                 {message.role === "assistant" ? (

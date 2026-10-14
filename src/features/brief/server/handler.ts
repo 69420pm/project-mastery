@@ -8,6 +8,7 @@ import {
   createUIMessageStreamResponse,
   InvalidToolInputError,
   isStepCount,
+  isToolUIPart,
   NoSuchToolError,
   streamText,
   toUIMessageStream,
@@ -234,7 +235,11 @@ async function streamReply({
         }
 
         // A reply cut off by a disconnect is dropped: the Brief has no Stop.
-        if (outcome.status === "failed" || stopped || text === "") return;
+        // A reply that only called tools is stored, so the conversation
+        // keeps the answers it saved and never has two Student turns in a
+        // row.
+        const empty = text === "" && !responseMessage.parts.some(isToolUIPart);
+        if (outcome.status === "failed" || stopped || empty) return;
         try {
           await saveMessage(supabase, courseId, {
             ...responseMessage,
