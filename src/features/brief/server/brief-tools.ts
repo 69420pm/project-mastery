@@ -3,7 +3,12 @@ import type {
   BriefToolActions,
   SaveBriefInput,
 } from "@/features/brief/ai/tools";
+import { findingQuestion, reviewQueue } from "@/features/brief/domain/findings";
 import type { BriefContext } from "@/features/brief/domain/intake";
+import {
+  answerFinding,
+  getOpenFindings,
+} from "@/features/knowledge-map/server";
 import {
   addBriefNote,
   saveBrief,
@@ -18,11 +23,14 @@ const given = <T>(value: T | null | undefined) => value ?? undefined;
  * What the Brief's tools do, as the signed-in Student, to the Course's
  * Brief. `context` holds the Course's Materials when the reply started.
  * Each tool writes in one transaction, so a failed call changes nothing.
+ * `asks` hears of each Finding a tool result tells the AI to ask; the caller
+ * marks it asked once the reply is stored.
  */
 export function briefToolActions(
   supabase: Supabase,
   courseId: string,
   context: BriefContext,
+  asks: (findingId: string) => void,
 ): BriefToolActions {
   return {
     async saveBrief(input: SaveBriefInput) {
@@ -58,6 +66,18 @@ export function briefToolActions(
       return (await addBriefNote(supabase, courseId, text))
         ? "Saved."
         : "Not saved: the notes are full. Nothing changed.";
+    },
+
+    async answerFinding(findingId, answer) {
+      if (!(await answerFinding(supabase, courseId, findingId, answer))) {
+        return "Not saved: that is no open question about this Course's materials; it may be answered already. Nothing changed.";
+      }
+      const { asking } = reviewQueue(await getOpenFindings(supabase, courseId));
+      if (!asking) {
+        return "Saved. No questions about the materials are left: tell the Student they are done.";
+      }
+      asks(asking.id);
+      return `Saved. In this reply, ask the Student the next question about the materials (id ${asking.id}), with its sources:\n${findingQuestion(asking)}`;
     },
   };
 }

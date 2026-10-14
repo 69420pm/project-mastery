@@ -6,6 +6,7 @@ import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
 import {
   BLOOM_LEVELS,
   checkReportSchema,
+  FINDING_STATUSES,
   KC_TYPES,
   SEMANTIC_LINK_TYPES,
   SOLUTION_STATUSES,
@@ -100,7 +101,7 @@ export async function getKnowledgeMap(
       .eq("course_id", courseId),
     supabase
       .from("findings")
-      .select("id, text")
+      .select("id, text, status, answer")
       .eq("course_id", courseId)
       .order("position"),
     supabase
@@ -221,6 +222,8 @@ export async function getKnowledgeMap(
     findings: findings.data.map((finding) => ({
       id: finding.id,
       text: finding.text,
+      status: z.enum(FINDING_STATUSES).parse(finding.status),
+      answer: finding.answer,
       sources: pagesOf(
         findingSources.data
           .filter((source) => source.finding_id === finding.id)

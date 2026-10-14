@@ -41,4 +41,54 @@ test.describe("signed in", () => {
     ).toBeVisible();
     await expect(log.getByText(REPLY_END)).toBeVisible();
   });
+
+  test("asks an open Finding once intake is done and stores the answer", async ({
+    page,
+    student,
+    course,
+  }) => {
+    const admin = adminClient();
+    const brief = await admin.from("briefs").insert({
+      course_id: course.id,
+      owner: student.id,
+      exam_date: "2026-12-03",
+      goal: "pass",
+      hours_per_week: 5,
+      question_style: "written",
+      open_book: false,
+      formula_sheet: false,
+      calculator: true,
+      scope_confirmed: true,
+    });
+    expect(brief.error).toBeNull();
+    const finding = await admin.from("findings").insert({
+      course_id: course.id,
+      owner: student.id,
+      kind: "solution_mismatch",
+      position: 0,
+      text: "Exercise 3 prints 48.2%, but the worked steps give 50.8%.",
+    });
+    expect(finding.error).toBeNull();
+
+    await page.goto(`/courses/${course.id}/brief`);
+    const log = page.getByRole("log");
+    await expect(
+      log.getByText("but the worked steps give 50.8%. Which is right?"),
+    ).toBeVisible();
+
+    const input = page.getByRole("textbox", { name: "Message" });
+    await input.fill("The printed answer is wrong, 50.8% is right");
+    await input.press("Enter");
+    await expect(log.getByText(REPLY_END)).toBeVisible();
+
+    await page.goto(`/courses/${course.id}/map`);
+    const findings = page.getByRole("region", { name: "Findings" });
+    await expect(findings.getByText("Answered")).toBeVisible();
+    await expect(
+      findings.getByText("The printed answer is wrong, 50.8% is right"),
+    ).toBeVisible();
+    await expect(
+      findings.getByRole("link", { name: "Answer in the Brief" }),
+    ).toHaveCount(0);
+  });
 });

@@ -19,6 +19,8 @@ import {
   linksSchema,
   mergeCall,
   mergeSchema,
+  scopeCall,
+  scopeSchema,
   skeletonCall,
   skeletonSchema,
 } from "@/features/knowledge-map/ai/map-calls";
@@ -111,9 +113,10 @@ export async function loadBuildInput(
   const processed = new Set(processedChunkIds);
   return {
     studentId: data.owner,
-    chunks: chunks.map(({ id, materialName, label, markdown }) => ({
+    chunks: chunks.map(({ id, materialName, pageFrom, label, markdown }) => ({
       id,
       materialName,
+      pageFrom,
       label,
       markdown,
     })),
@@ -460,6 +463,49 @@ export async function decideMerges(
     value: Object.values(parsed.clusters).flatMap((cluster) =>
       cluster.groups.map((group) => group.map(kcIds.real)),
     ),
+  };
+}
+
+/**
+ * The scope step, over the update's new `admin` chunks: one `scope` Finding
+ * per remark that excludes or limits exam content, its text the question
+ * for the Student and its sources the chunks. Chunks go to the model by
+ * short local ids; unknown ones are dropped, and so is a remark left
+ * without any.
+ */
+export async function findScopeRemarks(
+  studentId: string,
+  adminChunks: MapChunk[],
+): Promise<StepOutcome<KnowledgeMap["findings"]>> {
+  "use step";
+  const ids = aliases(
+    adminChunks.map((chunk) => chunk.id),
+    "c",
+  );
+  const local = new Set(adminChunks.map((chunk) => ids.local(chunk.id)));
+  const output = await mapCall(
+    studentId,
+    "map-scope",
+    scopeCall(
+      adminChunks.map((chunk) => ({
+        id: ids.local(chunk.id),
+        material: chunk.materialName,
+        page: chunk.pageFrom,
+        markdown: chunk.markdown,
+      })),
+    ),
+  );
+  if (output === null) return limitReached;
+  return {
+    ok: true,
+    value: scopeSchema.parse(output).remarks.flatMap((remark) => {
+      const sources = [
+        ...new Set(remark.chunkIds.filter((id) => local.has(id))),
+      ].map(ids.real);
+      return sources.length === 0
+        ? []
+        : [{ kind: "scope" as const, text: remark.question, sources }];
+    }),
   };
 }
 

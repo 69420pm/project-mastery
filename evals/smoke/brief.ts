@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { respondInBrief } from "@/features/brief/server";
+import { openBrief, respondInBrief } from "@/features/brief/server";
 import { signInAsUser } from "@/lib/supabase/admin";
-import type { Supabase } from "@/lib/supabase/types";
+import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 import { result, type SmokeCheck } from "./smoke-check";
 
 /** What the Student tells the AI, one message per reply. */
@@ -54,12 +54,15 @@ async function send(
 
 /**
  * Tells the AI about an exam in a new Course's Brief, in two scripted
- * messages through the real handler, and checks what the tools stored.
+ * messages through the real handler, and checks what the tools stored. Then
+ * answers a seeded open Finding and checks the stored answer.
  */
 export const briefSmoke: SmokeCheck = {
   name: "brief",
-  usage: "pnpm smoke brief (two scripted messages in a Course's Brief)",
-  maxCalls: 6,
+  usage:
+    "pnpm smoke brief (two scripted messages in a Course's Brief, then an answer to a seeded Finding)",
+  // One recorded call per reply (3), with slack for retries.
+  maxCalls: 7,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
       .from("courses")
@@ -118,6 +121,12 @@ export const briefSmoke: SmokeCheck = {
       ),
     );
     const excludedIds = excluded.data.map((row) => row.material_id);
+    const review = await answerSeededFinding(
+      supabase,
+      client,
+      studentId,
+      course.id,
+    );
     return [
       ...fields,
       // The Student never said, so the AI must not invent it.
@@ -137,6 +146,81 @@ export const briefSmoke: SmokeCheck = {
         b.notes?.toLowerCase().includes("heat exchangers") ?? false,
         JSON.stringify(b.notes),
       ),
+      ...review,
     ];
   },
 };
+
+const FINDING_TEXT =
+  "Exercise 2 prints an efficiency of 48.2%, but its worked steps give 50.8%.";
+const FINDING_ANSWER = "The printed answer is wrong, 50.8% is right";
+
+/**
+ * Completes intake, seeds one open `solution_mismatch` Finding, opens the
+ * Brief (a static message, no model call) and answers it in one message.
+ */
+async function answerSeededFinding(
+  supabase: AdminSupabase,
+  client: Supabase,
+  studentId: string,
+  courseId: string,
+) {
+  // The scripted messages leave the formula sheet unanswered, and a missed
+  // answer is reported above, so intake is completed here directly.
+  const done = await supabase
+    .from("briefs")
+    .update({
+      exam_date: "2026-12-03",
+      goal: "good_grade",
+      hours_per_week: 6,
+      question_style: "written",
+      open_book: false,
+      formula_sheet: false,
+      calculator: true,
+      scope_confirmed: true,
+    })
+    .eq("course_id", courseId);
+  if (done.error) throw new Error(done.error.message);
+  const { data: finding, error } = await supabase
+    .from("findings")
+    .insert({
+      owner: studentId,
+      course_id: courseId,
+      kind: "solution_mismatch",
+      position: 0,
+      text: FINDING_TEXT,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  const messages = await openBrief(client, courseId);
+  const posted = (messages?.at(-1)?.parts ?? [])
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+  console.info(`AI (static): ${posted}`);
+  console.info(`Student: ${FINDING_ANSWER}`);
+  console.info(
+    `AI: ${await send(client, studentId, courseId, FINDING_ANSWER)}`,
+  );
+
+  const stored = await supabase
+    .from("findings")
+    .select("status, answer, asked_at")
+    .eq("id", finding.id)
+    .single();
+  if (stored.error) throw new Error(stored.error.message);
+  return [
+    result(
+      "opening the Brief asks the Finding",
+      posted.startsWith(FINDING_TEXT) && posted.includes("Which is right?"),
+      JSON.stringify(posted),
+    ),
+    result(
+      "the Finding is answered with the Student's words",
+      stored.data.status === "answered" &&
+        stored.data.answer === FINDING_ANSWER,
+      `${stored.data.status}: ${JSON.stringify(stored.data.answer)}`,
+    ),
+  ];
+}

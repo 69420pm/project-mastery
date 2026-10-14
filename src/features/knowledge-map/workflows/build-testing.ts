@@ -246,7 +246,8 @@ export type Sent = Record<string, unknown> & {
  * test's function of the call's number, each fill with every KC filled, the
  * links calls with the test's links (or its function of what was sent) or
  * none, each exercise call with the test's function or a plain answer, and
- * the merge call with the test's function or each cluster merged whole.
+ * the merge call with the test's function or each cluster merged whole, and
+ * the scope call with the test's function or no remarks.
  * Remembers what each call was sent. Its `embed` model gives KCs named in
  * one `alike` group the same vector and every other KC its own; `models`
  * is what `useMockModels` takes.
@@ -268,6 +269,8 @@ export function mapModel(answers: {
   alike?: string[][];
   /** The merge call's answer; by default each cluster is one KC. */
   merge?: (input: Sent) => unknown;
+  /** The scope call's answer; by default no remarks. */
+  scope?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
   const embedded: string[][] = [];
@@ -305,7 +308,9 @@ export function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("clusters" in input) {
+      if ("adminChunks" in input) {
+        answer = answers.scope?.(input) ?? { remarks: [] };
+      } else if ("clusters" in input) {
         const clusters = input.clusters as Array<{
           id: string;
           kcs: Array<{ id: string }>;

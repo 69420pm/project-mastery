@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { briefPath } from "@/features/brief";
 import { getCourse } from "@/features/courses/server";
 import { KnowledgeMap, knowledgeMapPath } from "@/features/knowledge-map";
 import { getKnowledgeMap } from "@/features/knowledge-map/server";
@@ -21,5 +22,5 @@ export default async function KnowledgeMapPage({
   ]);
   if (!course) notFound();
 
-  return <KnowledgeMap map={map} />;
+  return <KnowledgeMap map={map} briefHref={briefPath(courseId)} />;
 }

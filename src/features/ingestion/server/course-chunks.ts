@@ -3,7 +3,7 @@ import { z } from "zod";
 import { CHUNK_LABELS, type ChunkLabel } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
-import type { AdminSupabase } from "@/lib/supabase/types";
+import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
 /** A chunk of a parsed Material, as a Course-wide pipeline reads it. */
 export type CourseChunk = {
@@ -32,12 +32,15 @@ export type ChunkPlace = {
 /**
  * Where the signed-in Student's chunks among `chunkIds` are. Row Level
  * Security leaves out other Students' chunks; deleted ones are missing.
+ * Reads with `client`, a Student's session client, when given.
  */
 export async function getChunkPlaces(
   chunkIds: string[],
+  client?: Supabase,
 ): Promise<ChunkPlace[]> {
-  if (chunkIds.length === 0 || !(await getUser())) return [];
-  const supabase = await createClient();
+  if (chunkIds.length === 0) return [];
+  if (!client && !(await getUser())) return [];
+  const supabase = client ?? (await createClient());
   const ids = [...new Set(chunkIds)];
   const places: ChunkPlace[] = [];
   // Ids go in the query string, so long lists are read in slices.

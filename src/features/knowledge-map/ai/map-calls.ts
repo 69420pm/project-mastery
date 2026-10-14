@@ -16,8 +16,8 @@ import { aiTask } from "@/lib/ai/models";
 /**
  * The model calls of a Knowledge map update (task `map`): the skeleton, one
  * assignment per batch of new chunks, one fill per big idea with new KCs,
- * the links of the new KCs over all KCs, and the merge of duplicate KCs.
- * Each prompt
+ * the links of the new KCs over all KCs, the merge of duplicate KCs, and the
+ * scope call over new `admin` chunks. Each prompt but the scope call's
  * carries the granularity rule of #51. Ids in prompts are short and local to
  * the call or the build; outputs name them through enums, so a call can only
  * name what exists.
@@ -313,6 +313,48 @@ export function mergeCall(
       ),
     ),
     messages: userMessage({ clusters }),
+  };
+}
+
+/**
+ * What the scope call answers. Chunk ids are plain strings, so an unknown
+ * one is dropped instead of failing the call.
+ */
+export const scopeSchema = z.object({
+  remarks: z
+    .array(
+      z.object({
+        chunkIds: z
+          .array(z.string())
+          .min(1)
+          .describe("The ids of the chunks that make this remark."),
+        question: z
+          .string()
+          .trim()
+          .min(1)
+          .max(2000)
+          .describe("One question for the Student about this remark."),
+      }),
+    )
+    .describe("Only remarks that exclude or limit exam content; often none."),
+});
+
+const SCOPE_INSTRUCTIONS = `You read the administrative chunks of a university course's materials: running headers, organisation, dates, exam notes and the like. You get them as JSON, each with an id, its material, its page and its markdown. Find the remarks that exclude or limit exam content, such as "Section 7.4 is not exam-relevant this year" or "only chapters 1 to 5 are examined". For each, give the ids of the chunks that make it and one question for the Student that says where and what, such as "Slides 12–15 say heat exchangers are not examined. Should we skip them?". Headers, page numbers, dates, contact details and other organisation are no remarks: give none for them.`;
+
+/** One scope call over the new `admin` chunks, by local chunk ids. */
+export function scopeCall(
+  chunks: Array<{
+    id: string;
+    material: string;
+    page: number;
+    markdown: string;
+  }>,
+) {
+  return {
+    ...aiTask("map"),
+    instructions: SCOPE_INSTRUCTIONS,
+    output: Output.object({ schema: scopeSchema }),
+    messages: userMessage({ adminChunks: chunks }),
   };
 }
 

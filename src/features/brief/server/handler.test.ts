@@ -1,182 +1,24 @@
 // @vitest-environment node
+// The Brief handler: replies, the intake tools, refusals and the Daily limit.
+// Shared setup and helpers: handler-testing.ts.
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+import {
+  CLASSMATE_COURSE,
+  COURSE,
+  LECTURE,
+  OLD_EXAM,
+  STUDENT,
+  db,
+  send,
+  signInAs,
+  stored,
+  userMessage,
+} from "./handler-testing";
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/server", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("next/server")>()),
-  after: vi.fn(),
-}));
-
-const STUDENT = "11111111-1111-1111-1111-111111111111";
-const CLASSMATE = "22222222-2222-2222-2222-222222222222";
-const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
-const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
-const OLD_EXAM = "aaaaaaaa-0000-4000-8000-00000000e024";
-const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
-
-let signedIn: string | null = STUDENT;
-let db = createDb();
-
-function ownBrief(briefs: FakeRow[], courseId: unknown) {
-  return briefs.find(
-    (brief) => brief.course_id === courseId && brief.owner === signedIn,
-  );
-}
-
-/** The local tables, with the ownership rules of the real policies. */
-function createDb() {
-  return fakeSupabase({
-    tables: {
-      courses: [
-        { id: COURSE, owner: STUDENT, name: "Calculus" },
-        { id: CLASSMATE_COURSE, owner: CLASSMATE, name: "Biology" },
-      ] as FakeRow[],
-      materials: [
-        {
-          id: OLD_EXAM,
-          owner: STUDENT,
-          course_id: COURSE,
-          name: "Old exam 2024",
-          created_at: "2026-10-01T00:00:00Z",
-        },
-        {
-          id: LECTURE,
-          owner: STUDENT,
-          course_id: COURSE,
-          name: "Lecture 1",
-          created_at: "2026-10-02T00:00:00Z",
-        },
-      ] as FakeRow[],
-      briefs: [],
-      brief_excluded_materials: [],
-      brief_messages: [],
-      ai_usage: [],
-    },
-    primaryKeys: {
-      briefs: ["course_id"],
-      brief_excluded_materials: ["course_id", "material_id"],
-    },
-    // What the handler needs of the real functions; pgTAP tests those.
-    functions: {
-      save_brief: (args, tables) => {
-        const brief = ownBrief(tables.briefs, args.course_id);
-        if (!brief) return false;
-        Object.assign(brief, args.fields);
-        const ids = args.excluded_material_ids as string[] | undefined;
-        if (ids) {
-          tables.brief_excluded_materials = tables.brief_excluded_materials
-            .filter((row) => row.course_id !== args.course_id)
-            .concat(
-              [...new Set(ids)].map((id) => ({
-                course_id: args.course_id,
-                material_id: id,
-                owner: signedIn,
-              })),
-            );
-        }
-        return true;
-      },
-      add_brief_note: (args, tables) => {
-        const brief = ownBrief(tables.briefs, args.course_id);
-        if (!brief) return null;
-        const notes = brief.notes
-          ? `${brief.notes}\n\n${args.text}`
-          : (args.text as string);
-        if (notes.length > 20_000) return false;
-        brief.notes = notes;
-        return true;
-      },
-    },
-    defaults: {
-      briefs: () => ({
-        owner: signedIn,
-        exam_date: null,
-        goal: null,
-        hours_per_week: null,
-        question_style: null,
-        open_book: null,
-        formula_sheet: null,
-        calculator: null,
-        scope_confirmed: false,
-        notes: null,
-      }),
-      brief_excluded_materials: () => ({ owner: signedIn }),
-      brief_messages: () => ({ owner: signedIn, model_id: null }),
-      ai_usage: () => ({
-        owner: signedIn,
-        estimated: false,
-        chat_id: null,
-        created_at: new Date().toISOString(),
-      }),
-    },
-    canAccess: (table, row, tables) =>
-      row.owner === signedIn &&
-      (table === "briefs"
-        ? tables.courses.some(
-            (course) =>
-              course.id === row.course_id && course.owner === signedIn,
-          )
-        : table !== "brief_messages" ||
-          tables.briefs.some(
-            (brief) =>
-              brief.course_id === row.course_id && brief.owner === signedIn,
-          )),
-  });
-}
-
-vi.mock("@/lib/auth/user", () => ({
-  getUser: async () => (signedIn ? { id: signedIn, email: undefined } : null),
-}));
-vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
-
-beforeEach(() => {
-  signedIn = STUDENT;
-  db = createDb();
-  vi.stubEnv("AI_DAILY_LIMIT_USD", "");
-});
-
-function userMessage(text: string, id: string = randomUUID()) {
-  return { id, role: "user", parts: [{ type: "text", text }] };
-}
-
-/** Posts a request to the Brief handler and reads the whole response. */
-async function send(body: unknown) {
-  const { handleBriefRequest } = await import("./handler");
-  const response = await handleBriefRequest(
-    new Request("http://localhost/api/brief", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
-  const raw = await response.text();
-  if (!response.ok) return { status: response.status, refusal: raw };
-  const text = raw
-    .split("\n")
-    .filter((line) => line.startsWith("data: {"))
-    .map((line) => JSON.parse(line.slice("data: ".length)))
-    .filter((chunk) => chunk.type === "text-delta")
-    .map((chunk) => chunk.delta)
-    .join("");
-  return { status: response.status, text };
-}
-
-/** The stored messages of a Course's Brief as role and text, in order. */
-function stored(courseId = COURSE) {
-  return db.tables.brief_messages
-    .filter((message) => message.course_id === courseId)
-    .map((message) => ({
-      role: message.role,
-      text: (message.parts as Array<{ text?: string }>)
-        .map((part) => part.text ?? "")
-        .join(""),
-    }));
-}
-
 describe("a message in a Brief", () => {
   test("creates the Brief with its opening message, stores the message and the reply", async () => {
     useMockModels({ brief: mockTextModel("Which date is the exam?") });
@@ -422,7 +264,7 @@ describe("the tools", () => {
 
 describe("refusals", () => {
   test("a signed-out visitor is refused", async () => {
-    signedIn = null;
+    signInAs(null);
     expect(
       (await send({ courseId: COURSE, message: userMessage("Hi") })).status,
     ).toBe(401);
