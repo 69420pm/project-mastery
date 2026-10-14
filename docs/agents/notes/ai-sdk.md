@@ -16,6 +16,11 @@ Verified 2026-10-13 on the Gemini API; on 2026-10-14 `xiaomi/mimo-v2.6-flash` wi
 
 - **`gemini-3.5-flash-lite` with `thinkingLevel: 'medium'` does not catch the printed error.** Given the solution, it copies the printed intermediate `(1/12)^0.2857 ≈ 0.535` and answers `matchesGiven: true`, even when told never to copy given values. Without the solution it computes `12^0.2857 ≈ 2.148` (true 2.034) and answers 53.5%. Its arithmetic with fractional powers is unreliable, so `pnpm smoke map` reports Ex 7.1 `verified` on flash-lite. Catching it needs a stronger model or a calculator tool.
 
+## Routing Gemini next to the gateway
+
+- **A `google/` id goes to the Gemini API, everything else to the gateway** (ADR 0016, `routeToGeminiApi` in `src/lib/ai/models.ts`). The global default provider replaces the gateway for every string id, so the router must delegate the other ids to `gateway` itself, embeddings included.
+- **Verified live on 2026-10-14** with `google/gemini-3.5-flash-lite`: plain text, `Output.object` with a Zod schema (no warnings) and a title all worked through the direct route. Its `response.modelId` is `gemini-3.5-flash-lite` without the prefix, which `answeringModel` matches. Embeddings through the gateway stayed at 2048 dimensions.
+
 ## Data parts and file parts
 
 Verified in `node_modules/ai/dist/index.js` and `node_modules/ai/docs/07-reference/02-ai-sdk-ui/31-convert-to-model-messages.mdx`.
