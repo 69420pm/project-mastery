@@ -1,5 +1,7 @@
 # Vercel AI SDK through Vercel AI Gateway
 
+> Local development: the text tasks may call the Gemini API directly, see [ADR 0016](0016-gemini-api-for-local-development.md). Preview and production are unchanged.
+
 **Context.** The app uses several models for different tasks, and the right model per task will change as models improve. Switching providers should be a configuration change.
 
 **Decision.** Call models through the Vercel AI SDK and route requests through Vercel AI Gateway in every environment, local development included ([ADR 0006](0006-ai-cost.md)). Model choice lives in one per-task configuration (for example `chat`, `ingest`, `embed`), not in feature code. A task's configuration may also define the models a Student can choose from for that task, each with a label and a model id. Feature code and the browser address a choice by its key (for example `balanced`), never by a model id, and the server validates the key. No additional agent framework.
