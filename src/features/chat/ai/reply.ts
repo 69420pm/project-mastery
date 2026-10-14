@@ -29,7 +29,7 @@ export const DEFAULT_MODEL_CHOICE = defaultModelChoice("chat");
 
 /**
  * The choice a Chat answers with: `key` while it is offered, otherwise the
- * default, as for a stored choice that Google mode does not offer.
+ * default, as for a stored choice that has since been removed.
  */
 export function offeredModelChoice(
   key: string | undefined,

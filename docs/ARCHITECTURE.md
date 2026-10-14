@@ -52,7 +52,7 @@ flowchart LR
 
 | Environment | App                         | Supabase               | AI                                |
 | ----------- | --------------------------- | ---------------------- | --------------------------------- |
-| Local       | `pnpm dev`                  | Supabase CLI in Docker | Gemini API free tier, or Gateway  |
+| Local       | `pnpm dev`                  | Supabase CLI in Docker | AI Gateway, monthly free credit   |
 | Tests / CI  | Vitest, Playwright          | Supabase CLI in Docker | AI SDK mock models, no real calls |
 | Preview     | Vercel preview per PR       | Staging project        | AI Gateway, card on file          |
 | Production  | Vercel production on `main` | Production project     | AI Gateway, purchased credits     |
@@ -160,7 +160,7 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 - [0003](adr/0003-supabase-js-with-rls.md): supabase-js with Row Level Security instead of an ORM
 - [0004](adr/0004-eu-region.md): EU region
 - [0005](adr/0005-ai-sdk-through-gateway.md): Vercel AI SDK through Vercel AI Gateway
-- [0006](adr/0006-ai-cost.md): AI cost: near zero in development, metered in production
+- [0006](adr/0006-ai-cost.md): AI cost: the Gateway's free credit in development, metered in production
 - [0007](adr/0007-ingest-each-upload-once.md): Ingestion: process every upload once
 - [0008](adr/0008-workflows-by-default.md): Workflows by default, agents where they pay off
 - [0009](adr/0009-durable-background-jobs.md): Durable background jobs

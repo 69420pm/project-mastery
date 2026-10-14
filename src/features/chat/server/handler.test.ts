@@ -47,7 +47,7 @@ describe("a first message", () => {
       {
         role: "assistant",
         text: "Show me your attempt first.",
-        modelId: "google/gemini-3.5-flash-lite",
+        modelId: "xiaomi/mimo-v2.6-flash",
       },
     ]);
   });

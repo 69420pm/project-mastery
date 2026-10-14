@@ -6,13 +6,13 @@ The installed `ai` package is version 7; most training data is version 5 or 6. R
 - **Stopping a stream**: pass `abortSignal: request.signal` to `streamText`, and `consumeSseStream: consumeStream` to `createUIMessageStreamResponse`, so `onEnd` still runs when the client disconnects; `onEnd` then reports `isAborted`. A stopped or failed call reports no usage. `src/features/chat/server/handler.ts` is the worked example, including estimating the cost of a stopped reply. Guide: `node_modules/ai/docs/06-advanced/02-stopping-streams.mdx`.
 - **Route handlers** answer `401` for a signed-out user; `requireUser` redirects, which suits pages only.
 - **Errors**: a call that exhausted its retries throws `RetryError` with the provider's `APICallError` as `lastError`; `statusCode` is on the `APICallError`.
-- **Embedding usage**: the Gemini provider's `doEmbed` returns `usage: undefined`, and `embedMany` then reports `usage.tokens` as `NaN`. Check `Number.isFinite` and estimate (`estimatedUsage`); the mocks return `undefined` too. `MockEmbeddingModelV4` defaults to one value per call unless given `maxEmbeddingsPerCall`.
+- **Embedding usage**: the Gemini provider's `doEmbed` returned `usage: undefined` (verified when development used it; Cohere through the gateway is unverified), and `embedMany` then reports `usage.tokens` as `NaN`. Check `Number.isFinite` and estimate (`estimatedUsage`); the mocks return `undefined` too. `MockEmbeddingModelV4` defaults to one value per call unless given `maxEmbeddingsPerCall`.
 - **Retries inside a Workflow step**: pass `maxRetries: 0` and turn the `APICallError` into `RetryableError` (with the provider's delay) or `FatalError`, as `embed-chunks.ts` does; otherwise the AI SDK's retries multiply with the step's (default 3 retries, so 4 attempts).
 - **Langfuse input of embeddings**: `@ai-sdk/otel` writes `ai.values` only with its `embedding` option, which `LangfuseVercelAiSdkIntegration` does not expose, and Langfuse maps `ai.values` to metadata, not input. `src/lib/tracing/ai-sdk-telemetry.ts` sets `langfuse.observation.input` instead.
 
 ## Exercise checking on flash-lite
 
-Verified 2026-10-13 with live `exercise` calls on the jet-engines Ex 7.1 (ideal Brayton, r_p = 12, true efficiency 50.8%, printed 46.5%).
+Verified 2026-10-13 on the Gemini API (before the move to MiMo, unverified on it) with live `exercise` calls on the jet-engines Ex 7.1 (ideal Brayton, r_p = 12, true efficiency 50.8%, printed 46.5%).
 
 - **`gemini-3.5-flash-lite` with `thinkingLevel: 'medium'` does not catch the printed error.** Given the solution, it copies the printed intermediate `(1/12)^0.2857 ≈ 0.535` and answers `matchesGiven: true`, even when told never to copy given values. Without the solution it computes `12^0.2857 ≈ 2.148` (true 2.034) and answers 53.5%. Its arithmetic with fractional powers is unreliable, so `pnpm smoke map` reports Ex 7.1 `verified` on flash-lite. Catching it needs a stronger model or a calculator tool.
 

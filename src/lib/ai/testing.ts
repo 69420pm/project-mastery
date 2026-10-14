@@ -55,7 +55,7 @@ export function mockTextModel(text: string) {
 
 /**
  * An embedding model that returns a fixed vector of `dimensions` per value
- * and, like the Gemini API, reports no usage.
+ * and, like some providers, reports no usage.
  */
 export function mockEmbeddingModel(dimensions = 3) {
   return new MockEmbeddingModelV4({

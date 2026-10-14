@@ -16,9 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { withTraceAttributes } from "@/lib/tracing";
 
 /**
- * Chunks embedded and stored per model call. The Gemini API counts each
- * chunk as a request against its per-minute quota (100 on the free tier),
- * so small batches store more of a large Material before a 429 pauses it.
+ * Chunks embedded and stored per model call. Small batches store more of a
+ * large Material before a failure pauses the step, and a retry loses little.
  */
 const BATCH_SIZE = 20;
 
@@ -91,8 +90,8 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
     });
     if (error) fail("Storing the chunk embeddings", error);
 
-    // The Gemini API reports no usage for embeddings, which `embedMany`
-    // sums to NaN: estimate it from the text then.
+    // A provider that reports no usage for embeddings makes `embedMany` sum
+    // it to NaN: estimate it from the text then.
     const reported = Number.isFinite(result.usage.tokens);
     await recordAiUsage(
       supabase,

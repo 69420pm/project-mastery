@@ -1,5 +1,4 @@
 import "server-only";
-import { google } from "@ai-sdk/google";
 import { getAiEnv, type AiEnv } from "./env";
 import { routeToMockModels } from "./mock-provider";
 import { MODEL_PRICES } from "./prices";
@@ -37,26 +36,28 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
  * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
- * These are placeholders. Primary models are Google models, so they run both
- * through AI Gateway and directly on the Gemini API free tier, which local
- * development can use instead (ADR 0006). The real model per task is chosen
- * by testing on real course materials (open question in docs/ARCHITECTURE.md).
+ * These are placeholders: MiMo V2.6 Flash does the text work for its price,
+ * with a Google model behind it as gateway fallback (ADR 0006). The real
+ * model per task is chosen by testing on real course materials (open question
+ * in docs/ARCHITECTURE.md).
  */
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
   chat: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: ["google/gemini-3.5-flash-lite"],
     override: "AI_MODEL_CHAT",
-    // Every choice is a model the Gemini API free tier serves, so all of them
-    // work locally. Thorough is not a Pro model: the free tier serves none.
     choices: {
       fast: { label: "Fast", model: "google/gemini-3.1-flash-lite" },
-      balanced: { label: "Balanced", model: "google/gemini-3.5-flash-lite" },
+      balanced: { label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
       thorough: { label: "Thorough", model: "google/gemini-3.8-flash" },
     },
   },
-  /** A short title for a Chat, on the cheapest model. */
+  /**
+   * A short title for a Chat, on a small model of its own: tests route mock
+   * models by model id, so a task that must be told apart from the Chat needs
+   * an id the Chat does not use.
+   */
   title: {
     model: "google/gemini-3.1-flash-lite",
     fallbacks: [],
@@ -64,14 +65,14 @@ export const AI_TASKS = {
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: ["google/gemini-3.5-flash-lite"],
     override: "AI_MODEL_INGEST",
   },
   /** Builds a Course's Knowledge map from its chunks, one call per step. */
   map: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: ["google/gemini-3.5-flash-lite"],
     override: "AI_MODEL_MAP",
   },
   /**
@@ -79,23 +80,25 @@ export const AI_TASKS = {
    * solution to check the given one against. Calls add medium thinking.
    */
   exercise: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: ["google/gemini-3.5-flash-lite"],
     override: "AI_MODEL_EXERCISE",
   },
-  /** Chunk embeddings for pgvector. Changing it means re-embedding. */
+  /**
+   * Chunk embeddings for pgvector. Changing the model or its dimensions means
+   * re-embedding and a new `chunks.embedding` column size.
+   */
   embed: {
-    model: "google/gemini-embedding-2",
+    model: "cohere/embed-v5.0-fast",
     fallbacks: [],
     override: "AI_MODEL_EMBED",
   },
   /**
-   * LLM-as-judge for evals. Ideally a different family than the Chat's models, which
-   * waits for the model choice: the Gemini API only serves Google models. Until
-   * then it is at least a different model, with its own free-tier quota.
+   * LLM-as-judge for evals: a different family than the models it judges, and
+   * a cheap one, since an eval run judges every answer.
    */
   judge: {
-    model: "google/gemini-3.7-flash",
+    model: "google/gemini-3.5-flash-lite",
     fallbacks: [],
     override: "AI_MODEL_JUDGE",
   },
@@ -110,16 +113,12 @@ export type ModelChoiceKey<Task extends AiTask> =
     : never;
 
 /**
- * Retries per call for retryable errors such as `429` from the free tier's
- * rate limits. The AI SDK backs off exponentially and honors `retry-after`.
+ * Retries per call for retryable errors such as `429` from rate limits. The
+ * AI SDK backs off exponentially and honors `retry-after`.
  */
 export const AI_MAX_RETRIES = 3;
 
 const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
-
-function servedByProvider(id: string): boolean {
-  return getAiEnv().AI_PROVIDER !== "google" || id.startsWith("google/");
-}
 
 /**
  * The env override of a task's default model. Configured models are checked
@@ -164,12 +163,11 @@ export function defaultModelChoice<Task extends AiTask>(
 }
 
 /**
- * The model choices a Student is offered for a task, in display order. With
- * AI_PROVIDER=google only Google models are offered. Tasks without choices
- * offer none.
+ * The model choices a Student is offered for a task, in display order. Tasks
+ * without choices offer none.
  */
 export function modelChoices(task: AiTask): ModelChoice[] {
-  return allChoices(task).filter((choice) => servedByProvider(choice.model));
+  return allChoices(task);
 }
 
 /**
@@ -182,29 +180,16 @@ export function modelIdFor(task: AiTask, choice?: string): string {
     if (!chosen) {
       throw new Error(`Task "${task}" has no model choice "${choice}".`);
     }
-    if (!servedByProvider(chosen.model)) {
-      throw new Error(
-        `AI_PROVIDER=google only serves Google models, but choice "${choice}" of task "${task}" uses "${chosen.model}".`,
-      );
-    }
     return chosen.model;
   }
-  const config = taskConfig(task);
-  const id = overrideFor(task) ?? config.model;
-  if (!servedByProvider(id)) {
-    throw new Error(
-      `AI_PROVIDER=google only serves Google models, but task "${task}" uses "${id}". Set ${config.override} to a google/ model.`,
-    );
-  }
-  return id;
+  return overrideFor(task) ?? taskConfig(task).model;
 }
 
 /**
  * The model that answered a call made with `aiTask` settings: the requested
  * model or one of its gateway fallbacks, as named by the model id the
  * provider reports (`response.modelId`), so the call is stored and priced as
- * that model. Reported ids may lack the `provider/` prefix, as the Gemini API
- * reports them. An id that names none of them, or none at all, as for an
+ * that model. Reported ids may lack the `provider/` prefix. An id that names none of them, or none at all, as for an
  * aborted call, means the requested model.
  */
 export function answeringModel(
@@ -227,23 +212,6 @@ export function answeringModel(
 }
 
 /**
- * With AI_PROVIDER=google, resolves `google/<model>` ids through the Gemini
- * API instead of AI Gateway. Model ids stay plain strings in both modes: the
- * AI SDK resolves them through this global provider, which defaults to AI
- * Gateway (and which tests replace with mocks).
- */
-function routeToGeminiApi() {
-  // `modelIdFor` has already checked the `google/` prefix.
-  const geminiId = (id: string) => id.slice("google/".length);
-  globalThis.AI_SDK_DEFAULT_PROVIDER ??= {
-    specificationVersion: "v4",
-    languageModel: (id) => google.languageModel(geminiId(id)),
-    embeddingModel: (id) => google.embeddingModel(geminiId(id)),
-    imageModel: (id) => google.imageModel(geminiId(id)),
-  };
-}
-
-/**
  * Call settings for one AI task: model, retries, gateway fallbacks and
  * telemetry. Spread it into every AI SDK call so each call is configured and
  * traced the same way. For a task with model choices, pass the Student's
@@ -255,9 +223,7 @@ function routeToGeminiApi() {
 export function aiTask(task: AiTask, choice?: string) {
   const { fallbacks } = AI_TASKS[task];
   const model = modelIdFor(task, choice);
-  const { AI_PROVIDER } = getAiEnv();
-  if (AI_PROVIDER === "google") routeToGeminiApi();
-  if (AI_PROVIDER === "mock") routeToMockModels();
+  if (getAiEnv().AI_PROVIDER === "mock") routeToMockModels();
   return {
     model,
     maxRetries: AI_MAX_RETRIES,

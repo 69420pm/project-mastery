@@ -32,12 +32,12 @@ describe("usage", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "chat",
-        model_id: "google/gemini-3.5-flash-lite",
+        model_id: "xiaomi/mimo-v2.6-flash",
         input_tokens: 10,
         cached_input_tokens: 0,
         output_tokens: 20,
-        // 10 × $0.30 + 20 × $2.50 per million tokens.
-        cost_usd: expect.closeTo(0.000053, 12),
+        // 10 × $0.14 + 20 × $0.28 per million tokens.
+        cost_usd: expect.closeTo(0.000007, 12),
         estimated: false,
         chat_id: chatId,
       }),
@@ -89,8 +89,8 @@ describe("usage", () => {
     expect(db.tables.ai_usage.find(({ task }) => task === "chat")).toEqual(
       expect.objectContaining({
         model_id: fallback,
-        // 10 × $0.04 + 20 × $1.28 per million tokens.
-        cost_usd: expect.closeTo(0.000026, 12),
+        // 10 × $0.30 + 20 × $2.50 per million tokens.
+        cost_usd: expect.closeTo(0.000053, 12),
       }),
     );
   });
@@ -111,7 +111,7 @@ describe("usage", () => {
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({
         task: "chat",
-        model_id: "google/gemini-3.5-flash-lite",
+        model_id: "xiaomi/mimo-v2.6-flash",
         output_tokens: 0,
         estimated: true,
         chat_id: chatId,
@@ -197,7 +197,7 @@ describe("the Daily limit", () => {
 
   test("still answers just below the limit, even if the reply goes over", async () => {
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
-    seedSpend(STUDENT, 0.99999);
+    seedSpend(STUDENT, 0.999999);
     useMockModels({ chat: mockTextModel("Here you go.") });
 
     const reply = await send({
@@ -240,8 +240,8 @@ describe("the Daily limit", () => {
 
   test("a reply that reaches the limit leaves the Chat untitled, without a title call", async () => {
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
-    // The reply's ~$0.000053 crosses the limit.
-    seedSpend(STUDENT, 0.99996);
+    // The reply's ~$0.000007 crosses the limit.
+    seedSpend(STUDENT, 0.999996);
     const title = mockTextModel("Never generated");
     useMockModels({ chat: mockTextModel("Last reply."), title });
 

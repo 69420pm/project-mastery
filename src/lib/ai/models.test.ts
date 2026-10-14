@@ -77,62 +77,11 @@ describe("modelIdFor", () => {
 });
 
 describe("AI_PROVIDER=google", () => {
-  function stubGeminiApi() {
+  test("is no longer a provider", () => {
     vi.stubEnv("AI_PROVIDER", "google");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "test-key");
-    vi.stubEnv("AI_GATEWAY_API_KEY", undefined);
-    vi.stubEnv("VERCEL", undefined);
-  }
-
-  // Starts from the AI SDK's default global provider (AI Gateway).
-  function clearGlobalProvider() {
-    const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
-    globalThis.AI_SDK_DEFAULT_PROVIDER = undefined;
-    onTestFinished(() => {
-      globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
-    });
-  }
-
-  test("needs no AI Gateway key", () => {
-    stubGeminiApi();
-
-    expect(modelIdFor("chat")).toBe(AI_TASKS.chat.model);
-  });
-
-  test("requires a Gemini API key", () => {
-    stubGeminiApi();
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "");
-
-    expect(() => modelIdFor("chat")).toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
-  });
-
-  test("is refused on Vercel", () => {
-    stubGeminiApi();
-    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
 
     expect(() => modelIdFor("chat")).toThrow(/AI_PROVIDER/);
-  });
-
-  test("rejects models that are not from Google", () => {
-    stubGeminiApi();
-    vi.stubEnv("AI_MODEL_CHAT", "xiaomi/mimo-v2.6-flash");
-
-    expect(() => modelIdFor("chat")).toThrow(/AI_MODEL_CHAT/);
-  });
-
-  test("resolves model ids through the Gemini API", () => {
-    stubGeminiApi();
-    clearGlobalProvider();
-
-    const { model } = aiTask("chat");
-
-    expect(model).toBe("google/gemini-3.5-flash-lite");
-    expect(
-      globalThis.AI_SDK_DEFAULT_PROVIDER?.languageModel(model),
-    ).toMatchObject({
-      provider: expect.stringMatching(/^google/),
-      modelId: "gemini-3.5-flash-lite",
-    });
   });
 });
 
@@ -143,18 +92,14 @@ describe("model choices", () => {
 
     expect(modelChoices("chat")).toEqual([
       { key: "fast", label: "Fast", model: "google/gemini-3.1-flash-lite" },
-      {
-        key: "balanced",
-        label: "Balanced",
-        model: "google/gemini-3.5-flash-lite",
-      },
+      { key: "balanced", label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
       {
         key: "thorough",
         label: "Thorough",
         model: "google/gemini-3.8-flash",
       },
     ]);
-    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+    expect(aiTask("chat").model).toBe("xiaomi/mimo-v2.6-flash");
     expect(defaultModelChoice("chat")).toBe("balanced");
   });
 
@@ -174,35 +119,13 @@ describe("model choices", () => {
 
   test("lets the environment override the default choice's model", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-    vi.stubEnv("AI_MODEL_CHAT", "xiaomi/mimo-v2.6-flash");
+    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
 
-    expect(aiTask("chat").model).toBe("xiaomi/mimo-v2.6-flash");
-    expect(aiTask("chat", "balanced").model).toBe("xiaomi/mimo-v2.6-flash");
+    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+    expect(aiTask("chat", "balanced").model).toBe(
+      "google/gemini-3.5-flash-lite",
+    );
     expect(aiTask("chat", "fast").model).toBe("google/gemini-3.1-flash-lite");
-  });
-
-  test("offers only Google choices with AI_PROVIDER=google", () => {
-    vi.stubEnv("AI_PROVIDER", "google");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "test-key");
-    vi.stubEnv("VERCEL", undefined);
-    vi.stubEnv("AI_MODEL_CHAT", undefined);
-    const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
-    onTestFinished(() => {
-      globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
-    });
-    // Simulates a non-Google choice, which only AI Gateway serves.
-    const fast = AI_TASKS.chat.choices.fast;
-    const model = fast.model;
-    Object.assign(fast, { model: "xiaomi/mimo-v2.6-flash" });
-    onTestFinished(() => {
-      Object.assign(fast, { model });
-    });
-
-    expect(modelChoices("chat").map((choice) => choice.key)).toEqual([
-      "balanced",
-      "thorough",
-    ]);
-    expect(() => aiTask("chat", "fast")).toThrow(/AI_PROVIDER=google/);
   });
 
   test("tasks without choices offer none", () => {
@@ -213,21 +136,12 @@ describe("model choices", () => {
 });
 
 describe("title task", () => {
-  test("uses the cheapest model in both provider modes", () => {
+  test("uses a small model other than the Chat's", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_TITLE", undefined);
 
     expect(aiTask("title").model).toBe("google/gemini-3.1-flash-lite");
-
-    vi.stubEnv("AI_PROVIDER", "google");
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", "test-key");
-    vi.stubEnv("VERCEL", undefined);
-    const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
-    onTestFinished(() => {
-      globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
-    });
-
-    expect(aiTask("title").model).toBe("google/gemini-3.1-flash-lite");
+    expect(aiTask("title").model).not.toBe(aiTask("chat").model);
   });
 });
 
@@ -235,7 +149,6 @@ describe("AI_PROVIDER=mock", () => {
   function stubMockProvider() {
     vi.stubEnv("AI_PROVIDER", "mock");
     vi.stubEnv("AI_GATEWAY_API_KEY", undefined);
-    vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", undefined);
     vi.stubEnv("VERCEL", undefined);
     const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
     globalThis.AI_SDK_DEFAULT_PROVIDER = undefined;

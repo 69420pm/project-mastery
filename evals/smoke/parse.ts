@@ -14,9 +14,9 @@ const CHUNKS_OUT = "--chunks-out";
 
 /**
  * One vision call per page, plus the chunk call, the embedding call and at
- * most one pairing call must stay within the runner's cap of 10 calls.
+ * most one pairing call must stay within the runner's cap of 30 calls.
  */
-const MAX_PAGES = 5;
+const MAX_PAGES = 10;
 
 /** A stored figure: a page and a box normalized to it, or the whole page. */
 const figureSchema = z.object({

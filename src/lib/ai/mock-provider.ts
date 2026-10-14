@@ -13,7 +13,7 @@ import { simulateReadableStream, type JSONSchema7 } from "ai";
 const WORD_DELAY_MS = 75;
 
 // The size of chunks.embedding, so the mock's vectors fit the column.
-const EMBEDDING_DIMENSIONS = 3072;
+const EMBEDDING_DIMENSIONS = 2048;
 
 /** Usage the mock reports, so cost recording sees real numbers. */
 const usage = {
@@ -177,7 +177,7 @@ function embeddingModel(modelId: string) {
       embeddings: values.map(() =>
         Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5),
       ),
-      // Like the Gemini API, which reports no usage for embeddings.
+      // Like some providers, which report no usage for embeddings.
       usage: undefined,
       warnings: [],
     }),
