@@ -16,6 +16,10 @@ _Avoid_: Topic, subject, class, folder
 A file a Student uploaded to one Course, such as slides, a script, an exercise sheet or an old exam, under a name the Student can change.
 _Avoid_: File, document, upload, attachment
 
+**Brief**:
+What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat.
+_Avoid_: Preferences, intake form, onboarding
+
 **Knowledge map**:
 What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus

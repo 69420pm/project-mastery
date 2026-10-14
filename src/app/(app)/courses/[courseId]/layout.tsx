@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { UserMenu } from "@/features/auth";
+import { BriefLink } from "@/features/brief";
 import { ChatList, ChatListProvider, NewChatLink } from "@/features/chat";
 import { getChatList } from "@/features/chat/server";
 import {
@@ -48,6 +49,7 @@ export default async function CourseLayout({
               <CourseSwitcher course={course} courses={courses} />
               <NewChatLink />
               <MaterialsLink courseId={course.id} />
+              <BriefLink courseId={course.id} />
               <KnowledgeMapLink courseId={course.id} />
             </>
           )

@@ -16,12 +16,13 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
+import { briefSmoke } from "./smoke/brief";
 import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
 import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
-const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke];
+const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke];
 
 /** The model agents call (docs/agents/live-ai.md). */
 const SMOKE_MODEL = "xiaomi/mimo-v2.6-flash";
@@ -32,6 +33,7 @@ const DEFAULT_MAX_CALLS = 30;
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
+  "AI_MODEL_BRIEF",
   "AI_MODEL_TITLE",
   "AI_MODEL_INGEST",
   "AI_MODEL_MAP",
