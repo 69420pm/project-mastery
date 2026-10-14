@@ -1,6 +1,7 @@
 import type {
   BloomLevel,
   CheckReport,
+  FindingStatus,
   KcType,
   SemanticLinkType,
   SolutionStatus,
@@ -10,6 +11,8 @@ import type {
 export type MapChunk = {
   id: string;
   materialName: string;
+  /** The page it starts on. */
+  pageFrom: number;
   label: string;
   markdown: string;
 };
@@ -69,8 +72,17 @@ export type ExerciseView = {
   difficulty: 1 | 2 | 3;
 };
 
-/** A Finding with its sources as "Lecture 1 p. 3". */
-export type FindingView = { id: string; text: string; sources: string[] };
+/**
+ * A Finding with its sources as "Lecture 1 p. 3", whether the Student has
+ * answered it, and the answer once they have.
+ */
+export type FindingView = {
+  id: string;
+  text: string;
+  sources: string[];
+  status: FindingStatus;
+  answer: string | null;
+};
 
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {

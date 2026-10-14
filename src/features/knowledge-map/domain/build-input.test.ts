@@ -11,7 +11,7 @@ const chunk = (
   label: string,
   markdown = id,
   materialName = "Lecture 1",
-): MapChunk => ({ id, label, markdown, materialName });
+): MapChunk => ({ id, label, markdown, materialName, pageFrom: 1 });
 
 describe("assignmentBatches", () => {
   test("sends teaching chunks in batches of ten, in reading order", () => {

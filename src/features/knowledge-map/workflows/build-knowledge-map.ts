@@ -48,6 +48,7 @@ import {
   embedKcs,
   failBuild,
   fillBigIdea,
+  findScopeRemarks,
   linkNewKcs,
   loadBuildInput,
   storeMap,
@@ -70,7 +71,9 @@ import {
  * and checks or generates its solution (#70). A KC more than one subtask
  * proposes joins the map from those exercises, and one more links call
  * links the KCs so added. Code sets each Exercise's difficulty and records a
- * disputed solution as a Finding. (6) Dedup embeds the KCs when some are
+ * disputed solution as a Finding. With new `admin` chunks, one scope call
+ * finds their remarks that exclude or limit exam content, each a `scope`
+ * Finding for the Student (#85). (6) Dedup embeds the KCs when some are
  * new, and merges the duplicates one call finds among the new KCs' close
  * pairs (`withoutDuplicates`). (7) Code checks the whole map, which is
  * stored with its check report, keeping the ids of its stored rows, and the
@@ -202,6 +205,16 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
         findings: finding ? [...map.findings, finding] : map.findings,
       };
     });
+
+    const adminChunks = fresh.filter((chunk) => chunk.label === "admin");
+    if (adminChunks.length > 0) {
+      const scope = await findScopeRemarks(studentId, adminChunks);
+      if (!scope.ok) {
+        await failBuild(courseId, scope.reason);
+        return;
+      }
+      map = { ...map, findings: [...map.findings, ...scope.value] };
+    }
 
     const deduped = await withoutDuplicates(studentId, map, existing);
     if (!deduped.ok) {

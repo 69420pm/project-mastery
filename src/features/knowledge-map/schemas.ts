@@ -43,8 +43,14 @@ export const SOLUTION_STATUSES = [
   "disputed",
 ] as const;
 
-/** What a Finding reports; more kinds come with later specs. */
-export const FINDING_KINDS = ["solution_mismatch"] as const;
+/**
+ * What a Finding reports: a printed solution that does not match, or a
+ * remark in the material that excludes or limits exam content.
+ */
+export const FINDING_KINDS = ["solution_mismatch", "scope"] as const;
+
+/** Whether the Student has answered a Finding in the Brief. */
+export const FINDING_STATUSES = ["open", "answered"] as const;
 
 /** The most big ideas a map has (#51's granularity rule). */
 export const MAX_BIG_IDEAS = 15;
@@ -128,8 +134,9 @@ export function exerciseSchema<Source extends z.ZodType>(source: Source) {
 }
 
 /**
- * Something the build found wrong in the material, with its chunks. A stored
- * Finding carries its row id; a new one has none.
+ * Something the build found in the material for the Student to confirm, with
+ * its chunks. A stored Finding carries its row id; a new one has none. Its
+ * review status and answer are the Student's and stay out of the map.
  */
 export function findingSchema<Source extends z.ZodType>(source: Source) {
   return z.object({
@@ -230,5 +237,7 @@ export type KcType = (typeof KC_TYPES)[number];
 export type BloomLevel = (typeof BLOOM_LEVELS)[number];
 export type SemanticLinkType = (typeof SEMANTIC_LINK_TYPES)[number];
 export type SolutionStatus = (typeof SOLUTION_STATUSES)[number];
+export type FindingKind = (typeof FINDING_KINDS)[number];
+export type FindingStatus = (typeof FINDING_STATUSES)[number];
 export type KnowledgeMap = z.infer<typeof knowledgeMapSchema>;
 export type CheckReport = z.infer<typeof checkReportSchema>;

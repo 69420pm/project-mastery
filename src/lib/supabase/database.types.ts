@@ -684,30 +684,42 @@ export type Database = {
       };
       findings: {
         Row: {
+          answer: string | null;
+          answered_at: string | null;
+          asked_at: string | null;
           course_id: string;
           created_at: string;
           id: string;
           kind: string;
           owner: string;
           position: number;
+          status: string;
           text: string;
         };
         Insert: {
+          answer?: string | null;
+          answered_at?: string | null;
+          asked_at?: string | null;
           course_id: string;
           created_at?: string;
           id?: string;
           kind: string;
           owner: string;
           position: number;
+          status?: string;
           text: string;
         };
         Update: {
+          answer?: string | null;
+          answered_at?: string | null;
+          asked_at?: string | null;
           course_id?: string;
           created_at?: string;
           id?: string;
           kind?: string;
           owner?: string;
           position?: number;
+          status?: string;
           text?: string;
         };
         Relationships: [

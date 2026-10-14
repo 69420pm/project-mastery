@@ -36,10 +36,26 @@ type Supabase = Parameters<SmokeCheck["run"]>[0]["supabase"];
 type Fixture = z.infer<typeof fixtureSchema>;
 
 /**
+ * An `admin` chunk the second Material gains, after the fixture's: the one
+ * remark that limits exam content, unlike the fixture's running headers.
+ */
+const SCOPE_CHUNK: Omit<Fixture[number], "position"> = {
+  page_from: 5,
+  page_to: 5,
+  label: "admin",
+  markdown: "Section 7.4 is not exam-relevant this year.",
+  exercise_number: null,
+  points: null,
+  figure_description: null,
+};
+
+/**
  * Builds the Knowledge map of the jet-engines chapter from its chunk fixture,
  * split by position into two Materials, with the real `buildKnowledgeMap`
  * workflow run in this process: a build from the first half, then an update
- * after adding the second half with the exercise-solution pairs. Prints the
+ * after adding the second half with the exercise-solution pairs and one
+ * `admin` chunk that limits exam content, which must become the one `scope`
+ * Finding. Prints the
  * merges the update makes (the workflow's "Merged KCs" lines), the map's
  * shape and Exercises to compare with `gold.json` by hand.
  */
@@ -47,9 +63,10 @@ export const mapSmoke: SmokeCheck = {
   name: "map",
   usage: `pnpm smoke map (builds the map of the first half of ${CHUNKS_FILE}, updates it with the second; prints merges, KCs per big idea, prior KCs, Exercises, Findings and the check report)`,
   // Per run: a skeleton, an assignment per 10 chunks, a fill per big idea,
-  // links, an embedding and a merge call; the update adds 4 exercise
-  // subtasks and the links call for KCs they add.
-  maxCalls: 30,
+  // links, an embedding, a merge call and a scope call (both halves have
+  // `admin` chunks); the update adds 4 exercise subtasks and the links call
+  // for KCs they add.
+  maxCalls: 32,
   async run({ supabase, studentId }) {
     const json: unknown = JSON.parse(await readFile(CHUNKS_FILE, "utf8"));
     const fixture = fixtureSchema.parse(json);
@@ -75,10 +92,11 @@ export const mapSmoke: SmokeCheck = {
     await buildKnowledgeMap(courseId);
     const first = await builtKcs(supabase, courseId);
 
-    for (const [position, id] of await material(
-      "jet-engines-2.pdf",
-      fixture.slice(half),
-    )) {
+    const scopePosition = fixture.length;
+    for (const [position, id] of await material("jet-engines-2.pdf", [
+      ...fixture.slice(half),
+      { ...SCOPE_CHUNK, position: scopePosition },
+    ])) {
       idAt.set(position, id);
     }
     // The pairs the parse step's pairing would have stored.
@@ -123,6 +141,8 @@ export const mapSmoke: SmokeCheck = {
       (kc) => first.sourced.has(kc.id) && !kept.has(kc.id),
     );
     const results = await checkBuiltMap(supabase, courseId, idAt);
+    const scope = await scopeFindings(supabase, courseId);
+    const scopeChunk = idAt.get(scopePosition);
     return [
       result(
         "the first build is built",
@@ -137,8 +157,17 @@ export const mapSmoke: SmokeCheck = {
       ),
       result(
         "no chunk is processed twice",
-        count === fixture.length,
-        `${count} processed of ${fixture.length}`,
+        count === fixture.length + 1,
+        `${count} processed of ${fixture.length + 1}`,
+      ),
+      result(
+        "the scope remark is the one scope Finding, sourced to its chunk",
+        scope.length === 1 &&
+          scope[0]?.sources.length === 1 &&
+          scope[0].sources[0] === scopeChunk,
+        scope
+          .map((finding) => `${finding.text} [${finding.sources.length}]`)
+          .join("; "),
       ),
       result(
         "the check report has a duplicates entry",
@@ -196,6 +225,20 @@ async function insertMaterial(
     .select("id, position");
   if (error) throw new Error(error.message);
   return new Map(data.map((row) => [row.position + offset, row.id]));
+}
+
+/** The Course's `scope` Findings with their source chunk ids. */
+async function scopeFindings(supabase: Supabase, courseId: string) {
+  const { data, error } = await supabase
+    .from("findings")
+    .select("text, finding_sources (chunk_id)")
+    .eq("course_id", courseId)
+    .eq("kind", "scope");
+  if (error) throw new Error(error.message);
+  return data.map((finding) => ({
+    text: finding.text,
+    sources: finding.finding_sources.map((source) => source.chunk_id),
+  }));
 }
 
 /** The build's status and check report, its KCs and which have a source. */

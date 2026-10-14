@@ -38,7 +38,7 @@ export type ExerciseInput = ExerciseSubtask & {
  * as an Example and an Exercise both numbered 7.1, gets its place appended.
  */
 export function exerciseInputs(
-  chunks: Array<MapChunk & { pageFrom: number; exerciseNumber: string | null }>,
+  chunks: Array<MapChunk & { exerciseNumber: string | null }>,
   pairs: Record<string, string | null>,
 ): ExerciseInput[] {
   const markdown = new Map(chunks.map((chunk) => [chunk.id, chunk.markdown]));
