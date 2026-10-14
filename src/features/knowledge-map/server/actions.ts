@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
 
 /**
- * Build and Rebuild: starts a build of the Student's Course's Knowledge map
+ * Build and Update map: starts a build of the Student's Course's Knowledge map
  * when none runs, a Material is parsed and none waits or parses. Anything
  * else, such as a second press while the first one's build runs, does
  * nothing, so it starts one build.

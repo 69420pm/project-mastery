@@ -75,14 +75,29 @@ describe("exerciseInputs", () => {
 });
 
 describe("skeletonInput", () => {
-  test("lists Materials and headings once, and every definition", () => {
-    const input = skeletonInput([
-      chunk("a", "content", "# Thrust\nText\n## Momentum ##"),
-      chunk("b", "definition", "## Momentum\n**Thrust** is a force."),
-      chunk("c", "content", "No heading", "Lecture 2"),
-    ]);
+  test("lists the map's big ideas, Materials and headings once, and every definition", () => {
+    const input = skeletonInput(
+      [
+        chunk("a", "content", "# Thrust\nText\n## Momentum ##"),
+        chunk("b", "definition", "## Momentum\n**Thrust** is a force."),
+        chunk("c", "content", "No heading", "Lecture 2"),
+      ],
+      {
+        bigIdeas: [{ id: "B", name: "Cycle", description: "Brayton." }],
+        kcs: [
+          {
+            id: "K",
+            name: "Pressure ratio",
+            description: "p2/p1.",
+            bigIdea: "B",
+            sources: [],
+          },
+        ],
+      },
+    );
 
     expect(input).toEqual({
+      existingBigIdeas: [{ name: "Cycle", kcs: ["Pressure ratio"] }],
       materials: ["Lecture 1", "Lecture 2"],
       headings: ["Thrust", "Momentum"],
       definitions: ["## Momentum\n**Thrust** is a force."],

@@ -7,8 +7,10 @@ import {
   skeletonInput,
 } from "@/features/knowledge-map/domain/build-input";
 import {
-  completeMap,
+  draftOf,
   kcsOf,
+  newKcsOf,
+  withDraft,
   withoutUnsourced,
   type KcFill,
 } from "@/features/knowledge-map/domain/draft";
@@ -20,39 +22,45 @@ import {
 import {
   checkMap,
   withAddedKcLinks,
-  withLinks,
   type Prerequisite,
 } from "@/features/knowledge-map/domain/links";
+import {
+  newChunks,
+  withoutRemoved,
+} from "@/features/knowledge-map/domain/update";
 import {
   analyseExercise,
   assignBatch,
   draftSkeleton,
   failBuild,
   fillBigIdea,
-  linkAddedKcs,
-  linkKcs,
+  linkNewKcs,
   loadBuildInput,
   storeMap,
 } from "@/features/knowledge-map/workflows/build-steps";
 
 /**
- * Builds a Course's Knowledge map from the chunks of its parsed Materials
- * (#69), one step per model call: (1) the skeleton of big ideas and
- * candidate KCs, (2) assignment of chunks to KCs in batches, which may add
- * KCs, after which candidates no chunk teaches are dropped, and (3) a fill
- * per big idea with each KC's type and Bloom level, and (4) one links call
- * for prerequisites, semantic links and prior knowledge, after which code
- * breaks prerequisite cycles and drops redundant prerequisites. (5) One
- * `exercise` call per exercise subtask maps it to KCs and checks or
- * generates its solution (#70). A KC more than one subtask proposes joins
- * the map from those exercises, and (6) one more links call links the KCs
- * so added, after which code breaks cycles and drops redundant
- * prerequisites again. Code sets each Exercise's difficulty and records a
- * disputed solution as a Finding. (7) Code checks the map, and the map with
- * its Exercises, Findings and check report replaces the Course's previous
- * one. A step that fails for good, or a reached Daily limit, fails the build
- * with a reason and leaves the previous map. A deleted Course stops it
- * quietly.
+ * Updates a Course's Knowledge map with the chunks of its parsed Materials
+ * that no update has processed yet (#69, #83); a first build updates an
+ * empty map. It first drops what deleted chunks taught: taught KCs and
+ * Findings with no source chunk left, and prior KCs no remaining KC needs.
+ * Then, one step per model call and on the new chunks only: (1) the skeleton
+ * adds big ideas and candidate KCs to the map's, (2) assignment of chunks to
+ * the map's KCs and the candidates in batches, which may add KCs, after
+ * which candidates no chunk teaches are dropped, (3) a fill per big idea
+ * with each new KC's type and Bloom level, and (4) one links call for the
+ * new KCs' prerequisites, semantic links and prior knowledge, after which
+ * code breaks prerequisite cycles and drops redundant prerequisites over the
+ * whole map. (5) One `exercise` call per new exercise subtask maps it to KCs
+ * and checks or generates its solution (#70). A KC more than one subtask
+ * proposes joins the map from those exercises, and (6) one more links call
+ * links the KCs so added. Code sets each Exercise's difficulty and records a
+ * disputed solution as a Finding. (7) Code checks the whole map, which is
+ * stored with its check report, keeping the ids of its stored rows, and the
+ * new chunks are recorded as processed. With nothing new the update makes no
+ * model call. A step that fails for good, or a reached Daily limit, fails the
+ * build with a reason and leaves the stored map and its chunks new. A
+ * deleted Course stops it quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -60,35 +68,48 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
     const input = await loadBuildInput(courseId);
     if (!input) return;
     const { studentId, chunks } = input;
-    const batches = assignmentBatches(chunks);
-    if (batches.length === 0) {
+    const fresh = newChunks(chunks, input.processedChunkIds);
+    const batches = assignmentBatches(fresh);
+    if (batches.length === 0 && input.map.kcs.length === 0) {
       await failBuild(courseId, nothingToMapReason);
       return;
     }
 
-    const skeleton = await draftSkeleton(studentId, skeletonInput(chunks));
-    if (!skeleton.ok) {
-      await failBuild(courseId, skeleton.reason);
-      return;
-    }
-    let draft = skeleton.value;
-    for (const batch of batches) {
-      const assigned = await assignBatch(studentId, draft, batch);
-      if (!assigned.ok) {
-        await failBuild(courseId, assigned.reason);
+    let map = withoutRemoved(input.map);
+    let draft = draftOf(map);
+    if (batches.length > 0) {
+      const skeleton = await draftSkeleton(
+        studentId,
+        skeletonInput(fresh, draft),
+        draft,
+      );
+      if (!skeleton.ok) {
+        await failBuild(courseId, skeleton.reason);
         return;
       }
-      draft = assigned.value;
+      draft = skeleton.value;
+      for (const batch of batches) {
+        const assigned = await assignBatch(studentId, draft, batch);
+        if (!assigned.ok) {
+          await failBuild(courseId, assigned.reason);
+          return;
+        }
+        draft = assigned.value;
+      }
+      draft = withoutUnsourced(draft);
     }
-    draft = withoutUnsourced(draft);
 
     const markdown = new Map(chunks.map((chunk) => [chunk.id, chunk.markdown]));
+    const added = new Set(newKcsOf(map, draft).map((kc) => kc.id));
     const fills: Record<string, KcFill> = {};
     for (const bigIdea of draft.bigIdeas) {
-      const kcs = kcsOf(draft, bigIdea.id).map((kc) => ({
-        ...kc,
-        chunks: kc.sources.map((id) => markdown.get(id) ?? ""),
-      }));
+      const kcs = kcsOf(draft, bigIdea.id)
+        .filter((kc) => added.has(kc.id))
+        .map((kc) => ({
+          ...kc,
+          chunks: kc.sources.map((id) => markdown.get(id) ?? ""),
+        }));
+      if (kcs.length === 0) continue;
       const filled = await fillBigIdea(studentId, bigIdea, kcs);
       if (!filled.ok) {
         await failBuild(courseId, filled.reason);
@@ -97,18 +118,24 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       Object.assign(fills, filled.value);
     }
 
-    let map = completeMap(draft, fills);
+    map = withDraft(map, draft, fills);
     let droppedCycleEdges: Prerequisite[] = [];
-    if (map.kcs.length > 0) {
-      const links = await linkKcs(studentId, map);
+    if (added.size > 0) {
+      const links = await linkNewKcs(studentId, map, [...added]);
       if (!links.ok) {
         await failBuild(courseId, links.reason);
         return;
       }
-      ({ map, droppedCycleEdges } = withLinks(map, links.value));
+      ({ map, droppedCycleEdges } = withAddedKcLinks(
+        map,
+        [...added],
+        links.value,
+      ));
     }
 
-    const taskTypes: string[] = [];
+    const taskTypes = [
+      ...new Set(map.exercises.map((exercise) => exercise.taskType)),
+    ];
     const answers: ExerciseAnswer[] = [];
     for (const exercise of input.exercises) {
       const answer = await analyseExercise(studentId, exercise, map, taskTypes);
@@ -130,7 +157,7 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
     );
     map = merged.map;
     if (merged.addedKcIds.length > 0) {
-      const links = await linkAddedKcs(studentId, map, merged.addedKcIds);
+      const links = await linkNewKcs(studentId, map, merged.addedKcIds);
       if (!links.ok) {
         await failBuild(courseId, links.reason);
         return;
@@ -158,7 +185,12 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       };
     });
 
-    await storeMap(courseId, map, checkMap(map, chunks, droppedCycleEdges));
+    await storeMap(
+      courseId,
+      map,
+      fresh.map((chunk) => chunk.id),
+      checkMap(map, chunks, droppedCycleEdges),
+    );
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);

@@ -51,7 +51,7 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
- * Rebuild and its check report, then each big idea with its KCs and their
+ * Update map and its check report, then each big idea with its KCs and their
  * prerequisites, the prior knowledge, the semantic links, the Exercises and
  * the Findings. The page refreshes itself while a build runs.
  */
@@ -148,8 +148,9 @@ function BuildStatus({ build }: { build: MapBuild }) {
 }
 
 /**
- * Starts a build: Build before the first map, Rebuild after. Disabled
- * while one runs or before a Material is parsed.
+ * Starts a build: Build before the first map, Update map after, which maps
+ * what Materials added or deleted since. Disabled while one runs or before a
+ * Material is parsed.
  */
 function BuildButton({
   courseId,
@@ -182,7 +183,7 @@ function BuildButton({
         ) : (
           <RotateCwIcon data-icon="inline-start" />
         )}
-        {hasMap ? "Rebuild" : "Build knowledge map"}
+        {hasMap ? "Update map" : "Build knowledge map"}
       </Button>
       {error && (
         <span role="alert" className="text-sm text-destructive">

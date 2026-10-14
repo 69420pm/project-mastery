@@ -1,5 +1,5 @@
--- Exercises and Findings of a Knowledge map (#70): replace_knowledge_map
--- stores and replaces them with the map, only the workflow writes them, and
+-- Exercises and Findings of a Knowledge map (#70): apply_knowledge_map_update
+-- stores them with the map, only the workflow writes them, and
 -- owners read their own rows. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -40,7 +40,7 @@ delete from public.chunks where id = 'cccccccc-0000-0000-0000-000000000003';
 
 set local role service_role;
 select is(
-  public.replace_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
+  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
     '{"bigIdeas": [{"id": "b1", "name": "Cycle", "description": "Brayton."}],
       "kcs": [
         {"id": "k1", "name": "Thermal efficiency", "description": "η.", "type": "procedure",
@@ -58,17 +58,18 @@ select is(
       "findings": [{"kind": "solution_mismatch", "text": "Ex. 7.1: 46.5% vs 50.8%.",
         "sources": ["cccccccc-0000-0000-0000-000000000001", "cccccccc-0000-0000-0000-000000000002",
           "cccccccc-0000-0000-0000-000000000003"]}]}',
-    '{}'),
+    '{}', '{}'),
   true, 'a running build writes its exercises and findings');
 reset role;
 
 select results_eq(
   $$select name, position, task_type, solution_status, solution, difficulty::int
-    from public.exercises order by position$$,
+    from public.exercises where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by position$$,
   $$values ('Ex. 7.1', 0, 'compute thermal efficiency', 'disputed', null::text, 3)$$,
   'exercises are stored in order, without one whose chunk is gone');
 select results_eq(
-  $$select k.name from public.exercise_kcs x join public.kcs k on k.id = x.kc_id order by k.position$$,
+  $$select k.name from public.exercise_kcs x join public.kcs k on k.id = x.kc_id
+    where x.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by k.position$$,
   $$values ('Thermal efficiency'), ('Propulsive power')$$,
   'an exercise''s KCs point to the stored KCs');
 select is((select origin from public.kcs where name = 'Propulsive power'), 'exercise',

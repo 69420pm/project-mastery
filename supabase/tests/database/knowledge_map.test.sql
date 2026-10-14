@@ -1,10 +1,10 @@
 -- The Knowledge map tables and functions (#69): a Student starts one build at
--- a time, only the workflow writes the map, a replace swaps the whole map,
--- and owners read their own rows. Run with `pnpm db:test`.
+-- a time, only the workflow writes the map, an update keeps the rows it
+-- names by id (#83), and owners read their own rows. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(22);
 
 insert into auth.users (id, email)
 values
@@ -51,7 +51,7 @@ select is((select status from public.knowledge_map_builds), 'building', 'the bui
 
 -- Students cannot write the map.
 select throws_ok(
-  $$select public.replace_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001', '{}', '{}')$$,
+  $$select public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001', '{}', '{}', '{}')$$,
   '42501', null, 'a Student cannot write the map');
 select throws_ok(
   $$insert into public.big_ideas (owner, course_id, name, description, position)
@@ -59,11 +59,12 @@ select throws_ok(
   '42501', null, 'a Student cannot insert a big idea');
 reset role;
 
--- The workflow swaps in a map, skipping a source whose chunk is gone.
+-- The workflow writes the first map, skipping a source and a processed chunk
+-- whose chunk is gone.
 delete from public.chunks where id = 'cccccccc-0000-0000-0000-000000000002';
 set local role service_role;
 select is(
-  public.replace_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
+  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
     '{"bigIdeas": [{"id": "b1", "name": "Thrust", "description": "Momentum makes thrust."}],
       "kcs": [
         {"id": "k1", "name": "Newton''s laws", "description": "Force pairs.", "type": "prior",
@@ -77,9 +78,13 @@ select is(
       "prerequisites": [{"from": "k1", "to": "k2", "extractionConfidence": 0.9},
         {"from": "k2", "to": "k3", "extractionConfidence": 0.6}],
       "semanticLinks": [{"from": "k3", "to": "k2", "coreType": "other", "label": "quantifies"}]}',
+    '{cccccccc-0000-0000-0000-000000000001,cccccccc-0000-0000-0000-000000000002}',
     '{"uncoveredChunks": []}'),
   true, 'a running build writes its map');
 reset role;
+select is((select array_agg(chunk_id) from public.knowledge_map_chunks
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  '{cccccccc-0000-0000-0000-000000000001}'::uuid[], 'the update records its existing chunks');
 
 select results_eq(
   $$select k.name, k.position, b.name, (select count(*)::int from public.kc_sources s where s.kc_id = k.id)
@@ -105,15 +110,52 @@ select results_eq(
   $$values ('built', null::text, '{"uncoveredChunks": []}'::jsonb, true)$$,
   'the build is built with its report');
 
--- A replace without a running build writes nothing.
+-- An update without a running build writes nothing.
 set local role service_role;
 select is(
-  public.replace_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
-    '{"bigIdeas": [], "kcs": [], "prerequisites": [], "semanticLinks": []}', '{}'),
-  false, 'a replace without a running build writes nothing');
+  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
+    '{"bigIdeas": [], "kcs": [], "prerequisites": [], "semanticLinks": []}', '{}', '{}'),
+  false, 'an update without a running build writes nothing');
 reset role;
 select is((select count(*)::int from public.kcs where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 3,
   'the map is unchanged');
+
+-- A later update keeps the rows the map names by id, drops the ones it
+-- leaves out and appends new ones.
+create temporary table kept as
+  select k.id as kc, k.big_idea_id as big_idea from public.kcs k
+  where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' and k.name = 'Thrust';
+grant select on kept to service_role;
+update public.knowledge_map_builds set status = 'building'
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+set local role service_role;
+select is(
+  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
+    jsonb_build_object(
+      'bigIdeas', jsonb_build_array(jsonb_build_object('id', (select big_idea from kept),
+        'name', 'Ignored', 'description', 'Ignored.')),
+      'kcs', jsonb_build_array(
+        jsonb_build_object('id', (select kc from kept), 'name', 'Ignored',
+          'description', 'Ignored.', 'type', 'fact', 'bloom', 'remember',
+          'bigIdea', (select big_idea from kept), 'origin', 'content',
+          'sources', '["cccccccc-0000-0000-0000-000000000001"]'::jsonb),
+        jsonb_build_object('id', 'k1', 'name', 'Specific thrust', 'description', 'F / mdot.',
+          'type', 'concept', 'bloom', 'understand', 'bigIdea', (select big_idea from kept),
+          'origin', 'content', 'sources', '["cccccccc-0000-0000-0000-000000000001"]'::jsonb)),
+      'prerequisites', jsonb_build_array(jsonb_build_object(
+        'from', (select kc from kept), 'to', 'k1', 'extractionConfidence', 0.7)),
+      'semanticLinks', '[]'::jsonb),
+    '{}', '{}'),
+  true, 'a running build writes its update');
+reset role;
+select results_eq(
+  $$select k.name, k.position, k.id = (select kc from kept), b.name
+    from public.kcs k join public.big_ideas b on b.id = k.big_idea_id
+    where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by k.position$$,
+  $$values ('Thrust', 1, true, 'Thrust'), ('Specific thrust', 2, false, 'Thrust')$$,
+  'a kept KC keeps its id and fields, a new one comes after, a left-out one goes');
+select is((select count(*)::int from public.prerequisite_links
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 1, 'links are the update''s');
 
 -- Owners only.
 set local role authenticated;
@@ -132,7 +174,7 @@ select is(public.record_knowledge_map_build_start_failure('aaaaaaaa-0000-0000-00
 select results_eq(
   $$select b.status, b.failure_reason is not null, (select count(*)::int from public.kcs)
     from public.knowledge_map_builds b$$,
-  $$values ('failed', true, 3)$$,
+  $$values ('failed', true, 2)$$,
   'the build failed and the owner still reads the previous map');
 reset role;
 

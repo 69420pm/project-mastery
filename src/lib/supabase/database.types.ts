@@ -738,6 +738,46 @@ export type Database = {
           },
         ];
       };
+      knowledge_map_chunks: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          owner: string;
+        };
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          owner: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_map_chunks_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: true;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "knowledge_map_chunks_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "knowledge_map_chunks_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       material_pages: {
         Row: {
           created_at: string;
@@ -996,6 +1036,15 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_knowledge_map_update: {
+        Args: {
+          p_check_report: Json;
+          p_chunk_ids: string[];
+          p_course_id: string;
+          p_map: Json;
+        };
+        Returns: boolean;
+      };
       queue_knowledge_map_build: {
         Args: { course_id: string };
         Returns: boolean;
@@ -1011,10 +1060,6 @@ export type Database = {
       };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };
-        Returns: boolean;
-      };
-      replace_knowledge_map: {
-        Args: { p_check_report: Json; p_course_id: string; p_map: Json };
         Returns: boolean;
       };
       replace_material_chunks: {

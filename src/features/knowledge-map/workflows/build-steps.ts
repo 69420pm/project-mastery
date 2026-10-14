@@ -36,11 +36,16 @@ import {
 } from "@/features/knowledge-map/domain/draft";
 import type { ExerciseAnswer } from "@/features/knowledge-map/domain/exercises";
 import type { LinksProposal } from "@/features/knowledge-map/domain/links";
+import { aliases } from "@/features/knowledge-map/domain/update";
 import {
   knowledgeMapSchema,
   type CheckReport,
   type KnowledgeMap,
 } from "@/features/knowledge-map/schemas";
+import {
+  loadProcessedChunkIds,
+  loadStoredMap,
+} from "@/features/knowledge-map/server/stored-map";
 import type { MapChunk } from "@/features/knowledge-map/types";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
@@ -50,7 +55,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { withTraceAttributes } from "@/lib/tracing";
 
 /**
- * The steps of a Knowledge map build (`build-knowledge-map.ts`). Each runs on
+ * The steps of a Knowledge map update (`build-knowledge-map.ts`). Each runs on
  * the admin client, since no Student is signed in, and so scopes every query
  * to the Course and its owner itself. Model calls get their input from the
  * workflow, so a Material parsed during a build joins the next one.
@@ -65,18 +70,22 @@ function fail(action: string, error: { message: string }): never {
 }
 
 /**
- * What a build reads once: whose Course it is, its chunks and its exercise
- * subtasks with their paired solutions.
+ * What an update reads once: whose Course it is, its chunks, the ones an
+ * earlier update processed, the exercise subtasks of the new chunks with
+ * their paired solutions, and the stored map.
  */
 export type BuildInput = {
   studentId: string;
   chunks: MapChunk[];
+  processedChunkIds: string[];
   exercises: ExerciseInput[];
+  map: KnowledgeMap;
 };
 
 /**
- * The owner, chunks and exercise subtasks of the Course whose build runs.
- * Null when no build runs any more, as when the Course was deleted.
+ * The owner, chunks, new exercise subtasks and stored map of the Course
+ * whose build runs. Null when no build runs any more, as when the Course was
+ * deleted.
  */
 export async function loadBuildInput(
   courseId: string,
@@ -91,10 +100,13 @@ export async function loadBuildInput(
     .maybeSingle();
   if (error) fail("Loading the build", error);
   if (!data) return null;
-  const [chunks, pairs] = await Promise.all([
+  const [chunks, pairs, processedChunkIds, map] = await Promise.all([
     loadCourseChunks(supabase, courseId),
     loadExerciseSolutions(supabase, courseId),
+    loadProcessedChunkIds(supabase, courseId),
+    loadStoredMap(supabase, courseId),
   ]);
+  const processed = new Set(processedChunkIds);
   return {
     studentId: data.owner,
     chunks: chunks.map(({ id, materialName, label, markdown }) => ({
@@ -103,7 +115,11 @@ export async function loadBuildInput(
       label,
       markdown,
     })),
-    exercises: exerciseInputs(chunks, pairs),
+    processedChunkIds,
+    exercises: exerciseInputs(chunks, pairs).filter(
+      (exercise) => !processed.has(exercise.questionChunkId),
+    ),
+    map,
   };
 }
 
@@ -147,20 +163,27 @@ async function mapCall(
 
 const limitReached = { ok: false, reason: dailyLimitReason } as const;
 
-/** Step 1: big ideas and candidate KCs from the Course's outline. */
+/**
+ * Step 1: new big ideas and candidate KCs from the outline of the new
+ * chunks, added to the `base` draft of the stored map.
+ */
 export async function draftSkeleton(
   studentId: string,
   input: SkeletonInput,
+  base: Draft,
 ): Promise<StepOutcome<Draft>> {
   "use step";
   const output = await mapCall(studentId, "map-skeleton", skeletonCall(input));
   if (output === null) return limitReached;
-  return { ok: true, value: draftFromSkeleton(skeletonSchema.parse(output)) };
+  return {
+    ok: true,
+    value: draftFromSkeleton(skeletonSchema.parse(output), base),
+  };
 }
 
 /**
  * Step 2, one batch: which KCs each chunk teaches, and new KCs the chunks
- * teach. Chunks go to the model by short local ids.
+ * teach. Chunks, KCs and big ideas go to the model by short local ids.
  */
 export async function assignBatch(
   studentId: string,
@@ -168,42 +191,58 @@ export async function assignBatch(
   batch: MapChunk[],
 ): Promise<StepOutcome<Draft>> {
   "use step";
-  const local = batch.map((chunk, index) => ({
-    id: `c${index + 1}`,
-    chunk,
+  const chunkIds = aliases(
+    batch.map((chunk) => chunk.id),
+    "c",
+  );
+  const kcIds = aliases(
+    draft.kcs.map((kc) => kc.id),
+    "k",
+  );
+  const bigIdeaIds = aliases(
+    draft.bigIdeas.map((bigIdea) => bigIdea.id),
+    "b",
+  );
+  const bigIdeas = draft.bigIdeas.map((bigIdea) => ({
+    ...bigIdea,
+    id: bigIdeaIds.local(bigIdea.id),
   }));
-  const chunkId = (localId: string) =>
-    local.find((entry) => entry.id === localId)?.chunk.id ?? localId;
+  const kcs = draft.kcs.map((kc) => ({
+    ...kc,
+    id: kcIds.local(kc.id),
+    bigIdea: bigIdeaIds.local(kc.bigIdea),
+  }));
+  const chunks = batch.map((chunk) => ({
+    id: chunkIds.local(chunk.id),
+    label: chunk.label,
+    markdown: chunk.markdown,
+  }));
   const output = await mapCall(
     studentId,
     "map-assignment",
-    assignmentCall(
-      draft.bigIdeas,
-      draft.kcs,
-      local.map(({ id, chunk }) => ({
-        id,
-        label: chunk.label,
-        markdown: chunk.markdown,
-      })),
-    ),
+    assignmentCall(bigIdeas, kcs, chunks),
   );
   if (output === null) return limitReached;
   const parsed = assignmentSchema(
-    local.map((entry) => entry.id),
-    draft.kcs.map((kc) => kc.id),
-    draft.bigIdeas.map((bigIdea) => bigIdea.id),
+    chunks.map((chunk) => chunk.id),
+    kcs.map((kc) => kc.id),
+    bigIdeas.map((bigIdea) => bigIdea.id),
   ).parse(output);
   return {
     ok: true,
     value: applyAssignment(draft, {
       taught: Object.fromEntries(
-        Object.entries(parsed.chunks).map(([id, { kcIds }]) => [
-          chunkId(id),
-          kcIds,
+        Object.entries(parsed.chunks).map(([id, answer]) => [
+          chunkIds.real(id),
+          answer.kcIds.map(kcIds.real),
         ]),
       ),
-      newKcs: Object.entries(parsed.chunks).flatMap(([id, { newKcs }]) =>
-        newKcs.map((kc) => ({ ...kc, chunkIds: [chunkId(id)] })),
+      newKcs: Object.entries(parsed.chunks).flatMap(([id, answer]) =>
+        answer.newKcs.map((kc) => ({
+          ...kc,
+          bigIdea: bigIdeaIds.real(kc.bigIdea),
+          chunkIds: [chunkIds.real(id)],
+        })),
       ),
     }),
   };
@@ -228,41 +267,45 @@ export async function fillBigIdea(
 }
 
 /**
- * Step 4: prerequisites, semantic links and prior knowledge over all of the
- * map's KCs, which go to the model by their local ids.
+ * Step 4, and again for KCs exercises add: prerequisites, semantic links and
+ * prior knowledge of the new KCs (`newKcIds`) over all of the map's KCs,
+ * which go to the model by short local ids. When every KC is new, as in a
+ * first build, the call links them all.
  */
-export async function linkKcs(
+export async function linkNewKcs(
   studentId: string,
   map: KnowledgeMap,
+  newKcIds: string[],
 ): Promise<StepOutcome<LinksProposal>> {
   "use step";
-  const output = await mapCall(studentId, "map-links", linksCall(map.kcs));
-  if (output === null) return limitReached;
-  return {
-    ok: true,
-    value: linksSchema(map.kcs.map((kc) => kc.id)).parse(output),
-  };
-}
-
-/**
- * Step 6, when exercises added KCs: one more links call over all of the
- * map's KCs, for the added ones.
- */
-export async function linkAddedKcs(
-  studentId: string,
-  map: KnowledgeMap,
-  addedKcIds: string[],
-): Promise<StepOutcome<LinksProposal>> {
-  "use step";
+  const ids = aliases(
+    map.kcs.map((kc) => kc.id),
+    "k",
+  );
+  const kcs = map.kcs.map((kc) => ({ ...kc, id: ids.local(kc.id) }));
+  const allNew = newKcIds.length === map.kcs.length;
   const output = await mapCall(
     studentId,
-    "map-added-kc-links",
-    addedKcLinksCall(map.kcs, addedKcIds),
+    allNew ? "map-links" : "map-added-kc-links",
+    allNew ? linksCall(kcs) : addedKcLinksCall(kcs, newKcIds.map(ids.local)),
   );
   if (output === null) return limitReached;
+  const proposal = linksSchema(kcs.map((kc) => kc.id)).parse(output);
+  const real = <Link extends { from: string; to: string }>(link: Link) => ({
+    ...link,
+    from: ids.real(link.from),
+    to: ids.real(link.to),
+  });
   return {
     ok: true,
-    value: linksSchema(map.kcs.map((kc) => kc.id)).parse(output),
+    value: {
+      prerequisites: proposal.prerequisites.map(real),
+      semanticLinks: proposal.semanticLinks.map(real),
+      priorKcs: proposal.priorKcs.map((prior) => ({
+        ...prior,
+        requiredBy: prior.requiredBy.map(ids.real),
+      })),
+    },
   };
 }
 
@@ -280,15 +323,26 @@ export async function analyseExercise(
 ): Promise<StepOutcome<ExerciseAnswer>> {
   "use step";
   const solutionGiven = exercise.solution !== null;
+  const kcIds = aliases(
+    map.kcs.map((kc) => kc.id),
+    "k",
+  );
+  const bigIdeaIds = aliases(
+    map.bigIdeas.map((bigIdea) => bigIdea.id),
+    "b",
+  );
   const output = await mapCall(
     studentId,
     "map-exercise",
     exerciseCall({
       exercise: exercise.markdown,
       solution: exercise.solution,
-      bigIdeas: map.bigIdeas.map(({ id, name }) => ({ id, name })),
+      bigIdeas: map.bigIdeas.map(({ id, name }) => ({
+        id: bigIdeaIds.local(id),
+        name,
+      })),
       kcs: map.kcs.map(({ id, name, description }) => ({
-        id,
+        id: kcIds.local(id),
         name,
         description,
       })),
@@ -309,8 +363,11 @@ export async function analyseExercise(
   return {
     ok: true,
     value: {
-      kcIds: answer.kcIds,
-      newKcs: answer.newKcs,
+      kcIds: answer.kcIds.map(kcIds.real),
+      newKcs: answer.newKcs.map((kc) => ({
+        ...kc,
+        bigIdea: bigIdeaIds.real(kc.bigIdea),
+      })),
       taskType: answer.taskType,
       solution: answer.solution,
       finalResult: answer.finalResult,
@@ -324,20 +381,27 @@ export async function analyseExercise(
 }
 
 /**
- * Stores the map with its check report and marks the build built, in one
- * transaction. Does nothing when no build runs any more.
+ * Makes the stored map this one, records the update's new chunks as
+ * processed, stores the check report and marks the build built, in one
+ * transaction. Rows of the stored map keep their ids. Does nothing when no
+ * build runs any more.
  */
 export async function storeMap(
   courseId: string,
   map: KnowledgeMap,
+  newChunkIds: string[],
   report: CheckReport,
 ): Promise<void> {
   "use step";
-  const { error } = await createAdminClient().rpc("replace_knowledge_map", {
-    p_course_id: courseId,
-    p_map: knowledgeMapSchema.parse(map),
-    p_check_report: report,
-  });
+  const { error } = await createAdminClient().rpc(
+    "apply_knowledge_map_update",
+    {
+      p_course_id: courseId,
+      p_map: knowledgeMapSchema.parse(map),
+      p_chunk_ids: newChunkIds,
+      p_check_report: report,
+    },
+  );
   if (error) fail("Storing the knowledge map", error);
 }
 
