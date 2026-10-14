@@ -6,6 +6,9 @@ import {
   consumeStream,
   convertToModelMessages,
   createUIMessageStreamResponse,
+  InvalidToolInputError,
+  isStepCount,
+  NoSuchToolError,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -14,6 +17,8 @@ import {
 } from "ai";
 import { after } from "next/server";
 import { briefReplySettings } from "@/features/brief/ai/reply";
+import { briefTools } from "@/features/brief/ai/tools";
+import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
   briefNotFoundMessage,
@@ -22,6 +27,7 @@ import {
 import { messageText } from "@/features/brief/domain/message-text";
 import {
   ensureBrief,
+  loadContext,
   loadMessages,
   saveMessage,
 } from "@/features/brief/server/brief-store";
@@ -46,7 +52,9 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * 2. validate the request: the message and a Course the Student owns
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Brief if needed, then store the Student's message
- * 5. stream the reply from the full stored history
+ * 5. stream the reply from the full stored history, with the stored answers
+ *    and the Course's Materials in the instructions; the tools store what
+ *    the Student answers
  * 6. on end, record the call's usage and store the reply
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
@@ -55,7 +63,28 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
 export async function handleBriefRequest(request: Request): Promise<Response> {
   const user = await getUser();
   if (!user) return refuse(401, "Sign in to tell the AI about your exam.");
+  const response = await respondInBrief({
+    request,
+    supabase: await createClient(),
+    userId: user.id,
+  });
+  after(flushTraces);
+  return response;
+}
 
+/**
+ * `handleBriefRequest` from stage 2 on, as the Student whose session client
+ * `supabase` is. Smoke checks call it with a client they signed in.
+ */
+export async function respondInBrief({
+  request,
+  supabase,
+  userId,
+}: {
+  request: Request;
+  supabase: Supabase;
+  userId: string;
+}): Promise<Response> {
   const parsed = briefRequestSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -64,7 +93,6 @@ export async function handleBriefRequest(request: Request): Promise<Response> {
   }
   const { courseId, message } = parsed.data;
 
-  const supabase = await createClient();
   const dailyLimit = await checkDailyLimit(supabase);
   if (dailyLimit.level === "reached") {
     return refuse(429, dailyLimitReachedMessage);
@@ -81,11 +109,17 @@ export async function handleBriefRequest(request: Request): Promise<Response> {
     request,
     supabase,
     courseId,
-    userId: user.id,
+    userId,
     history,
     replyId: randomUUID(),
   });
 }
+
+/**
+ * The most model calls one reply may take: a tool step per kind of answer
+ * (saveBrief, addNote), a retry after a malformed call, and the text.
+ */
+const MAX_STEPS = 4;
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -131,7 +165,9 @@ async function streamReply({
     messages: history,
     metadataSchema: briefMessageMetadataSchema,
   });
-  const settings = briefReplySettings();
+  const context = await loadContext(supabase, courseId);
+  if (!context) return refuse(404, briefNotFoundMessage);
+  const settings = briefReplySettings(context);
   // What the provider reports when the call completes. A stopped or failed
   // call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;
@@ -143,16 +179,17 @@ async function streamReply({
       streamText({
         ...settings,
         messages: await convertToModelMessages(messages),
+        tools: briefTools(briefToolActions(supabase, courseId, context)),
+        stopWhen: isStepCount(MAX_STEPS),
         // A disconnect, such as a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Brief reply failed:", error),
-        onEnd: ({ usage, response }) => {
-          reportedUsage = usage;
+        onEnd: ({ totalUsage, response }) => {
+          reportedUsage = totalUsage;
           modelId = answeringModel(settings, response.modelId);
         },
       }),
   );
-  after(flushTraces);
 
   return createUIMessageStreamResponse({
     stream: toUIMessageStream<ToolSet, BriefUIMessage>({
@@ -220,8 +257,14 @@ function statusCode(error: unknown): number | undefined {
   return undefined;
 }
 
-/** The error the Student sees when a reply fails mid-stream. */
+/**
+ * The error the Student sees when a reply fails mid-stream. A tool call the
+ * model got wrong keeps its own message: it is stored as the tool's error and
+ * tells the model what to fix on the next step and the next turn.
+ */
 function replyErrorMessage(error: unknown): string {
+  if (InvalidToolInputError.isInstance(error)) return error.message;
+  if (NoSuchToolError.isInstance(error)) return error.message;
   return statusCode(error) === 429
     ? "The AI is busy right now. Please try again in a moment."
     : "The AI could not reply. Please try again.";

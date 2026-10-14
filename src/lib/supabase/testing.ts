@@ -29,6 +29,11 @@ export type FakeSupabaseOptions<Table extends string> = {
    */
   foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
   /**
+   * Primary key columns per table, for tables whose key is not `id`:
+   * inserting a row with a taken key fails with `23505`.
+   */
+  primaryKeys?: Partial<Record<NoInfer<Table>, string[]>>;
+  /**
    * Database functions that `rpc(name, args)` runs, with the tables. A test
    * defines what it needs of the real function; pgTAP tests the real one.
    * Throwing fails the call, as a raised Postgres error would.
@@ -115,7 +120,7 @@ export function fakeSupabase<Table extends string>(
       );
 
     function insert(rows: FakeRow[]): Result {
-      const prepared = rows.map((row) => ({
+      const prepared = rows.map((row): FakeRow => ({
         id: randomUUID(),
         created_at: timestamp(),
         updated_at: timestamp(),
@@ -143,7 +148,12 @@ export function fakeSupabase<Table extends string>(
             `new row violates row-level security policy for table "${table}"`,
           );
         }
-        if (rowsOf(table).some((existing) => existing.id === row.id)) {
+        const key = options.primaryKeys?.[table] ?? ["id"];
+        if (
+          rowsOf(table).some((existing) =>
+            key.every((column) => existing[column] === row[column]),
+          )
+        ) {
           return failure(
             "23505",
             `duplicate key value violates unique constraint "${table}_pkey"`,

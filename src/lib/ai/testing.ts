@@ -53,6 +53,42 @@ export function mockTextModel(text: string) {
   });
 }
 
+/** A tool call a mock model makes. */
+export type MockToolCall = { toolName: string; input: unknown };
+
+/**
+ * A language model that streams one step of tool calls per entry of `steps`,
+ * one entry per call, and answers with `text` once they are used up. So with
+ * a step limit, a `streamText` call runs each step's tools, then gets `text`.
+ */
+export function mockToolModel(steps: MockToolCall[][], text: string) {
+  const answer = mockTextModel(text);
+  let call = 0;
+  return new MockLanguageModelV4({
+    doStream: async (options) => {
+      const calls = steps[call++];
+      if (!calls) return answer.doStream(options);
+      return {
+        stream: simulateReadableStream({
+          chunks: [
+            ...calls.map(({ toolName, input }, i) => ({
+              type: "tool-call" as const,
+              toolCallId: `call-${call}-${i}`,
+              toolName,
+              input: JSON.stringify(input),
+            })),
+            {
+              type: "finish" as const,
+              finishReason: { unified: "tool-calls" as const, raw: undefined },
+              usage,
+            },
+          ],
+        }),
+      };
+    },
+  });
+}
+
 /**
  * An embedding model that returns a fixed vector of `dimensions` per value
  * and, like some providers, reports no usage.

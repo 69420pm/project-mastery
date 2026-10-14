@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 vi.mock("server-only", () => ({}));
@@ -15,6 +15,8 @@ const STUDENT = "11111111-1111-1111-1111-111111111111";
 const CLASSMATE = "22222222-2222-2222-2222-222222222222";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
+const OLD_EXAM = "aaaaaaaa-0000-4000-8000-00000000e024";
+const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
 
 let signedIn: string | null = STUDENT;
 let db = createDb();
@@ -27,12 +29,45 @@ function createDb() {
         { id: COURSE, owner: STUDENT, name: "Calculus" },
         { id: CLASSMATE_COURSE, owner: CLASSMATE, name: "Biology" },
       ] as FakeRow[],
+      materials: [
+        {
+          id: OLD_EXAM,
+          owner: STUDENT,
+          course_id: COURSE,
+          name: "Old exam 2024",
+          created_at: "2026-10-01T00:00:00Z",
+        },
+        {
+          id: LECTURE,
+          owner: STUDENT,
+          course_id: COURSE,
+          name: "Lecture 1",
+          created_at: "2026-10-02T00:00:00Z",
+        },
+      ] as FakeRow[],
       briefs: [],
+      brief_excluded_materials: [],
       brief_messages: [],
       ai_usage: [],
     },
+    primaryKeys: {
+      briefs: ["course_id"],
+      brief_excluded_materials: ["course_id", "material_id"],
+    },
     defaults: {
-      briefs: () => ({ owner: signedIn }),
+      briefs: () => ({
+        owner: signedIn,
+        exam_date: null,
+        goal: null,
+        hours_per_week: null,
+        question_style: null,
+        open_book: null,
+        formula_sheet: null,
+        calculator: null,
+        scope_confirmed: false,
+        notes: null,
+      }),
+      brief_excluded_materials: () => ({ owner: signedIn }),
       brief_messages: () => ({ owner: signedIn, model_id: null }),
       ai_usage: () => ({
         owner: signedIn,
@@ -210,6 +245,124 @@ describe("a message in a Brief", () => {
 
     expect(again.status).toBe(200);
     expect(stale.status).toBe(409);
+  });
+});
+
+describe("the tools", () => {
+  test("store the answers, the excluded Materials and the notes", async () => {
+    useMockModels({
+      brief: mockToolModel(
+        [
+          [
+            {
+              toolName: "saveBrief",
+              input: {
+                examDate: "2026-12-03",
+                goal: "good_grade",
+                hoursPerWeek: 6,
+                questionStyle: "written",
+                openBook: false,
+                formulaSheet: null,
+                calculator: true,
+                excludedMaterialIds: [OLD_EXAM, "not-a-material"],
+                scopeConfirmed: true,
+              },
+            },
+            { toolName: "addNote", input: { text: "Heat exchangers!" } },
+          ],
+        ],
+        "Got it.",
+      ),
+    });
+
+    const reply = await send({ courseId: COURSE, message: userMessage("…") });
+
+    expect(reply).toEqual({ status: 200, text: "Got it." });
+    expect(db.tables.briefs[0]).toMatchObject({
+      exam_date: "2026-12-03",
+      goal: "good_grade",
+      hours_per_week: 6,
+      question_style: "written",
+      open_book: false,
+      formula_sheet: null,
+      calculator: true,
+      scope_confirmed: true,
+      notes: "Heat exchangers!",
+    });
+    expect(db.tables.brief_excluded_materials).toEqual([
+      expect.objectContaining({ course_id: COURSE, material_id: OLD_EXAM }),
+    ]);
+    // One row for the reply, over both steps.
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({ task: "brief", input_tokens: 20 }),
+    ]);
+  });
+
+  test("append notes after a blank line, and replace the excluded set", async () => {
+    const note = (text: string) => ({ toolName: "addNote", input: { text } });
+    const exclude = (ids: string[]) => ({
+      toolName: "saveBrief",
+      input: { excludedMaterialIds: ids },
+    });
+    useMockModels({
+      brief: mockToolModel(
+        [
+          [note("First."), exclude([OLD_EXAM])],
+          [note("Second.")],
+          [exclude([LECTURE])],
+        ],
+        "Ok.",
+      ),
+    });
+
+    await send({ courseId: COURSE, message: userMessage("…") });
+
+    expect(db.tables.briefs[0]?.notes).toBe("First.\n\nSecond.");
+    expect(
+      db.tables.brief_excluded_materials.map((row) => row.material_id),
+    ).toEqual([LECTURE]);
+  });
+
+  test("a malformed call changes nothing and tells the model why", async () => {
+    const model = mockToolModel(
+      [[{ toolName: "saveBrief", input: { hoursPerWeek: 100 } }]],
+      "How many hours?",
+    );
+    useMockModels({ brief: model });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const reply = await send({ courseId: COURSE, message: userMessage("…") });
+
+    expect(reply.text).toBe("How many hours?");
+    expect(db.tables.briefs[0]?.hours_per_week).toBeNull();
+    const retry = JSON.stringify(model.doStreamCalls.at(-1)!.prompt);
+    expect(retry).toContain("hoursPerWeek");
+  });
+
+  test("the instructions hold the stored answers and the Course's Materials", async () => {
+    const model = mockTextModel("Ok.");
+    useMockModels({ brief: model });
+    db.tables.briefs.push({
+      course_id: COURSE,
+      owner: STUDENT,
+      exam_date: "2026-12-03",
+      goal: null,
+      scope_confirmed: false,
+      notes: null,
+    });
+    db.tables.brief_excluded_materials.push({
+      course_id: COURSE,
+      material_id: OLD_EXAM,
+      owner: STUDENT,
+    });
+
+    await send({ courseId: COURSE, message: userMessage("Hi") });
+
+    const prompt = JSON.stringify(model.doStreamCalls[0]!.prompt);
+    expect(prompt).toContain("exam date: 2026-12-03");
+    expect(prompt).toContain("goal: not answered");
+    expect(prompt).toContain(`\\"Old exam 2024\\" (id ${OLD_EXAM}): excluded`);
+    expect(prompt).toContain(`\\"Lecture 1\\" (id ${LECTURE})`);
   });
 });
 
