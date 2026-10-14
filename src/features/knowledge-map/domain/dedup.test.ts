@@ -3,6 +3,7 @@ import type { KnowledgeMap } from "@/features/knowledge-map/schemas";
 import {
   clustersOf,
   DEDUP_THRESHOLD,
+  mergeablePairs,
   remainingDuplicates,
   similarPairs,
   withMerges,
@@ -49,6 +50,16 @@ describe("similarPairs and clustersOf", () => {
       { id: "old2", origin: "content" },
     ];
     expect(similarPairs(kcs, [[1], [1]], new Set())).toEqual([]);
+  });
+
+  test("pair a prior KC with a taught one, but never merge them", () => {
+    const kcs = [
+      { id: "prior", origin: "prior" },
+      { id: "taught", origin: "content" },
+    ];
+    const pairs = similarPairs(kcs, [[1], [1]], new Set(["taught"]));
+    expect(pairs).toHaveLength(1);
+    expect(mergeablePairs(pairs, kcs)).toEqual([]);
   });
 });
 

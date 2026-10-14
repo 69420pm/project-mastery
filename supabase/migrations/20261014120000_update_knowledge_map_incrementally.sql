@@ -27,16 +27,17 @@ using ((select auth.uid()) = owner);
 revoke all on table public.knowledge_map_chunks from anon, authenticated;
 grant select on table public.knowledge_map_chunks to authenticated;
 
--- Existing maps: a Course with a map has processed the chunks that existed
--- when the build that made it started (a built map), or when it finished
--- (a map kept by a later failed or running build), so its first update does
--- not map them twice.
+-- Existing maps: a Course whose last build is `built` has processed the
+-- chunks that existed when that build started, so its first update does not
+-- map them twice. A Course whose last build failed or is running keeps no
+-- record of when its map's build started, so its first update maps every
+-- chunk again and dedup merges what repeats.
 insert into public.knowledge_map_chunks (chunk_id, owner, course_id)
 select c.id, b.owner, c.course_id
 from public.chunks as c
 join public.knowledge_map_builds as b on b.course_id = c.course_id
-where b.finished_at is not null
-  and c.created_at <= case when b.status = 'built' then b.started_at else b.finished_at end;
+where b.status = 'built'
+  and c.created_at <= b.started_at;
 
 drop function public.replace_knowledge_map(uuid, jsonb, jsonb);
 

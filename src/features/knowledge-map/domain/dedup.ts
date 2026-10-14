@@ -33,11 +33,10 @@ export function cosine(a: number[], b: number[]): number {
 
 /**
  * Pairs of `kcs` (with `vectors` in the same order) at or above the
- * threshold where at least one KC is in `newIds`. Prior KCs pair only with
- * prior KCs, taught ones only with taught ones.
+ * threshold where at least one KC is in `newIds`.
  */
 export function similarPairs(
-  kcs: Array<{ id: string; origin: string }>,
+  kcs: Array<{ id: string }>,
   vectors: number[][],
   newIds: ReadonlySet<string>,
   threshold = DEDUP_THRESHOLD,
@@ -47,12 +46,25 @@ export function similarPairs(
     kcs.slice(i + 1).forEach((b, offset) => {
       const j = i + 1 + offset;
       if (!newIds.has(a.id) && !newIds.has(b.id)) return;
-      if ((a.origin === "prior") !== (b.origin === "prior")) return;
       const similarity = cosine(vectors[i] ?? [], vectors[j] ?? []);
       if (similarity >= threshold) pairs.push({ a: a.id, b: b.id, similarity });
     });
   });
   return pairs;
+}
+
+/**
+ * The pairs that may be merged: prior KCs merge only with prior KCs, taught
+ * ones only with taught ones. A pair across them stays a reported duplicate.
+ */
+export function mergeablePairs(
+  pairs: SimilarPair[],
+  kcs: Array<{ id: string; origin: string }>,
+): SimilarPair[] {
+  const prior = new Set(
+    kcs.filter((kc) => kc.origin === "prior").map((kc) => kc.id),
+  );
+  return pairs.filter(({ a, b }) => prior.has(a) === prior.has(b));
 }
 
 /**

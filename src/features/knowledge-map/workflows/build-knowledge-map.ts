@@ -8,6 +8,7 @@ import {
 } from "@/features/knowledge-map/domain/build-input";
 import {
   clustersOf,
+  mergeablePairs,
   kcEmbeddingText,
   remainingDuplicates,
   similarPairs,
@@ -252,7 +253,7 @@ async function withoutDuplicates(
   if (!vectors.ok) return vectors;
   const pairs = similarPairs(map.kcs, vectors.value, newIds);
   const clusters = clustersOf(
-    pairs,
+    mergeablePairs(pairs, map.kcs),
     map.kcs.map((kc) => kc.id),
   );
   let merged: ReturnType<typeof withMerges> = {
