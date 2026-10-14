@@ -1,3 +1,4 @@
+import { findingQuestion, reviewQueue } from "@/features/brief/domain/findings";
 import type { BriefContext } from "@/features/brief/domain/intake";
 import { aiTask } from "@/lib/ai/models";
 
@@ -46,6 +47,23 @@ function describeMaterials({ materials }: BriefContext): string {
     .join("\n");
 }
 
+const REVIEW = `Questions about the materials: the Course's Materials contain things only the Student can settle, such as a printed solution that does not match or a remark that limits what the exam covers. Ask them one at a time, each with its sources.
+- When the Student answers the question you are asking, call answerFinding with its id and their answer word for word. Then, in the same reply, ask the question the tool result gives you, or tell the Student the questions about the materials are done when it says none are left.
+- When the Student talks about something else, reply to that first, then ask the question again.
+- Never answer a question for the Student, and never show them its id.`;
+
+function describeReview({ findings }: BriefContext): string | null {
+  const { asking, next } = reviewQueue(findings);
+  if (!asking) return null;
+  return [
+    REVIEW,
+    `The question you are asking now (id ${asking.id}):\n${findingQuestion(asking)}`,
+    next
+      ? `The next question (id ${next.id}):\n${findingQuestion(next)}`
+      : "No question follows it.",
+  ].join("\n\n");
+}
+
 /** The AI's instructions in a Brief, with what is stored so far. */
 export function briefInstructions(context: BriefContext): string {
   return [
@@ -53,8 +71,11 @@ export function briefInstructions(context: BriefContext): string {
     FLOW,
     `What the Student has told you so far:\n${describeAnswers(context)}`,
     `The Course's Materials:\n${describeMaterials(context)}`,
+    describeReview(context),
     `Today is ${new Date().toISOString().slice(0, 10)}.`,
-  ].join("\n\n");
+  ]
+    .filter((section) => section !== null)
+    .join("\n\n");
 }
 
 /**

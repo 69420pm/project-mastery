@@ -3,7 +3,13 @@ import type {
   BriefToolActions,
   SaveBriefInput,
 } from "@/features/brief/ai/tools";
+import { findingQuestion, reviewQueue } from "@/features/brief/domain/findings";
 import type { BriefContext } from "@/features/brief/domain/intake";
+import {
+  answerFinding,
+  getOpenFindings,
+  markFindingAsked,
+} from "@/features/knowledge-map/server";
 import {
   addBriefNote,
   saveBrief,
@@ -58,6 +64,18 @@ export function briefToolActions(
       return (await addBriefNote(supabase, courseId, text))
         ? "Saved."
         : "Not saved: the notes are full. Nothing changed.";
+    },
+
+    async answerFinding(findingId, answer) {
+      if (!(await answerFinding(supabase, courseId, findingId, answer))) {
+        return "Not saved: that is no question about this Course's materials. Nothing changed.";
+      }
+      const { asking } = reviewQueue(await getOpenFindings(supabase, courseId));
+      if (!asking) {
+        return "Saved. No questions about the materials are left: tell the Student they are done.";
+      }
+      await markFindingAsked(supabase, courseId, asking.id);
+      return `Saved. In this reply, ask the Student the next question about the materials (id ${asking.id}), with its sources:\n${findingQuestion(asking)}`;
     },
   };
 }

@@ -56,6 +56,18 @@ export const addNoteInputSchema = z.object({
     .describe("The Student's statement, word for word as they wrote it."),
 });
 
+/** What `answerFinding` takes: a question about the materials and the answer. */
+export const answerFindingInputSchema = z.object({
+  findingId: z
+    .string()
+    .describe("The id of the question the Student answered."),
+  answer: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe("The Student's answer, word for word as they wrote it."),
+});
+
 /**
  * What the tools do with the Student's answers. Each returns the message
  * the model gets back; a refusal changes nothing.
@@ -63,6 +75,7 @@ export const addNoteInputSchema = z.object({
 export type BriefToolActions = {
   saveBrief: (input: SaveBriefInput) => Promise<string>;
   addNote: (text: string) => Promise<string>;
+  answerFinding: (findingId: string, answer: string) => Promise<string>;
 };
 
 /** The model gets this when an action throws. */
@@ -91,6 +104,13 @@ export function briefTools(actions: BriefToolActions) {
         "Store something the Student said about the exam that no saveBrief field holds, such as a teacher's hint, what changed this year, what they know or where they struggle. Pass their words verbatim.",
       inputSchema: addNoteInputSchema,
       execute: ({ text }) => run(() => actions.addNote(text)),
+    }),
+    answerFinding: tool({
+      description:
+        "Store the Student's answer to a question about the Course's materials, verbatim. The result says which question to ask next.",
+      inputSchema: answerFindingInputSchema,
+      execute: ({ findingId, answer }) =>
+        run(() => actions.answerFinding(findingId, answer)),
     }),
   };
 }

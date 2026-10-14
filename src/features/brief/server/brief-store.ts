@@ -1,13 +1,23 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
+import { findingQuestion } from "@/features/brief/domain/findings";
 import {
+  findingMessageId,
   OPENING_MESSAGE,
-  OPENING_MODEL_ID,
+  STATIC_MODEL_ID,
   openingMessageId,
 } from "@/features/brief/domain/opening";
-import type { BriefContext, BriefFields } from "@/features/brief/domain/intake";
+import {
+  isIntakeDone,
+  type BriefContext,
+  type BriefFields,
+} from "@/features/brief/domain/intake";
 import type { BriefUIMessage } from "@/features/brief/types";
+import {
+  getOpenFindings,
+  markFindingAsked,
+} from "@/features/knowledge-map/server";
 
 /**
  * Reads and writes Briefs and their messages as the signed-in Student, so Row
@@ -42,12 +52,52 @@ export async function ensureBrief(
     course_id: courseId,
     role: "assistant",
     parts: [{ type: "text", text: OPENING_MESSAGE }],
-    model_id: OPENING_MODEL_ID,
+    model_id: STATIC_MODEL_ID,
   });
   if (openingError && openingError.code !== "23505") {
     fail("Saving the opening message", openingError);
   }
   return true;
+}
+
+/**
+ * Opens the Course's Brief as its page does: creates it if needed, posts the
+ * next open Finding (`askNextFinding`) and returns the messages. Null when
+ * the Course is not the Student's.
+ */
+export async function openBrief(
+  supabase: Supabase,
+  courseId: string,
+): Promise<BriefUIMessage[] | null> {
+  if (!(await ensureBrief(supabase, courseId))) return null;
+  await askNextFinding(supabase, courseId);
+  return loadMessages(supabase, courseId);
+}
+
+/**
+ * Posts the next open Finding of the Course as a static AI message, with no
+ * model call, and marks it asked: once intake is done, while no asked Finding
+ * waits for an answer. Safe to call concurrently: the message's id derives
+ * from the Finding's, so it is stored once.
+ */
+export async function askNextFinding(
+  supabase: Supabase,
+  courseId: string,
+): Promise<void> {
+  if (!isIntakeDone(await loadFields(supabase, courseId))) return;
+  const findings = await getOpenFindings(supabase, courseId);
+  const next = findings[0];
+  if (!next || findings.some(({ asked }) => asked)) return;
+
+  const { error } = await supabase.from("brief_messages").insert({
+    id: findingMessageId(next.id),
+    course_id: courseId,
+    role: "assistant",
+    parts: [{ type: "text", text: findingQuestion(next) }],
+    model_id: STATIC_MODEL_ID,
+  });
+  if (error && error.code !== "23505") fail("Asking the Finding", error);
+  await markFindingAsked(supabase, courseId, next.id);
 }
 
 function toUIMessage(row: MessageRow): BriefUIMessage {
@@ -154,6 +204,9 @@ export async function loadContext(
   if (!brief) return null;
   return {
     ...brief,
+    findings: isIntakeDone(brief.fields)
+      ? await getOpenFindings(supabase, courseId)
+      : [],
     materials: materials.data.map(({ id, name }) => ({
       id,
       name,

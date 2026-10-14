@@ -1,3 +1,5 @@
+import type { ReviewFinding } from "@/features/knowledge-map";
+
 /** The fixed fields of a Brief, each null until the Student has answered it. */
 export type BriefFields = {
   /** The exam's date, as `YYYY-MM-DD`. */
@@ -23,6 +25,8 @@ export type BriefContext = {
   fields: BriefFields;
   notes: string | null;
   materials: BriefMaterial[];
+  /** The Course's open Findings, in map order; none before intake is done. */
+  findings: ReviewFinding[];
 };
 
 /**

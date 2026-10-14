@@ -1,6 +1,7 @@
 import type {
   BloomLevel,
   CheckReport,
+  FindingKind,
   FindingStatus,
   KcType,
   SemanticLinkType,
@@ -82,6 +83,17 @@ export type FindingView = {
   sources: string[];
   status: FindingStatus;
   answer: string | null;
+};
+
+/** An open Finding as the Brief asks it. */
+export type ReviewFinding = {
+  id: string;
+  kind: FindingKind;
+  text: string;
+  /** Where it was found, such as "Lecture 1 p. 3", in reading order. */
+  sources: string[];
+  /** Whether the Brief has asked the Student about it. */
+  asked: boolean;
 };
 
 /** Everything the map page shows of a Course. */

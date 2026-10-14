@@ -25,7 +25,9 @@ import {
   briefNotFoundMessage,
   briefRequestSchema,
 } from "@/features/brief/schemas";
+import { reviewQueue } from "@/features/brief/domain/findings";
 import { messageText } from "@/features/brief/domain/message-text";
+import { markFindingAsked } from "@/features/knowledge-map/server";
 import {
   ensureBrief,
   loadContext,
@@ -118,9 +120,10 @@ export async function respondInBrief({
 
 /**
  * The most model calls one reply may take: a tool step per kind of answer
- * (saveBrief, addNote), a retry after a malformed call, and the text.
+ * (saveBrief, addNote, answerFinding), a retry after a malformed call, and
+ * the text.
  */
-const MAX_STEPS = 4;
+const MAX_STEPS = 5;
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -168,6 +171,12 @@ async function streamReply({
   });
   const context = await loadContext(supabase, courseId);
   if (!context) return refuse(404, briefNotFoundMessage);
+  // The instructions tell the AI to ask the first open Finding when none is
+  // asked yet, so it counts as asked from this reply on.
+  const { asking } = reviewQueue(context.findings);
+  if (asking && !asking.asked) {
+    await markFindingAsked(supabase, courseId, asking.id);
+  }
   const settings = briefReplySettings(context);
   // What the provider reports when the call completes. A stopped or failed
   // call reports neither.
