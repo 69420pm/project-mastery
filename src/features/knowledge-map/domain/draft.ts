@@ -6,9 +6,10 @@ import {
 } from "@/features/knowledge-map/schemas";
 
 /**
- * The map a build drafts step by step (`build-knowledge-map.ts`), before
- * KCs have a type and links. Ids are local to the build: `b1`, `k1`, …;
- * sources are chunk ids.
+ * The map an update drafts step by step (`build-knowledge-map.ts`), before
+ * new KCs have a type and links. Stored big ideas and KCs keep their row
+ * ids; new ones get ids local to the update: `b1`, `k1`, …; sources are chunk
+ * ids.
  */
 export type DraftBigIdea = { id: string; name: string; description: string };
 
@@ -54,20 +55,62 @@ const sameName = (a: string, b: string) =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
- * The draft of a skeleton: at most `MAX_BIG_IDEAS` big ideas, and their
- * candidate KCs without sources. A KC named like an earlier one is left out.
+ * The draft an update starts from: the stored map's big ideas and its taught
+ * KCs with their sources. Prior KCs are left out, since no chunk teaches them.
  */
-export function draftFromSkeleton(skeleton: SkeletonProposal): Draft {
-  const draft: Draft = { bigIdeas: [], kcs: [] };
-  skeleton.bigIdeas.slice(0, MAX_BIG_IDEAS).forEach((bigIdea, index) => {
-    const id = `b${index + 1}`;
-    draft.bigIdeas.push({
-      id,
-      name: bigIdea.name,
-      description: bigIdea.description,
-    });
+export function draftOf(map: KnowledgeMap): Draft {
+  return {
+    bigIdeas: map.bigIdeas,
+    kcs: map.kcs.flatMap((kc) =>
+      kc.bigIdea === null
+        ? []
+        : [
+            {
+              id: kc.id,
+              name: kc.name,
+              description: kc.description,
+              bigIdea: kc.bigIdea,
+              sources: kc.sources,
+            },
+          ],
+    ),
+  };
+}
+
+/** `<prefix><n>` for the first n past the item count that no item has. */
+function freshId(prefix: string, items: Array<{ id: string }>): string {
+  const taken = new Set(items.map((item) => item.id));
+  let n = items.length + 1;
+  while (taken.has(`${prefix}${n}`)) n++;
+  return `${prefix}${n}`;
+}
+
+/**
+ * The `base` draft with a skeleton's new big ideas, while the draft holds
+ * fewer than `MAX_BIG_IDEAS`, and their candidate KCs without sources. A big
+ * idea named like one of the draft is that one, and a KC named like one of
+ * the draft is left out, so the base stays as it is.
+ */
+export function draftFromSkeleton(
+  skeleton: SkeletonProposal,
+  base: Draft = { bigIdeas: [], kcs: [] },
+): Draft {
+  const draft: Draft = { bigIdeas: [...base.bigIdeas], kcs: [...base.kcs] };
+  for (const bigIdea of skeleton.bigIdeas) {
+    let id = draft.bigIdeas.find((other) =>
+      sameName(other.name, bigIdea.name),
+    )?.id;
+    if (!id) {
+      if (draft.bigIdeas.length >= MAX_BIG_IDEAS) continue;
+      id = freshId("b", draft.bigIdeas);
+      draft.bigIdeas.push({
+        id,
+        name: bigIdea.name,
+        description: bigIdea.description,
+      });
+    }
     for (const kc of bigIdea.kcs) addKc(draft, { ...kc, bigIdea: id }, []);
-  });
+  }
   return draft;
 }
 
@@ -87,7 +130,7 @@ function addKc(
   }
   if (!draft.bigIdeas.some((bigIdea) => bigIdea.id === kc.bigIdea)) return;
   draft.kcs.push({
-    id: `k${draft.kcs.length + 1}`,
+    id: freshId("k", draft.kcs),
     name: kc.name,
     description: kc.description,
     bigIdea: kc.bigIdea,
@@ -96,6 +139,7 @@ function addKc(
 }
 
 function addSources(kc: DraftKc, sources: string[]) {
+  if (sources.every((source) => kc.sources.includes(source))) return;
   kc.sources = [...new Set([...kc.sources, ...sources])];
 }
 
@@ -139,18 +183,34 @@ export function kcsOf(draft: Draft, bigIdeaId: string): DraftKc[] {
   return draft.kcs.filter((kc) => kc.bigIdea === bigIdeaId);
 }
 
+/** The draft's KCs that `map` lacks, by big idea in draft order. */
+export function newKcsOf(map: KnowledgeMap, draft: Draft): DraftKc[] {
+  const stored = new Set(map.kcs.map((kc) => kc.id));
+  return draft.bigIdeas.flatMap((bigIdea) =>
+    kcsOf(draft, bigIdea.id).filter((kc) => !stored.has(kc.id)),
+  );
+}
+
 /**
- * The map to store: big ideas in draft order, each followed by its KCs with
- * their fill, and no links yet.
+ * The map with the draft's big ideas, its KCs' sources and its new KCs with
+ * their fill, after the map's KCs and without links yet. KCs of the map keep
+ * everything else.
  */
-export function completeMap(
+export function withDraft(
+  map: KnowledgeMap,
   draft: Draft,
   fills: Record<string, KcFill>,
 ): KnowledgeMap {
+  const sources = new Map(draft.kcs.map((kc) => [kc.id, kc.sources]));
   return {
+    ...map,
     bigIdeas: draft.bigIdeas,
-    kcs: draft.bigIdeas.flatMap((bigIdea) =>
-      kcsOf(draft, bigIdea.id).map((kc) => {
+    kcs: [
+      ...map.kcs.map((kc) => ({
+        ...kc,
+        sources: sources.get(kc.id) ?? kc.sources,
+      })),
+      ...newKcsOf(map, draft).map((kc) => {
         const fill = fills[kc.id];
         if (!fill) throw new Error(`KC ${kc.id} was not filled.`);
         return {
@@ -164,10 +224,6 @@ export function completeMap(
           sources: kc.sources,
         };
       }),
-    ),
-    prerequisites: [],
-    semanticLinks: [],
-    exercises: [],
-    findings: [],
+    ],
   };
 }

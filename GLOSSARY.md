@@ -17,7 +17,7 @@ A file a Student uploaded to one Course, such as slides, a script, an exercise s
 _Avoid_: File, document, upload, attachment
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. A rebuild replaces it whole.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Big idea**:

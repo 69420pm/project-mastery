@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // The course model of a Knowledge map (#51, #69). These schemas are the
 // source of truth: the tables of the knowledge map migration mirror them,
-// `replace_knowledge_map` takes a `knowledgeMapSchema` value, and the gold
+// `apply_knowledge_map_update` takes a `knowledgeMapSchema` value, and the gold
 // map (`evals/gold/*/gold.json`) parses with `courseMapSchema`.
 
 export const KC_TYPES = [
@@ -49,7 +49,9 @@ export const FINDING_KINDS = ["solution_mismatch"] as const;
 /** The most big ideas a map has (#51's granularity rule). */
 export const MAX_BIG_IDEAS = 15;
 
-/** Ids are local to one map; stored rows get their own. */
+/**
+ * Ids are local to one map, or a stored row's id for a row an update keeps.
+ */
 const id = z.string().trim().min(1).max(100);
 const name = z.string().trim().min(1).max(200);
 const description = z.string().trim().min(1).max(1000);
@@ -125,9 +127,13 @@ export function exerciseSchema<Source extends z.ZodType>(source: Source) {
     );
 }
 
-/** Something the build found wrong in the material, with its chunks. */
+/**
+ * Something the build found wrong in the material, with its chunks. A stored
+ * Finding carries its row id; a new one has none.
+ */
 export function findingSchema<Source extends z.ZodType>(source: Source) {
   return z.object({
+    id: id.optional(),
     kind: z.enum(FINDING_KINDS),
     text: z.string().trim().min(1).max(2000),
     sources: z.array(source),
@@ -192,7 +198,7 @@ function uniqueIds(
   return ids;
 }
 
-/** The map `replace_knowledge_map` stores: sources are chunk ids. */
+/** The map `apply_knowledge_map_update` stores: sources are chunk ids. */
 export const knowledgeMapSchema = courseMapSchema(z.uuid());
 
 /** What the build's checks found, stored with the map it checked. */
@@ -211,6 +217,10 @@ export const checkReportSchema = z.object({
   unmappedExercises: z.array(name).default([]),
   /** Names of taught KCs no Exercise tests, reported only. */
   untestedKcs: z.array(name).default([]),
+  /** KC pairs still alike enough to be duplicates after merging, reported only. */
+  duplicates: z
+    .array(z.object({ a: name, b: name, similarity: z.number() }))
+    .default([]),
 });
 
 /** The input of the Build button's Server Action. */

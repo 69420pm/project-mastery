@@ -2,6 +2,7 @@ import {
   exerciseName,
   type ExerciseSubtask,
 } from "@/features/knowledge-map/domain/exercises";
+import type { Draft } from "@/features/knowledge-map/domain/draft";
 import type { MapChunk } from "@/features/knowledge-map/types";
 
 /** Chunks per assignment call. */
@@ -69,8 +70,10 @@ export function exerciseInputs(
   });
 }
 
-/** What the skeleton call reads of the Course. */
+/** What the skeleton call reads of the map and the new chunks. */
 export type SkeletonInput = {
+  /** The map's big ideas with the names of their KCs; empty at first. */
+  existingBigIdeas: Array<{ name: string; kcs: string[] }>;
   materials: string[];
   headings: string[];
   definitions: string[];
@@ -79,11 +82,18 @@ export type SkeletonInput = {
 const HEADING = /^#{1,6}\s+(.+?)\s*#*\s*$/gm;
 
 /**
- * The skeleton call's input: the Material names, every markdown heading
- * once, and the markdown of every `definition` chunk, in reading order.
+ * The skeleton call's input: the draft's big ideas with their KC names, and
+ * of the new chunks the Material names, every markdown heading once, and the
+ * markdown of every `definition` chunk, in reading order.
  */
-export function skeletonInput(chunks: MapChunk[]): SkeletonInput {
+export function skeletonInput(chunks: MapChunk[], draft: Draft): SkeletonInput {
   return {
+    existingBigIdeas: draft.bigIdeas.map((bigIdea) => ({
+      name: bigIdea.name,
+      kcs: draft.kcs
+        .filter((kc) => kc.bigIdea === bigIdea.id)
+        .map((kc) => kc.name),
+    })),
     materials: [...new Set(chunks.map((chunk) => chunk.materialName))],
     headings: [
       ...new Set(

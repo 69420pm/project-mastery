@@ -33,17 +33,23 @@ const EXERCISE_7_1_POSITION = 24;
 
 type Supabase = Parameters<SmokeCheck["run"]>[0]["supabase"];
 
+type Fixture = z.infer<typeof fixtureSchema>;
+
 /**
- * Builds the Knowledge map of the jet-engines chapter from its chunk fixture
- * and its exercise-solution pairs with the real `buildKnowledgeMap`
- * workflow, run in this process, and prints the map's shape and Exercises
- * to compare with `gold.json` by hand.
+ * Builds the Knowledge map of the jet-engines chapter from its chunk fixture,
+ * split by position into two Materials, with the real `buildKnowledgeMap`
+ * workflow run in this process: a build from the first half, then an update
+ * after adding the second half with the exercise-solution pairs. Prints the
+ * merges the update makes (the workflow's "Merged KCs" lines), the map's
+ * shape and Exercises to compare with `gold.json` by hand.
  */
 export const mapSmoke: SmokeCheck = {
   name: "map",
-  usage: `pnpm smoke map (builds the map of ${CHUNKS_FILE}; prints KCs per big idea, prior KCs, Exercises, Findings and the check report)`,
-  // 12 for the map, 4 exercise subtasks and the links call for KCs they add.
-  maxCalls: 17,
+  usage: `pnpm smoke map (builds the map of the first half of ${CHUNKS_FILE}, updates it with the second; prints merges, KCs per big idea, prior KCs, Exercises, Findings and the check report)`,
+  // Per run: a skeleton, an assignment per 10 chunks, a fill per big idea,
+  // links, an embedding and a merge call; the update adds 4 exercise
+  // subtasks and the links call for KCs they add.
+  maxCalls: 30,
   async run({ supabase, studentId }) {
     const json: unknown = JSON.parse(await readFile(CHUNKS_FILE, "utf8"));
     const fixture = fixtureSchema.parse(json);
@@ -54,42 +60,28 @@ export const mapSmoke: SmokeCheck = {
       .single();
     if (courseError) throw new Error(courseError.message);
     const courseId = course.id;
+    const half = Math.ceil(fixture.length / 2);
+    const material = (name: string, chunks: Fixture) =>
+      insertMaterial(supabase, { studentId, courseId, name, chunks });
 
-    const materialId = randomUUID();
-    const { error: materialError } = await supabase.from("materials").insert({
-      id: materialId,
-      owner: studentId,
-      course_id: courseId,
-      name: "jet-engines.pdf",
-      media_type: "application/pdf",
-      size_bytes: 1,
-      storage_path: `${studentId}/${courseId}/${materialId}`,
-      parse_status: "parsed",
-    });
-    if (materialError) throw new Error(materialError.message);
+    const idAt = await material("jet-engines-1.pdf", fixture.slice(0, half));
+    // queue_knowledge_map_build needs a signed-in Student, so the smoke
+    // check sets the state it leaves behind.
+    const { error: buildError } = await supabase
+      .from("knowledge_map_builds")
+      .insert({ course_id: courseId, owner: studentId, status: "building" });
+    if (buildError) throw new Error(buildError.message);
+    console.info(`Building the map from ${half} chunks…`);
+    await buildKnowledgeMap(courseId);
+    const first = await builtKcs(supabase, courseId);
 
-    const { data: chunkRows, error: chunksError } = await supabase
-      .from("chunks")
-      .insert(
-        fixture.map(({ figure_description, ...chunk }) => ({
-          ...chunk,
-          owner: studentId,
-          course_id: courseId,
-          material_id: materialId,
-          figure: figure_description
-            ? {
-                description: figure_description,
-                page: chunk.page_from,
-                box: null,
-              }
-            : null,
-        })),
-      )
-      .select("id, position");
-    if (chunksError) throw new Error(chunksError.message);
-
+    for (const [position, id] of await material(
+      "jet-engines-2.pdf",
+      fixture.slice(half),
+    )) {
+      idAt.set(position, id);
+    }
     // The pairs the parse step's pairing would have stored.
-    const idAt = new Map(chunkRows.map((row) => [row.position, row.id]));
     const { error: pairsError } = await supabase
       .from("exercise_solutions")
       .insert(
@@ -112,23 +104,129 @@ export const mapSmoke: SmokeCheck = {
       );
     if (pairsError) throw new Error(pairsError.message);
 
-    // queue_knowledge_map_build needs a signed-in Student, so the smoke
-    // check sets the state it leaves behind.
-    const { error: buildError } = await supabase
+    const { error: updateError } = await supabase
       .from("knowledge_map_builds")
-      .insert({ course_id: courseId, owner: studentId, status: "building" });
-    if (buildError) throw new Error(buildError.message);
-
-    console.info(`Building the map from ${fixture.length} chunks…`);
+      .update({ status: "building", failure_reason: null })
+      .eq("course_id", courseId);
+    if (updateError) throw new Error(updateError.message);
+    console.info(`Updating the map with ${fixture.length - half} chunks…`);
     await buildKnowledgeMap(courseId);
-    return checkBuiltMap(supabase, courseId);
+
+    const after = await builtKcs(supabase, courseId);
+    const { count, error: processedError } = await supabase
+      .from("knowledge_map_chunks")
+      .select("chunk_id", { count: "exact", head: true })
+      .eq("course_id", courseId);
+    if (processedError) throw new Error(processedError.message);
+    const kept = new Set(after.kcs.map((kc) => kc.id));
+    const lost = first.kcs.filter(
+      (kc) => first.sourced.has(kc.id) && !kept.has(kc.id),
+    );
+    const results = await checkBuiltMap(supabase, courseId, idAt);
+    return [
+      result(
+        "the first build is built",
+        first.status === "built",
+        first.status,
+      ),
+      ...results,
+      result(
+        "every sourced KC of the first build survives the update",
+        lost.length === 0,
+        lost.map((kc) => kc.name).join("; "),
+      ),
+      result(
+        "no chunk is processed twice",
+        count === fixture.length,
+        `${count} processed of ${fixture.length}`,
+      ),
+      result(
+        "the check report has a duplicates entry",
+        Array.isArray(after.checkReport?.duplicates),
+        JSON.stringify(after.checkReport?.duplicates),
+      ),
+    ];
   },
 };
+
+/**
+ * A parsed Material of these fixture chunks, positions counted from its
+ * first; returns the chunk ids by fixture position.
+ */
+async function insertMaterial(
+  supabase: Supabase,
+  {
+    studentId,
+    courseId,
+    name,
+    chunks,
+  }: { studentId: string; courseId: string; name: string; chunks: Fixture },
+): Promise<Map<number, string>> {
+  const materialId = randomUUID();
+  const { error: materialError } = await supabase.from("materials").insert({
+    id: materialId,
+    owner: studentId,
+    course_id: courseId,
+    name,
+    media_type: "application/pdf",
+    size_bytes: 1,
+    storage_path: `${studentId}/${courseId}/${materialId}`,
+    parse_status: "parsed",
+  });
+  if (materialError) throw new Error(materialError.message);
+  const offset = chunks[0]?.position ?? 0;
+  const { data, error } = await supabase
+    .from("chunks")
+    .insert(
+      chunks.map(({ figure_description, ...chunk }) => ({
+        ...chunk,
+        position: chunk.position - offset,
+        owner: studentId,
+        course_id: courseId,
+        material_id: materialId,
+        figure: figure_description
+          ? {
+              description: figure_description,
+              page: chunk.page_from,
+              box: null,
+            }
+          : null,
+      })),
+    )
+    .select("id, position");
+  if (error) throw new Error(error.message);
+  return new Map(data.map((row) => [row.position + offset, row.id]));
+}
+
+/** The build's status and check report, its KCs and which have a source. */
+async function builtKcs(supabase: Supabase, courseId: string) {
+  const [build, kcs, sources] = await Promise.all([
+    supabase
+      .from("knowledge_map_builds")
+      .select("status, check_report")
+      .eq("course_id", courseId)
+      .single(),
+    supabase.from("kcs").select("id, name").eq("course_id", courseId),
+    supabase.from("kc_sources").select("kc_id").eq("course_id", courseId),
+  ]);
+  for (const { error } of [build, kcs, sources]) {
+    if (error) throw new Error(error.message);
+  }
+  return {
+    status: build.data!.status,
+    checkReport: build.data!.check_report as { duplicates?: unknown } | null,
+    kcs: kcs.data!,
+    sourced: new Set(sources.data!.map((source) => source.kc_id)),
+  };
+}
 
 async function checkBuiltMap(
   supabase: Supabase,
   courseId: string,
+  idAt: Map<number, string>,
 ): Promise<SmokeResult[]> {
+  // Fixture positions, which gold.json's sources use, by chunk id.
+  const positionOf = new Map([...idAt].map(([position, id]) => [id, position]));
   const [
     build,
     bigIdeas,
@@ -225,7 +323,7 @@ async function checkBuiltMap(
       ?.uncoveredChunkIds ?? []
   ).map((id) => {
     const chunk = chunks.data!.find((row) => row.id === id);
-    return chunk ? `${chunk.position} (${chunk.label})` : id;
+    return chunk ? `${positionOf.get(id)} (${chunk.label})` : id;
   });
   console.info(`Uncovered chunk positions: ${uncovered.join(", ") || "none"}`);
 
@@ -250,7 +348,6 @@ async function checkBuiltMap(
   );
 
   // Reported, not checked: the model may judge either way.
-  const positionOf = new Map(chunks.data!.map((row) => [row.id, row.position]));
   const exercise71 = allExercises.find(
     (exercise) =>
       positionOf.get(exercise.question_chunk_id) === EXERCISE_7_1_POSITION,

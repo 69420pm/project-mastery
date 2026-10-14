@@ -14,9 +14,10 @@ import {
 import { aiTask } from "@/lib/ai/models";
 
 /**
- * The model calls of a Knowledge map build (task `map`): the skeleton, one
- * assignment per batch of chunks, one fill per big idea, and the links over
- * all KCs. Each prompt
+ * The model calls of a Knowledge map update (task `map`): the skeleton, one
+ * assignment per batch of new chunks, one fill per big idea with new KCs,
+ * the links of the new KCs over all KCs, and the merge of duplicate KCs.
+ * Each prompt
  * carries the granularity rule of #51. Ids in prompts are short and local to
  * the call or the build; outputs name them through enums, so a call can only
  * name what exists.
@@ -70,7 +71,7 @@ export const skeletonSchema = z.object({
     .describe(`At most ${MAX_BIG_IDEAS} big ideas.`),
 });
 
-const SKELETON_INSTRUCTIONS = `You outline the knowledge map of a university course. You get the names of its materials, their markdown headings and every definition, as JSON. Give the course's big ideas: the few broad themes everything in it serves, usually 3 to 6 for a chapter and never more than ${MAX_BIG_IDEAS}. Give each a name and a one-line description, and list the candidate KCs it holds, each with a name and a one-line description. A section heading usually holds several KCs: the facts, concepts, formulas, procedures and decisions a Student must master in it, each small enough for one short question, so a big idea usually holds 5 to 12 of them. List them all; later steps check every candidate against the material and drop the ones no chunk teaches.`;
+const SKELETON_INSTRUCTIONS = `You outline the knowledge map of a university course. You get the names of its materials, their markdown headings and every definition, as JSON. Give the course's big ideas: the few broad themes everything in it serves, usually 3 to 6 for a chapter and never more than ${MAX_BIG_IDEAS}. Give each a name and a one-line description, and list the candidate KCs it holds, each with a name and a one-line description. A section heading usually holds several KCs: the facts, concepts, formulas, procedures and decisions a Student must master in it, each small enough for one short question, so a big idea usually holds 5 to 12 of them. List them all; later steps check every candidate against the material and drop the ones no chunk teaches. When the map already has big ideas (existingBigIdeas, with their KCs), the materials are new ones added to the course: those big ideas and KCs stay as they are. Give only what the new materials add: new big ideas, and new candidate KCs; to put a candidate under an existing big idea, give that big idea by its exact name with only the new KCs. Never repeat an existing KC.`;
 
 export function skeletonCall(input: SkeletonInput) {
   return {
@@ -265,6 +266,53 @@ export function addedKcLinksCall(
       })),
       newKcIds: addedKcIds,
     }),
+  };
+}
+
+/** What the merge call answers for clusters of KCs, by cluster id. */
+export function mergeSchema(clusters: Record<string, string[]>) {
+  return z.object({
+    clusters: z
+      .object(
+        Object.fromEntries(
+          Object.entries(clusters).map(([id, kcIds]) => [
+            id,
+            z.object({
+              groups: z
+                .array(idList(kcIds))
+                .describe(
+                  "Groups of KCs of this cluster that are the same KC, each merged into one. Leave out every KC that is distinct.",
+                ),
+            }),
+          ]),
+        ),
+      )
+      .describe("Every cluster, by id."),
+  });
+}
+
+const MERGE_INSTRUCTIONS = `You find duplicate knowledge components (KCs) in the knowledge map of a university course. You get clusters of KCs whose names and descriptions are alike, as JSON. Within each cluster, group the KCs that are the same KC: one short question would test them all, and a Student who masters one masters the others. KCs that are related but distinct, such as a concept and a procedure that uses it, or the same idea at different steps, stay apart. Give no group for a cluster without duplicates.`;
+
+/** One merge call over clusters of possibly duplicate KCs. */
+export function mergeCall(
+  clusters: Array<{
+    id: string;
+    kcs: Array<{ id: string; name: string; description: string }>;
+  }>,
+) {
+  return {
+    ...callSettings(
+      MERGE_INSTRUCTIONS,
+      mergeSchema(
+        Object.fromEntries(
+          clusters.map((cluster) => [
+            cluster.id,
+            cluster.kcs.map((kc) => kc.id),
+          ]),
+        ),
+      ),
+    ),
+    messages: userMessage({ clusters }),
   };
 }
 

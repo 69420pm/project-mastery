@@ -234,6 +234,7 @@ export async function getKnowledgeMap(
       droppedCycleEdges: report.droppedCycleEdges,
       unmappedExercises: report.unmappedExercises,
       untestedKcs: report.untestedKcs,
+      duplicates: report.duplicates,
     },
   };
 }

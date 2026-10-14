@@ -29,7 +29,7 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
   await page.getByRole("button", { name: "Build knowledge map" }).click();
 
   // The page refreshes itself while the build runs (mock AI).
-  await expect(page.getByRole("button", { name: "Rebuild" })).toBeVisible({
+  await expect(page.getByRole("button", { name: "Update map" })).toBeVisible({
     timeout: 30_000,
   });
   const kcs = page.getByRole("list", { name: "Knowledge components" });

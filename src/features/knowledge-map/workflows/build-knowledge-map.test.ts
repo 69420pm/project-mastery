@@ -1,15 +1,20 @@
 // @vitest-environment node
-import { MockLanguageModelV4 } from "ai/test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
-import { createMapDb } from "./build-testing";
+import {
+  createMapDb,
+  mapModel,
+  seedBuild as seedCourseBuild,
+  seedMaterial as seedCourseMaterial,
+  STUDENT,
+  type Sent,
+} from "./build-testing";
 
 vi.mock("server-only", () => ({}));
 
-const STUDENT = "11111111-1111-1111-1111-111111111111";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 
 const createDb = () => createMapDb(COURSE);
@@ -20,154 +25,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 const { buildKnowledgeMap } = await import("./build-knowledge-map");
 
-/**
- * A Material of the Course with chunks of these labels and markdown, one per
- * page; returns their ids.
- */
-function seedMaterial(
+const seedMaterial = (
   name: string,
   parseStatus: string,
-  chunks: Array<
-    [label: string, markdown: string, exerciseNumber?: string | null]
-  >,
-) {
-  const materialId = crypto.randomUUID();
-  db.tables.materials.push({
-    id: materialId,
-    owner: STUDENT,
-    course_id: COURSE,
-    name,
-    parse_status: parseStatus,
-  });
-  return chunks.map(([label, markdown, exerciseNumber = null], position) => {
-    const id = crypto.randomUUID();
-    db.tables.chunks.push({
-      id,
-      material_id: materialId,
-      course_id: COURSE,
-      position,
-      page_from: position + 1,
-      label,
-      markdown,
-      exercise_number: exerciseNumber,
-    });
-    return id;
-  });
-}
-
-type Sent = Record<string, unknown> & {
-  kcs?: Array<{ id: string; name: string }>;
-  chunks?: Array<{ id: string; markdown: string }>;
-};
-
-/**
- * The `map` model: answers the skeleton, each assignment and each fill call
- * with the test's function of what the call was sent, and the links calls
- * with the test's links (or its function of what was sent) or none, and remembers what each call was sent.
- */
-function mapModel(answers: {
-  skeleton: unknown;
-  assign: (call: number) => {
-    taught: Record<string, string[]>;
-    newKcs: Array<{
-      name: string;
-      description: string;
-      bigIdea: string;
-      chunkIds: string[];
-    }>;
-  };
-  links?: unknown;
-  exercise?: (input: Sent) => unknown;
-}) {
-  const sent: Sent[] = [];
-  let assignments = 0;
-  const model = new MockLanguageModelV4({
-    doGenerate: async ({ prompt }) => {
-      const message = prompt.findLast((m) => m.role === "user");
-      const input = JSON.parse(
-        (message?.content as Array<{ text: string }>)[0]?.text ?? "{}",
-      ) as Sent;
-      sent.push(input);
-      let answer: unknown;
-      if ("exercise" in input) {
-        answer = answers.exercise?.(input) ?? {
-          kcIds: [],
-          newKcs: [],
-          taskType: "compute",
-          solution: "Solved.",
-          finalResult: "1",
-          steps: 1,
-        };
-      } else if ("definitions" in input) answer = answers.skeleton;
-      else if ("chunks" in input) {
-        // Every sent chunk, teaching nothing unless the test says so; a
-        // new KC goes under each chunk that teaches it.
-        const { taught, newKcs } = answers.assign(assignments++);
-        answer = {
-          chunks: Object.fromEntries(
-            (input.chunks ?? []).map(({ id }) => [
-              id,
-              {
-                kcIds: taught[id] ?? [],
-                newKcs: newKcs
-                  .filter((kc) => kc.chunkIds.includes(id))
-                  .map(({ name, description, bigIdea }) => ({
-                    name,
-                    description,
-                    bigIdea,
-                  })),
-              },
-            ]),
-          ),
-        };
-      } else if (!("bigIdea" in input))
-        answer = (typeof answers.links === "function"
-          ? (answers.links as (input: Sent) => unknown)(input)
-          : answers.links) ?? {
-          prerequisites: [],
-          semanticLinks: [],
-          priorKcs: [],
-        };
-      else
-        answer = {
-          kcs: Object.fromEntries(
-            (input.kcs ?? []).map((kc) => [
-              kc.id,
-              {
-                type: "concept",
-                bloom: "apply",
-                description: `Sharp ${kc.name}`,
-              },
-            ]),
-          ),
-        };
-      return {
-        content: [{ type: "text", text: JSON.stringify(answer) }],
-        finishReason: { unified: "stop", raw: undefined },
-        usage: {
-          inputTokens: {
-            total: 1000,
-            noCache: 1000,
-            cacheRead: undefined,
-            cacheWrite: undefined,
-          },
-          outputTokens: { total: 200, text: 200, reasoning: undefined },
-        },
-        warnings: [],
-      };
-    },
-  });
-  return { model, sent };
-}
-
-function seedBuild() {
-  db.tables.knowledge_map_builds.push({
-    course_id: COURSE,
-    owner: STUDENT,
-    status: "building",
-    failure_reason: null,
-  });
-}
+  chunks: Parameters<typeof seedCourseMaterial>[4],
+) => seedCourseMaterial(db, COURSE, name, parseStatus, chunks);
+const seedBuild = () => seedCourseBuild(db, COURSE);
 
 beforeEach(() => {
   db = createDb();
@@ -188,7 +51,7 @@ describe("building a Knowledge map", () => {
       ["content", "Turbine work equals compressor work."],
     ]);
     seedMaterial("Lecture 2", "queued", [["content", "Not parsed yet"]]);
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: {
         bigIdeas: [
           {
@@ -219,11 +82,11 @@ describe("building a Knowledge map", () => {
       links: {
         // A cycle, whose weaker edge goes.
         prerequisites: [
-          { from: "k1", to: "k3", extractionConfidence: 0.8 },
-          { from: "k3", to: "k1", extractionConfidence: 0.2 },
+          { from: "k1", to: "k2", extractionConfidence: 0.8 },
+          { from: "k2", to: "k1", extractionConfidence: 0.2 },
         ],
         semanticLinks: [
-          { from: "k3", to: "k1", coreType: "causes", label: "raises" },
+          { from: "k2", to: "k1", coreType: "causes", label: "raises" },
         ],
         priorKcs: [
           {
@@ -235,7 +98,7 @@ describe("building a Knowledge map", () => {
         ],
       },
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -301,10 +164,12 @@ describe("building a Knowledge map", () => {
       // The exercise, unpaired, is answered with no KC.
       unmappedExercises: ["Exercise on Lecture 1 p. 11"],
       untestedKcs: ["Pressure ratio", "Turbine work"],
+      duplicates: [],
     });
 
     const [skeleton, first, second, fill, linksCall] = sent;
     expect(skeleton).toEqual({
+      existingBigIdeas: [],
       materials: ["Lecture 1"],
       headings: ["Compressors"],
       definitions: ["# Compressors\n**Pressure ratio** is p2/p1."],
@@ -319,11 +184,13 @@ describe("building a Knowledge map", () => {
       "Pressure ratio",
       "Turbine work",
     ]);
-    expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k3"]);
+    // KCs go to the links call by their place in the map.
+    expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k2"]);
     expect(sent).toHaveLength(6);
     expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
       ...Array(5).fill("map"),
       "exercise",
+      "embed",
     ]);
   });
 
@@ -375,7 +242,7 @@ describe("building a Knowledge map", () => {
         steps: 5,
       },
     };
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: {
         bigIdeas: [
           {
@@ -390,7 +257,7 @@ describe("building a Knowledge map", () => {
         input.newKcIds
           ? {
               prerequisites: [
-                { from: "k1", to: "x1", extractionConfidence: 0.9 },
+                { from: "k1", to: "k2", extractionConfidence: 0.9 },
               ],
               semanticLinks: [],
               priorKcs: [],
@@ -403,7 +270,7 @@ describe("building a Knowledge map", () => {
         ...answers[input.exercise as string],
       }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -490,11 +357,11 @@ describe("a failed build", () => {
     seedBuild();
     oldMap();
     seedMaterial("Lecture 1", "parsed", [["content", "Something"]]);
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: { bigIdeas: [] },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -510,11 +377,11 @@ describe("a failed build", () => {
     seedBuild();
     oldMap();
     seedMaterial("Lecture 1", "parsed", [["content", "Something"]]);
-    const { model } = mapModel({
+    const { models } = mapModel({
       skeleton: { wrong: true },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await buildKnowledgeMap(COURSE);
