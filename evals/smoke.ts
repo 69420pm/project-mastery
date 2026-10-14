@@ -6,7 +6,7 @@
  * A smoke check runs one real feature path once, on a small input, against
  * the local Supabase and a real model, and checks the feature's invariants.
  * The runner pins every generating task to SMOKE_MODEL, gives the check a
- * throwaway Student, holds the Student's recorded AI calls to the check's cap (10 by default) and
+ * throwaway Student, holds the Student's recorded AI calls to the check's cap (30 by default) and
  * deletes the Student with all its data afterwards. Smoke checks never run in
  * `pnpm check`, Vitest or CI.
  */
@@ -23,11 +23,11 @@ import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
 const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke];
 
-/** The one model agents call (docs/agents/live-ai.md). */
-const SMOKE_MODEL = "google/gemini-3.5-flash-lite";
+/** The model agents call (docs/agents/live-ai.md). */
+const SMOKE_MODEL = "xiaomi/mimo-v2.6-flash";
 
 /** The most model calls a smoke check may record, unless it sets its own. */
-const DEFAULT_MAX_CALLS = 10;
+const DEFAULT_MAX_CALLS = 30;
 
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [

@@ -97,7 +97,7 @@ describe("a stopped reply", () => {
       expect(db.tables.chat_messages.at(-1)).toMatchObject({
         role: "assistant",
         stopped: true,
-        model_id: "google/gemini-3.5-flash-lite",
+        model_id: "xiaomi/mimo-v2.6-flash",
       }),
     );
     expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
@@ -116,7 +116,7 @@ describe("a stopped reply", () => {
     expect(db.tables.ai_usage[0]).toMatchObject({
       owner: STUDENT,
       task: "chat",
-      model_id: "google/gemini-3.5-flash-lite",
+      model_id: "xiaomi/mimo-v2.6-flash",
       cached_input_tokens: 0,
       // "The first step is " has 18 characters.
       output_tokens: 5,

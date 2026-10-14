@@ -117,7 +117,7 @@ async function mapCall(
   traceName: string,
   call: Parameters<typeof generateText>[0] & {
     model: string;
-    providerOptions?: { gateway?: { models: readonly string[] } };
+    providerOptions?: { gateway?: { models?: readonly string[] } };
   },
   task: AiTask = "map",
 ): Promise<unknown> {

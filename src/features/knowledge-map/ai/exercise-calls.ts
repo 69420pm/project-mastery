@@ -73,10 +73,7 @@ export function exerciseCall(input: {
   const settings = aiTask("exercise");
   return {
     ...settings,
-    providerOptions: {
-      ...settings.providerOptions,
-      google: { thinkingConfig: { thinkingLevel: "medium" as const } },
-    },
+    reasoning: "medium" as const,
     instructions: INSTRUCTIONS,
     output: Output.object({ schema: exerciseSchema(input.solution !== null) }),
     messages: [

@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, seedAiSpend, test } from "./fixtures";
 
 // The Playwright server runs with AI_DAILY_LIMIT_USD=1 (playwright.config.ts),
-// and a mock reply costs about $0.00005.
+// and a mock reply costs about $0.000007.
 
 const WARNING = "You've used most of today's daily limit.";
 
@@ -71,7 +71,7 @@ test.describe("at the Daily limit", () => {
     student,
     course,
   }) => {
-    await seedAiSpend(student, 0.99996);
+    await seedAiSpend(student, 0.999996);
     await page.goto(course.chatPath);
     await expect(page.getByText(WARNING)).toBeVisible();
 

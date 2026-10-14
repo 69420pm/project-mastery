@@ -53,14 +53,13 @@ export function experimentTask<Input, Expected>(
 }
 
 /**
- * Thrown for every model call after the provider answered `429`. The free
- * tier's quota is per model and per day, so retrying, or switching to another
- * model, only spends the quota that is left.
+ * Thrown for every model call after the provider answered `429`. Retrying
+ * only spends more of the AI Gateway credit or rate limit that is left.
  */
 export class QuotaExhaustedError extends Error {
   constructor() {
     super(
-      "The model provider answered 429 (quota exhausted). The eval stopped: run it again when the quota resets, not with another model.",
+      "The model provider answered 429 (rate limit or credit exhausted). The eval stopped: check the AI Gateway credit and run it again later.",
     );
   }
 }
