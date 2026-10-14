@@ -55,6 +55,12 @@ export const AI_TASKS = {
       thorough: { label: "Thorough", model: "openai/gpt-5-nano" },
     },
   },
+  /** The AI's replies in a Course's Brief, where it asks about the exam. */
+  brief: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_BRIEF",
+  },
   /** A short title for a Chat, on the cheapest model. */
   title: {
     model: "xiaomi/mimo-v2.6-flash",

@@ -32,6 +32,7 @@ const DEFAULT_MAX_CALLS = 30;
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
+  "AI_MODEL_BRIEF",
   "AI_MODEL_TITLE",
   "AI_MODEL_INGEST",
   "AI_MODEL_MAP",

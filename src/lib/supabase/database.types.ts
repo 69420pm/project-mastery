@@ -111,6 +111,154 @@ export type Database = {
           },
         ];
       };
+      brief_excluded_materials: {
+        Row: {
+          course_id: string;
+          material_id: string;
+          owner: string;
+        };
+        Insert: {
+          course_id: string;
+          material_id: string;
+          owner?: string;
+        };
+        Update: {
+          course_id?: string;
+          material_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brief_excluded_materials_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "briefs";
+            referencedColumns: ["course_id"];
+          },
+          {
+            foreignKeyName: "brief_excluded_materials_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "brief_excluded_materials_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brief_messages: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          model_id: string | null;
+          owner: string;
+          parts: NonNullable<Json>;
+          role: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          owner?: string;
+          parts: NonNullable<Json>;
+          role: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          owner?: string;
+          parts?: NonNullable<Json>;
+          role?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brief_messages_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "briefs";
+            referencedColumns: ["course_id"];
+          },
+          {
+            foreignKeyName: "brief_messages_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      briefs: {
+        Row: {
+          calculator: boolean | null;
+          course_id: string;
+          created_at: string;
+          exam_date: string | null;
+          formula_sheet: boolean | null;
+          goal: string | null;
+          hours_per_week: number | null;
+          notes: string | null;
+          open_book: boolean | null;
+          owner: string;
+          question_style: string | null;
+          scope_confirmed: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          calculator?: boolean | null;
+          course_id: string;
+          created_at?: string;
+          exam_date?: string | null;
+          formula_sheet?: boolean | null;
+          goal?: string | null;
+          hours_per_week?: number | null;
+          notes?: string | null;
+          open_book?: boolean | null;
+          owner?: string;
+          question_style?: string | null;
+          scope_confirmed?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          calculator?: boolean | null;
+          course_id?: string;
+          created_at?: string;
+          exam_date?: string | null;
+          formula_sheet?: boolean | null;
+          goal?: string | null;
+          hours_per_week?: number | null;
+          notes?: string | null;
+          open_book?: boolean | null;
+          owner?: string;
+          question_style?: string | null;
+          scope_confirmed?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "briefs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "briefs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_messages: {
         Row: {
           chat_id: string;

@@ -1,0 +1,126 @@
+import "server-only";
+import type { Database, Json } from "@/lib/supabase/database.types";
+import type { Supabase } from "@/lib/supabase/types";
+import {
+  OPENING_MESSAGE,
+  OPENING_MODEL_ID,
+  openingMessageId,
+} from "@/features/brief/domain/opening";
+import type { BriefFields } from "@/features/brief/domain/intake";
+import type { BriefUIMessage } from "@/features/brief/types";
+
+/**
+ * Reads and writes Briefs and their messages as the signed-in Student, so Row
+ * Level Security applies: another Student's Brief reads as missing.
+ */
+
+type MessageRow = Database["public"]["Tables"]["brief_messages"]["Row"];
+
+function fail(action: string, error: { message: string }): never {
+  throw new Error(`${action} failed: ${error.message}`);
+}
+
+/**
+ * Creates the Course's Brief and its static opening message when they do not
+ * exist yet. Returns false when the Course is not (or no longer) the
+ * Student's. Safe to call concurrently: each insert is stored once.
+ */
+export async function ensureBrief(
+  supabase: Supabase,
+  courseId: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("briefs")
+    .insert({ course_id: courseId });
+  // 23505: it exists. The insert policy and the foreign key refuse a Course
+  // that is not the Student's or was deleted.
+  if (error?.code === "42501" || error?.code === "23503") return false;
+  if (error && error.code !== "23505") fail("Creating the Brief", error);
+
+  const { error: openingError } = await supabase.from("brief_messages").insert({
+    id: openingMessageId(courseId),
+    course_id: courseId,
+    role: "assistant",
+    parts: [{ type: "text", text: OPENING_MESSAGE }],
+    model_id: OPENING_MODEL_ID,
+  });
+  if (openingError && openingError.code !== "23505") {
+    fail("Saving the opening message", openingError);
+  }
+  return true;
+}
+
+function toUIMessage(row: MessageRow): BriefUIMessage {
+  const message = {
+    id: row.id,
+    role: row.role as BriefUIMessage["role"],
+    parts: row.parts as unknown as BriefUIMessage["parts"],
+  };
+  return row.role === "assistant"
+    ? {
+        ...message,
+        metadata: { ...(row.model_id && { modelId: row.model_id }) },
+      }
+    : message;
+}
+
+/** A Brief's messages in order. Not validated: run `validateUIMessages` before model calls. */
+export async function loadMessages(
+  supabase: Supabase,
+  courseId: string,
+): Promise<BriefUIMessage[]> {
+  const { data, error } = await supabase
+    .from("brief_messages")
+    .select("id, course_id, owner, role, parts, model_id, created_at")
+    .eq("course_id", courseId)
+    .order("created_at", { ascending: true });
+  if (error) fail("Loading the messages", error);
+  return data.map(toUIMessage);
+}
+
+/**
+ * Stores a message. Returns false when its id is taken, by a message of the
+ * Brief or by one the Student cannot see.
+ */
+export async function saveMessage(
+  supabase: Supabase,
+  courseId: string,
+  message: BriefUIMessage,
+): Promise<boolean> {
+  const { error } = await supabase.from("brief_messages").insert({
+    id: message.id,
+    course_id: courseId,
+    role: message.role,
+    parts: message.parts as unknown as Json[],
+    model_id: message.metadata?.modelId ?? null,
+  });
+  if (error?.code === "23505") return false;
+  if (error) fail("Saving the message", error);
+  return true;
+}
+
+/** The Course's Brief fields, or null when it has no Brief yet. */
+export async function loadFields(
+  supabase: Supabase,
+  courseId: string,
+): Promise<BriefFields | null> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select(
+      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed",
+    )
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) fail("Loading the Brief", error);
+  if (!data) return null;
+  return {
+    examDate: data.exam_date,
+    goal: data.goal as BriefFields["goal"],
+    hoursPerWeek: data.hours_per_week,
+    questionStyle: data.question_style as BriefFields["questionStyle"],
+    openBook: data.open_book,
+    formulaSheet: data.formula_sheet,
+    calculator: data.calculator,
+    scopeConfirmed: data.scope_confirmed,
+  };
+}
