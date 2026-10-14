@@ -226,12 +226,13 @@ const COVERED_LABELS = new Set(["content", "definition"]);
  * What the build's checks found in a linked map: `content` and
  * `definition` chunks no KC cites, non-prior KCs without a source, KCs
  * without any link, the cycle edges dropped, Exercises without a KC and
- * KCs no Exercise tests, all by name.
+ * KCs no Exercise tests, all by name, with the `duplicates` dedup left.
  */
 export function checkMap(
   map: KnowledgeMap,
   chunks: Array<{ id: string; label: string }>,
   droppedCycleEdges: Prerequisite[],
+  duplicates: CheckReport["duplicates"] = [],
 ): CheckReport {
   const cited = new Set(map.kcs.flatMap((kc) => kc.sources));
   const linked = new Set(
@@ -258,5 +259,6 @@ export function checkMap(
       extractionConfidence: edge.extractionConfidence,
     })),
     ...checkExercises(map),
+    duplicates,
   };
 }

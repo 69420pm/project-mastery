@@ -1,5 +1,5 @@
 import "server-only";
-import { generateText } from "ai";
+import { embedMany, generateText } from "ai";
 import {
   loadCourseChunks,
   loadExerciseSolutions,
@@ -17,6 +17,8 @@ import {
   fillSchema,
   linksCall,
   linksSchema,
+  mergeCall,
+  mergeSchema,
   skeletonCall,
   skeletonSchema,
 } from "@/features/knowledge-map/ai/map-calls";
@@ -48,9 +50,9 @@ import {
 } from "@/features/knowledge-map/server/stored-map";
 import type { MapChunk } from "@/features/knowledge-map/types";
 import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
+import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { answeringModel, type AiTask } from "@/lib/ai/models";
+import { aiTask, answeringModel, type AiTask } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withTraceAttributes } from "@/lib/tracing";
 
@@ -377,6 +379,87 @@ export async function analyseExercise(
         matches: given.matchesGiven,
       },
     },
+  };
+}
+
+/**
+ * Step 6, dedup: the vectors of these KC texts (task `embed`), in order,
+ * for the Student after checking their Daily limit. Nothing is stored.
+ */
+export async function embedKcs(
+  studentId: string,
+  values: string[],
+): Promise<StepOutcome<number[][]>> {
+  "use step";
+  const supabase = createAdminClient();
+  const dailyLimit = await checkDailyLimit(supabase, { studentId });
+  if (dailyLimit.level === "reached") return limitReached;
+  const settings = aiTask("embed");
+  const result = await withTraceAttributes(
+    { userId: studentId, traceName: "map-dedup-embed" },
+    () => embedMany({ ...settings, values }),
+  ).catch((error: unknown) => {
+    if (isDailyQuotaError(error)) return null;
+    throw error;
+  });
+  if (!result) return limitReached;
+  // A provider that reports no usage for embeddings makes `embedMany` sum
+  // it to NaN: estimate it from the text then.
+  const reported = Number.isFinite(result.usage.tokens);
+  await recordAiUsage(
+    supabase,
+    {
+      task: "embed",
+      modelId: settings.model,
+      usage: reported
+        ? {
+            inputTokens: result.usage.tokens,
+            cachedInputTokens: 0,
+            outputTokens: 0,
+          }
+        : estimatedUsage({ input: values.join(""), output: "" }),
+      estimated: !reported,
+    },
+    { studentId },
+  );
+  return { ok: true, value: result.embeddings };
+}
+
+/**
+ * Step 6, dedup: which KCs of each cluster are one KC, as groups of map ids.
+ * KCs go to the model by short local ids.
+ */
+export async function decideMerges(
+  studentId: string,
+  map: Pick<KnowledgeMap, "kcs">,
+  clusters: string[][],
+): Promise<StepOutcome<string[][]>> {
+  "use step";
+  const kcIds = aliases(
+    map.kcs.map((kc) => kc.id),
+    "k",
+  );
+  const kc = new Map(map.kcs.map((item) => [item.id, item]));
+  const sent = clusters.map((cluster, index) => ({
+    id: `g${index + 1}`,
+    kcs: cluster.map((id) => ({
+      id: kcIds.local(id),
+      name: kc.get(id)?.name ?? id,
+      description: kc.get(id)?.description ?? "",
+    })),
+  }));
+  const output = await mapCall(studentId, "map-merge", mergeCall(sent));
+  if (output === null) return limitReached;
+  const parsed = mergeSchema(
+    Object.fromEntries(
+      sent.map((cluster) => [cluster.id, cluster.kcs.map((item) => item.id)]),
+    ),
+  ).parse(output);
+  return {
+    ok: true,
+    value: Object.values(parsed.clusters).flatMap((cluster) =>
+      cluster.groups.map((group) => group.map(kcIds.real)),
+    ),
   };
 }
 

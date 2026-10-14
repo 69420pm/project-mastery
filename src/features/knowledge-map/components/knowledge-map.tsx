@@ -381,7 +381,7 @@ function Findings({ findings }: { findings: FindingView[] }) {
 
 /**
  * What the last build's checks found, or that they all passed, and the KCs
- * no Exercise tests, which fail no check.
+ * no Exercise tests and possible duplicate KCs, which fail no check.
  */
 function CheckReport({ report }: { report: CheckReportView }) {
   const findings = [
@@ -418,6 +418,13 @@ function CheckReport({ report }: { report: CheckReportView }) {
       {report.untestedKcs.length > 0 && (
         <div className="text-muted-foreground">
           <Markdown>{`KCs no exercise tests: ${report.untestedKcs.join(", ")}`}</Markdown>
+        </div>
+      )}
+      {report.duplicates.length > 0 && (
+        <div className="text-muted-foreground">
+          <Markdown>{`Possible duplicate KCs: ${report.duplicates
+            .map((pair) => `${pair.a} and ${pair.b}`)
+            .join("; ")}`}</Markdown>
         </div>
       )}
     </section>

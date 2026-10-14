@@ -7,6 +7,13 @@ import {
   skeletonInput,
 } from "@/features/knowledge-map/domain/build-input";
 import {
+  clustersOf,
+  kcEmbeddingText,
+  remainingDuplicates,
+  similarPairs,
+  withMerges,
+} from "@/features/knowledge-map/domain/dedup";
+import {
   draftOf,
   kcsOf,
   newKcsOf,
@@ -28,15 +35,22 @@ import {
   newChunks,
   withoutRemoved,
 } from "@/features/knowledge-map/domain/update";
+import type {
+  CheckReport,
+  KnowledgeMap,
+} from "@/features/knowledge-map/schemas";
 import {
   analyseExercise,
   assignBatch,
+  decideMerges,
   draftSkeleton,
+  embedKcs,
   failBuild,
   fillBigIdea,
   linkNewKcs,
   loadBuildInput,
   storeMap,
+  type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 
 /**
@@ -53,9 +67,11 @@ import {
  * code breaks prerequisite cycles and drops redundant prerequisites over the
  * whole map. (5) One `exercise` call per new exercise subtask maps it to KCs
  * and checks or generates its solution (#70). A KC more than one subtask
- * proposes joins the map from those exercises, and (6) one more links call
+ * proposes joins the map from those exercises, and one more links call
  * links the KCs so added. Code sets each Exercise's difficulty and records a
- * disputed solution as a Finding. (7) Code checks the whole map, which is
+ * disputed solution as a Finding. (6) Dedup embeds the KCs when some are
+ * new, and merges the duplicates one call finds among the new KCs' close
+ * pairs (`withoutDuplicates`). (7) Code checks the whole map, which is
  * stored with its check report, keeping the ids of its stored rows, and the
  * new chunks are recorded as processed. With nothing new the update makes no
  * model call. A step that fails for good, or a reached Daily limit, fails the
@@ -76,6 +92,7 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
     }
 
     let map = withoutRemoved(input.map);
+    const existing = new Set(map.kcs.map((kc) => kc.id));
     let draft = draftOf(map);
     if (batches.length > 0) {
       const skeleton = await draftSkeleton(
@@ -185,14 +202,78 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       };
     });
 
+    const deduped = await withoutDuplicates(studentId, map, existing);
+    if (!deduped.ok) {
+      await failBuild(courseId, deduped.reason);
+      return;
+    }
+    map = deduped.value.map;
     await storeMap(
       courseId,
       map,
       fresh.map((chunk) => chunk.id),
-      checkMap(map, chunks, droppedCycleEdges),
+      checkMap(
+        map,
+        chunks,
+        [...droppedCycleEdges, ...deduped.value.droppedCycleEdges],
+        deduped.value.duplicates,
+      ),
     );
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);
   }
+}
+
+/**
+ * Step 6, dedup: embeds every KC when the map has new ones, and when new
+ * KCs come close to others one call decides which are one KC, which code
+ * merges. Returns the merged map, the cycle edges the merges dropped and
+ * the pairs that stay above the threshold. No model call without new KCs.
+ */
+async function withoutDuplicates(
+  studentId: string,
+  map: KnowledgeMap,
+  existing: ReadonlySet<string>,
+): Promise<
+  StepOutcome<{
+    map: KnowledgeMap;
+    droppedCycleEdges: Prerequisite[];
+    duplicates: CheckReport["duplicates"];
+  }>
+> {
+  const newIds = new Set(
+    map.kcs.filter((kc) => !existing.has(kc.id)).map((kc) => kc.id),
+  );
+  if (newIds.size === 0) {
+    return { ok: true, value: { map, droppedCycleEdges: [], duplicates: [] } };
+  }
+  const vectors = await embedKcs(studentId, map.kcs.map(kcEmbeddingText));
+  if (!vectors.ok) return vectors;
+  const pairs = similarPairs(map.kcs, vectors.value, newIds);
+  const clusters = clustersOf(
+    pairs,
+    map.kcs.map((kc) => kc.id),
+  );
+  let merged: ReturnType<typeof withMerges> = {
+    map,
+    merges: [],
+    droppedCycleEdges: [],
+  };
+  if (clusters.length > 0) {
+    const groups = await decideMerges(studentId, map, clusters);
+    if (!groups.ok) return groups;
+    merged = withMerges(map, groups.value, existing);
+  }
+  for (const merge of merged.merges) {
+    console.info(`Merged KCs into "${merge.kept}": ${merge.merged.join("; ")}`);
+  }
+  return {
+    ok: true,
+    value: {
+      map: merged.map,
+      droppedCycleEdges: merged.droppedCycleEdges,
+      duplicates: remainingDuplicates(merged.map, pairs),
+    },
+  };
 }

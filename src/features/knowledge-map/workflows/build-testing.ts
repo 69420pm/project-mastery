@@ -1,4 +1,4 @@
-import { MockLanguageModelV4 } from "ai/test";
+import { MockEmbeddingModelV4, MockLanguageModelV4 } from "ai/test";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
@@ -245,8 +245,11 @@ export type Sent = Record<string, unknown> & {
  * skeleton (or its function of what was sent), each assignment with the
  * test's function of the call's number, each fill with every KC filled, the
  * links calls with the test's links (or its function of what was sent) or
- * none, and each exercise call with the test's function or a plain answer.
- * Remembers what each call was sent.
+ * none, each exercise call with the test's function or a plain answer, and
+ * the merge call with the test's function or each cluster merged whole.
+ * Remembers what each call was sent. Its `embed` model gives KCs named in
+ * one `alike` group the same vector and every other KC its own; `models`
+ * is what `useMockModels` takes.
  */
 export function mapModel(answers: {
   skeleton: unknown;
@@ -261,8 +264,34 @@ export function mapModel(answers: {
   };
   links?: unknown;
   exercise?: (input: Sent) => unknown;
+  /** Groups of KC names that embed alike; every other KC is apart. */
+  alike?: string[][];
+  /** The merge call's answer; by default each cluster is one KC. */
+  merge?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
+  const embedded: string[][] = [];
+  const axes: string[] = [];
+  const axis = (kcName: string) => {
+    const key =
+      answers.alike?.find((group) => group.includes(kcName))?.[0] ?? kcName;
+    if (!axes.includes(key)) axes.push(key);
+    return axes.indexOf(key);
+  };
+  const embed = new MockEmbeddingModelV4({
+    doEmbed: async ({ values }) => {
+      embedded.push(values);
+      return {
+        embeddings: values.map((text) => {
+          const vector = Array.from({ length: 64 }, () => 0);
+          vector[axis(text.slice(0, text.indexOf(":")))] = 1;
+          return vector;
+        }),
+        usage: undefined,
+        warnings: [],
+      };
+    },
+  });
   let assignments = 0;
   const orCall = (answer: unknown, input: Sent) =>
     typeof answer === "function"
@@ -276,7 +305,20 @@ export function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("exercise" in input) {
+      if ("clusters" in input) {
+        const clusters = input.clusters as Array<{
+          id: string;
+          kcs: Array<{ id: string }>;
+        }>;
+        answer = answers.merge?.(input) ?? {
+          clusters: Object.fromEntries(
+            clusters.map((cluster) => [
+              cluster.id,
+              { groups: [cluster.kcs.map((kc) => kc.id)] },
+            ]),
+          ),
+        };
+      } else if ("exercise" in input) {
         answer = answers.exercise?.(input) ?? {
           kcIds: [],
           newKcs: [],
@@ -344,5 +386,10 @@ export function mapModel(answers: {
       };
     },
   });
-  return { model, sent };
+  return {
+    model,
+    sent,
+    embedded,
+    models: { map: model, exercise: model, embed },
+  };
 }

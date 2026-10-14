@@ -191,6 +191,7 @@ describe("checkMap", () => {
       ],
       unmappedExercises: ["Ex. 2"],
       untestedKcs: ["Turbine work", "Thrust"],
+      duplicates: [],
     });
   });
 

@@ -47,26 +47,25 @@ describe("updating a Knowledge map", () => {
       exercise_chunk_id: question,
       solution_chunk_id: answer,
     });
-    const { model, sent } = mapModel({
-      // The update names the existing big idea for its new candidate.
-      skeleton: (input: { existingBigIdeas: unknown[] }) => ({
+    const candidates = ["Thrust", "Drag", "Drag force"];
+    let skeletons = 0;
+    const { models, sent, embedded } = mapModel({
+      // Each update names the existing big idea for its new candidate.
+      skeleton: () => ({
         bigIdeas: [
           {
             name: "Propulsion",
             description: "Making thrust.",
-            kcs: [
-              {
-                name: input.existingBigIdeas.length > 0 ? "Drag" : "Thrust",
-                description: "One line.",
-              },
-            ],
+            kcs: [{ name: candidates[skeletons++], description: "One line." }],
           },
         ],
       }),
+      // The candidate follows the one KC the map has after the first update.
       assign: (call) => ({
         taught: { c1: [call === 0 ? "k1" : "k2"] },
         newKcs: [],
       }),
+      alike: [["Drag", "Drag force"]],
       exercise: () => ({
         kcIds: ["k1"],
         newKcs: [],
@@ -78,7 +77,7 @@ describe("updating a Knowledge map", () => {
         steps: 1,
       }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await update();
     const firstKcs = db.tables.kcs.map(({ id, name }) => ({ id, name }));
@@ -111,9 +110,18 @@ describe("updating a Knowledge map", () => {
       drag,
     ]);
 
+    // Drag is apart from Thrust: embedded, but no merge call.
+    expect(embedded.flat().slice(-2)).toEqual([
+      "Thrust: Sharp Thrust",
+      "Drag: Sharp Drag",
+    ]);
+    expect(sent.some((input) => "clusters" in input)).toBe(false);
+
     const calls = sent.length;
+    const embeds = embedded.length;
     await update();
     expect(sent).toHaveLength(calls);
+    expect(embedded).toHaveLength(embeds);
 
     // Deleting Lecture 1 cascades its chunks and what cites them away.
     const gone = new Set([thrust, question, answer]);
@@ -137,5 +145,25 @@ describe("updating a Knowledge map", () => {
     expect(sent).toHaveLength(calls);
     expect(db.tables.kcs.map((row) => row.name)).toEqual(["Drag"]);
     expect(db.tables.findings).toEqual([]);
+
+    // A new KC alike an existing one merges into it.
+    const dragId = db.tables.kcs[0]?.id;
+    const [dragForce] = seedMaterial(db, COURSE, "Lecture 3", "parsed", [
+      ["content", "Drag force grows with speed."],
+    ]);
+    await update();
+    expect(
+      sent.findLast((input) => "clusters" in input)?.clusters,
+    ).toMatchObject([{ kcs: [{ name: "Drag" }, { name: "Drag force" }] }]);
+    expect(db.tables.kcs.map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: dragId, name: "Drag" },
+    ]);
+    expect(db.tables.kc_sources.map((row) => row.chunk_id)).toEqual([
+      drag,
+      dragForce,
+    ]);
+    expect(db.tables.knowledge_map_builds[0]?.check_report).toMatchObject({
+      duplicates: [],
+    });
   });
 });

@@ -16,7 +16,8 @@ import { aiTask } from "@/lib/ai/models";
 /**
  * The model calls of a Knowledge map update (task `map`): the skeleton, one
  * assignment per batch of new chunks, one fill per big idea with new KCs,
- * and the links of the new KCs over all KCs. Each prompt
+ * the links of the new KCs over all KCs, and the merge of duplicate KCs.
+ * Each prompt
  * carries the granularity rule of #51. Ids in prompts are short and local to
  * the call or the build; outputs name them through enums, so a call can only
  * name what exists.
@@ -265,6 +266,53 @@ export function addedKcLinksCall(
       })),
       newKcIds: addedKcIds,
     }),
+  };
+}
+
+/** What the merge call answers for clusters of KCs, by cluster id. */
+export function mergeSchema(clusters: Record<string, string[]>) {
+  return z.object({
+    clusters: z
+      .object(
+        Object.fromEntries(
+          Object.entries(clusters).map(([id, kcIds]) => [
+            id,
+            z.object({
+              groups: z
+                .array(idList(kcIds))
+                .describe(
+                  "Groups of KCs of this cluster that are the same KC, each merged into one. Leave out every KC that is distinct.",
+                ),
+            }),
+          ]),
+        ),
+      )
+      .describe("Every cluster, by id."),
+  });
+}
+
+const MERGE_INSTRUCTIONS = `You find duplicate knowledge components (KCs) in the knowledge map of a university course. You get clusters of KCs whose names and descriptions are alike, as JSON. Within each cluster, group the KCs that are the same KC: one short question would test them all, and a Student who masters one masters the others. KCs that are related but distinct, such as a concept and a procedure that uses it, or the same idea at different steps, stay apart. Give no group for a cluster without duplicates.`;
+
+/** One merge call over clusters of possibly duplicate KCs. */
+export function mergeCall(
+  clusters: Array<{
+    id: string;
+    kcs: Array<{ id: string; name: string; description: string }>;
+  }>,
+) {
+  return {
+    ...callSettings(
+      MERGE_INSTRUCTIONS,
+      mergeSchema(
+        Object.fromEntries(
+          clusters.map((cluster) => [
+            cluster.id,
+            cluster.kcs.map((kc) => kc.id),
+          ]),
+        ),
+      ),
+    ),
+    messages: userMessage({ clusters }),
   };
 }
 

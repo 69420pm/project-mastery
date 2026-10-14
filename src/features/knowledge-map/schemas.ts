@@ -217,6 +217,10 @@ export const checkReportSchema = z.object({
   unmappedExercises: z.array(name).default([]),
   /** Names of taught KCs no Exercise tests, reported only. */
   untestedKcs: z.array(name).default([]),
+  /** KC pairs still alike enough to be duplicates after merging, reported only. */
+  duplicates: z
+    .array(z.object({ a: name, b: name, similarity: z.number() }))
+    .default([]),
 });
 
 /** The input of the Build button's Server Action. */

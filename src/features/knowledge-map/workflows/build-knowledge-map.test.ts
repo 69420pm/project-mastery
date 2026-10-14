@@ -51,7 +51,7 @@ describe("building a Knowledge map", () => {
       ["content", "Turbine work equals compressor work."],
     ]);
     seedMaterial("Lecture 2", "queued", [["content", "Not parsed yet"]]);
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: {
         bigIdeas: [
           {
@@ -98,7 +98,7 @@ describe("building a Knowledge map", () => {
         ],
       },
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -164,6 +164,7 @@ describe("building a Knowledge map", () => {
       // The exercise, unpaired, is answered with no KC.
       unmappedExercises: ["Exercise on Lecture 1 p. 11"],
       untestedKcs: ["Pressure ratio", "Turbine work"],
+      duplicates: [],
     });
 
     const [skeleton, first, second, fill, linksCall] = sent;
@@ -189,6 +190,7 @@ describe("building a Knowledge map", () => {
     expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
       ...Array(5).fill("map"),
       "exercise",
+      "embed",
     ]);
   });
 
@@ -240,7 +242,7 @@ describe("building a Knowledge map", () => {
         steps: 5,
       },
     };
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: {
         bigIdeas: [
           {
@@ -268,7 +270,7 @@ describe("building a Knowledge map", () => {
         ...answers[input.exercise as string],
       }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -355,11 +357,11 @@ describe("a failed build", () => {
     seedBuild();
     oldMap();
     seedMaterial("Lecture 1", "parsed", [["content", "Something"]]);
-    const { model, sent } = mapModel({
+    const { models, sent } = mapModel({
       skeleton: { bigIdeas: [] },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
 
     await buildKnowledgeMap(COURSE);
 
@@ -375,11 +377,11 @@ describe("a failed build", () => {
     seedBuild();
     oldMap();
     seedMaterial("Lecture 1", "parsed", [["content", "Something"]]);
-    const { model } = mapModel({
+    const { models } = mapModel({
       skeleton: { wrong: true },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model, exercise: model });
+    useMockModels(models);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await buildKnowledgeMap(COURSE);
