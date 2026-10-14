@@ -36,43 +36,41 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
  * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
- * These are placeholders: MiMo V2.6 Flash does the text work for its price,
- * with a Google model behind it as gateway fallback (ADR 0006). The real
- * model per task is chosen by testing on real course materials (open question
- * in docs/ARCHITECTURE.md).
+ * These are placeholders: MiMo V2.6 Flash does the text work for its price
+ * (ADR 0006), and the other choices are models the Gateway's free credit
+ * serves (verified live on 2026-10-14: no Google model, no MiMo Pro). The
+ * real model per task is chosen by testing on real course materials (open
+ * question in docs/ARCHITECTURE.md).
  */
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
   chat: {
     model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: ["google/gemini-3.5-flash-lite"],
+    fallbacks: [],
     override: "AI_MODEL_CHAT",
+    // The other two take PDFs, which Chats attach raw and MiMo does not.
     choices: {
-      fast: { label: "Fast", model: "google/gemini-3.1-flash-lite" },
+      fast: { label: "Fast", model: "openai/gpt-4.1-nano" },
       balanced: { label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
-      thorough: { label: "Thorough", model: "google/gemini-3.8-flash" },
+      thorough: { label: "Thorough", model: "openai/gpt-5-nano" },
     },
   },
-  /**
-   * A short title for a Chat, on a small model of its own: tests route mock
-   * models by model id, so a task that must be told apart from the Chat needs
-   * an id the Chat does not use.
-   */
+  /** A short title for a Chat, on the cheapest model. */
   title: {
-    model: "google/gemini-3.1-flash-lite",
+    model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_TITLE",
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
     model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: ["google/gemini-3.5-flash-lite"],
+    fallbacks: [],
     override: "AI_MODEL_INGEST",
   },
   /** Builds a Course's Knowledge map from its chunks, one call per step. */
   map: {
     model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: ["google/gemini-3.5-flash-lite"],
+    fallbacks: [],
     override: "AI_MODEL_MAP",
   },
   /**
@@ -81,7 +79,7 @@ export const AI_TASKS = {
    */
   exercise: {
     model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: ["google/gemini-3.5-flash-lite"],
+    fallbacks: [],
     override: "AI_MODEL_EXERCISE",
   },
   /**
@@ -94,11 +92,12 @@ export const AI_TASKS = {
     override: "AI_MODEL_EMBED",
   },
   /**
-   * LLM-as-judge for evals: a different family than the models it judges, and
-   * a cheap one, since an eval run judges every answer.
+   * LLM-as-judge for evals: cheap, since an eval run judges every answer, and
+   * smarter than the small Google models. It is the Chat's family, which can
+   * favour the Chat's own answers.
    */
   judge: {
-    model: "google/gemini-3.5-flash-lite",
+    model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_JUDGE",
   },
@@ -119,6 +118,19 @@ export type ModelChoiceKey<Task extends AiTask> =
 export const AI_MAX_RETRIES = 3;
 
 const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
+
+/**
+ * The providers AI Gateway may use for a model. Verified live on 2026-10-14:
+ * of the six providers of `xiaomi/mimo-v2.6-flash`, only `deepinfra` honors
+ * the JSON schema of a structured output (the others get `json_object` mode
+ * and answer in their own shape, so `Output.object` fails), and it is the
+ * only one with zero data retention and no prompt training. `order` is not
+ * enough: with an image in the request the Gateway ignored it. `only` also
+ * excludes the `models` fallbacks, so MiMo tasks have none.
+ */
+const ONLY_PROVIDERS: Record<string, readonly string[]> = {
+  "xiaomi/mimo-v2.6-flash": ["deepinfra"],
+};
 
 /**
  * The env override of a task's default model. Configured models are checked
@@ -195,7 +207,7 @@ export function modelIdFor(task: AiTask, choice?: string): string {
 export function answeringModel(
   settings: {
     model: string;
-    providerOptions?: { gateway?: { models: readonly string[] } };
+    providerOptions?: { gateway?: { models?: readonly string[] } };
   },
   reportedModelId: string | undefined,
 ): string {
@@ -223,13 +235,19 @@ export function answeringModel(
 export function aiTask(task: AiTask, choice?: string) {
   const { fallbacks } = AI_TASKS[task];
   const model = modelIdFor(task, choice);
+  const only = ONLY_PROVIDERS[model];
   if (getAiEnv().AI_PROVIDER === "mock") routeToMockModels();
   return {
     model,
     maxRetries: AI_MAX_RETRIES,
-    ...(fallbacks.length > 0 && {
-      providerOptions: { gateway: { models: [...fallbacks] } },
-    }),
+    providerOptions: {
+      gateway: {
+        // Groups the Gateway's spend reports by task.
+        tags: [`task:${task}`],
+        ...(only && { only: [...only] }),
+        ...(fallbacks.length > 0 && { models: [...fallbacks] }),
+      },
+    },
     // Spans are emitted only when tracing is registered (src/instrumentation.ts).
     telemetry: { functionId: task },
   };

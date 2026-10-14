@@ -85,18 +85,52 @@ describe("AI_PROVIDER=google", () => {
   });
 });
 
+describe("gateway routing", () => {
+  test("tags every call with its task and pins MiMo to DeepInfra", () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+
+    expect(aiTask("title").providerOptions.gateway).toEqual({
+      tags: ["task:title"],
+      only: ["deepinfra"],
+    });
+    expect(aiTask("chat").providerOptions.gateway).toEqual({
+      tags: ["task:chat"],
+      only: ["deepinfra"],
+    });
+    expect(aiTask("chat", "fast").providerOptions.gateway).toEqual({
+      tags: ["task:chat"],
+    });
+  });
+
+  test("tasks that share a model reach their own mock", async () => {
+    useMockModels({
+      chat: mockTextModel("Chat reply."),
+      title: mockTextModel("A title"),
+    });
+
+    const chat = await generateText({ ...aiTask("chat"), prompt: "Hi" });
+    const title = await generateText({ ...aiTask("title"), prompt: "Hi" });
+
+    expect(chat.text).toBe("Chat reply.");
+    expect(title.text).toBe("A title");
+    await expect(
+      generateText({ ...aiTask("judge"), prompt: "Hi" }),
+    ).rejects.toThrow(/No mock model for task "judge"/);
+  });
+});
+
 describe("model choices", () => {
   test("offers Fast, Balanced and Thorough for the Chat, Balanced by default", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_CHAT", undefined);
 
     expect(modelChoices("chat")).toEqual([
-      { key: "fast", label: "Fast", model: "google/gemini-3.1-flash-lite" },
+      { key: "fast", label: "Fast", model: "openai/gpt-4.1-nano" },
       { key: "balanced", label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
       {
         key: "thorough",
         label: "Thorough",
-        model: "google/gemini-3.8-flash",
+        model: "openai/gpt-5-nano",
       },
     ]);
     expect(aiTask("chat").model).toBe("xiaomi/mimo-v2.6-flash");
@@ -106,14 +140,14 @@ describe("model choices", () => {
   test("resolves a choice by its key", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
 
-    expect(aiTask("chat", "thorough").model).toBe("google/gemini-3.8-flash");
-    expect(aiTask("chat", "fast").model).toBe("google/gemini-3.1-flash-lite");
+    expect(aiTask("chat", "thorough").model).toBe("openai/gpt-5-nano");
+    expect(aiTask("chat", "fast").model).toBe("openai/gpt-4.1-nano");
   });
 
   test("refuses an unknown choice key, including a raw model id", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
 
-    expect(() => aiTask("chat", "google/gemini-3.8-flash")).toThrow(/choice/);
+    expect(() => aiTask("chat", "openai/gpt-5-nano")).toThrow(/choice/);
     expect(() => aiTask("judge", "fast")).toThrow(/choice/);
   });
 
@@ -125,7 +159,7 @@ describe("model choices", () => {
     expect(aiTask("chat", "balanced").model).toBe(
       "google/gemini-3.5-flash-lite",
     );
-    expect(aiTask("chat", "fast").model).toBe("google/gemini-3.1-flash-lite");
+    expect(aiTask("chat", "fast").model).toBe("openai/gpt-4.1-nano");
   });
 
   test("tasks without choices offer none", () => {
@@ -136,12 +170,11 @@ describe("model choices", () => {
 });
 
 describe("title task", () => {
-  test("uses a small model other than the Chat's", () => {
+  test("uses the cheapest model", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_TITLE", undefined);
 
-    expect(aiTask("title").model).toBe("google/gemini-3.1-flash-lite");
-    expect(aiTask("title").model).not.toBe(aiTask("chat").model);
+    expect(aiTask("title").model).toBe("xiaomi/mimo-v2.6-flash");
   });
 });
 
@@ -214,10 +247,14 @@ describe("aiTask", () => {
     expect(aiTask("chat")).toEqual({
       model: AI_TASKS.chat.model,
       maxRetries: 3,
-      providerOptions: { gateway: { models: [...AI_TASKS.chat.fallbacks] } },
+      providerOptions: {
+        gateway: { tags: ["task:chat"], only: ["deepinfra"] },
+      },
       telemetry: { functionId: "chat" },
     });
-    expect(aiTask("embed")).not.toHaveProperty("providerOptions");
+    expect(aiTask("embed").providerOptions.gateway).toEqual({
+      tags: ["task:embed"],
+    });
   });
 
   // The pattern for testing feature code that calls a model.

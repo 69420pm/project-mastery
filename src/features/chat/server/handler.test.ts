@@ -415,7 +415,7 @@ describe("the Chat title", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "title",
-        model_id: "google/gemini-3.1-flash-lite",
+        model_id: "xiaomi/mimo-v2.6-flash",
         input_tokens: 10,
         output_tokens: 20,
         estimated: false,

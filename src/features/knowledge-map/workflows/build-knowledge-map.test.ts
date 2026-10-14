@@ -235,7 +235,7 @@ describe("building a Knowledge map", () => {
         ],
       },
     });
-    useMockModels({ map: model });
+    useMockModels({ map: model, exercise: model });
 
     await buildKnowledgeMap(COURSE);
 
@@ -403,7 +403,7 @@ describe("building a Knowledge map", () => {
         ...answers[input.exercise as string],
       }),
     });
-    useMockModels({ map: model });
+    useMockModels({ map: model, exercise: model });
 
     await buildKnowledgeMap(COURSE);
 
@@ -494,7 +494,7 @@ describe("a failed build", () => {
       skeleton: { bigIdeas: [] },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model });
+    useMockModels({ map: model, exercise: model });
 
     await buildKnowledgeMap(COURSE);
 
@@ -514,7 +514,7 @@ describe("a failed build", () => {
       skeleton: { wrong: true },
       assign: () => ({ taught: {}, newKcs: [] }),
     });
-    useMockModels({ map: model });
+    useMockModels({ map: model, exercise: model });
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await buildKnowledgeMap(COURSE);

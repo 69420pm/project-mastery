@@ -37,6 +37,8 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   },
   "google/gemini-3.7-flash": { input: 0.75, output: 3.75, cachedInput: 0.075 },
   "google/gemini-3.8-flash": { input: 0.75, output: 3.75, cachedInput: 0.075 },
+  "openai/gpt-4.1-nano": { input: 0.1, output: 0.4, cachedInput: 0.025 },
+  "openai/gpt-5-nano": { input: 0.05, output: 0.4, cachedInput: 0.005 },
   "cohere/embed-v5.0-fast": { input: 0.08, output: 0, cachedInput: 0 },
   "xiaomi/mimo-v2.6-flash": { input: 0.14, output: 0.28, cachedInput: 0.0028 },
 };

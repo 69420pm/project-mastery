@@ -69,6 +69,34 @@ export function mockEmbeddingModel(dimensions = 3) {
   });
 }
 
+/**
+ * A model for `modelId` that hands each call to the mock of the task named
+ * in its gateway tags (`task:<name>`), and fails for a task without one.
+ */
+function routedByTask(
+  modelId: string,
+  byTask: Map<string, MockLanguageModelV4>,
+) {
+  const modelFor = (options: {
+    providerOptions?: { gateway?: { tags?: string[] } };
+  }) => {
+    const task = options.providerOptions?.gateway?.tags
+      ?.find((tag) => tag.startsWith("task:"))
+      ?.slice("task:".length);
+    const model =
+      task === undefined ? byTask.values().next().value : byTask.get(task);
+    if (!model) {
+      throw new Error(`No mock model for task "${task}" (${modelId}).`);
+    }
+    return model;
+  };
+  return new MockLanguageModelV4({
+    modelId,
+    doGenerate: (options) => modelFor(options).doGenerate(options),
+    doStream: (options) => modelFor(options).doStream(options),
+  });
+}
+
 type MockModels = {
   [Task in AiTask]?: Task extends "embed"
     ? MockEmbeddingModelV4
@@ -79,8 +107,9 @@ type MockModels = {
  * Routes the given tasks to mock models for the current test. Model ids
  * resolve through the AI SDK's global provider, which this replaces, so any
  * task without a mock fails instead of reaching AI Gateway. A task's mock
- * also answers all of its model choices. Tasks that share a model id share
- * its mock.
+ * also answers all of its model choices. Tasks may share a model id: a call
+ * reaches the mock of its task, which `aiTask` names in the call's gateway
+ * tags.
  */
 export function useMockModels(models: MockModels) {
   vi.stubEnv("AI_PROVIDER", "gateway");
@@ -89,7 +118,10 @@ export function useMockModels(models: MockModels) {
     vi.stubEnv(config.override, undefined);
   }
 
-  const languageModels: Record<string, MockLanguageModelV4> = {};
+  const languageByModelId: Record<
+    string,
+    Map<string, MockLanguageModelV4>
+  > = {};
   const embeddingModels: Record<string, MockEmbeddingModelV4> = {};
   for (const [task, model] of Object.entries(models)) {
     const config: TaskConfig = AI_TASKS[task as AiTask];
@@ -99,9 +131,15 @@ export function useMockModels(models: MockModels) {
     ];
     for (const id of ids) {
       if (model instanceof MockEmbeddingModelV4) embeddingModels[id] = model;
-      else languageModels[id] = model;
+      else (languageByModelId[id] ??= new Map()).set(task, model);
     }
   }
+  const languageModels = Object.fromEntries(
+    Object.entries(languageByModelId).map(([id, byTask]) => [
+      id,
+      routedByTask(id, byTask),
+    ]),
+  );
 
   const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
   globalThis.AI_SDK_DEFAULT_PROVIDER = new MockProviderV4({

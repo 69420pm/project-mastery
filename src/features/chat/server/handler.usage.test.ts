@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, onTestFinished, test, vi } from "vitest";
 import { AI_TASKS } from "@/lib/ai/models";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import {
@@ -76,7 +76,13 @@ describe("usage", () => {
   });
 
   test("a reply from a gateway fallback is stored and priced as the fallback model", async () => {
-    const [fallback] = AI_TASKS.chat.fallbacks;
+    // No Chat model has a fallback now, so this test gives it one.
+    const fallback = "google/gemini-3.5-flash-lite";
+    const { fallbacks } = AI_TASKS.chat;
+    Object.assign(AI_TASKS.chat, { fallbacks: [fallback] });
+    onTestFinished(() => {
+      Object.assign(AI_TASKS.chat, { fallbacks });
+    });
     useMockModels({ chat: answeredByModel(fallback, "From the fallback.") });
     const chatId = randomUUID();
 
