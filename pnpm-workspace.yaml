@@ -10,3 +10,10 @@ allowBuilds:
 # resolvable from the app. Hoisting keeps it at the version react-pdf pins.
 publicHoistPattern:
   - pdfjs-dist
+
+# pdfjs-dist ships its own @napi-rs/canvas, and two copies do not accept each
+# other's Path2D. Keep one, the app's, for rendering PDF pages.
+catalog:
+  "@napi-rs/canvas": 1.0.11
+overrides:
+  "@napi-rs/canvas": "catalog:"
