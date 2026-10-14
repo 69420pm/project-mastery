@@ -106,7 +106,7 @@ export async function markFindingAsked(
 /**
  * Stores the Student's answer to a Finding of the Course, verbatim, and marks
  * it answered. False, and nothing changed, when the Finding is not the
- * Course's.
+ * Course's or is answered already: an answer once stored is never replaced.
  */
 export async function answerFinding(
   supabase: Supabase,
@@ -121,6 +121,7 @@ export async function answerFinding(
     .update({ status: "answered", answer, answered_at: now })
     .eq("id", findingId)
     .eq("course_id", courseId)
+    .eq("status", "open")
     .select("id");
   if (error) failed("Saving the answer", error);
   return data.length > 0;

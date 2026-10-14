@@ -21,7 +21,7 @@ What a Student told the AI about a Course's exam: its date, their goal, weekly h
 _Avoid_: Preferences, intake form, onboarding
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Big idea**:
@@ -45,7 +45,7 @@ One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge
 _Avoid_: Task, problem, question
 
 **Finding**:
-Something a Knowledge map build found wrong in a Course's Materials, such as a printed solution that does not match the AI's, with the chunks it is about.
+A question a Knowledge map build raises about a Course's Materials, with the chunks it is about: something that looks wrong, such as a printed solution that does not match the AI's, or a remark that limits the exam's content, such as "not exam-relevant". It is open until the Student answers it in the Brief, and then answered.
 _Avoid_: Issue, error, erratum
 
 **AI**:

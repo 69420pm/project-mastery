@@ -171,12 +171,13 @@ async function streamReply({
   });
   const context = await loadContext(supabase, courseId);
   if (!context) return refuse(404, briefNotFoundMessage);
-  // The instructions tell the AI to ask the first open Finding when none is
-  // asked yet, so it counts as asked from this reply on.
+  // The Findings this reply asks: the first open one when none is asked yet,
+  // as the instructions tell the AI, and the next one each answerFinding
+  // result gives. They count as asked once the reply is stored, so a dropped
+  // reply leaves them for the static message on the next page open.
+  const askedInReply = new Set<string>();
   const { asking } = reviewQueue(context.findings);
-  if (asking && !asking.asked) {
-    await markFindingAsked(supabase, courseId, asking.id);
-  }
+  if (asking && !asking.asked) askedInReply.add(asking.id);
   const settings = briefReplySettings(context);
   // What the provider reports when the call completes. A stopped or failed
   // call reports neither.
@@ -189,7 +190,11 @@ async function streamReply({
       streamText({
         ...settings,
         messages: await convertToModelMessages(messages),
-        tools: briefTools(briefToolActions(supabase, courseId, context)),
+        tools: briefTools(
+          briefToolActions(supabase, courseId, context, (findingId) =>
+            askedInReply.add(findingId),
+          ),
+        ),
         stopWhen: isStepCount(MAX_STEPS),
         // A disconnect, such as a closed tab, aborts generation.
         abortSignal: request.signal,
@@ -255,6 +260,9 @@ async function streamReply({
             id: replyId,
             metadata: { modelId },
           });
+          for (const findingId of askedInReply) {
+            await markFindingAsked(supabase, courseId, findingId);
+          }
         } catch (error) {
           console.error("Saving the Brief reply failed:", error);
         }

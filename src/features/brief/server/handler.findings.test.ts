@@ -1,6 +1,7 @@
 // @vitest-environment node
 // The Brief's review queue: asking open Findings and storing the answers.
 // Shared setup and helpers: handler-testing.ts.
+import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import type { Supabase } from "@/lib/supabase/types";
@@ -108,6 +109,40 @@ describe("the review queue", () => {
     expect(prompt).toContain(`next question (id ${SCOPE})`);
     expect(JSON.stringify(model.doStreamCalls[1]!.prompt)).toContain(
       `next question about the materials (id ${SCOPE})`,
+    );
+  });
+
+  test("a Finding counts as asked only once a reply asking it is stored", async () => {
+    seedBrief({ done: true });
+    useMockModels({
+      brief: new MockLanguageModelV4({
+        doStream: async () => {
+          throw new Error("Model unavailable");
+        },
+      }),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await send({ courseId: COURSE, message: userMessage("Hi") });
+    expect(askedAt(MISMATCH)).toBeNull();
+
+    useMockModels({ brief: mockTextModel("Which is right?") });
+    await send({ courseId: COURSE, message: userMessage("Hi") });
+    expect(askedAt(MISMATCH)).not.toBeNull();
+  });
+
+  test("answerFinding keeps an answer already stored", async () => {
+    seedBrief({ done: true });
+    await open();
+    useMockModels({ brief: answering(MISMATCH, "50.8% is right") });
+    await send({ courseId: COURSE, message: userMessage("50.8% is right") });
+    const model = answering(MISMATCH, "Actually no");
+    useMockModels({ brief: model });
+
+    await send({ courseId: COURSE, message: userMessage("Actually no") });
+
+    expect(db.tables.findings[0]).toMatchObject({ answer: "50.8% is right" });
+    expect(JSON.stringify(model.doStreamCalls[1]!.prompt)).toContain(
+      "Not saved",
     );
   });
 
