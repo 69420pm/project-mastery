@@ -38,10 +38,12 @@ guard ALLOW_LIVE_AI \
   "Evals, smoke checks and direct model calls spend the user's AI Gateway credit. Test with AI_PROVIDER=mock; what live calls are allowed is in docs/agents/live-ai.md."
 
 # Agent worktrees only: files written from the shell skip the lint hook, and
-# patch scripts get around Claude Code's worktree guard.
+# patch scripts get around Claude Code's worktree guard. An -i option counts
+# only within the sed or perl command, so `sed -n 1p f; grep -i x f` reads.
 if [[ "$cwd" == */.claude/worktrees/* ]]; then
+  arg='[^;&|[:space:]]+\s+'
   guard ALLOW_SHELL_WRITE \
-    'cat\s+([^|;&]*\s)?>>?\s*[^&[:space:]]|tee\s|sed\s+(\S+\s+)*-i|perl\s+(\S+\s+)*-i|python3?\s+(-\s*)?<<|python3?\s+\S+\.py\b' \
+    "cat\s+([^|;&]*\s)?>>?\s*[^&[:space:]]|tee\s|sed\s+($arg)*-[a-zA-Z]*i|perl\s+($arg)*-[a-zA-Z]*i|python3?\s+(-\s*)?<<|python3?\s+\S+\.py\b" \
     "Change files with the Write and Edit tools, not from the shell: they run the lint hook on every change. For many similar edits, send several Edit calls in one turn instead of a script."
 fi
 
