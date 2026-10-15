@@ -44,7 +44,8 @@ describe("base factors", () => {
   test("exam points are split across an exam Exercise's KCs, over the largest sum", () => {
     const input = course({
       exercises: [
-        { questionChunk: "e1", kcs: ["a", "b"] },
+        // A KC listed twice counts once.
+        { questionChunk: "e1", kcs: ["a", "b", "b"] },
         { questionChunk: "e2", kcs: ["a"] },
         // Points outside an exam Material count nothing.
         { questionChunk: "l3", kcs: ["c"] },

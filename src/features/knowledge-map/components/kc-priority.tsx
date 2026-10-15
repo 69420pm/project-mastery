@@ -57,8 +57,9 @@ export function PriorityReasons({ priority }: { priority?: KcPriority }) {
       aria-label="Priority reasons"
       className="flex flex-col text-xs text-muted-foreground"
     >
-      {priority.reasons.map((reason) => (
-        <li key={reason}>{reason}</li>
+      {priority.reasons.map((reason, index) => (
+        // Reasons are a fixed list per render and may repeat a line.
+        <li key={index}>{reason}</li>
       ))}
     </ul>
   );

@@ -84,7 +84,7 @@ export function examPoints(input: PriorityInput): Map<string, number> {
   const points = new Map(input.kcs.map((kc) => [kc.id, 0]));
   for (const exercise of input.exercises) {
     const chunk = input.chunks[exercise.questionChunk];
-    const kcs = exercise.kcs.filter((id) => points.has(id));
+    const kcs = [...new Set(exercise.kcs)].filter((id) => points.has(id));
     if (chunk?.points == null || kcs.length === 0) continue;
     if (!input.materials[chunk.materialId]?.isExam) continue;
     for (const id of kcs) {
