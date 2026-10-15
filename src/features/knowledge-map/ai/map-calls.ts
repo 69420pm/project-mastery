@@ -35,6 +35,9 @@ function callSettings<Schema extends z.ZodType>(
 ) {
   return {
     ...aiTask("map"),
+    // With reasoning on, MiMo can answer a structured output with an empty
+    // text (docs/agents/notes/ai-sdk.md).
+    reasoning: "none" as const,
     instructions: `${instructions}\n\n${GRANULARITY_RULE}`,
     output: Output.object({ schema }),
   };
@@ -352,6 +355,9 @@ export function scopeCall(
 ) {
   return {
     ...aiTask("map"),
+    // With reasoning on, MiMo can answer a structured output with an empty
+    // text (docs/agents/notes/ai-sdk.md).
+    reasoning: "none" as const,
     instructions: SCOPE_INSTRUCTIONS,
     output: Output.object({ schema: scopeSchema }),
     messages: userMessage({ adminChunks: chunks }),
