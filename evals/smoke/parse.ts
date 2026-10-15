@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getDocumentProxy } from "unpdf";
 import { z } from "zod";
@@ -9,11 +9,14 @@ import { result, type SmokeCheck, type SmokeResult } from "./smoke-check";
 
 const DEFAULT_FILE = "e2e/files/lecture-notes.pdf";
 
+/** The option that writes the parsed chunks to a file. */
+const CHUNKS_OUT = "--chunks-out";
+
 /**
  * One vision call per page, plus the chunk call, the embedding call and at
- * most one pairing call must stay within the runner's cap of 10 calls.
+ * most one pairing call must stay within the runner's cap of 30 calls.
  */
-const MAX_PAGES = 5;
+const MAX_PAGES = 10;
 
 /** A stored figure: a page and a box normalized to it, or the whole page. */
 const figureSchema = z.object({
@@ -52,9 +55,9 @@ async function pageCount(bytes: Uint8Array, mediaType: string) {
  */
 export const parseSmoke: SmokeCheck = {
   name: "parse",
-  usage: `pnpm smoke parse [file] (PDF of at most ${MAX_PAGES} pages, or an image; default ${DEFAULT_FILE})`,
+  usage: `pnpm smoke parse [file] [${CHUNKS_OUT} chunks.json] (PDF of at most ${MAX_PAGES} pages, or an image; default ${DEFAULT_FILE}; writes the chunks to a file)`,
   async run({ supabase, studentId, args }) {
-    const file = args[0] ?? DEFAULT_FILE;
+    const { file, chunksOut } = parseArgs(args);
     const mediaType = MEDIA_TYPES[path.extname(file).toLowerCase()];
     if (!mediaType) throw new Error(`${file} is no PDF, PNG, JPEG or WebP.`);
     const bytes = new Uint8Array(await readFile(file));
@@ -91,9 +94,66 @@ export const parseSmoke: SmokeCheck = {
 
     console.info(`Parsing ${file} (${pages} page${pages > 1 ? "s" : ""})…`);
     await parseMaterial(materialId);
-    return checkParse(supabase, materialId, pages);
+    const results = await checkParse(supabase, materialId, pages);
+    if (chunksOut) await writeChunks(supabase, materialId, chunksOut);
+    return results;
   },
 };
+
+function parseArgs(args: string[]) {
+  const at = args.indexOf(CHUNKS_OUT);
+  const chunksOut = at === -1 ? undefined : args[at + 1];
+  if (at !== -1 && !chunksOut) throw new Error(`${CHUNKS_OUT} needs a file.`);
+  const rest = at === -1 ? args : args.toSpliced(at, 2);
+  return { file: rest[0] ?? DEFAULT_FILE, chunksOut };
+}
+
+/**
+ * Writes the parsed chunks as a fixture other checks insert as chunks
+ * (`evals/gold/*\/chunks.json`), without ids, figure boxes or embeddings.
+ * Each exercise subtask chunk gets the position of its paired solution
+ * chunk, or null without one.
+ */
+async function writeChunks(
+  supabase: Parameters<SmokeCheck["run"]>[0]["supabase"],
+  materialId: string,
+  file: string,
+) {
+  const { data, error } = await supabase
+    .from("chunks")
+    .select(
+      "id, position, page_from, page_to, label, markdown, exercise_number, points, figure",
+    )
+    .eq("material_id", materialId)
+    .order("position");
+  if (error) throw new Error(error.message);
+  const pairs = await supabase
+    .from("exercise_solutions")
+    .select("exercise_chunk_id, solution_chunk_id")
+    .in(
+      "exercise_chunk_id",
+      data.map((chunk) => chunk.id),
+    );
+  if (pairs.error) throw new Error(pairs.error.message);
+  const positionOf = new Map(data.map((chunk) => [chunk.id, chunk.position]));
+  const solutionOf = new Map(
+    pairs.data.map((pair) => [
+      pair.exercise_chunk_id,
+      pair.solution_chunk_id === null
+        ? null
+        : (positionOf.get(pair.solution_chunk_id) ?? null),
+    ]),
+  );
+  const fixture = data.map(({ id, figure, ...chunk }) => ({
+    ...chunk,
+    figure_description:
+      z.object({ description: z.string() }).safeParse(figure).data
+        ?.description ?? null,
+    ...(solutionOf.has(id) && { solution_position: solutionOf.get(id) }),
+  }));
+  await writeFile(file, `${JSON.stringify(fixture, null, 2)}\n`);
+  console.info(`Wrote ${fixture.length} chunks to ${file}.`);
+}
 
 async function checkParse(
   supabase: Parameters<SmokeCheck["run"]>[0]["supabase"],

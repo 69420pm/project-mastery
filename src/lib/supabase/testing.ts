@@ -5,7 +5,8 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, contains, lt, gt, gte, order, single, maybeSingle, and
+ * delete, eq, in, contains, lt, gt, gte, order, limit, range, single,
+ * maybeSingle, and
  * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
  * and deletes, and inserting one fails with `42501`, as with real policies.
@@ -27,6 +28,11 @@ export type FakeSupabaseOptions<Table extends string> = {
    * inserting a row whose referenced row is missing fails with `23503`.
    */
   foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
+  /**
+   * Primary key columns per table, for tables whose key is not `id`:
+   * inserting a row with a taken key fails with `23505`.
+   */
+  primaryKeys?: Partial<Record<NoInfer<Table>, string[]>>;
   /**
    * Database functions that `rpc(name, args)` runs, with the tables. A test
    * defines what it needs of the real function; pgTAP tests the real one.
@@ -106,6 +112,7 @@ export function fakeSupabase<Table extends string>(
     let returning = false;
     let single: "one" | "maybe" | undefined;
     let limitTo = Infinity;
+    let offset = 0;
 
     const matching = () =>
       rowsOf(table).filter(
@@ -113,7 +120,7 @@ export function fakeSupabase<Table extends string>(
       );
 
     function insert(rows: FakeRow[]): Result {
-      const prepared = rows.map((row) => ({
+      const prepared = rows.map((row): FakeRow => ({
         id: randomUUID(),
         created_at: timestamp(),
         updated_at: timestamp(),
@@ -141,7 +148,12 @@ export function fakeSupabase<Table extends string>(
             `new row violates row-level security policy for table "${table}"`,
           );
         }
-        if (rowsOf(table).some((existing) => existing.id === row.id)) {
+        const key = options.primaryKeys?.[table] ?? ["id"];
+        if (
+          rowsOf(table).some((existing) =>
+            key.every((column) => existing[column] === row[column]),
+          )
+        ) {
           return failure(
             "23505",
             `duplicate key value violates unique constraint "${table}_pkey"`,
@@ -167,12 +179,20 @@ export function fakeSupabase<Table extends string>(
       } else {
         const rows = matching().sort((a, b) => {
           for (const { column, ascending } of orders) {
-            const order = String(a[column]).localeCompare(String(b[column]));
+            const [x, y] = [a[column], b[column]];
+            // Numbers in numeric order, as Postgres sorts integer columns.
+            const order =
+              typeof x === "number" && typeof y === "number"
+                ? x - y
+                : String(x).localeCompare(String(y));
             if (order !== 0) return ascending ? order : -order;
           }
           return 0;
         });
-        result = { data: rows.slice(0, limitTo), error: null };
+        result = {
+          data: rows.slice(offset, offset + limitTo),
+          error: null,
+        };
       }
       if (result.error) return result;
       const rows = result.data as FakeRow[];
@@ -258,6 +278,12 @@ export function fakeSupabase<Table extends string>(
       },
       limit(count: number) {
         limitTo = count;
+        return builder;
+      },
+      /** Rows `from` to `to`, both included, as PostgREST pages them. */
+      range(rangeFrom: number, rangeTo: number) {
+        offset = rangeFrom;
+        limitTo = rangeTo - rangeFrom + 1;
         return builder;
       },
       single() {

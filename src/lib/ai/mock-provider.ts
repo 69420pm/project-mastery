@@ -13,7 +13,7 @@ import { simulateReadableStream, type JSONSchema7 } from "ai";
 const WORD_DELAY_MS = 75;
 
 // The size of chunks.embedding, so the mock's vectors fit the column.
-const EMBEDDING_DIMENSIONS = 3072;
+const EMBEDDING_DIMENSIONS = 2048;
 
 /** Usage the mock reports, so cost recording sees real numbers. */
 const usage = {
@@ -124,6 +124,47 @@ function mockText(prompt: Prompt, responseFormat: ResponseFormat): string {
   return mockReply(prompt);
 }
 
+/**
+ * In a Brief that is asking a Finding, the mock takes the Student's message
+ * as its answer: when the instructions name the question being asked, it
+ * first calls `answerFinding` with the message, then replies.
+ */
+function mockAnswerFinding(
+  prompt: Prompt,
+  tools: ReadonlyArray<{ name: string }> | undefined,
+) {
+  if (!tools?.some(({ name }) => name === "answerFinding")) return null;
+  if (prompt.at(-1)?.role !== "user") return null;
+  const system = prompt.find(({ role }) => role === "system")?.content;
+  const findingId =
+    typeof system === "string"
+      ? /asking now \(id ([0-9a-f-]{36})\)/.exec(system)?.[1]
+      : undefined;
+  if (!findingId) return null;
+  const answer = lastUserParts(prompt)
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join(" ");
+  return simulateReadableStream({
+    initialDelayInMs: null,
+    chunkDelayInMs: null,
+    chunks: [
+      { type: "stream-start" as const, warnings: [] },
+      {
+        type: "tool-call" as const,
+        toolCallId: "mock-answer-finding",
+        toolName: "answerFinding",
+        input: JSON.stringify({ findingId, answer }),
+      },
+      {
+        type: "finish" as const,
+        finishReason: { unified: "tool-calls" as const, raw: undefined },
+        usage,
+      },
+    ],
+  });
+}
+
 function languageModel(modelId: string) {
   return {
     specificationVersion: "v4" as const,
@@ -144,24 +185,32 @@ function languageModel(modelId: string) {
       usage,
       warnings: [],
     }),
-    doStream: async ({ prompt }: { prompt: Prompt }) => ({
-      stream: simulateReadableStream({
-        initialDelayInMs: null,
-        chunkDelayInMs: WORD_DELAY_MS,
-        chunks: [
-          { type: "stream-start" as const, warnings: [] },
-          { type: "text-start" as const, id: "text-1" },
-          ...mockReply(prompt)
-            .split(/(?<= )/)
-            .map((delta) => ({
-              type: "text-delta" as const,
-              id: "text-1",
-              delta,
-            })),
-          { type: "text-end" as const, id: "text-1" },
-          { type: "finish" as const, finishReason, usage },
-        ],
-      }),
+    doStream: async ({
+      prompt,
+      tools,
+    }: {
+      prompt: Prompt;
+      tools?: ReadonlyArray<{ name: string }>;
+    }) => ({
+      stream:
+        mockAnswerFinding(prompt, tools) ??
+        simulateReadableStream({
+          initialDelayInMs: null,
+          chunkDelayInMs: WORD_DELAY_MS,
+          chunks: [
+            { type: "stream-start" as const, warnings: [] },
+            { type: "text-start" as const, id: "text-1" },
+            ...mockReply(prompt)
+              .split(/(?<= )/)
+              .map((delta) => ({
+                type: "text-delta" as const,
+                id: "text-1",
+                delta,
+              })),
+            { type: "text-end" as const, id: "text-1" },
+            { type: "finish" as const, finishReason, usage },
+          ],
+        }),
     }),
   };
 }
@@ -177,7 +226,7 @@ function embeddingModel(modelId: string) {
       embeddings: values.map(() =>
         Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.5),
       ),
-      // Like the Gemini API, which reports no usage for embeddings.
+      // Like some providers, which report no usage for embeddings.
       usage: undefined,
       warnings: [],
     }),

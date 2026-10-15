@@ -1,7 +1,7 @@
 // @vitest-environment node
 import path from "node:path";
 import { ESLint } from "eslint";
-import { describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 
 // Lints made-up files at real paths with the project's real config, so the
 // cases prove the architecture rules fire (and stay quiet) where they should.
@@ -17,6 +17,12 @@ const eslint = new ESLint({
     },
   },
 });
+
+// The first lint loads the whole config, which can pass the 5 s test timeout
+// on a busy CI runner, so it runs here under a longer one.
+beforeAll(async () => {
+  await eslint.lintText("export {};", { filePath: "src/lib/warm-up.ts" });
+}, 60_000);
 
 const ARCHITECTURE_RULES = new Set([
   "boundaries/dependencies",

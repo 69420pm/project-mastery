@@ -19,7 +19,7 @@ Library and environment gotchas verified in earlier work are in `docs/agents/not
 
 ## Shared resources
 
-All checkouts share one local Supabase, the user's AI quota and the machine's ports.
+All checkouts share one local Supabase, the AI Gateway credit, the Gemini API's daily quota and the machine's ports.
 
 - **Database**: apply migrations with `pnpm exec supabase migration up --local --include-all`. A reset wipes other checkouts' data, so the Bash guard refuses it. The database can hold other branches' tables, so after `pnpm db:types` keep only the changes for your own migrations in `database.types.ts`.
 - **AI**: tests and runtime checks use `AI_PROVIDER=mock`. What live calls are allowed, and how, is in [live-ai.md](live-ai.md).

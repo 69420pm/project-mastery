@@ -1,6 +1,6 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -31,6 +31,10 @@ Like Next.js, these packages ship documentation that matches the installed versi
 - Supabase client: `node_modules/@supabase/supabase-js/AGENTS.md`
 
 Gotchas that earlier work verified live in `docs/agents/notes/<topic>.md`: read the note for a library too, when there is one.
+
+## Agent harness
+
+[docs/agents/harness.md](docs/agents/harness.md) sets how this repo equips agents. Read it before changing skills, agent definitions, hooks, `tools/` or `docs/agents/`.
 
 ## Agent worktrees
 

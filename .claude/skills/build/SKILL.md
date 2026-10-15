@@ -1,6 +1,7 @@
 ---
 name: build
-description: "Build an issue end to end in its own worktree: one fresh builder per slice, one review, a live smoke check and a PR, with no questions after the start. Run it in its own session, on Haiku (/model haiku)."
+description: "Build an issue end to end in its own worktree: one fresh builder per slice, one review, a live smoke check and a PR, with no questions after the start. Run it in its own session."
+model: haiku
 disable-model-invocation: true
 ---
 
@@ -18,6 +19,6 @@ You coordinate the build of one issue, usually a spec from `/to-spec`, into a PR
 
 5. **Finish.** Start one more `builder` with the job `finish`, the issue number, both reports verbatim and any skipped slices.
 
-6. **Ready.** Push, complete the PR body from the handoffs, and mark the PR ready.
+6. **Ready.** Push, complete the PR body from the handoffs, and mark the PR ready. Wait for CI with `gh pr checks <pr> --watch` run in the background. A red check goes to a `builder` with its failed log (`gh run view <run> --log-failed`); push its fix and wait again.
 
-7. **Report.** The PR link, what failed or was skipped, and that the worktree stays in `.claude/worktrees/build-<issue>` until the user removes it.
+7. **Report.** The PR link, what failed or was skipped, and that once the PR is merged, `tools/build/cleanup.sh <issue>` run from the main checkout removes the worktree and its branch.

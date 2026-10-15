@@ -1,0 +1,4 @@
+# Supabase table grants
+
+- **Hosted projects do not grant `service_role` on new tables.** Supabase is moving its default to opt-in table grants. A table created by a migration then fails for the admin client (secret key) with `permission denied for table <name>`, though the key bypasses Row Level Security. Local Supabase still grants everything, so only staging and production show it. `20261014110000_grant_service_role_on_public.sql` grants `service_role` all current tables and, through default privileges, the tables later migrations create. A new migration needs no `service_role` grant of its own; it still grants `authenticated` explicitly.
+- **Reproduce locally** in a transaction that ends in `rollback`: `revoke all on all tables in schema public from service_role;`, then `set local role service_role;` and select from a table.

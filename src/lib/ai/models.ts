@@ -1,5 +1,6 @@
 import "server-only";
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { gateway } from "ai";
 import { getAiEnv, type AiEnv } from "./env";
 import { routeToMockModels } from "./mock-provider";
 import { MODEL_PRICES } from "./prices";
@@ -37,50 +38,84 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
  * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
- * These are placeholders. Primary models are Google models, so they run both
- * through AI Gateway and directly on the Gemini API free tier, which local
- * development can use instead (ADR 0006). The real model per task is chosen
- * by testing on real course materials (open question in docs/ARCHITECTURE.md).
+ * These are placeholders: MiMo V2.6 Flash does the text work for its price
+ * (ADR 0006), and the other choices are models the Gateway's free credit
+ * serves (verified live on 2026-10-14: no Google model, no MiMo Pro). The
+ * real model per task is chosen by testing on real course materials (open
+ * question in docs/ARCHITECTURE.md). Local development can point a text task
+ * at `google/gemini-3.5-flash-lite` through its override (ADR 0016).
  */
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
   chat: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
     override: "AI_MODEL_CHAT",
-    // Every choice is a model the Gemini API free tier serves, so all of them
-    // work locally. Thorough is not a Pro model: the free tier serves none.
+    // The other two take PDFs, which Chats attach raw and MiMo does not.
     choices: {
-      fast: { label: "Fast", model: "google/gemini-3.1-flash-lite" },
-      balanced: { label: "Balanced", model: "google/gemini-3.5-flash-lite" },
-      thorough: { label: "Thorough", model: "google/gemini-3.8-flash" },
+      fast: { label: "Fast", model: "openai/gpt-4.1-nano" },
+      balanced: { label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
+      thorough: { label: "Thorough", model: "openai/gpt-5-nano" },
     },
+  },
+  /** The AI's replies in a Course's Brief, where it asks about the exam. */
+  brief: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_BRIEF",
   },
   /** A short title for a Chat, on the cheapest model. */
   title: {
-    model: "google/gemini-3.1-flash-lite",
+    model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_TITLE",
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
-    model: "google/gemini-3.5-flash-lite",
-    fallbacks: ["xiaomi/mimo-v2.6-flash"],
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
     override: "AI_MODEL_INGEST",
   },
-  /** Chunk embeddings for pgvector. Changing it means re-embedding. */
+  /** Builds a Course's Knowledge map from its chunks, one call per step. */
+  map: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_MAP",
+  },
+  /**
+   * One exercise subtask of a Knowledge map build: its KCs, task type and a
+   * solution to check the given one against. Calls add medium thinking.
+   */
+  exercise: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_EXERCISE",
+  },
+  /**
+   * One call per priority run that adjusts the KCs' Priority multipliers
+   * from the Brief's notes and the answered Findings, with structured output.
+   */
+  priority: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_PRIORITY",
+  },
+  /**
+   * Chunk embeddings for pgvector. Changing the model or its dimensions means
+   * re-embedding and a new `chunks.embedding` column size.
+   */
   embed: {
-    model: "google/gemini-embedding-2",
+    model: "cohere/embed-v5.0-fast",
     fallbacks: [],
     override: "AI_MODEL_EMBED",
   },
   /**
-   * LLM-as-judge for evals. Ideally a different family than the Chat's models, which
-   * waits for the model choice: the Gemini API only serves Google models. Until
-   * then it is at least a different model, with its own free-tier quota.
+   * LLM-as-judge for evals: cheap, since an eval run judges every answer, and
+   * smarter than the small Google models. It is the Chat's family, which can
+   * favour the Chat's own answers.
    */
   judge: {
-    model: "google/gemini-3.7-flash",
+    model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_JUDGE",
   },
@@ -95,16 +130,25 @@ export type ModelChoiceKey<Task extends AiTask> =
     : never;
 
 /**
- * Retries per call for retryable errors such as `429` from the free tier's
- * rate limits. The AI SDK backs off exponentially and honors `retry-after`.
+ * Retries per call for retryable errors such as `429` from rate limits. The
+ * AI SDK backs off exponentially and honors `retry-after`.
  */
 export const AI_MAX_RETRIES = 3;
 
 const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
 
-function servedByProvider(id: string): boolean {
-  return getAiEnv().AI_PROVIDER !== "google" || id.startsWith("google/");
-}
+/**
+ * The providers AI Gateway may use for a model. Verified live on 2026-10-14:
+ * of the six providers of `xiaomi/mimo-v2.6-flash`, only `deepinfra` honors
+ * the JSON schema of a structured output (the others get `json_object` mode
+ * and answer in their own shape, so `Output.object` fails), and it is the
+ * only one with zero data retention and no prompt training. `order` is not
+ * enough: with an image in the request the Gateway ignored it. `only` also
+ * excludes the `models` fallbacks, so MiMo tasks have none.
+ */
+const ONLY_PROVIDERS: Record<string, readonly string[]> = {
+  "xiaomi/mimo-v2.6-flash": ["deepinfra"],
+};
 
 /**
  * The env override of a task's default model. Configured models are checked
@@ -149,12 +193,11 @@ export function defaultModelChoice<Task extends AiTask>(
 }
 
 /**
- * The model choices a Student is offered for a task, in display order. With
- * AI_PROVIDER=google only Google models are offered. Tasks without choices
- * offer none.
+ * The model choices a Student is offered for a task, in display order. Tasks
+ * without choices offer none.
  */
 export function modelChoices(task: AiTask): ModelChoice[] {
-  return allChoices(task).filter((choice) => servedByProvider(choice.model));
+  return allChoices(task);
 }
 
 /**
@@ -167,41 +210,28 @@ export function modelIdFor(task: AiTask, choice?: string): string {
     if (!chosen) {
       throw new Error(`Task "${task}" has no model choice "${choice}".`);
     }
-    if (!servedByProvider(chosen.model)) {
-      throw new Error(
-        `AI_PROVIDER=google only serves Google models, but choice "${choice}" of task "${task}" uses "${chosen.model}".`,
-      );
-    }
     return chosen.model;
   }
-  const config = taskConfig(task);
-  const id = overrideFor(task) ?? config.model;
-  if (!servedByProvider(id)) {
-    throw new Error(
-      `AI_PROVIDER=google only serves Google models, but task "${task}" uses "${id}". Set ${config.override} to a google/ model.`,
-    );
-  }
-  return id;
+  return overrideFor(task) ?? taskConfig(task).model;
 }
 
 /**
  * The model that answered a call made with `aiTask` settings: the requested
  * model or one of its gateway fallbacks, as named by the model id the
  * provider reports (`response.modelId`), so the call is stored and priced as
- * that model. Reported ids may lack the `provider/` prefix, as the Gemini API
- * reports them. An id that names none of them, or none at all, as for an
+ * that model. Reported ids may lack the `provider/` prefix. An id that names none of them, or none at all, as for an
  * aborted call, means the requested model.
  */
 export function answeringModel(
   settings: {
     model: string;
-    providerOptions?: { gateway: { models: readonly string[] } };
+    providerOptions?: { gateway?: { models?: readonly string[] } };
   },
   reportedModelId: string | undefined,
 ): string {
   const candidates = [
     settings.model,
-    ...(settings.providerOptions?.gateway.models ?? []),
+    ...(settings.providerOptions?.gateway?.models ?? []),
   ];
   const withoutProvider = (id: string) => id.slice(id.indexOf("/") + 1);
   return (
@@ -211,21 +241,42 @@ export function answeringModel(
   );
 }
 
+/** Model ids the Gemini API serves directly, when a Google key is set. */
+const GOOGLE_PREFIX = "google/";
+
 /**
- * With AI_PROVIDER=google, resolves `google/<model>` ids through the Gemini
- * API instead of AI Gateway. Model ids stay plain strings in both modes: the
- * AI SDK resolves them through this global provider, which defaults to AI
- * Gateway (and which tests replace with mocks).
+ * Local development (ADR 0016): sends `google/` model ids straight to the
+ * Gemini API with the Google key, and every other id through AI Gateway,
+ * which serves no Google model on its free credit. MiMo and the embeddings
+ * stay on the gateway.
  */
-function routeToGeminiApi() {
-  // `modelIdFor` has already checked the `google/` prefix.
-  const geminiId = (id: string) => id.slice("google/".length);
-  globalThis.AI_SDK_DEFAULT_PROVIDER ??= {
-    specificationVersion: "v4",
-    languageModel: (id) => google.languageModel(geminiId(id)),
-    embeddingModel: (id) => google.embeddingModel(geminiId(id)),
-    imageModel: (id) => google.imageModel(geminiId(id)),
+function routeToGeminiApi(apiKey: string) {
+  globalThis.AI_SDK_DEFAULT_PROVIDER ??= geminiRouter(apiKey);
+}
+
+function geminiRouter(apiKey: string) {
+  const google = createGoogleGenerativeAI({ apiKey });
+  const geminiId = (id: string) => id.slice(GOOGLE_PREFIX.length);
+  return {
+    specificationVersion: "v4" as const,
+    languageModel: (id: string) =>
+      id.startsWith(GOOGLE_PREFIX)
+        ? google.languageModel(geminiId(id))
+        : gateway.languageModel(id),
+    embeddingModel: (id: string) =>
+      id.startsWith(GOOGLE_PREFIX)
+        ? google.embeddingModel(geminiId(id))
+        : gateway.embeddingModel(id),
+    imageModel: (id: string) => gateway.imageModel(id),
   };
+}
+
+/** Routes model ids for this environment. Mock mode answers every id. */
+function routeModels(env: AiEnv) {
+  if (env.AI_PROVIDER === "mock") routeToMockModels();
+  else if (env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    routeToGeminiApi(env.GOOGLE_GENERATIVE_AI_API_KEY);
+  }
 }
 
 /**
@@ -240,15 +291,29 @@ function routeToGeminiApi() {
 export function aiTask(task: AiTask, choice?: string) {
   const { fallbacks } = AI_TASKS[task];
   const model = modelIdFor(task, choice);
-  const { AI_PROVIDER } = getAiEnv();
-  if (AI_PROVIDER === "google") routeToGeminiApi();
-  if (AI_PROVIDER === "mock") routeToMockModels();
+  const env = getAiEnv();
+  if (
+    env.AI_PROVIDER !== "mock" &&
+    model.startsWith(GOOGLE_PREFIX) &&
+    !env.GOOGLE_GENERATIVE_AI_API_KEY
+  ) {
+    throw new Error(
+      `"${model}" needs GOOGLE_GENERATIVE_AI_API_KEY (local development, ADR 0016)`,
+    );
+  }
+  routeModels(env);
+  const only = ONLY_PROVIDERS[model];
   return {
     model,
     maxRetries: AI_MAX_RETRIES,
-    ...(fallbacks.length > 0 && {
-      providerOptions: { gateway: { models: [...fallbacks] } },
-    }),
+    providerOptions: {
+      gateway: {
+        // Groups the Gateway's spend reports by task.
+        tags: [`task:${task}`],
+        ...(only && { only: [...only] }),
+        ...(fallbacks.length > 0 && { models: [...fallbacks] }),
+      },
+    },
     // Spans are emitted only when tracing is registered (src/instrumentation.ts).
     telemetry: { functionId: task },
   };

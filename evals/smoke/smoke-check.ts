@@ -20,6 +20,8 @@ export type SmokeResult = { name: string; ok: boolean; detail?: string };
 export type SmokeCheck = {
   name: string;
   usage: string;
+  /** The most model calls the check may record; the runner's default if unset. */
+  maxCalls?: number;
   run: (context: SmokeContext) => Promise<SmokeResult[]>;
 };
 

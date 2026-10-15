@@ -5,9 +5,10 @@
  *
  * A smoke check runs one real feature path once, on a small input, against
  * the local Supabase and a real model, and checks the feature's invariants.
- * The runner pins every generating task to SMOKE_MODEL, gives the check a
- * throwaway Student, holds the Student's recorded AI calls to MAX_CALLS and
- * deletes the Student with all its data afterwards. Smoke checks never run in
+ * The runner pins every generating task to SMOKE_MODEL (see below), gives the
+ * check a throwaway Student, holds the Student's recorded AI calls to the
+ * check's cap (30 by default), stops it after MAX_MINUTES and deletes the
+ * Student with all its data afterwards. Smoke checks never run in
  * `pnpm check`, Vitest or CI.
  */
 // Must come first: lets smoke checks import modules that use Next.js.
@@ -16,23 +17,63 @@ import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
+import { briefSmoke } from "./smoke/brief";
+import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
-import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
+import { prioritySmoke } from "./smoke/priority";
+import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
-const CHECKS: SmokeCheck[] = [parseSmoke];
+const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke, prioritySmoke];
 
-/** The one model agents call (docs/agents/live-ai.md). */
-const SMOKE_MODEL = "google/gemini-3.5-flash-lite";
+/**
+ * The model every generating task is pinned to (docs/agents/live-ai.md). With
+ * a Google key, as in local development, that is the Gemini model, which
+ * answers in seconds where MiMo through DeepInfra can take minutes (ADR 0016).
+ * `AI_SMOKE_MODEL` pins another model, such as xiaomi/mimo-v2.6-flash, the
+ * model that ships.
+ */
+const SMOKE_MODEL =
+  process.env.AI_SMOKE_MODEL ??
+  (process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    ? "google/gemini-3.5-flash-lite"
+    : "xiaomi/mimo-v2.6-flash");
 
-/** The most model calls one smoke check may record. */
-const MAX_CALLS = 10;
+/** The most model calls a smoke check may record, unless it sets its own. */
+const DEFAULT_MAX_CALLS = 30;
+
+/**
+ * How long a check may run. An agent's prompt cache expires after 5 idle
+ * minutes, so a longer wait makes it write its whole context again
+ * (docs/agents/live-ai.md). `AI_SMOKE_MAX_MINUTES` sets another limit, such
+ * as for a check on MiMo.
+ */
+const MAX_MINUTES = Number(process.env.AI_SMOKE_MAX_MINUTES || 4);
+
+const timedOut = Symbol("timed out");
+
+/** The check's results, or `timedOut` once MAX_MINUTES have passed. */
+async function withinTimeLimit(run: Promise<SmokeResult[]>) {
+  let timer: NodeJS.Timeout | undefined;
+  const limit = new Promise<typeof timedOut>((resolve) => {
+    timer = setTimeout(() => resolve(timedOut), MAX_MINUTES * 60_000);
+  });
+  try {
+    return await Promise.race([run, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
+  "AI_MODEL_BRIEF",
   "AI_MODEL_TITLE",
   "AI_MODEL_INGEST",
+  "AI_MODEL_MAP",
+  "AI_MODEL_EXERCISE",
+  "AI_MODEL_PRIORITY",
   "AI_MODEL_JUDGE",
 ];
 
@@ -68,6 +109,7 @@ async function deleteStudent(supabase: AdminSupabase, studentId: string) {
 async function checkCalls(
   supabase: AdminSupabase,
   studentId: string,
+  maxCalls: number,
 ): Promise<SmokeResult[]> {
   const { data, error } = await supabase
     .from("ai_usage")
@@ -83,8 +125,8 @@ async function checkCalls(
   );
   return [
     {
-      name: `at most ${MAX_CALLS} model calls`,
-      ok: data.length <= MAX_CALLS,
+      name: `at most ${maxCalls} model calls`,
+      ok: data.length <= maxCalls,
       detail: `${data.length}: ${byTask.join(", ") || "none"}; $${cost.toFixed(5)}`,
     },
     {
@@ -120,9 +162,29 @@ async function main() {
   const supabase = createAdminClient();
   const studentId = await createStudent(supabase);
   let results: SmokeResult[];
+  let stopped = false;
   try {
-    results = await check.run({ supabase, studentId, args });
-    results.push(...(await checkCalls(supabase, studentId)));
+    const outcome = await withinTimeLimit(
+      check.run({ supabase, studentId, args }),
+    );
+    stopped = outcome === timedOut;
+    results =
+      outcome === timedOut
+        ? [
+            result(
+              `finished within ${MAX_MINUTES} min`,
+              false,
+              "stopped, so the feature path is not verified; a model call was slow, see the calls below",
+            ),
+          ]
+        : outcome;
+    results.push(
+      ...(await checkCalls(
+        supabase,
+        studentId,
+        check.maxCalls ?? DEFAULT_MAX_CALLS,
+      )),
+    );
   } finally {
     await deleteStudent(supabase, studentId);
   }
@@ -140,6 +202,8 @@ async function main() {
       : `\n✗ smoke ${check.name}: ${failed} failed`,
   );
   process.exitCode = failed === 0 ? 0 : 1;
+  // A stopped check's model call still holds the process open.
+  if (stopped) process.exit();
 }
 
 main().catch((error: unknown) => {

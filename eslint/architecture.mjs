@@ -38,6 +38,8 @@ const ALLOWED_FILES = [
   "evals/smoke/*.ts",
   // CLI that lets coding agents drive the running app (ADR 0015).
   "tools/agent/*.ts",
+  // Transcript digest for /retro.
+  "tools/retro/*.ts",
 ];
 
 /** Unit tests sit next to the file they test, under the same name. */

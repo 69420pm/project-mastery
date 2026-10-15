@@ -66,6 +66,202 @@ export type Database = {
           },
         ];
       };
+      big_ideas: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          description: string;
+          id: string;
+          name: string;
+          owner: string;
+          position: number;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          description: string;
+          id?: string;
+          name: string;
+          owner: string;
+          position: number;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name?: string;
+          owner?: string;
+          position?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "big_ideas_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "big_ideas_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brief_excluded_materials: {
+        Row: {
+          course_id: string;
+          material_id: string;
+          owner: string;
+        };
+        Insert: {
+          course_id: string;
+          material_id: string;
+          owner?: string;
+        };
+        Update: {
+          course_id?: string;
+          material_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brief_excluded_materials_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "briefs";
+            referencedColumns: ["course_id"];
+          },
+          {
+            foreignKeyName: "brief_excluded_materials_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "brief_excluded_materials_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brief_messages: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          id: string;
+          model_id: string | null;
+          owner: string;
+          parts: NonNullable<Json>;
+          role: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          owner?: string;
+          parts: NonNullable<Json>;
+          role: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          model_id?: string | null;
+          owner?: string;
+          parts?: NonNullable<Json>;
+          role?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brief_messages_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "briefs";
+            referencedColumns: ["course_id"];
+          },
+          {
+            foreignKeyName: "brief_messages_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      briefs: {
+        Row: {
+          calculator: boolean | null;
+          course_id: string;
+          created_at: string;
+          exam_date: string | null;
+          formula_sheet: boolean | null;
+          goal: string | null;
+          hours_per_week: number | null;
+          notes: string | null;
+          notes_updated_at: string | null;
+          open_book: boolean | null;
+          owner: string;
+          question_style: string | null;
+          scope_confirmed: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          calculator?: boolean | null;
+          course_id: string;
+          created_at?: string;
+          exam_date?: string | null;
+          formula_sheet?: boolean | null;
+          goal?: string | null;
+          hours_per_week?: number | null;
+          notes?: string | null;
+          notes_updated_at?: string | null;
+          open_book?: boolean | null;
+          owner?: string;
+          question_style?: string | null;
+          scope_confirmed?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          calculator?: boolean | null;
+          course_id?: string;
+          created_at?: string;
+          exam_date?: string | null;
+          formula_sheet?: boolean | null;
+          goal?: string | null;
+          hours_per_week?: number | null;
+          notes?: string | null;
+          notes_updated_at?: string | null;
+          open_book?: boolean | null;
+          owner?: string;
+          question_style?: string | null;
+          scope_confirmed?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "briefs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "briefs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chat_messages: {
         Row: {
           chat_id: string;
@@ -266,6 +462,56 @@ export type Database = {
           },
         ];
       };
+      exercise_kcs: {
+        Row: {
+          course_id: string;
+          exercise_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Insert: {
+          course_id: string;
+          exercise_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Update: {
+          course_id?: string;
+          exercise_id?: string;
+          kc_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercise_kcs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercise_kcs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exercise_solutions: {
         Row: {
           course_id: string;
@@ -321,6 +567,425 @@ export type Database = {
             columns: ["solution_chunk_id"];
             isOneToOne: false;
             referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      exercises: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          difficulty: number;
+          id: string;
+          name: string;
+          owner: string;
+          position: number;
+          question_chunk_id: string;
+          solution: string | null;
+          solution_status: string;
+          task_type: string;
+        };
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          difficulty: number;
+          id?: string;
+          name: string;
+          owner: string;
+          position: number;
+          question_chunk_id: string;
+          solution?: string | null;
+          solution_status: string;
+          task_type: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          difficulty?: number;
+          id?: string;
+          name?: string;
+          owner?: string;
+          position?: number;
+          question_chunk_id?: string;
+          solution?: string | null;
+          solution_status?: string;
+          task_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exercises_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercises_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercises_question_chunk_id_fkey";
+            columns: ["question_chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      finding_sources: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          finding_id: string;
+          owner: string;
+        };
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          finding_id: string;
+          owner: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          finding_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "finding_sources_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_finding_id_fkey";
+            columns: ["finding_id"];
+            isOneToOne: false;
+            referencedRelation: "findings";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "finding_sources_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      findings: {
+        Row: {
+          answer: string | null;
+          answered_at: string | null;
+          asked_at: string | null;
+          course_id: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          owner: string;
+          position: number;
+          status: string;
+          text: string;
+        };
+        Insert: {
+          answer?: string | null;
+          answered_at?: string | null;
+          asked_at?: string | null;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          owner: string;
+          position: number;
+          status?: string;
+          text: string;
+        };
+        Update: {
+          answer?: string | null;
+          answered_at?: string | null;
+          asked_at?: string | null;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          owner?: string;
+          position?: number;
+          status?: string;
+          text?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "findings_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "findings_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kc_priorities: {
+        Row: {
+          course_id: string;
+          kc_id: string;
+          multiplier: number;
+          owner: string;
+          priority: number;
+          reasons: string[];
+        };
+        Insert: {
+          course_id: string;
+          kc_id: string;
+          multiplier: number;
+          owner: string;
+          priority: number;
+          reasons?: string[];
+        };
+        Update: {
+          course_id?: string;
+          kc_id?: string;
+          multiplier?: number;
+          owner?: string;
+          priority?: number;
+          reasons?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kc_priorities_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_priorities_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: true;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_priorities_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kc_sources: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          kc_id: string;
+          owner: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          kc_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kc_sources_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_sources_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_sources_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_sources_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      kcs: {
+        Row: {
+          big_idea_id: string | null;
+          bloom: string | null;
+          course_id: string;
+          created_at: string;
+          description: string;
+          id: string;
+          name: string;
+          origin: string;
+          owner: string;
+          position: number;
+          type: string;
+        };
+        Insert: {
+          big_idea_id?: string | null;
+          bloom?: string | null;
+          course_id: string;
+          created_at?: string;
+          description: string;
+          id?: string;
+          name: string;
+          origin: string;
+          owner: string;
+          position: number;
+          type: string;
+        };
+        Update: {
+          big_idea_id?: string | null;
+          bloom?: string | null;
+          course_id?: string;
+          created_at?: string;
+          description?: string;
+          id?: string;
+          name?: string;
+          origin?: string;
+          owner?: string;
+          position?: number;
+          type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kcs_big_idea_id_fkey";
+            columns: ["big_idea_id"];
+            isOneToOne: false;
+            referencedRelation: "big_ideas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kcs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kcs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      knowledge_map_builds: {
+        Row: {
+          check_report: Json | null;
+          course_id: string;
+          failure_reason: string | null;
+          finished_at: string | null;
+          owner: string;
+          started_at: string;
+          status: string;
+        };
+        Insert: {
+          check_report?: Json | null;
+          course_id: string;
+          failure_reason?: string | null;
+          finished_at?: string | null;
+          owner: string;
+          started_at?: string;
+          status: string;
+        };
+        Update: {
+          check_report?: Json | null;
+          course_id?: string;
+          failure_reason?: string | null;
+          finished_at?: string | null;
+          owner?: string;
+          started_at?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_map_builds_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "knowledge_map_builds_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      knowledge_map_chunks: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          owner: string;
+        };
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          owner: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_map_chunks_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: true;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "knowledge_map_chunks_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "knowledge_map_chunks_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -442,6 +1107,107 @@ export type Database = {
           },
         ];
       };
+      prerequisite_links: {
+        Row: {
+          course_id: string;
+          extraction_confidence: number;
+          from_kc: string;
+          id: string;
+          owner: string;
+          to_kc: string;
+        };
+        Insert: {
+          course_id: string;
+          extraction_confidence: number;
+          from_kc: string;
+          id?: string;
+          owner: string;
+          to_kc: string;
+        };
+        Update: {
+          course_id?: string;
+          extraction_confidence?: number;
+          from_kc?: string;
+          id?: string;
+          owner?: string;
+          to_kc?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prerequisite_links_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prerequisite_links_from_kc_fkey";
+            columns: ["from_kc"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prerequisite_links_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prerequisite_links_to_kc_fkey";
+            columns: ["to_kc"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      priority_runs: {
+        Row: {
+          adjusted_at: string | null;
+          adjustments: NonNullable<Json>;
+          computed_at: string;
+          course_id: string;
+          failure_reason: string | null;
+          owner: string;
+          status: string;
+        };
+        Insert: {
+          adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
+          computed_at?: string;
+          course_id: string;
+          failure_reason?: string | null;
+          owner: string;
+          status: string;
+        };
+        Update: {
+          adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
+          computed_at?: string;
+          course_id?: string;
+          failure_reason?: string | null;
+          owner?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "priority_runs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "priority_runs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -463,18 +1229,107 @@ export type Database = {
         };
         Relationships: [];
       };
+      semantic_links: {
+        Row: {
+          core_type: string;
+          course_id: string;
+          from_kc: string;
+          id: string;
+          label: string;
+          owner: string;
+          to_kc: string;
+        };
+        Insert: {
+          core_type: string;
+          course_id: string;
+          from_kc: string;
+          id?: string;
+          label: string;
+          owner: string;
+          to_kc: string;
+        };
+        Update: {
+          core_type?: string;
+          course_id?: string;
+          from_kc?: string;
+          id?: string;
+          label?: string;
+          owner?: string;
+          to_kc?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "semantic_links_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "semantic_links_from_kc_fkey";
+            columns: ["from_kc"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "semantic_links_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "semantic_links_to_kc_fkey";
+            columns: ["to_kc"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      add_brief_note: {
+        Args: { course_id: string; text: string };
+        Returns: boolean;
+      };
+      apply_knowledge_map_update: {
+        Args: {
+          p_check_report: Json;
+          p_chunk_ids: string[];
+          p_course_id: string;
+          p_map: Json;
+        };
+        Returns: boolean;
+      };
+      queue_knowledge_map_build: {
+        Args: { course_id: string };
+        Returns: boolean;
+      };
       queue_material_parse: { Args: { material_id: string }; Returns: boolean };
+      queue_priority_run: { Args: { course_id: string }; Returns: boolean };
+      record_knowledge_map_build_start_failure: {
+        Args: { course_id: string };
+        Returns: boolean;
+      };
       record_parse_start_failure: {
         Args: { material_id: string };
         Returns: boolean;
       };
+      record_priority_run_start_failure: {
+        Args: { course_id: string };
+        Returns: boolean;
+      };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };
+        Returns: boolean;
+      };
+      replace_kc_priorities: {
+        Args: { p_adjustments?: Json; p_course_id: string; p_priorities: Json };
         Returns: boolean;
       };
       replace_material_chunks: {
@@ -490,6 +1345,14 @@ export type Database = {
       request_exercise_pairing: {
         Args: { p_course_id: string };
         Returns: number;
+      };
+      save_brief: {
+        Args: {
+          course_id: string;
+          excluded_material_ids?: string[];
+          fields?: Json;
+        };
+        Returns: boolean;
       };
       set_chunk_embeddings: {
         Args: { p_embeddings: Json };

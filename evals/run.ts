@@ -4,9 +4,7 @@
  *   pnpm evals                          # all evals
  *   pnpm evals <name>                   # one eval
  *
- * Evals make real model calls (Gemini API free tier or AI Gateway, per
- * AI_PROVIDER),
- * so they never run in `pnpm check`, Vitest or CI. With Langfuse keys, each
+ * Evals make real model calls through AI Gateway, so they never run in `pnpm check`, Vitest or CI. With Langfuse keys, each
  * fixture is synced to a Langfuse dataset and run with Langfuse's experiment
  * runner, which records a dataset run with traces and scores. Without keys,
  * the same task and scorers run locally and the results are only printed.
@@ -31,8 +29,9 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous registry
 const EVALS: EvalDefinition<any, any>[] = [chatEval];
 
-// Free-tier rate limits are per model: run items one at a time.
-const MAX_CONCURRENCY = 1;
+// A few items at once: AI Gateway rate limits are generous, but one model
+// should not get a burst.
+const MAX_CONCURRENCY = 3;
 
 type ItemResult = { evaluations: Evaluation[] };
 

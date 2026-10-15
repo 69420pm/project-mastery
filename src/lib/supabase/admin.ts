@@ -1,8 +1,16 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { markAdminClient } from "./admin-brand";
+import { randomUUID } from "node:crypto";
+import { markAdminClient, type AdminSupabase } from "./admin-brand";
 import type { Database } from "./database.types";
 import { getSupabasePublicEnv, getSupabaseSecretEnv } from "./env";
+import type { SessionSupabase } from "./types";
+
+const noSession = {
+  autoRefreshToken: false,
+  persistSession: false,
+  detectSessionInUrl: false,
+};
 
 /**
  * Supabase client with the secret (service role) key. It BYPASSES Row Level
@@ -21,11 +29,37 @@ export function createAdminClient() {
 
   return markAdminClient(
     createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-      },
+      auth: noSession,
     }),
   );
+}
+
+/**
+ * A client signed in as the user, so Row Level Security applies as in a
+ * request of theirs. It replaces the user's password: for smoke checks'
+ * throwaway Students only, who never sign in themselves. Call it only from
+ * `evals/smoke/`, never from app code: lint does not stop other callers.
+ */
+export async function signInAsUser(
+  admin: AdminSupabase,
+  userId: string,
+): Promise<SessionSupabase> {
+  const password = randomUUID();
+  const { data, error } = await admin.auth.admin.updateUserById(userId, {
+    password,
+  });
+  if (error) throw new Error(`Setting the password failed: ${error.message}`);
+  const env = getSupabasePublicEnv();
+  const client = createClient<Database>(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    { auth: noSession },
+  );
+  const signIn = await client.auth.signInWithPassword({
+    email: data.user.email!,
+    password,
+  });
+  if (signIn.error)
+    throw new Error(`Signing in failed: ${signIn.error.message}`);
+  return client as SessionSupabase;
 }

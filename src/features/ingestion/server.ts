@@ -3,6 +3,13 @@
 import "server-only";
 
 export { getMaterialChunks } from "./server/chunk-queries";
+export {
+  getChunkPlaces,
+  loadCourseChunks,
+  loadExerciseSolutions,
+  type ChunkPlace,
+  type CourseChunk,
+} from "./server/course-chunks";
 export { startPairing } from "./server/start-pairing";
 export { startParse } from "./server/start-parse";
 export { pairCourse } from "./workflows/pair-exercises";

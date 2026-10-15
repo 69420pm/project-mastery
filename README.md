@@ -69,11 +69,11 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ADR
 
 ### AI, background jobs and tracing
 
-- **AI key:** local development calls the Gemini API directly (`AI_PROVIDER=google`, as in `.env.example`). Create a free key in [Google AI Studio](https://aistudio.google.com/apikey), no credit card needed, and set `GOOGLE_GENERATIVE_AI_API_KEY` in `.env.local`. Google may use free-tier prompts for training, so use your own test materials and never personal data. To go through Vercel AI Gateway instead, as deployments do, set `AI_PROVIDER=gateway` and an `AI_GATEWAY_API_KEY` from the [Vercel dashboard](https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys). Unit tests and CI use mock models and need no key. Models are configured per task in `src/lib/ai/models.ts`.
+- **AI keys:** deployments call models through Vercel AI Gateway. Locally, the text tasks call the Gemini API directly: create a `GOOGLE_GENERATIVE_AI_API_KEY` in [Google AI Studio](https://aistudio.google.com/apikey) and set the `AI_MODEL_*` overrides in `.env.local` that `.env.example` lists, which point them at `google/gemini-3.5-flash-lite` ([ADR 0016](docs/adr/0016-gemini-api-for-local-development.md)). Embeddings still need an `AI_GATEWAY_API_KEY` from the [Vercel dashboard](https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys), which every team gets a monthly free credit for. Use your own test materials and never personal data. Unit tests and CI use mock models and need no key. Models are configured per task in `src/lib/ai/models.ts`.
 - **Mock AI:** `AI_PROVIDER=mock` answers every AI call with a deterministic reply, streamed slowly enough to be stopped, without any key or network access. The Playwright suite runs the production build in this mode; it is refused on Vercel.
 - **Background jobs:** `pnpm dev` runs workflows locally with no setup (the local world stores runs in `.next/workflow-data`). Inspect runs with `pnpm exec workflow web` or `pnpm exec workflow inspect runs`.
 - **Tracing (optional):** create a project in [Langfuse EU cloud](https://cloud.langfuse.com) and set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to trace every AI call. Without keys, tracing is off.
-- **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models (Gemini API free tier locally). With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI.
+- **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models, as the AI keys above route them. With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI.
 
 ### Agent CLI
 
@@ -103,6 +103,7 @@ pnpm -s agent check           # compile issues, runtime and server errors
 | `pnpm evals`         | AI evals against real models (not in CI)                                           |
 | `pnpm smoke <name>`  | Run one feature path once against a real model and check it (not in CI)            |
 | `pnpm -s agent`      | Drive the running app from the terminal                                            |
+| `pnpm -s retro`      | Digest recent Claude Code runs of this repo for a retro                            |
 | `pnpm db:start`      | Start local Supabase (Docker)                                                      |
 | `pnpm db:stop`       | Stop local Supabase                                                                |
 | `pnpm db:status`     | Show local Supabase URLs and API keys                                              |
@@ -133,6 +134,7 @@ src/lib/           Platform: Supabase clients, auth session, AI config, tracing,
 eslint/            Lint rules that enforce the project structure, and their tests
 evals/             AI eval datasets and runner (`pnpm evals`), smoke checks (`pnpm smoke`)
 tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
+tools/retro/       Transcript digest for agent-run retros (`pnpm -s retro`)
 tools/build/       Worktree setup for `/build`
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
 docs/              Architecture; adr/ holds the technical decisions

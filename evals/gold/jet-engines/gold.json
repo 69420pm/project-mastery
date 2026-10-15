@@ -1,0 +1,930 @@
+{
+  "source": "Chapter 7 · The Physics and Engineering of Jet Engines (pp. 185–189)",
+  "bigIdeas": [
+    {
+      "id": "BI1",
+      "name": "Thrust from momentum",
+      "description": "Every jet engine makes thrust by accelerating air rearward; the thrust equation quantifies it."
+    },
+    {
+      "id": "BI2",
+      "name": "Turbojet anatomy",
+      "description": "Five sections in flow order, each with one job; the turbine powers the compressor."
+    },
+    {
+      "id": "BI3",
+      "name": "Brayton cycle & thermal efficiency",
+      "description": "The ideal four-process cycle; efficiency depends only on pressure ratio and γ."
+    },
+    {
+      "id": "BI4",
+      "name": "Propulsive efficiency & engine families",
+      "description": "Large mass flow at small velocity increment wastes less energy; this explains which architecture fits which flight regime."
+    }
+  ],
+  "kcs": [
+    {
+      "id": "E1",
+      "name": "Newton's laws of motion",
+      "description": "Can state Newton's third law and apply it to a force pair.",
+      "type": "prior",
+      "bloom": null,
+      "bigIdea": null,
+      "origin": "prior",
+      "sources": []
+    },
+    {
+      "id": "E2",
+      "name": "Momentum conservation & control volumes",
+      "description": "Can apply conservation of linear momentum to a control volume with mass flowing in and out.",
+      "type": "prior",
+      "bloom": null,
+      "bigIdea": null,
+      "origin": "prior",
+      "sources": []
+    },
+    {
+      "id": "E3",
+      "name": "Ideal gas, isentropic processes, entropy",
+      "description": "Can describe adiabatic/reversible (isentropic) and constant-pressure processes of an ideal gas.",
+      "type": "prior",
+      "bloom": null,
+      "bigIdea": null,
+      "origin": "prior",
+      "sources": []
+    },
+    {
+      "id": "E4",
+      "name": "Kinetic energy & power",
+      "description": "Can use KE = ½mv², power = force × velocity, and their per-second (mass-flow) forms.",
+      "type": "prior",
+      "bloom": null,
+      "bigIdea": null,
+      "origin": "prior",
+      "sources": []
+    },
+    {
+      "id": "E5",
+      "name": "Mach number & compressibility",
+      "description": "Can explain what subsonic, transonic and supersonic mean and why compressibility losses appear near Mach 1.",
+      "type": "prior",
+      "bloom": null,
+      "bigIdea": null,
+      "origin": "prior",
+      "sources": []
+    },
+    {
+      "id": "KC01",
+      "name": "Newton's 3rd law as the jet principle",
+      "description": "Can explain how accelerating air rearward pushes the engine forward.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [1]
+    },
+    {
+      "id": "KC02",
+      "name": "Definition of thrust",
+      "description": "Can define thrust precisely.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [1, 21]
+    },
+    {
+      "id": "KC03",
+      "name": "Jet vs. propeller thrust generation",
+      "description": "Can contrast how a jet engine and a propeller generate thrust.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [1]
+    },
+    {
+      "id": "KC04",
+      "name": "General thrust equation",
+      "description": "Can write the full thrust equation, name every symbol and state where it comes from.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [1]
+    },
+    {
+      "id": "KC05",
+      "name": "Perfectly expanded nozzle simplification",
+      "description": "Can decide when the pressure term may be dropped and state the remaining momentum form.",
+      "type": "decision",
+      "bloom": "analyze",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [1, 18, 19]
+    },
+    {
+      "id": "KC06",
+      "name": "Compute net thrust",
+      "description": "Can calculate net thrust from mass flow and velocities, with units.",
+      "type": "procedure",
+      "bloom": "apply",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [18, 19, 26, 27]
+    },
+    {
+      "id": "KC07",
+      "name": "Propulsive power = F × V0",
+      "description": "Can compute the propulsive power delivered to the aircraft.",
+      "type": "procedure",
+      "bloom": "apply",
+      "bigIdea": "BI1",
+      "origin": "exercise",
+      "sources": [26, 27]
+    },
+    {
+      "id": "KC08",
+      "name": "Sanity-check a thrust result",
+      "description": "Can convert N ↔ lbf and judge whether a thrust value is plausible.",
+      "type": "procedure",
+      "bloom": "evaluate",
+      "bigIdea": "BI1",
+      "origin": "content",
+      "sources": [19]
+    },
+    {
+      "id": "KC09",
+      "name": "Five turbojet sections in flow order",
+      "description": "Can name the five sections of a turbojet in flow order and sketch them.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2, 3, 4]
+    },
+    {
+      "id": "KC10",
+      "name": "Inlet: slow and diffuse the flow",
+      "description": "Can state the function of the inlet.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2]
+    },
+    {
+      "id": "KC11",
+      "name": "Compressor: rotor/stator rows, ×15–40",
+      "description": "Can describe compressor construction and typical modern pressure rise.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2]
+    },
+    {
+      "id": "KC12",
+      "name": "Combustor: continuous burning, 1800–2000 K",
+      "description": "Can describe what happens in the combustor and the gas temperatures reached.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2]
+    },
+    {
+      "id": "KC13",
+      "name": "Turbine drives the compressor",
+      "description": "Can explain how much work the turbojet turbine extracts and why.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2, 4]
+    },
+    {
+      "id": "KC14",
+      "name": "Nozzle: energy → high-velocity jet",
+      "description": "Can state the function of the nozzle.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI2",
+      "origin": "content",
+      "sources": [2]
+    },
+    {
+      "id": "KC15",
+      "name": "Brayton (Joule) cycle as the ideal model",
+      "description": "Can state what the Brayton cycle models and its key assumption.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5, 6]
+    },
+    {
+      "id": "KC16",
+      "name": "1→2 Isentropic compression",
+      "description": "Can describe process 1→2: where it happens and how p, T and s change.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5]
+    },
+    {
+      "id": "KC17",
+      "name": "2→3 Constant-pressure heat addition",
+      "description": "Can describe process 2→3.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5]
+    },
+    {
+      "id": "KC18",
+      "name": "3→4 Isentropic expansion",
+      "description": "Can describe process 3→4 and the energy conversions in it.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5]
+    },
+    {
+      "id": "KC19",
+      "name": "4→1 Constant-pressure heat rejection",
+      "description": "Can describe process 4→1 and why it is 'imagined'.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5]
+    },
+    {
+      "id": "KC20",
+      "name": "Map cycle processes ↔ engine components",
+      "description": "Can assign each Brayton process to the engine section where it occurs.",
+      "type": "concept",
+      "bloom": "analyze",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [2, 5]
+    },
+    {
+      "id": "KC21",
+      "name": "Reading P–v and T–s diagrams",
+      "description": "Can sketch the cycle in P–v and T–s coordinates and interpret the enclosed areas.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [5, 6]
+    },
+    {
+      "id": "KC22",
+      "name": "Pressure ratio rp",
+      "description": "Can define the pressure ratio.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [8, 21]
+    },
+    {
+      "id": "KC23",
+      "name": "Ratio of specific heats γ",
+      "description": "Can state what γ is and its value for air.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [8, 24, 25]
+    },
+    {
+      "id": "KC24",
+      "name": "Definition of thermal efficiency",
+      "description": "Can define thermal efficiency.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [21]
+    },
+    {
+      "id": "KC25",
+      "name": "Ideal Brayton efficiency formula",
+      "description": "Can write the formula and state that it depends only on rp and γ.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [8]
+    },
+    {
+      "id": "KC26",
+      "name": "Compute ideal thermal efficiency",
+      "description": "Can calculate ηth for a given rp and γ.",
+      "type": "procedure",
+      "bloom": "apply",
+      "bigIdea": "BI3",
+      "origin": "exercise",
+      "sources": [24, 25]
+    },
+    {
+      "id": "KC27",
+      "name": "Rising pressure ratios in history",
+      "description": "Can explain the historical rise in pressure ratio and give the milestone values.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI3",
+      "origin": "content",
+      "sources": [8]
+    },
+    {
+      "id": "KC28",
+      "name": "Definition of propulsive efficiency",
+      "description": "Can define propulsive efficiency.",
+      "type": "fact",
+      "bloom": "remember",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [21]
+    },
+    {
+      "id": "KC29",
+      "name": "Large mass, small ΔV principle",
+      "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [11, 28, 29]
+    },
+    {
+      "id": "KC30",
+      "name": "Thermal vs. propulsive efficiency",
+      "description": "Can tell which efficiency a design change affects.",
+      "type": "decision",
+      "bloom": "analyze",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [8, 21]
+    },
+    {
+      "id": "KC31",
+      "name": "Turbojet characteristics",
+      "description": "Can characterize the turbojet's exhaust and best flight regime.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [10]
+    },
+    {
+      "id": "KC32",
+      "name": "Turbofan characteristics",
+      "description": "Can describe the turbofan and explain why it dominates commercial aviation.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [11]
+    },
+    {
+      "id": "KC33",
+      "name": "Bypass ratio",
+      "description": "Can define bypass ratio and use it to split mass flows.",
+      "type": "fact",
+      "bloom": "apply",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [21, 28, 29]
+    },
+    {
+      "id": "KC34",
+      "name": "Turboprop & turboshaft",
+      "description": "Can explain where the energy goes and why efficiency drops near transonic speeds.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [12]
+    },
+    {
+      "id": "KC35",
+      "name": "Ramjet",
+      "description": "Can explain ramjet compression and its operating limits.",
+      "type": "concept",
+      "bloom": "understand",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [13]
+    },
+    {
+      "id": "KC36",
+      "name": "Choose engine type for a flight regime",
+      "description": "Can select and justify the right architecture for a given mission.",
+      "type": "decision",
+      "bloom": "analyze",
+      "bigIdea": "BI4",
+      "origin": "content",
+      "sources": [9, 15, 16]
+    }
+  ],
+  "prerequisites": [
+    {
+      "from": "E1",
+      "to": "KC01",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC01",
+      "to": "KC02",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC01",
+      "to": "KC03",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC02",
+      "to": "KC04",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E2",
+      "to": "KC04",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC04",
+      "to": "KC05",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC05",
+      "to": "KC06",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC06",
+      "to": "KC07",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E4",
+      "to": "KC07",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC06",
+      "to": "KC08",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC10",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC11",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC12",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC13",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC11",
+      "to": "KC13",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC14",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC01",
+      "to": "KC14",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E3",
+      "to": "KC15",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC15",
+      "to": "KC16",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC15",
+      "to": "KC17",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC15",
+      "to": "KC18",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC15",
+      "to": "KC19",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC16",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC17",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC18",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC19",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC11",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC12",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC13",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC14",
+      "to": "KC20",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC16",
+      "to": "KC21",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC17",
+      "to": "KC21",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC18",
+      "to": "KC21",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC19",
+      "to": "KC21",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC11",
+      "to": "KC22",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC16",
+      "to": "KC22",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E3",
+      "to": "KC23",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC15",
+      "to": "KC25",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC22",
+      "to": "KC25",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC23",
+      "to": "KC25",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC24",
+      "to": "KC25",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC25",
+      "to": "KC26",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC25",
+      "to": "KC27",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC07",
+      "to": "KC28",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E4",
+      "to": "KC28",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC28",
+      "to": "KC29",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC05",
+      "to": "KC29",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC24",
+      "to": "KC30",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC28",
+      "to": "KC30",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC09",
+      "to": "KC31",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC29",
+      "to": "KC31",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC31",
+      "to": "KC32",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC29",
+      "to": "KC32",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC32",
+      "to": "KC33",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC29",
+      "to": "KC34",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC13",
+      "to": "KC34",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E5",
+      "to": "KC34",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC11",
+      "to": "KC35",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC14",
+      "to": "KC35",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "E5",
+      "to": "KC35",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC31",
+      "to": "KC36",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC32",
+      "to": "KC36",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC34",
+      "to": "KC36",
+      "extractionConfidence": 1
+    },
+    {
+      "from": "KC35",
+      "to": "KC36",
+      "extractionConfidence": 1
+    }
+  ],
+  "semanticLinks": [
+    {
+      "from": "KC05",
+      "to": "KC04",
+      "coreType": "special_case_of",
+      "label": "special case of"
+    },
+    {
+      "from": "KC14",
+      "to": "KC02",
+      "coreType": "causes",
+      "label": "produces"
+    },
+    {
+      "from": "KC13",
+      "to": "KC11",
+      "coreType": "causes",
+      "label": "drives (common shaft)"
+    },
+    {
+      "from": "KC16",
+      "to": "KC11",
+      "coreType": "applies_in",
+      "label": "occurs in"
+    },
+    {
+      "from": "KC17",
+      "to": "KC12",
+      "coreType": "applies_in",
+      "label": "occurs in"
+    },
+    {
+      "from": "KC18",
+      "to": "KC13",
+      "coreType": "applies_in",
+      "label": "occurs in"
+    },
+    {
+      "from": "KC18",
+      "to": "KC14",
+      "coreType": "applies_in",
+      "label": "occurs in"
+    },
+    {
+      "from": "KC21",
+      "to": "KC15",
+      "coreType": "other",
+      "label": "represents"
+    },
+    {
+      "from": "KC22",
+      "to": "KC16",
+      "coreType": "other",
+      "label": "measured across"
+    },
+    {
+      "from": "KC27",
+      "to": "KC25",
+      "coreType": "other",
+      "label": "explained by"
+    },
+    {
+      "from": "KC24",
+      "to": "KC28",
+      "coreType": "contrasts_with",
+      "label": "contrasts with"
+    },
+    {
+      "from": "KC31",
+      "to": "KC32",
+      "coreType": "contrasts_with",
+      "label": "contrasts with"
+    },
+    {
+      "from": "KC32",
+      "to": "KC31",
+      "coreType": "other",
+      "label": "extends (adds fan)"
+    },
+    {
+      "from": "KC33",
+      "to": "KC32",
+      "coreType": "other",
+      "label": "characterizes"
+    },
+    {
+      "from": "KC29",
+      "to": "KC32",
+      "coreType": "other",
+      "label": "explains"
+    },
+    {
+      "from": "KC29",
+      "to": "KC34",
+      "coreType": "other",
+      "label": "explains"
+    },
+    {
+      "from": "KC34",
+      "to": "KC13",
+      "coreType": "contrasts_with",
+      "label": "contrasts with"
+    },
+    {
+      "from": "KC35",
+      "to": "KC11",
+      "coreType": "other",
+      "label": "replaces"
+    },
+    {
+      "from": "KC08",
+      "to": "KC06",
+      "coreType": "other",
+      "label": "checks"
+    },
+    {
+      "from": "KC03",
+      "to": "KC34",
+      "coreType": "contrasts_with",
+      "label": "contrasts with"
+    }
+  ],
+  "exercises": [
+    {
+      "id": "T2",
+      "name": "Ex. 7.1",
+      "questionChunk": 24,
+      "taskType": "compute thermal efficiency",
+      "solutionStatus": "disputed",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC22", "KC23", "KC25", "KC26"]
+    },
+    {
+      "id": "T3",
+      "name": "Ex. 7.2a",
+      "questionChunk": 26,
+      "taskType": "compute thrust",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC05", "KC06"]
+    },
+    {
+      "id": "T4",
+      "name": "Ex. 7.2b",
+      "questionChunk": 26,
+      "taskType": "compute propulsive power",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 1,
+      "kcs": ["KC06", "KC07"]
+    },
+    {
+      "id": "T5",
+      "name": "Ex. 7.3",
+      "questionChunk": 28,
+      "taskType": "explain propulsive efficiency",
+      "solutionStatus": "verified",
+      "solution": null,
+      "difficulty": 3,
+      "kcs": ["KC28", "KC29", "KC31", "KC32", "KC33"]
+    }
+  ],
+  "findings": [
+    {
+      "kind": "solution_mismatch",
+      "text": "Ex. 7.1: the given answer is 46.5%, our calculation gives 50.8%.",
+      "sources": [24, 25]
+    }
+  ]
+}
