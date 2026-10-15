@@ -103,6 +103,7 @@ pnpm -s agent check           # compile issues, runtime and server errors
 | `pnpm evals`         | AI evals against real models (not in CI)                                           |
 | `pnpm smoke <name>`  | Run one feature path once against a real model and check it (not in CI)            |
 | `pnpm -s agent`      | Drive the running app from the terminal                                            |
+| `pnpm -s retro`      | Digest recent Claude Code runs of this repo for a retro                            |
 | `pnpm db:start`      | Start local Supabase (Docker)                                                      |
 | `pnpm db:stop`       | Stop local Supabase                                                                |
 | `pnpm db:status`     | Show local Supabase URLs and API keys                                              |
@@ -133,6 +134,7 @@ src/lib/           Platform: Supabase clients, auth session, AI config, tracing,
 eslint/            Lint rules that enforce the project structure, and their tests
 evals/             AI eval datasets and runner (`pnpm evals`), smoke checks (`pnpm smoke`)
 tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
+tools/retro/       Transcript digest for agent-run retros (`pnpm -s retro`)
 tools/build/       Worktree setup for `/build`
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
 docs/              Architecture; adr/ holds the technical decisions

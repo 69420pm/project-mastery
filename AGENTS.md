@@ -32,6 +32,10 @@ Like Next.js, these packages ship documentation that matches the installed versi
 
 Gotchas that earlier work verified live in `docs/agents/notes/<topic>.md`: read the note for a library too, when there is one.
 
+## Agent harness
+
+[docs/agents/harness.md](docs/agents/harness.md) sets how this repo equips agents. Read it before changing skills, agent definitions, hooks, `tools/` or `docs/agents/`.
+
 ## Agent worktrees
 
 In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](docs/agents/worktrees.md) before your first command: it covers setup, the commands the worktree guard accepts, and the database, AI quota and ports that parallel agents share.
