@@ -48,4 +48,7 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
   await expect(page.getByRole("region", { name: "Exercises" })).toContainText(
     "The materials have no exercises.",
   );
+  // The built map starts the priorities; a KC no exam, Exercise or KC
+  // needs ranks low.
+  await expect(kc.getByText("Low priority")).toBeVisible({ timeout: 30_000 });
 });
