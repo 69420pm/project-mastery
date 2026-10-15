@@ -23,6 +23,7 @@ export type Database = {
           owner: string;
           task: string;
         };
+        ComputedFields: never;
         Insert: {
           cached_input_tokens?: number;
           chat_id?: string | null;
@@ -76,6 +77,7 @@ export type Database = {
           owner: string;
           position: number;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -117,6 +119,7 @@ export type Database = {
           material_id: string;
           owner: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           material_id: string;
@@ -161,6 +164,7 @@ export type Database = {
           parts: NonNullable<Json>;
           role: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -213,6 +217,7 @@ export type Database = {
           scope_confirmed: boolean;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           calculator?: boolean | null;
           course_id: string;
@@ -272,6 +277,7 @@ export type Database = {
           role: string;
           stopped: boolean;
         };
+        ComputedFields: never;
         Insert: {
           chat_id: string;
           created_at?: string;
@@ -313,6 +319,7 @@ export type Database = {
           title_set_manually: boolean;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -371,6 +378,7 @@ export type Database = {
           points: number | null;
           position: number;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -436,6 +444,7 @@ export type Database = {
           pairing_requested: number;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -469,6 +478,7 @@ export type Database = {
           kc_id: string;
           owner: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           exercise_id: string;
@@ -522,6 +532,7 @@ export type Database = {
           solution_chunk_id: string | null;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -585,6 +596,7 @@ export type Database = {
           solution_status: string;
           task_type: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -642,6 +654,7 @@ export type Database = {
           finding_id: string;
           owner: string;
         };
+        ComputedFields: never;
         Insert: {
           chunk_id: string;
           course_id: string;
@@ -699,6 +712,7 @@ export type Database = {
           status: string;
           text: string;
         };
+        ComputedFields: never;
         Insert: {
           answer?: string | null;
           answered_at?: string | null;
@@ -751,6 +765,7 @@ export type Database = {
           priority: number;
           reasons: string[];
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           kc_id: string;
@@ -798,6 +813,7 @@ export type Database = {
           kc_id: string;
           owner: string;
         };
+        ComputedFields: never;
         Insert: {
           chunk_id: string;
           course_id: string;
@@ -855,6 +871,7 @@ export type Database = {
           position: number;
           type: string;
         };
+        ComputedFields: never;
         Insert: {
           big_idea_id?: string | null;
           bloom?: string | null;
@@ -915,6 +932,7 @@ export type Database = {
           started_at: string;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           check_report?: Json | null;
           course_id: string;
@@ -956,6 +974,7 @@ export type Database = {
           course_id: string;
           owner: string;
         };
+        ComputedFields: never;
         Insert: {
           chunk_id: string;
           course_id: string;
@@ -999,6 +1018,7 @@ export type Database = {
           page_number: number;
           units: NonNullable<Json>;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
@@ -1052,6 +1072,7 @@ export type Database = {
           storage_path: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           created_at?: string;
@@ -1116,6 +1137,7 @@ export type Database = {
           owner: string;
           to_kc: string;
         };
+        ComputedFields: never;
         Insert: {
           course_id: string;
           extraction_confidence: number;
@@ -1173,6 +1195,7 @@ export type Database = {
           owner: string;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           adjusted_at?: string | null;
           adjustments?: NonNullable<Json>;
@@ -1215,6 +1238,7 @@ export type Database = {
           id: string;
           updated_at: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           display_name?: string | null;
@@ -1239,6 +1263,7 @@ export type Database = {
           owner: string;
           to_kc: string;
         };
+        ComputedFields: never;
         Insert: {
           core_type: string;
           course_id: string;
