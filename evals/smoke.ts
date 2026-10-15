@@ -7,8 +7,9 @@
  * the local Supabase and a real model, and checks the feature's invariants.
  * The runner pins every generating task to SMOKE_MODEL (see below), gives the
  * check a throwaway Student, holds the Student's recorded AI calls to the
- * check's cap (30 by default) and deletes the Student with all its data
- * afterwards. Smoke checks never run in `pnpm check`, Vitest or CI.
+ * check's cap (30 by default), stops it after MAX_MINUTES and deletes the
+ * Student with all its data afterwards. Smoke checks never run in
+ * `pnpm check`, Vitest or CI.
  */
 // Must come first: lets smoke checks import modules that use Next.js.
 import "./next-aliases";
@@ -20,7 +21,7 @@ import { briefSmoke } from "./smoke/brief";
 import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
 import { prioritySmoke } from "./smoke/priority";
-import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
+import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
 const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke, prioritySmoke];
@@ -40,6 +41,29 @@ const SMOKE_MODEL =
 
 /** The most model calls a smoke check may record, unless it sets its own. */
 const DEFAULT_MAX_CALLS = 30;
+
+/**
+ * How long a check may run. An agent's prompt cache expires after 5 idle
+ * minutes, so a longer wait makes it write its whole context again
+ * (docs/agents/live-ai.md). `AI_SMOKE_MAX_MINUTES` sets another limit, such
+ * as for a check on MiMo.
+ */
+const MAX_MINUTES = Number(process.env.AI_SMOKE_MAX_MINUTES || 4);
+
+const timedOut = Symbol("timed out");
+
+/** The check's results, or `timedOut` once MAX_MINUTES have passed. */
+async function withinTimeLimit(run: Promise<SmokeResult[]>) {
+  let timer: NodeJS.Timeout | undefined;
+  const limit = new Promise<typeof timedOut>((resolve) => {
+    timer = setTimeout(() => resolve(timedOut), MAX_MINUTES * 60_000);
+  });
+  try {
+    return await Promise.race([run, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
@@ -138,8 +162,22 @@ async function main() {
   const supabase = createAdminClient();
   const studentId = await createStudent(supabase);
   let results: SmokeResult[];
+  let stopped = false;
   try {
-    results = await check.run({ supabase, studentId, args });
+    const outcome = await withinTimeLimit(
+      check.run({ supabase, studentId, args }),
+    );
+    stopped = outcome === timedOut;
+    results =
+      outcome === timedOut
+        ? [
+            result(
+              `finished within ${MAX_MINUTES} min`,
+              false,
+              "stopped, so the feature path is not verified; a model call was slow, see the calls below",
+            ),
+          ]
+        : outcome;
     results.push(
       ...(await checkCalls(
         supabase,
@@ -164,6 +202,8 @@ async function main() {
       : `\n✗ smoke ${check.name}: ${failed} failed`,
   );
   process.exitCode = failed === 0 ? 0 : 1;
+  // A stopped check's model call still holds the process open.
+  if (stopped) process.exit();
 }
 
 main().catch((error: unknown) => {
