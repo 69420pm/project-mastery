@@ -68,6 +68,9 @@ const PAGE_INSTRUCTIONS = `You transcribe one page of a Student's course materia
 export function pageCallSettings() {
   return {
     ...aiTask("ingest"),
+    // With reasoning on, MiMo can answer a structured output with an empty
+    // text (docs/agents/notes/ai-sdk.md).
+    reasoning: "none" as const,
     instructions: PAGE_INSTRUCTIONS,
     output: Output.object({ schema: pageResultSchema }),
   };

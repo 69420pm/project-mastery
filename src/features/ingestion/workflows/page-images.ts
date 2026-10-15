@@ -1,6 +1,11 @@
 import "server-only";
 import path from "node:path";
-import { definePDFJSModule, getDocumentProxy, renderPageAsImage } from "unpdf";
+import {
+  createIsomorphicCanvasFactory,
+  definePDFJSModule,
+  getDocumentProxy,
+  renderPageAsImage,
+} from "unpdf";
 
 /** Rendering scale: a US Letter page becomes 1224×1584 pixels. */
 const RENDER_SCALE = 2;
@@ -23,9 +28,16 @@ const pdfjsReady = definePDFJSModule(
   () => import("pdfjs-dist/legacy/build/pdf.mjs"),
 );
 
+/** The app's own canvas package, which `next.config.ts` ships to the function. */
+const canvasImport = () => import("@napi-rs/canvas");
+
 /** An opened PDF, to count its pages and render them one by one. */
 export async function openPdf(bytes: Uint8Array) {
   await pdfjsReady;
+  // pdf.js would otherwise create canvases (masks, patterns) with its own
+  // `require("@napi-rs/canvas")` from the pnpm store, which the deployed
+  // function lacks (docs/agents/notes/pdf-page-rendering.md).
+  const CanvasFactory = await createIsomorphicCanvasFactory(canvasImport);
   // pdf.js takes ownership of the buffer, so give it a copy.
   const pdf = await getDocumentProxy(new Uint8Array(bytes), {
     // Draw glyphs from the bundled fonts, the same on every machine.
@@ -34,13 +46,14 @@ export async function openPdf(bytes: Uint8Array) {
     standardFontDataUrl: STANDARD_FONTS_PATH,
     cMapUrl: CMAPS_PATH,
     cMapPacked: true,
+    CanvasFactory,
   });
   return {
     pageCount: pdf.numPages,
     /** Renders a 1-based page to PNG bytes. */
     async renderPage(pageNumber: number): Promise<Uint8Array> {
       const png = await renderPageAsImage(pdf, pageNumber, {
-        canvasImport: () => import("@napi-rs/canvas"),
+        canvasImport,
         scale: RENDER_SCALE,
       });
       return new Uint8Array(png);

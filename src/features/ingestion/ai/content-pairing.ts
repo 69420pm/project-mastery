@@ -55,6 +55,9 @@ export function contentPairingSettings(
     chunks.map((chunk) => chunk.id) as [string, ...string[]];
   return {
     ...aiTask("ingest"),
+    // With reasoning on, MiMo can answer a structured output with an empty
+    // text (docs/agents/notes/ai-sdk.md).
+    reasoning: "none" as const,
     instructions: PAIRING_INSTRUCTIONS,
     output: Output.object({
       schema: contentPairingSchema(ids(exercises), ids(solutions)),
