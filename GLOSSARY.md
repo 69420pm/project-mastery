@@ -48,6 +48,10 @@ _Avoid_: Task, problem, question
 A question a Knowledge map build raises about a Course's Materials, with the chunks it is about: something that looks wrong, such as a printed solution that does not match the AI's, or a remark that limits the exam's content, such as "not exam-relevant". It is open until the Student answers it in the Brief, and then answered.
 _Avoid_: Issue, error, erratum
 
+**Priority**:
+How much a KC matters for this Student's exam, from old exams, Exercises, the Knowledge map and the Brief.
+_Avoid_: Weight, importance, relevance
+
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
 _Avoid_: Tutor, assistant, bot
