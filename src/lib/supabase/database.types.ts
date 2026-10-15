@@ -206,6 +206,7 @@ export type Database = {
           goal: string | null;
           hours_per_week: number | null;
           notes: string | null;
+          notes_updated_at: string | null;
           open_book: boolean | null;
           owner: string;
           question_style: string | null;
@@ -221,6 +222,7 @@ export type Database = {
           goal?: string | null;
           hours_per_week?: number | null;
           notes?: string | null;
+          notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
@@ -236,6 +238,7 @@ export type Database = {
           goal?: string | null;
           hours_per_week?: number | null;
           notes?: string | null;
+          notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
@@ -739,6 +742,55 @@ export type Database = {
           },
         ];
       };
+      kc_priorities: {
+        Row: {
+          course_id: string;
+          kc_id: string;
+          multiplier: number;
+          owner: string;
+          priority: number;
+          reasons: string[];
+        };
+        Insert: {
+          course_id: string;
+          kc_id: string;
+          multiplier: number;
+          owner: string;
+          priority: number;
+          reasons?: string[];
+        };
+        Update: {
+          course_id?: string;
+          kc_id?: string;
+          multiplier?: number;
+          owner?: string;
+          priority?: number;
+          reasons?: string[];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "kc_priorities_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_priorities_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: true;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "kc_priorities_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       kc_sources: {
         Row: {
           chunk_id: string;
@@ -1111,6 +1163,51 @@ export type Database = {
           },
         ];
       };
+      priority_runs: {
+        Row: {
+          adjusted_at: string | null;
+          adjustments: NonNullable<Json>;
+          computed_at: string;
+          course_id: string;
+          failure_reason: string | null;
+          owner: string;
+          status: string;
+        };
+        Insert: {
+          adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
+          computed_at?: string;
+          course_id: string;
+          failure_reason?: string | null;
+          owner: string;
+          status: string;
+        };
+        Update: {
+          adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
+          computed_at?: string;
+          course_id?: string;
+          failure_reason?: string | null;
+          owner?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "priority_runs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "priority_runs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -1214,6 +1311,7 @@ export type Database = {
         Returns: boolean;
       };
       queue_material_parse: { Args: { material_id: string }; Returns: boolean };
+      queue_priority_run: { Args: { course_id: string }; Returns: boolean };
       record_knowledge_map_build_start_failure: {
         Args: { course_id: string };
         Returns: boolean;
@@ -1222,8 +1320,16 @@ export type Database = {
         Args: { material_id: string };
         Returns: boolean;
       };
+      record_priority_run_start_failure: {
+        Args: { course_id: string };
+        Returns: boolean;
+      };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };
+        Returns: boolean;
+      };
+      replace_kc_priorities: {
+        Args: { p_adjustments?: Json; p_course_id: string; p_priorities: Json };
         Returns: boolean;
       };
       replace_material_chunks: {

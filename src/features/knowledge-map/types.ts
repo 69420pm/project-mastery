@@ -96,6 +96,20 @@ export type ReviewFinding = {
   asked: boolean;
 };
 
+/**
+ * The KC priorities the map page shows, which the page passes in: each KC's
+ * badge and reasons by KC id (none before the first run), whether a run is
+ * running and why the last one failed.
+ */
+export type MapPriorities = {
+  running: boolean;
+  failureReason: string | null;
+  kcs: Record<
+    string,
+    { level: "high" | "medium" | "low" | "excluded"; reasons: string[] }
+  >;
+};
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;

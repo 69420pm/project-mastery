@@ -9,4 +9,5 @@ export {
   getOpenFindings,
   markFindingAsked,
 } from "./server/review";
+export { loadStoredMap } from "./server/stored-map";
 export { buildKnowledgeMap } from "./workflows/build-knowledge-map";

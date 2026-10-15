@@ -19,10 +19,11 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 import { briefSmoke } from "./smoke/brief";
 import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
+import { prioritySmoke } from "./smoke/priority";
 import type { SmokeCheck, SmokeResult } from "./smoke/smoke-check";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
-const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke];
+const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke, prioritySmoke];
 
 /**
  * The model every generating task is pinned to (docs/agents/live-ai.md). With
@@ -48,6 +49,7 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_INGEST",
   "AI_MODEL_MAP",
   "AI_MODEL_EXERCISE",
+  "AI_MODEL_PRIORITY",
   "AI_MODEL_JUDGE",
 ];
 
