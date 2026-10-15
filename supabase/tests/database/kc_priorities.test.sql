@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, email)
 values
@@ -88,6 +88,23 @@ select results_eq(
 select is(public.queue_priority_run('aaaaaaaa-0000-0000-0000-000000000001'), false,
   'a failed run waits for the next change');
 reset role;
+
+-- A run that asked the model stores its adjustment, and one that reused it
+-- keeps it.
+update public.priority_runs
+set status = 'running', failure_reason = null, computed_at = '2026-10-01T00:00:00Z';
+set local role service_role;
+select public.replace_kc_priorities('aaaaaaaa-0000-0000-0000-000000000001', '[]',
+  '[{"id": "bbbbbbbb-0000-0000-0000-000000000001", "multiplier": 2, "reason": "Stressed"}]');
+reset role;
+update public.priority_runs set status = 'running', computed_at = '2026-10-02T00:00:00Z';
+set local role service_role;
+select public.replace_kc_priorities('aaaaaaaa-0000-0000-0000-000000000001', '[]');
+reset role;
+select results_eq(
+  $$select status, adjusted_at, adjustments -> 0 ->> 'reason' from public.priority_runs$$,
+  $$values ('done', '2026-10-01T00:00:00Z'::timestamptz, 'Stressed')$$,
+  'the adjustment and its adjusted_at are stored, and a reusing run keeps them');
 
 select * from finish();
 rollback;

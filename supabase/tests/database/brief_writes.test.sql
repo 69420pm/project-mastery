@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, email)
 values
@@ -81,6 +81,12 @@ select is(
   (select notes from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'),
   E'First.\n\nSecond.',
   'add_brief_note appends after a blank line'
+);
+
+select isnt(
+  (select notes_updated_at from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'),
+  null,
+  'add_brief_note sets notes_updated_at'
 );
 
 select is(

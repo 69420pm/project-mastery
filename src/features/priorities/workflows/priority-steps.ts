@@ -1,11 +1,26 @@
 import "server-only";
+import { generateText } from "ai";
 import { loadBriefForPriorities } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
+import {
+  adjustCall,
+  type AdjustInput,
+} from "@/features/priorities/ai/adjust-call";
+import {
+  adjustmentPlan,
+  type AdjustmentEntry,
+  type AdjustmentPlan,
+} from "@/features/priorities/domain/adjustment";
 import type {
   KcPriority,
   PriorityInput,
 } from "@/features/priorities/domain/priority";
+import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
+import { tokenUsage } from "@/lib/ai/cost";
+import { isDailyQuotaError } from "@/lib/ai/daily-quota";
+import { answeringModel } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * The steps of a priority run (`update-priorities.ts`). Each runs on the
@@ -19,23 +34,32 @@ function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
-/** What a run reads once: the map, the Course's chunks and Materials, the Brief. */
+/**
+ * What a run reads once: the map, the Course's chunks and Materials, the
+ * Brief, the answered Findings, and the stored adjustment.
+ */
 export type RunInput = {
+  studentId: string;
   input: PriorityInput;
   excludedMaterialIds: string[];
+  /** What the model call reads. */
+  adjust: AdjustInput;
+  /** Whether the run asks the model, reuses `storedAdjustments`, or neither. */
+  plan: AdjustmentPlan;
+  storedAdjustments: AdjustmentEntry[];
 };
 
 /**
- * The stored map, the points and Materials of the Course's chunks, and the
- * Brief's excluded Materials of the Course whose run is running. Null when
- * no run runs any more, as when the Course was deleted.
+ * The stored map, the points and Materials of the Course's chunks, the
+ * Brief and the answered Findings of the Course whose run is running. Null
+ * when no run runs any more, as when the Course was deleted.
  */
 export async function loadRunInput(courseId: string): Promise<RunInput | null> {
   "use step";
   const supabase = createAdminClient();
   const run = await supabase
     .from("priority_runs")
-    .select("owner")
+    .select("owner, adjusted_at, adjustments")
     .eq("course_id", courseId)
     .eq("status", "running")
     .maybeSingle();
@@ -60,7 +84,7 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
       if (page.data.length < PAGE) return rows;
     }
   };
-  const [map, chunks, materials, brief] = await Promise.all([
+  const [map, chunks, materials, brief, findings, build] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadChunks(),
     supabase
@@ -68,10 +92,30 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
       .select("id, name, is_exam")
       .eq("course_id", courseId),
     loadBriefForPriorities(supabase, courseId),
+    supabase
+      .from("findings")
+      .select("text, answer, answered_at")
+      .eq("course_id", courseId)
+      .eq("status", "answered")
+      .order("position"),
+    supabase
+      .from("knowledge_map_builds")
+      .select("finished_at")
+      .eq("course_id", courseId)
+      .maybeSingle(),
   ]);
   if (materials.error) fail("Loading the Materials", materials.error);
+  if (findings.error) fail("Loading the answered Findings", findings.error);
+  if (build.error) fail("Loading the map build", build.error);
 
+  const answered = findings.data.flatMap(({ text, answer, answered_at }) =>
+    answer !== null && answered_at !== null
+      ? [{ text, answer, answeredAt: answered_at }]
+      : [],
+  );
+  const notes = brief.notes?.trim() ? brief.notes : null;
   return {
+    studentId: run.data.owner,
     input: {
       kcs: map.kcs.map((kc) => ({
         id: kc.id,
@@ -100,21 +144,82 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
       ),
     },
     excludedMaterialIds: brief.excludedMaterialIds,
+    adjust: {
+      notes,
+      findings: answered.map(({ text, answer }) => ({ text, answer })),
+      bigIdeas: map.bigIdeas.map(({ id, name, description }) => ({
+        id,
+        name,
+        description,
+      })),
+      kcs: map.kcs.map((kc) => ({
+        id: kc.id,
+        name: kc.name,
+        description: kc.description,
+        bigIdea: kc.bigIdea,
+      })),
+    },
+    plan: adjustmentPlan({
+      hasNotes: notes !== null,
+      answeredAt: answered.map(({ answeredAt }) => answeredAt),
+      notesUpdatedAt: brief.notesUpdatedAt,
+      mapFinishedAt: build.data?.finished_at ?? null,
+      adjustedAt: run.data.adjusted_at,
+    }),
+    storedAdjustments: run.data.adjustments as AdjustmentEntry[],
   };
 }
 
 /**
+ * The model's adjustment for the Student, after checking their Daily limit,
+ * with its usage recorded. Null when the Daily limit or the provider's daily
+ * quota is used up.
+ */
+export async function adjustPriorities(
+  studentId: string,
+  input: AdjustInput,
+): Promise<AdjustmentEntry[] | null> {
+  "use step";
+  const supabase = createAdminClient();
+  const dailyLimit = await checkDailyLimit(supabase, { studentId });
+  if (dailyLimit.level === "reached") return null;
+
+  const { call, entries } = adjustCall(input);
+  const result = await withTraceAttributes(
+    { userId: studentId, traceName: "priority-adjust" },
+    () => generateText(call),
+  ).catch((error: unknown) => {
+    if (isDailyQuotaError(error)) return null;
+    throw error;
+  });
+  if (!result) return null;
+  await recordAiUsage(
+    supabase,
+    {
+      task: "priority",
+      modelId: answeringModel(call, result.response.modelId),
+      usage: tokenUsage(result.usage),
+    },
+    { studentId },
+  );
+  return entries(result.output);
+}
+
+/**
  * Replaces the Course's KC priorities and marks the run done, in one
- * transaction. Does nothing when no run runs any more.
+ * transaction, storing `adjustments` as the model's last adjustment unless
+ * it is null. Does nothing when no run runs any more.
  */
 export async function storePriorities(
   courseId: string,
   priorities: KcPriority[],
+  adjustments: AdjustmentEntry[] | null,
 ): Promise<void> {
   "use step";
   const { error } = await createAdminClient().rpc("replace_kc_priorities", {
     p_course_id: courseId,
     p_priorities: priorities,
+    ...(adjustments && { p_adjustments: adjustments }),
   });
   if (error) fail("Storing the priorities", error);
 }

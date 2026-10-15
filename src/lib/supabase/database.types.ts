@@ -206,6 +206,7 @@ export type Database = {
           goal: string | null;
           hours_per_week: number | null;
           notes: string | null;
+          notes_updated_at: string | null;
           open_book: boolean | null;
           owner: string;
           question_style: string | null;
@@ -221,6 +222,7 @@ export type Database = {
           goal?: string | null;
           hours_per_week?: number | null;
           notes?: string | null;
+          notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
@@ -236,6 +238,7 @@ export type Database = {
           goal?: string | null;
           hours_per_week?: number | null;
           notes?: string | null;
+          notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
@@ -1163,6 +1166,7 @@ export type Database = {
       priority_runs: {
         Row: {
           adjusted_at: string | null;
+          adjustments: NonNullable<Json>;
           computed_at: string;
           course_id: string;
           failure_reason: string | null;
@@ -1171,6 +1175,7 @@ export type Database = {
         };
         Insert: {
           adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
           computed_at?: string;
           course_id: string;
           failure_reason?: string | null;
@@ -1179,6 +1184,7 @@ export type Database = {
         };
         Update: {
           adjusted_at?: string | null;
+          adjustments?: NonNullable<Json>;
           computed_at?: string;
           course_id?: string;
           failure_reason?: string | null;
@@ -1323,7 +1329,7 @@ export type Database = {
         Returns: boolean;
       };
       replace_kc_priorities: {
-        Args: { p_course_id: string; p_priorities: Json };
+        Args: { p_adjustments?: Json; p_course_id: string; p_priorities: Json };
         Returns: boolean;
       };
       replace_material_chunks: {

@@ -89,6 +89,15 @@ export const AI_TASKS = {
     override: "AI_MODEL_EXERCISE",
   },
   /**
+   * One call per priority run that adjusts the KCs' Priority multipliers
+   * from the Brief's notes and the answered Findings, with structured output.
+   */
+  priority: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_PRIORITY",
+  },
+  /**
    * Chunk embeddings for pgvector. Changing the model or its dimensions means
    * re-embedding and a new `chunks.embedding` column size.
    */

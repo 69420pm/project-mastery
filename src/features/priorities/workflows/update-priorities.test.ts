@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, expect, test, vi } from "vitest";
+import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
@@ -34,7 +35,10 @@ function createDb() {
       exercise_kcs: [] as FakeRow[],
       findings: [] as FakeRow[],
       finding_sources: [] as FakeRow[],
+      knowledge_map_builds: [] as FakeRow[],
+      ai_usage: [] as FakeRow[],
     },
+    defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
     functions: {
       replace_kc_priorities: (args, tables) => {
         const run = tables.priority_runs.find(
@@ -57,6 +61,10 @@ function createDb() {
           reasons: entry.reasons,
         }));
         run.status = "done";
+        if (args.p_adjustments) {
+          run.adjustments = args.p_adjustments;
+          run.adjusted_at = run.computed_at;
+        }
         return true;
       },
     },
@@ -81,6 +89,13 @@ function seedCourse() {
     course_id: COURSE,
     owner: STUDENT,
     status: "running",
+    computed_at: "2026-10-02T00:00:00Z",
+    adjusted_at: null,
+    adjustments: [],
+  });
+  t.knowledge_map_builds.push({
+    course_id: COURSE,
+    finished_at: "2026-10-01T00:00:00Z",
   });
   t.materials.push(
     { id: "m-lecture", course_id: COURSE, name: "Lecture 1", is_exam: false },
@@ -190,4 +205,51 @@ test("no running run computes nothing", async () => {
   };
   await updatePriorities(COURSE);
   expect(db.tables.kc_priorities).toEqual([]);
+});
+
+test("notes adjust the multipliers once, and a rerun with unchanged notes reuses them", async () => {
+  seedCourse();
+  db.tables.briefs.push({
+    course_id: COURSE,
+    notes: "The thrust equation is stressed. Thrust matters less.",
+    notes_updated_at: "2026-10-01T12:00:00Z",
+  });
+  const model = mockTextModel(
+    JSON.stringify({
+      entries: [
+        { id: "B1", multiplier: 0.5, reason: "Matters less" },
+        { id: "K2", multiplier: 2, reason: "The lecturer stressed it" },
+      ],
+    }),
+  );
+  useMockModels({ priority: model });
+
+  await updatePriorities(COURSE);
+  const run = db.tables.priority_runs[0] as FakeRow;
+  Object.assign(run, {
+    status: "running",
+    computed_at: "2026-10-03T00:00:00Z",
+  });
+  await updatePriorities(COURSE);
+
+  expect(model.doGenerateCalls).toHaveLength(1);
+  expect(db.tables.ai_usage).toHaveLength(1);
+  const stored = Object.fromEntries(
+    db.tables.kc_priorities.map((row) => [row.kc_id, row]),
+  );
+  expect(stored.k2).toMatchObject({
+    priority: 1.5,
+    multiplier: 2,
+    reasons: [
+      "10 points in old exams",
+      "Tested by 1 Exercise",
+      "The lecturer stressed it",
+    ],
+  });
+  expect(stored.k1).toMatchObject({ priority: 0.125, multiplier: 0.5 });
+  expect(stored.k3).toMatchObject({ multiplier: 0 });
+  expect(run).toMatchObject({
+    status: "done",
+    adjusted_at: "2026-10-02T00:00:00Z",
+  });
 });

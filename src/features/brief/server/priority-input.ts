@@ -5,6 +5,8 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 export type BriefForPriorities = {
   /** The Student's free-text statements; null without any. */
   notes: string | null;
+  /** When a note was last added; null before the first. */
+  notesUpdatedAt: string | null;
   /** The Materials the exam does not cover. */
   excludedMaterialIds: string[];
 };
@@ -20,7 +22,7 @@ export async function loadBriefForPriorities(
   const [brief, excluded] = await Promise.all([
     supabase
       .from("briefs")
-      .select("notes")
+      .select("notes, notes_updated_at")
       .eq("course_id", courseId)
       .maybeSingle(),
     supabase
@@ -38,6 +40,7 @@ export async function loadBriefForPriorities(
   }
   return {
     notes: brief.data?.notes ?? null,
+    notesUpdatedAt: brief.data?.notes_updated_at ?? null,
     excludedMaterialIds: excluded.data.map((row) => row.material_id),
   };
 }
