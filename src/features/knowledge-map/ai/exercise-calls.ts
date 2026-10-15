@@ -73,7 +73,10 @@ export function exerciseCall(input: {
   const settings = aiTask("exercise");
   return {
     ...settings,
-    reasoning: "medium" as const,
+    // With reasoning on, MiMo can answer a structured output with an empty
+    // text (docs/agents/notes/ai-sdk.md). The worked `solution` field holds
+    // the working instead.
+    reasoning: "none" as const,
     instructions: INSTRUCTIONS,
     output: Output.object({ schema: exerciseSchema(input.solution !== null) }),
     messages: [
