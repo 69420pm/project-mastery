@@ -50,12 +50,12 @@ flowchart LR
 
 ## Environments
 
-| Environment | App                         | Supabase               | AI                                |
-| ----------- | --------------------------- | ---------------------- | --------------------------------- |
-| Local       | `pnpm dev`                  | Supabase CLI in Docker | AI Gateway, monthly free credit   |
-| Tests / CI  | Vitest, Playwright          | Supabase CLI in Docker | AI SDK mock models, no real calls |
-| Preview     | Vercel preview per PR       | Staging project        | AI Gateway, card on file          |
-| Production  | Vercel production on `main` | Production project     | AI Gateway, purchased credits     |
+| Environment | App                         | Supabase               | AI                                                       |
+| ----------- | --------------------------- | ---------------------- | -------------------------------------------------------- |
+| Local       | `pnpm dev`                  | Supabase CLI in Docker | Gemini API free tier for text, AI Gateway for embeddings |
+| Tests / CI  | Vitest, Playwright          | Supabase CLI in Docker | AI SDK mock models, no real calls                        |
+| Preview     | Vercel preview per PR       | Staging project        | AI Gateway, card on file                                 |
+| Production  | Vercel production on `main` | Production project     | AI Gateway, purchased credits                            |
 
 Preview deployments never touch production data.
 
@@ -172,6 +172,7 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 - [0013](adr/0013-hosting-plans.md): Hosting plans
 - [0014](adr/0014-feature-modules-with-lint-boundaries.md): Feature modules with lint-enforced boundaries
 - [0015](adr/0015-agent-cli-for-running-app.md): Agents verify changes in the running app through one CLI
+- [0016](adr/0016-gemini-api-for-local-development.md): Local development on the Gemini API free tier
 
 ## Open questions
 

@@ -85,6 +85,71 @@ describe("AI_PROVIDER=google", () => {
   });
 });
 
+/**
+ * Stubs the Google key (undefined for none) and restores the global default
+ * provider after the test, since routing installs one for the process.
+ */
+function stubGoogleKey(key: string | undefined) {
+  vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+  vi.stubEnv("GOOGLE_GENERATIVE_AI_API_KEY", key);
+  const previous = globalThis.AI_SDK_DEFAULT_PROVIDER;
+  globalThis.AI_SDK_DEFAULT_PROVIDER = undefined;
+  onTestFinished(() => {
+    globalThis.AI_SDK_DEFAULT_PROVIDER = previous;
+  });
+}
+
+describe("Gemini API for local development (ADR 0016)", () => {
+  test("sends google ids to the Gemini API and every other id to the gateway", () => {
+    stubGoogleKey("test-google-key");
+    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
+
+    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+    const router = globalThis.AI_SDK_DEFAULT_PROVIDER;
+    expect(router).toBeDefined();
+    const gemini = router!.languageModel("google/gemini-3.5-flash-lite");
+    expect(gemini.modelId).toBe("gemini-3.5-flash-lite");
+    expect(gemini.provider).toMatch(/google/);
+    expect(
+      router!.languageModel("xiaomi/mimo-v2.6-flash").provider,
+    ).not.toMatch(/google/);
+  });
+
+  test("keeps embeddings on the gateway", () => {
+    stubGoogleKey("test-google-key");
+
+    expect(aiTask("embed").model).toBe("cohere/embed-v5.0-fast");
+    const router = globalThis.AI_SDK_DEFAULT_PROVIDER;
+    if (!router || !("embeddingModel" in router)) {
+      throw new Error("the Gemini router has no embedding models");
+    }
+    const embedding = router.embeddingModel("cohere/embed-v5.0-fast");
+    expect(embedding.provider).not.toMatch(/google/);
+  });
+
+  test("needs the key for a google id", () => {
+    stubGoogleKey(undefined);
+    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
+
+    expect(() => aiTask("chat")).toThrow(/GOOGLE_GENERATIVE_AI_API_KEY/);
+  });
+
+  test("mock mode answers google ids without the key", () => {
+    stubGoogleKey(undefined);
+    vi.stubEnv("AI_PROVIDER", "mock");
+    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
+
+    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
+  });
+
+  test("is refused on Vercel, where deployments use the gateway", () => {
+    stubGoogleKey("test-google-key");
+    vi.stubEnv("VERCEL", "1");
+
+    expect(() => modelIdFor("chat")).toThrow(/Gemini API key/);
+  });
+});
+
 describe("gateway routing", () => {
   test("tags every call with its task and pins MiMo to DeepInfra", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
@@ -152,7 +217,7 @@ describe("model choices", () => {
   });
 
   test("lets the environment override the default choice's model", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+    stubGoogleKey("test-google-key");
     vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
 
     expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");

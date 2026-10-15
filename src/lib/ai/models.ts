@@ -1,4 +1,6 @@
 import "server-only";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { gateway } from "ai";
 import { getAiEnv, type AiEnv } from "./env";
 import { routeToMockModels } from "./mock-provider";
 import { MODEL_PRICES } from "./prices";
@@ -40,7 +42,8 @@ export type ModelChoice = ModelChoiceConfig & { key: string };
  * (ADR 0006), and the other choices are models the Gateway's free credit
  * serves (verified live on 2026-10-14: no Google model, no MiMo Pro). The
  * real model per task is chosen by testing on real course materials (open
- * question in docs/ARCHITECTURE.md).
+ * question in docs/ARCHITECTURE.md). Local development can point a text task
+ * at `google/gemini-3.5-flash-lite` through its override (ADR 0016).
  */
 export const AI_TASKS = {
   /** The AI's replies in a Chat. The Student picks one of the choices. */
@@ -238,6 +241,44 @@ export function answeringModel(
   );
 }
 
+/** Model ids the Gemini API serves directly, when a Google key is set. */
+const GOOGLE_PREFIX = "google/";
+
+/**
+ * Local development (ADR 0016): sends `google/` model ids straight to the
+ * Gemini API with the Google key, and every other id through AI Gateway,
+ * which serves no Google model on its free credit. MiMo and the embeddings
+ * stay on the gateway.
+ */
+function routeToGeminiApi(apiKey: string) {
+  globalThis.AI_SDK_DEFAULT_PROVIDER ??= geminiRouter(apiKey);
+}
+
+function geminiRouter(apiKey: string) {
+  const google = createGoogleGenerativeAI({ apiKey });
+  const geminiId = (id: string) => id.slice(GOOGLE_PREFIX.length);
+  return {
+    specificationVersion: "v4" as const,
+    languageModel: (id: string) =>
+      id.startsWith(GOOGLE_PREFIX)
+        ? google.languageModel(geminiId(id))
+        : gateway.languageModel(id),
+    embeddingModel: (id: string) =>
+      id.startsWith(GOOGLE_PREFIX)
+        ? google.embeddingModel(geminiId(id))
+        : gateway.embeddingModel(id),
+    imageModel: (id: string) => gateway.imageModel(id),
+  };
+}
+
+/** Routes model ids for this environment. Mock mode answers every id. */
+function routeModels(env: AiEnv) {
+  if (env.AI_PROVIDER === "mock") routeToMockModels();
+  else if (env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    routeToGeminiApi(env.GOOGLE_GENERATIVE_AI_API_KEY);
+  }
+}
+
 /**
  * Call settings for one AI task: model, retries, gateway fallbacks and
  * telemetry. Spread it into every AI SDK call so each call is configured and
@@ -250,8 +291,18 @@ export function answeringModel(
 export function aiTask(task: AiTask, choice?: string) {
   const { fallbacks } = AI_TASKS[task];
   const model = modelIdFor(task, choice);
+  const env = getAiEnv();
+  if (
+    env.AI_PROVIDER !== "mock" &&
+    model.startsWith(GOOGLE_PREFIX) &&
+    !env.GOOGLE_GENERATIVE_AI_API_KEY
+  ) {
+    throw new Error(
+      `"${model}" needs GOOGLE_GENERATIVE_AI_API_KEY (local development, ADR 0016)`,
+    );
+  }
+  routeModels(env);
   const only = ONLY_PROVIDERS[model];
-  if (getAiEnv().AI_PROVIDER === "mock") routeToMockModels();
   return {
     model,
     maxRetries: AI_MAX_RETRIES,
