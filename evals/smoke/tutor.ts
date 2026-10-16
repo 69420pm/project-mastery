@@ -262,11 +262,14 @@ export const tutorSmoke: SmokeCheck = {
       calls.length === 0
         ? "no tool call"
         : calls.map((c) => `${c.toolName} ×${c.kcIds.length}`).join(", ");
+    // The KCs the answer's turn recorded show what the question was about,
+    // so a reply that reads a due KC and then asks about a new one fails.
+    const dueRecorded = recorded.filter(({ kc_id }) => due.has(kc_id));
     return [
       result(
-        "the first reply read a due KC",
-        dueReads.length > 0,
-        describe(first.calls),
+        "the first reply asked about a due KC",
+        dueReads.length > 0 && dueRecorded.length > 0,
+        `read: ${describe(first.calls)}; ${dueRecorded.length} due KCs recorded`,
       ),
       result(
         "the first reply ends by asking the Student something",
