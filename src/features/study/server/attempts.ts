@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { getExamDate } from "@/features/brief/server";
+import { getExamFacts } from "@/features/brief/server";
 import {
   kcState,
   replayLadder,
@@ -106,7 +106,7 @@ export async function getKcStates(
 ): Promise<Record<string, KcState>> {
   if (!z.uuid().safeParse(courseId).success || !(await getUser())) return {};
   const supabase = await createClient();
-  const examDate = await getExamDate(supabase, courseId);
+  const { examDate } = await getExamFacts(supabase, courseId);
   const ladder = await loadLadder(supabase, courseId, examDate);
   const today = utcDay(new Date());
   return Object.fromEntries(

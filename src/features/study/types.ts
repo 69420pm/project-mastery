@@ -1,8 +1,9 @@
 import type { CandidateGroup } from "@/features/study/domain/candidates";
 import type { KcStateName } from "@/features/study/domain/ladder";
+import type { Phase } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
-export type { KcStateName };
+export type { KcStateName, Phase };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -22,6 +23,20 @@ export type TutorContext = {
   dueReviews: DueReviews;
   /** Ranked and grouped by big idea; empty without a map. */
   candidates: CandidateGroup[];
+};
+
+/**
+ * A Course's study plan as the map page shows it (`planStudy`): no Phase
+ * without an exam date or once it has passed; share and left-out KCs only
+ * with pacing.
+ */
+export type StudyPlan = {
+  phase: Phase | null;
+  /** The whole percent of relevant KCs that fit; null without pacing. */
+  share: number | null;
+  /** The ids of the relevant KCs that won't fit. */
+  leftOut: string[];
+  hoursPerWeek: number | null;
 };
 
 /**

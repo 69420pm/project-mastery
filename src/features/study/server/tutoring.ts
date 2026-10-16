@@ -1,5 +1,5 @@
 import "server-only";
-import { getExamDate } from "@/features/brief/server";
+import { getExamFacts } from "@/features/brief/server";
 import { materialChunksPath } from "@/features/courses/server";
 import {
   chunkAnchor,
@@ -49,8 +49,8 @@ export async function startTutoring(
   const [map, priorities, [examDate, ladder]] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
-    getExamDate(supabase, courseId).then(
-      async (examDate) =>
+    getExamFacts(supabase, courseId).then(
+      async ({ examDate }) =>
         [examDate, await loadLadder(supabase, courseId, examDate)] as const,
     ),
   ]);
