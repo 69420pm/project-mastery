@@ -67,6 +67,69 @@ export type Database = {
           },
         ];
       };
+      attempts: {
+        Row: {
+          correct: boolean;
+          course_id: string;
+          created_at: string;
+          exercise_id: string | null;
+          help: string;
+          id: string;
+          kc_id: string;
+          owner: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          correct: boolean;
+          course_id: string;
+          created_at?: string;
+          exercise_id?: string | null;
+          help: string;
+          id?: string;
+          kc_id: string;
+          owner?: string;
+        };
+        Update: {
+          correct?: boolean;
+          course_id?: string;
+          created_at?: string;
+          exercise_id?: string | null;
+          help?: string;
+          id?: string;
+          kc_id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "attempts_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attempts_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attempts_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attempts_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       big_ideas: {
         Row: {
           course_id: string;

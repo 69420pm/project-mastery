@@ -1,6 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { ExerciseView, KcReading } from "@/features/study/types";
+import type {
+  ExerciseView,
+  KcReading,
+  RecordedKc,
+} from "@/features/study/types";
 
 /** What `readKcs` takes: KC ids of the Course. */
 export const readKcsInputSchema = z.object({
@@ -14,6 +18,33 @@ export const readKcsInputSchema = z.object({
 /** What `findExercises` takes: KC ids of the Course. */
 export const findExercisesInputSchema = readKcsInputSchema;
 
+/** What `recordAttempt` takes: the evidence of one problem or review question. */
+export const recordAttemptInputSchema = z.object({
+  exerciseId: z
+    .string()
+    .optional()
+    .describe(
+      "The id of the Exercise from findExercises, when the problem was one; omit it for your own question.",
+    ),
+  help: z
+    .enum(["none", "some", "solution_shown"])
+    .describe(
+      "How much you helped: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
+    ),
+  kcs: z
+    .array(
+      z.object({
+        kcId: z.string(),
+        correct: z
+          .boolean()
+          .describe("Whether the Student's final answer got this KC right."),
+      }),
+    )
+    .min(1)
+    .max(8)
+    .describe("The 1 to 8 KCs of this Course the question tested, each once."),
+});
+
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
@@ -21,6 +52,9 @@ export const findExercisesInputSchema = readKcsInputSchema;
 export type TutorToolActions = {
   readKcs: (kcIds: string[]) => Promise<KcReading[]>;
   findExercises: (kcIds: string[]) => Promise<ExerciseView[]>;
+  recordAttempt: (
+    attempt: z.infer<typeof recordAttemptInputSchema>,
+  ) => Promise<RecordedKc[]>;
 };
 
 /** A refused tool call: its message tells the model what to fix. */
@@ -43,6 +77,14 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: findExercisesInputSchema,
       execute: async ({ kcIds }) => ({
         exercises: await actions.findExercises(kcIds),
+      }),
+    }),
+    recordAttempt: tool({
+      description:
+        "Record the Student's evidence when a problem or review question ends: which KCs it tested, whether the Student got each right, and how much you helped. Returns each KC's new level (1 to 5) and next review date (YYYY-MM-DD).",
+      inputSchema: recordAttemptInputSchema,
+      execute: async (attempt) => ({
+        kcs: await actions.recordAttempt(attempt),
       }),
     }),
   };

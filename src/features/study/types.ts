@@ -1,4 +1,7 @@
 import type { CandidateGroup } from "@/features/study/domain/candidates";
+import type { KcStateName } from "@/features/study/domain/ladder";
+
+export type { KcStateName };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -18,6 +21,28 @@ export type TutorContext = {
   candidates: CandidateGroup[];
 };
 
+/**
+ * A KC's place on the review ladder, replayed from its attempts on every
+ * read. Level and next review are null for a new KC.
+ */
+export type KcState = {
+  state: KcStateName;
+  /** 1 to 5. */
+  level: number | null;
+  /** As YYYY-MM-DD. */
+  nextReview: string | null;
+};
+
+/** What `recordAttempt` returns for each KC it recorded. */
+export type RecordedKc = {
+  id: string;
+  name: string;
+  /** 1 to 5. */
+  level: number;
+  /** As YYYY-MM-DD. */
+  nextReview: string;
+};
+
 /** A source chunk of a KC as `readKcs` returns it. */
 export type KcSourceView = {
   material: string;
@@ -30,6 +55,8 @@ export type KcSourceView = {
 
 /** An Exercise as `findExercises` returns it. */
 export type ExerciseView = {
+  /** What `recordAttempt` takes as `exerciseId`. */
+  id: string;
   name: string;
   taskType: string;
   /** 1 to 3. */

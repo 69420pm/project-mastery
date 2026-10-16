@@ -18,6 +18,7 @@ import {
   type TutorTools,
 } from "@/features/study/ai/tools";
 import { selectCandidates } from "@/features/study/domain/candidates";
+import { insertAttempts, loadLadder } from "@/features/study/server/attempts";
 import {
   rankExercises,
   solutionLabel,
@@ -53,7 +54,7 @@ export async function startTutoring(
       mapPath: knowledgeMapPath(courseId),
       candidates: hasMap ? selectCandidates(map, priorities) : [],
     },
-    tools: tutorTools(tutorToolActions(supabase, courseId, map)),
+    tools: tutorTools(tutorToolActions(supabase, courseId, map, examDate)),
   };
 }
 
@@ -64,8 +65,10 @@ function tutorToolActions(
   supabase: Supabase,
   courseId: string,
   map: KnowledgeMap,
+  examDate: string | null,
 ): TutorToolActions {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
+  const exerciseIds = new Set(map.exercises.map((exercise) => exercise.id));
   const requireKnown = (kcIds: string[]) => {
     const unknown = kcIds.filter((id) => !kcById.has(id));
     if (unknown.length > 0) {
@@ -105,6 +108,7 @@ function tutorToolActions(
           paired[exercise.questionChunk] ?? "",
         );
         return {
+          id: exercise.id,
           name: exercise.name,
           taskType: exercise.taskType,
           difficulty: exercise.difficulty,
@@ -117,6 +121,26 @@ function tutorToolActions(
           },
         };
       });
+    },
+    async recordAttempt(attempt) {
+      const kcIds = attempt.kcs.map(({ kcId }) => kcId);
+      requireKnown(kcIds);
+      if (new Set(kcIds).size < kcIds.length) {
+        throw new TutorToolError("List each KC once.");
+      }
+      const { exerciseId } = attempt;
+      if (exerciseId !== undefined && !exerciseIds.has(exerciseId)) {
+        throw new TutorToolError(
+          `${exerciseId} is no Exercise id of this Course: use an id from findExercises, or omit it.`,
+        );
+      }
+      await insertAttempts(supabase, courseId, attempt);
+      const ladder = await loadLadder(supabase, courseId, examDate, kcIds);
+      return kcIds.map((id) => ({
+        id,
+        name: kcById.get(id)!.name,
+        ...ladder.get(id)!,
+      }));
     },
     async readKcs(kcIds) {
       requireKnown(kcIds);
