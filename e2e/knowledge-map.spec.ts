@@ -42,6 +42,13 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
 
   // The mock names every KC with its text and teaches it on pages 1–2.
   const graph = page.getByRole("application", { name: "Knowledge map graph" });
+  // Without Big-idea groups the KCs are laid out again, flat.
+  await page.getByRole("button", { name: "Layers" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }).click();
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }),
+  ).not.toBeChecked();
+  await page.keyboard.press("Escape");
   await graph
     .getByRole("button", { name: /^Mock text from the mock AI/ })
     .first()

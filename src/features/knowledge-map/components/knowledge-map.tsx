@@ -2,7 +2,7 @@
 
 import { RotateCwIcon, WaypointsIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { type ReactNode, useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import { DEFAULT_LAYERS } from "@/features/knowledge-map/domain/map-graph";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   KnowledgeMapView,
@@ -21,8 +22,11 @@ import type {
   MapPriorities,
 } from "@/features/knowledge-map/types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { BigIdeaPanel } from "./big-idea-panel";
 import { CheckReport } from "./check-report";
+import { ExercisePanel } from "./exercise-panel";
 import { KcPanel } from "./kc-panel";
+import { LayerToggles } from "./layer-toggles";
 import { PriorityStatus } from "./kc-priority";
 import { MapGraph } from "./map-graph";
 import { PlanLine } from "./study-plan";
@@ -62,18 +66,18 @@ export function KnowledgeMap({
   const building = map.build?.status === "building";
   useBuildPolling(building || priorities.running);
   const isWide = !useIsMobile();
+  const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = kcs.find((kc) => kc.id === selectedId);
-  const panel = selected ? (
-    <KcPanel
-      kc={selected}
-      map={map}
-      learning={learning}
-      priorities={priorities}
-      leftOut={plan.leftOut.includes(selected.id)}
-      onSelect={setSelectedId}
-    />
-  ) : null;
+  const selected = selectedPanel({
+    id: selectedId,
+    map,
+    learning,
+    priorities,
+    plan,
+    onSelect: setSelectedId,
+  });
+  const panel = selected?.panel ?? null;
+  const panelLabel = selected?.label ?? "KC details";
 
   return (
     <div className="flex w-full flex-1 flex-col gap-6 px-4 pt-4 pb-6 sm:px-6">
@@ -112,17 +116,23 @@ export function KnowledgeMap({
         </div>
       ) : (
         <div className="flex gap-4">
-          <div className="h-[70vh] min-h-96 min-w-0 flex-1">
-            <MapGraph
-              map={map}
-              learning={learning}
-              selectedId={selected?.id ?? null}
-              onSelect={setSelectedId}
-            />
+          <div className="flex h-[70vh] min-h-96 min-w-0 flex-1 flex-col gap-2">
+            <div className="flex justify-end">
+              <LayerToggles layers={layers} onChange={setLayers} />
+            </div>
+            <div className="min-h-0 flex-1">
+              <MapGraph
+                map={map}
+                learning={learning}
+                layers={layers}
+                selectedId={selected ? selectedId : null}
+                onSelect={setSelectedId}
+              />
+            </div>
           </div>
           {isWide && panel && (
             <aside
-              aria-label="KC details"
+              aria-label={panelLabel}
               className="h-[70vh] min-h-96 w-96 shrink-0 overflow-y-auto rounded-xl border"
             >
               <div className="flex justify-end px-2 pt-2">
@@ -148,13 +158,13 @@ export function KnowledgeMap({
       >
         <SheetContent
           side="bottom"
-          aria-label="KC details"
+          aria-label={panelLabel}
           className="max-h-[80vh] overflow-y-auto"
         >
           <SheetHeader className="pb-0">
-            <SheetTitle>KC details</SheetTitle>
+            <SheetTitle>{panelLabel}</SheetTitle>
             <SheetDescription className="sr-only">
-              Everything about the selected KC.
+              Everything about the selected node.
             </SheetDescription>
           </SheetHeader>
           {panel}
@@ -162,6 +172,67 @@ export function KnowledgeMap({
       </Sheet>
     </div>
   );
+}
+
+/**
+ * The selected KC's, Exercise's or Big idea's panel with its label; null
+ * when nothing, or a node the map no longer has, is selected.
+ */
+function selectedPanel({
+  id,
+  map,
+  learning,
+  priorities,
+  plan,
+  onSelect,
+}: {
+  id: string | null;
+  map: KnowledgeMapView;
+  learning: MapKcLearning;
+  priorities: MapPriorities;
+  plan: MapPlan;
+  onSelect: (id: string) => void;
+}): { label: string; panel: ReactNode } | null {
+  if (id === null) return null;
+  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+  const kc = kcs.find((k) => k.id === id);
+  if (kc) {
+    return {
+      label: "KC details",
+      panel: (
+        <KcPanel
+          kc={kc}
+          map={map}
+          learning={learning}
+          priorities={priorities}
+          leftOut={plan.leftOut.includes(kc.id)}
+          onSelect={onSelect}
+        />
+      ),
+    };
+  }
+  const exercise = map.exercises.find((e) => e.id === id);
+  if (exercise) {
+    return {
+      label: "Exercise details",
+      panel: (
+        <ExercisePanel
+          exercise={exercise}
+          kcs={new Map(kcs.map((k) => [k.id, k]))}
+          learning={learning}
+          onSelect={onSelect}
+        />
+      ),
+    };
+  }
+  const bigIdea = map.bigIdeas.find((b) => b.id === id);
+  if (bigIdea) {
+    return {
+      label: "Big idea details",
+      panel: <BigIdeaPanel bigIdea={bigIdea} learning={learning} />,
+    };
+  }
+  return null;
 }
 
 function EmptyMap({ building }: { building: boolean }) {

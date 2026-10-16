@@ -19,24 +19,35 @@ import {
   LightbulbIcon,
   ListOrderedIcon,
   type LucideIcon,
+  PencilLineIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { Markdown } from "@/components/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { KcType } from "@/features/knowledge-map/schemas";
-import { TYPE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
+import type {
+  KcType,
+  SemanticLinkType,
+} from "@/features/knowledge-map/schemas";
+import {
+  DIFFICULTY_NAMES,
+  TYPE_NAMES,
+} from "@/features/knowledge-map/domain/kc-labels";
 import {
   buildMapGraph,
+  type MapGraphEdge,
+  type MapLayers,
   nodeLayouts,
   toElkGraph,
 } from "@/features/knowledge-map/domain/map-graph";
 import { useGraphLayout } from "@/features/knowledge-map/hooks/use-graph-layout";
 import type {
+  ExerciseView,
   KcView,
   KnowledgeMapView,
   MapKcLearning,
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
+import { SolutionBadge } from "./solution-badge";
 
 const TYPE_ICONS: Record<KcType, LucideIcon> = {
   fact: BookmarkIcon,
@@ -58,16 +69,33 @@ const STATE_MARKERS: Record<KcState, { name: string; className: string }> = {
   mastered: { name: "Mastered", className: "bg-success" },
 };
 
+/**
+ * Each Semantic link type's colour, readable on both themes' canvas; "other"
+ * stays neutral.
+ */
+export const SEMANTIC_LINK_COLORS: Record<SemanticLinkType, string> = {
+  is_a: "oklch(0.6 0.16 265)",
+  part_of: "oklch(0.62 0.13 200)",
+  contrasts_with: "oklch(0.6 0.19 27)",
+  causes: "oklch(0.68 0.15 75)",
+  special_case_of: "oklch(0.6 0.17 320)",
+  applies_in: "oklch(0.6 0.14 150)",
+  other: "var(--muted-foreground)",
+};
+
 type KcNodeData = { kc: KcView; state: KcState; selected: boolean };
-type BigIdeaNodeData = { name: string };
+type BigIdeaNodeData = { name: string; selected: boolean };
+type ExerciseNodeData = {
+  exercise: ExerciseView;
+  selected: boolean;
+  badge: boolean;
+};
 type KcNode = Node<KcNodeData, "kc">;
 type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
+type ExerciseNode = Node<ExerciseNodeData, "exercise">;
 
-/** A KC: its type icon, name and state marker. */
-function KcNodeView({ data }: NodeProps<KcNode>) {
-  const { kc, state, selected } = data;
-  const Icon = TYPE_ICONS[kc.type];
-  const marker = STATE_MARKERS[state];
+/** The invisible ends edges attach to. */
+function Handles({ source = true }: { source?: boolean }) {
   return (
     <>
       <Handle
@@ -76,6 +104,26 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
         isConnectable={false}
         className="opacity-0"
       />
+      {source && (
+        <Handle
+          type="source"
+          position={Position.Right}
+          isConnectable={false}
+          className="opacity-0"
+        />
+      )}
+    </>
+  );
+}
+
+/** A KC: its type icon, name and state marker. */
+function KcNodeView({ data }: NodeProps<KcNode>) {
+  const { kc, state, selected } = data;
+  const Icon = TYPE_ICONS[kc.type];
+  const marker = STATE_MARKERS[state];
+  return (
+    <>
+      <Handles />
       <button
         type="button"
         aria-label={kc.name}
@@ -101,12 +149,39 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
           )}
         />
       </button>
-      <Handle
-        type="source"
-        position={Position.Right}
-        isConnectable={false}
-        className="opacity-0"
-      />
+    </>
+  );
+}
+
+/** An Exercise: its name, difficulty and, if shown, its solution status. */
+function ExerciseNodeView({ data }: NodeProps<ExerciseNode>) {
+  const { exercise, selected, badge } = data;
+  return (
+    <>
+      <Handles source={false} />
+      <button
+        type="button"
+        aria-label={exercise.name}
+        aria-pressed={selected}
+        className={cn(
+          "flex size-full flex-col justify-between gap-1 rounded-md border border-dashed bg-card px-3 py-1.5 text-left text-xs shadow-xs transition-colors hover:border-ring",
+          selected && "border-solid border-brand ring-2 ring-brand/40",
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          <PencilLineIcon
+            aria-label="Exercise"
+            className="size-3.5 shrink-0 text-muted-foreground"
+          />
+          <span className="truncate font-medium">
+            <Markdown>{exercise.name}</Markdown>
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          {DIFFICULTY_NAMES[exercise.difficulty]}
+          {badge && <SolutionBadge status={exercise.solutionStatus} />}
+        </span>
+      </button>
     </>
   );
 }
@@ -114,92 +189,151 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
 /** A Big idea: a box around its KCs, with its name on top. */
 function BigIdeaNodeView({ data }: NodeProps<BigIdeaNode>) {
   return (
-    <div className="size-full rounded-xl border border-dashed bg-muted/40 px-4 py-2.5">
-      <div className="truncate text-sm font-semibold text-muted-foreground">
+    <div
+      className={cn(
+        "size-full rounded-xl border border-dashed bg-muted/40",
+        data.selected && "border-brand",
+      )}
+    >
+      <button
+        type="button"
+        aria-pressed={data.selected}
+        className="w-full truncate px-4 py-2.5 text-left text-sm font-semibold text-muted-foreground hover:text-foreground"
+      >
         <Markdown>{data.name}</Markdown>
-      </div>
+      </button>
     </div>
   );
 }
 
-const nodeTypes = { kc: KcNodeView, bigIdea: BigIdeaNodeView };
+const nodeTypes = {
+  kc: KcNodeView,
+  bigIdea: BigIdeaNodeView,
+  exercise: ExerciseNodeView,
+};
+
+const EDGE_STYLES = {
+  tests: { strokeDasharray: "2 4" },
+} as const;
+
+/** How React Flow draws each kind of edge. */
+function flowEdge(edge: MapGraphEdge): Edge {
+  const common = { id: edge.id, source: edge.source, target: edge.target };
+  switch (edge.kind) {
+    case "prerequisite":
+      return {
+        ...common,
+        markerEnd: { type: MarkerType.ArrowClosed },
+        focusable: false,
+      };
+    case "tests":
+      return { ...common, style: EDGE_STYLES.tests, focusable: false };
+    case "semantic": {
+      const color = SEMANTIC_LINK_COLORS[edge.coreType];
+      return {
+        ...common,
+        label: edge.label,
+        style: { stroke: color, strokeDasharray: "6 4" },
+        labelStyle: { fill: color, fontSize: 11 },
+        labelBgStyle: { fill: "var(--background)" },
+        markerEnd: { type: MarkerType.Arrow, color },
+        focusable: false,
+      };
+    }
+  }
+}
 
 /**
- * The Knowledge map as a graph laid out left to right in learning order:
- * each Big idea a box of its KCs, prior knowledge leftmost, Prerequisites
- * as arrows. A skeleton shows until the first layout. Clicking a KC calls
- * `onSelect` with its id.
+ * The Knowledge map as a graph laid out left to right in learning order,
+ * with the layers `layers` switches on: each Big idea a box of its KCs,
+ * prior knowledge leftmost, Exercises right of the KCs they test,
+ * Prerequisites as arrows and Semantic links dashed. A skeleton shows until
+ * the first layout. Clicking a KC, Exercise or Big idea calls `onSelect`
+ * with its id.
  */
 export function MapGraph({
   map,
   learning,
+  layers,
   selectedId,
   onSelect,
 }: {
   map: KnowledgeMapView;
   learning: MapKcLearning;
+  layers: MapLayers;
   selectedId: string | null;
-  onSelect: (kcId: string) => void;
+  onSelect: (id: string) => void;
 }) {
-  const graph = useMemo(() => buildMapGraph(map), [map]);
+  const graph = useMemo(() => buildMapGraph(map, layers), [map, layers]);
   const elkGraph = useMemo(() => toElkGraph(graph), [graph]);
   const laidOut = useGraphLayout(elkGraph);
 
   const { nodes, edges } = useMemo(() => {
-    const layouts = laidOut ? nodeLayouts(laidOut) : new Map();
+    const layouts = laidOut ? nodeLayouts(laidOut) : new Map<string, never>();
     const kcs = new Map(
       [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge].map(
         (kc) => [kc.id, kc],
       ),
     );
+    const exercises = new Map(map.exercises.map((e) => [e.id, e]));
     const bigIdeaName = new Map(map.bigIdeas.map((b) => [b.id, b.name]));
-    const nodes: Array<KcNode | BigIdeaNode> = [];
+    const nodes: Array<KcNode | BigIdeaNode | ExerciseNode> = [];
     const shown = new Set<string>();
     for (const node of graph.nodes) {
       const layout = layouts.get(node.id);
-      // A node the last layout hasn't placed waits for the next one.
-      if (!layout) continue;
+      const parentId = node.kind === "kc" ? node.parentId : null;
+      // A node the last layout hasn't placed, or placed in another group,
+      // waits for the next one.
+      if (!layout || layout.parentId !== parentId) continue;
+      if (parentId !== null && !shown.has(parentId)) continue;
       const common = {
         id: node.id,
         position: { x: layout.x, y: layout.y },
         width: layout.width,
         height: layout.height,
+        focusable: false,
       };
+      const selected = node.id === selectedId;
       if (node.kind === "bigIdea") {
         nodes.push({
           ...common,
           type: "bigIdea",
-          data: { name: bigIdeaName.get(node.id) ?? "" },
-          selectable: false,
-          focusable: false,
+          data: { name: bigIdeaName.get(node.id) ?? "", selected },
+        });
+      } else if (node.kind === "exercise") {
+        nodes.push({
+          ...common,
+          type: "exercise",
+          data: {
+            exercise: exercises.get(node.id)!,
+            selected,
+            badge: layers.solutionBadges,
+          },
         });
       } else {
-        if (node.parentId !== null && !shown.has(node.parentId)) continue;
         nodes.push({
           ...common,
           type: "kc",
-          ...(node.parentId !== null && { parentId: node.parentId }),
+          ...(parentId !== null && { parentId }),
           data: {
             kc: kcs.get(node.id)!,
             state: learning[node.id]?.state ?? "new",
-            selected: node.id === selectedId,
+            selected,
           },
-          focusable: false,
         });
       }
       shown.add(node.id);
     }
-    const edges: Edge[] = graph.edges
-      .filter((edge) => shown.has(edge.source) && shown.has(edge.target))
-      .map((edge) => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        markerEnd: { type: MarkerType.ArrowClosed },
-        focusable: false,
-      }));
+    const edges = graph.edges
+      .filter(
+        (edge) =>
+          !(edge.kind === "prerequisite" && edge.hidden) &&
+          shown.has(edge.source) &&
+          shown.has(edge.target),
+      )
+      .map(flowEdge);
     return { nodes, edges };
-  }, [graph, laidOut, map, learning, selectedId]);
+  }, [graph, laidOut, map, learning, layers, selectedId]);
 
   if (!laidOut) {
     return (
@@ -215,9 +349,7 @@ export function MapGraph({
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
-      onNodeClick={(_, node) => {
-        if (node.type === "kc") onSelect(node.id);
-      }}
+      onNodeClick={(_, node) => onSelect(node.id)}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={false}

@@ -69,8 +69,21 @@ const map: KnowledgeMapView = {
   ],
   priorKnowledge: [],
   prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [],
-  exercises: [],
+  semanticLinks: [
+    { from: "k1", to: "k2", coreType: "causes", label: "speeds up" },
+  ],
+  exercises: [
+    {
+      id: "e1",
+      name: "Ex. 7.2b",
+      taskType: "calculate",
+      kcs: ["k2"],
+      solutionStatus: "disputed",
+      difficulty: 3,
+      question: "Find the exit speed.",
+      solution: "About 2 km/s.",
+    },
+  ],
   checkReport: null,
   canBuild: true,
 };
@@ -172,8 +185,59 @@ test("clicking a KC node opens its panel", async () => {
 
   // A Prerequisite in the panel selects that KC.
   fireEvent.click(
-    within(section("Links")).getByRole("button", { name: "Momentum" }),
+    within(section("Links")).getAllByRole("button", { name: "Momentum" })[0]!,
   );
   expect(section("Overview")).toHaveTextContent("About Momentum.");
   expect(section("Priority")).toHaveTextContent("No Priority yet.");
+  expect(section("Links")).toHaveTextContent("speeds up");
+});
+
+test("an Exercise node shows its solution status and opens its panel", async () => {
+  renderMap(
+    {},
+    {
+      k2: {
+        state: "learning",
+        level: 1,
+        nextReview: null,
+        attempts: [
+          {
+            createdAt: "2026-10-15T10:00:00Z",
+            correct: false,
+            help: "none",
+            exerciseId: "e1",
+          },
+        ],
+        candidate: false,
+        anchors: [],
+      },
+    },
+  );
+  const node = await screen.findByRole("button", { name: "Ex. 7.2b" });
+  expect(node).toHaveTextContent("HardDisputed");
+  fireEvent.click(node);
+
+  const panel = screen.getByRole("complementary", { name: "Exercise details" });
+  const section = (name: string) => within(panel).getByRole("region", { name });
+  expect(section("Question")).toHaveTextContent("Find the exit speed.");
+  expect(section("Solution")).toHaveTextContent("an AI solution disagrees");
+  expect(section("Attempts")).toHaveTextContent("Wrongno helpNozzles");
+
+  // A KC it tests selects that KC.
+  fireEvent.click(
+    within(section("Tests")).getByRole("button", { name: "Nozzles" }),
+  );
+  const kcPanel = screen.getByRole("complementary", { name: "KC details" });
+  expect(
+    within(kcPanel).getByRole("region", { name: "Exercises" }),
+  ).toHaveTextContent("Ex. 7.2battempted");
+});
+
+test("a Big idea opens its KC count per state", async () => {
+  renderMap({});
+  fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));
+  const panel = screen.getByRole("complementary", { name: "Big idea details" });
+  expect(within(panel).getByRole("region", { name: "KCs" })).toHaveTextContent(
+    "All2New2Learning0",
+  );
 });

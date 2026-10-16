@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import type {
   MapKcLearning,
   MapPriorities,
@@ -44,13 +45,6 @@ export function PriorityStatus({ priorities }: { priorities: MapPriorities }) {
   }
   return null;
 }
-
-const STATE_NAMES = {
-  new: "New",
-  learning: "Learning",
-  due: "Due",
-  mastered: "Mastered",
-} as const;
 
 /** A KC's state badge; a KC without attempts is new. */
 export function StateBadge({ state }: { state?: MapKcLearning[string] }) {

@@ -1,7 +1,11 @@
 import "server-only";
 import { z } from "zod";
 import { getMaterialList, materialChunksPath } from "@/features/courses/server";
-import { chunkAnchor, loadChunkSources } from "@/features/ingestion/server";
+import {
+  chunkAnchor,
+  loadChunkSources,
+  loadExerciseSolutions,
+} from "@/features/ingestion/server";
 import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
 import {
   BLOOM_LEVELS,
@@ -59,6 +63,7 @@ export async function getKnowledgeMap(
     materials,
     exercises,
     exerciseKcs,
+    pairedSolutions,
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
@@ -90,13 +95,16 @@ export async function getKnowledgeMap(
     getMaterialList(courseId),
     supabase
       .from("exercises")
-      .select("id, name, task_type, solution_status, difficulty")
+      .select(
+        "id, name, task_type, solution_status, solution, difficulty, question_chunk_id",
+      )
       .eq("course_id", courseId)
       .order("position"),
     supabase
       .from("exercise_kcs")
       .select("exercise_id, kc_id")
       .eq("course_id", courseId),
+    loadExerciseSolutions(supabase, courseId),
   ]);
   if (build.error) failed("Loading the build", build.error);
   if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
@@ -116,7 +124,14 @@ export async function getKnowledgeMap(
   const chunks = await loadChunkSources(supabase, [
     ...sources.data.map((source) => source.chunk_id),
     ...(report?.uncoveredChunkIds ?? []),
+    ...exercises.data
+      .flatMap((exercise) => [
+        exercise.question_chunk_id,
+        pairedSolutions[exercise.question_chunk_id] ?? [],
+      ])
+      .flat(),
   ]);
+  const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   /** The pages of these chunks in reading order, each page once. */
   const pagesOf = (chunkIds: string[]) => [
     ...new Set(
@@ -202,6 +217,13 @@ export async function getKnowledgeMap(
         difficulty: z
           .union([z.literal(1), z.literal(2), z.literal(3)])
           .parse(exercise.difficulty),
+        question: chunkById.get(exercise.question_chunk_id)?.markdown ?? null,
+        // A generated solution is stored; a printed one is its paired chunk.
+        solution:
+          exercise.solution ??
+          chunkById.get(pairedSolutions[exercise.question_chunk_id] ?? "")
+            ?.markdown ??
+          null,
       };
     }),
     checkReport: report && {

@@ -91,6 +91,10 @@ export type ExerciseView = {
   kcs: string[];
   solutionStatus: SolutionStatus;
   difficulty: 1 | 2 | 3;
+  /** Its question chunk's Markdown; null if the chunk is gone. */
+  question: string | null;
+  /** The generated solution, or the printed one's Markdown; null without. */
+  solution: string | null;
 };
 
 /**

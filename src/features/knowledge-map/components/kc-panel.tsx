@@ -16,6 +16,7 @@ import {
   ORIGIN_NAMES,
   TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
+import { attemptedExercises } from "@/features/knowledge-map/domain/map-details";
 import type {
   KcView,
   KnowledgeMapView,
@@ -23,35 +24,10 @@ import type {
   MapPriorities,
 } from "@/features/knowledge-map/types";
 import { PriorityBadge, PriorityReasons, StateBadge } from "./kc-priority";
+import { Fact, formatDate, NodeButton, None, Section } from "./panel-parts";
 import { LeftOutBadge } from "./study-plan";
 
-const dateFormat = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
-const formatDate = (iso: string) => dateFormat.format(new Date(iso));
 const percent = (value: number) => `${Math.round(value * 100)}%`;
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="flex flex-col gap-2">
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex gap-2 text-sm">
-      <dt className="w-28 shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
-    </div>
-  );
-}
-
-function None({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
-}
 
 /** A KC named in the panel; clicking it selects that KC. */
 function KcButton({
@@ -61,23 +37,14 @@ function KcButton({
   kc: KcView | undefined;
   onSelect: (kcId: string) => void;
 }) {
-  if (!kc) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(kc.id)}
-      className="text-left underline-offset-2 hover:underline"
-    >
-      <Markdown>{kc.name}</Markdown>
-    </button>
-  );
+  return <NodeButton node={kc} onSelect={onSelect} />;
 }
 
 /**
  * Every stat about one KC: what it is, what the Student has learned of it,
  * its Priority, its links, the chunks that teach it, the Exercises that test
  * it and what the checks and the AI's candidates say about it. Clicking a
- * linked KC calls `onSelect` with its id.
+ * linked KC or an Exercise calls `onSelect` with its id.
  */
 export function KcPanel({
   kc,
@@ -104,11 +71,7 @@ export function KcPanel({
   const learned = learning[kc.id];
   const priority = priorities.kcs[kc.id];
   const exerciseName = new Map(map.exercises.map((e) => [e.id, e.name]));
-  const attempted = new Set(
-    Object.values(learning).flatMap((entry) =>
-      entry.attempts.flatMap((attempt) => attempt.exerciseId ?? []),
-    ),
-  );
+  const attempted = attemptedExercises(learning);
   const needs = map.prerequisites.filter((link) => link.to === kc.id);
   const neededBy = map.prerequisites.filter((link) => link.from === kc.id);
   const semantic = map.semanticLinks.filter(
@@ -293,7 +256,7 @@ export function KcPanel({
           <ul className="flex flex-col gap-1 text-sm">
             {exercises.map((exercise) => (
               <li key={exercise.id} className="flex flex-wrap gap-x-2">
-                <span>{exercise.name}</span>
+                <NodeButton node={exercise} onSelect={onSelect} />
                 <span className="text-muted-foreground">
                   {attempted.has(exercise.id) ? "attempted" : "not attempted"}
                 </span>
