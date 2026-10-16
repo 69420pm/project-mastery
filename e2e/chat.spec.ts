@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { modelName } from "../src/lib/ai/model-name";
-import { adminClient, expect, test } from "./fixtures";
+import { adminClient, expect, seedChat, test } from "./fixtures";
 
 // The mock AI (AI_PROVIDER=mock) quotes the message and ends with this.
 const REPLY_END = "it never calls a real model.";
@@ -238,6 +238,57 @@ test.describe("signed in", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
       "What is a group?",
     );
+  });
+
+  test("a reply shows its tool calls as step cards that expand", async ({
+    page,
+    student,
+    course,
+  }) => {
+    // The mock AI calls no tools, so the reply is stored as the AI would.
+    const chatId = await seedChat(student.id, course.id, {
+      firstMessage: "Teach me limits",
+      at: new Date(),
+    });
+    const { error } = await adminClient()
+      .from("chat_messages")
+      .insert({
+        chat_id: chatId,
+        role: "assistant",
+        model_id: "mock",
+        parts: [
+          { type: "step-start" },
+          {
+            type: "tool-readKcs",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: { kcIds: ["kc-1"] },
+            output: {
+              kcs: [
+                {
+                  id: "kc-1",
+                  name: "Limits",
+                  type: "concept",
+                  description: "What a function approaches.",
+                  sources: [],
+                },
+              ],
+            },
+          },
+          { type: "step-start" },
+          { type: "text", text: "Let's start with limits." },
+        ],
+      });
+    expect(error).toBeNull();
+
+    await page.goto(`${course.chatPath}/${chatId}`);
+    const card = page.getByRole("button", { name: "Read 1 KC: Limits" });
+    await expect(card).toBeVisible();
+    await expect(page.getByText("Let's start with limits.")).toBeVisible();
+    await expect(page.getByText("What a function approaches.")).toBeHidden();
+
+    await card.click();
+    await expect(page.getByText("What a function approaches.")).toBeVisible();
   });
 
   test("an unknown Chat or Course shows not-found", async ({
