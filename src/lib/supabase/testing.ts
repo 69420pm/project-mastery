@@ -4,8 +4,8 @@ import { fakeStorage } from "./testing-storage";
 /**
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
- * supports the query builder calls the app uses (select, insert, update,
- * delete, eq, in, contains, lt, gt, gte, order, limit, range, single,
+ * supports the query builder calls the app uses (select, insert, upsert,
+ * update, delete, eq, in, contains, lt, gt, gte, order, limit, range, single,
  * maybeSingle, and
  * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
@@ -105,6 +105,7 @@ export function fakeSupabase<Table extends string>(
       | { kind: "select" }
       | { kind: "insert"; rows: FakeRow[] }
       | { kind: "update"; values: FakeRow }
+      | { kind: "upsert"; row: FakeRow; onConflict: string[] }
       | { kind: "delete" };
     let action: Action = { kind: "select" };
     const filters: Array<(row: FakeRow) => boolean> = [];
@@ -168,6 +169,19 @@ export function fakeSupabase<Table extends string>(
       let result: Result;
       if (action.kind === "insert") {
         result = insert(action.rows);
+      } else if (action.kind === "upsert") {
+        const { row, onConflict } = action;
+        const existing = rowsOf(table).find(
+          (other) =>
+            visible(table, other) &&
+            onConflict.every((column) => other[column] === row[column]),
+        );
+        if (existing) {
+          Object.assign(existing, row, { updated_at: timestamp() });
+          result = { data: [existing], error: null };
+        } else {
+          result = insert([row]);
+        }
       } else if (action.kind === "update") {
         const rows = matching();
         for (const row of rows) Object.assign(row, action.values);
@@ -224,6 +238,15 @@ export function fakeSupabase<Table extends string>(
       },
       insert(values: FakeRow | FakeRow[]) {
         action = { kind: "insert", rows: [values].flat() };
+        return builder;
+      },
+      /** One row; `onConflict` names its key columns, as PostgREST takes them. */
+      upsert(values: FakeRow, { onConflict }: { onConflict: string }) {
+        action = {
+          kind: "upsert",
+          row: values,
+          onConflict: onConflict.split(",").map((column) => column.trim()),
+        };
         return builder;
       },
       update(values: FakeRow) {

@@ -20,7 +20,24 @@ const ANSWER =
 const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises", "recordAttempt"];
+const TOOL_NAMES = ["readKcs", "findExercises", "recordAttempt", "remember"];
+
+/** A preference worth keeping in the Memory (#107). */
+const PREFERENCE = "I learn best with examples before formulas.";
+
+/** The Memory of the Course, read as the admin. */
+async function readMemory(
+  supabase: Parameters<typeof insertGoldMap>[0],
+  courseId: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("memories")
+    .select("text")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) throw new Error(`memories: ${error.message}`);
+  return data?.text ?? "";
+}
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -96,16 +113,17 @@ async function sendMessage(
  * Sets up a Course with the jet-engines gold map, a stand-in source chunk
  * for every KC, the gold Exercises with stand-in question chunks and two
  * KCs taught a few days ago, so both are due. Then sends "Let's start
- * studying." and a plausible answer in a new Chat, through the real Chat
- * handler, and checks what the AI did and said.
+ * studying.", a plausible answer and a learning preference in a new Chat,
+ * through the real Chat handler, and checks what the AI did, said and
+ * remembered.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting and an answer in a Chat)",
+    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer and a preference in a Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with the title the only other.
-  maxCalls: 10,
+  maxCalls: 12,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
       .from("courses")
@@ -236,6 +254,17 @@ export const tutorSmoke: SmokeCheck = {
     const first = await sendMessage(client, studentId, chat, GREETING);
     const answeredAt = new Date().toISOString();
     const second = await sendMessage(client, studentId, chat, ANSWER);
+    const memoryBefore = await readMemory(supabase, course.id);
+    // The turn may cross UTC midnight, so either day counts as "this turn".
+    const utcDay = () => new Date().toISOString().slice(0, 10);
+    const turnDays = [utcDay()];
+    const third = await sendMessage(client, studentId, chat, PREFERENCE);
+    turnDays.push(utcDay());
+    const memoryAfter = await readMemory(supabase, course.id);
+    const newLines = memoryAfter
+      .split("\n")
+      .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
+    console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
 
     const { data: recorded, error: attemptsError } = await supabase
       .from("attempts")
@@ -250,7 +279,7 @@ export const tutorSmoke: SmokeCheck = {
         toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = [first.text, second.text]
+    const shown = [first.text, second.text, third.text]
       .join("\n")
       .replace(/\]\([^)]*\)/g, "]");
     const named = [
@@ -280,6 +309,14 @@ export const tutorSmoke: SmokeCheck = {
         "the answer's turn recorded an attempt on a Course KC",
         recorded.some(({ kc_id }) => courseKcs.has(kc_id)),
         `${recorded.length} rows; ${describe(second.calls)}`,
+      ),
+      result(
+        "the preference's turn added a line to the Memory",
+        memoryAfter.startsWith(memoryBefore) &&
+          newLines.some((line) =>
+            turnDays.some((day) => line.startsWith(`${day}: `)),
+          ),
+        `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
       ),
       result(
         "no ids or tool names in the text",

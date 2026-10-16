@@ -25,6 +25,8 @@ export type TutorContext = {
   leftOutCount: number | null;
   /** The Student's goal from the Brief; null until answered. */
   goal: "pass" | "good_grade" | "master_everything" | null;
+  /** What the AI noted about the Student in this Course; "" without notes. */
+  memory: string;
   /** The map page, where the Student builds the map. */
   mapPath: string;
   /** Most urgent first; none without a map. */

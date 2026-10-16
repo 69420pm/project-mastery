@@ -28,6 +28,7 @@ import {
   solutionLabel,
 } from "@/features/study/domain/exercises";
 import { utcDay } from "@/features/study/domain/ladder";
+import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import { planStudy } from "@/features/study/domain/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
@@ -47,9 +48,10 @@ export async function startTutoring(
   supabase: Supabase,
   courseId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, [exam, ladder]] = await Promise.all([
+  const [map, priorities, memory, [exam, ladder]] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
+    loadMemory(supabase, courseId),
     getExamFacts(supabase, courseId).then(
       async (facts) =>
         [facts, await loadLadder(supabase, courseId, facts.examDate)] as const,
@@ -74,6 +76,7 @@ export async function startTutoring(
       share: pacing?.share ?? null,
       leftOutCount: pacing?.leftOut.length ?? null,
       goal: exam.goal,
+      memory,
       mapPath: knowledgeMapPath(courseId),
       dueReviews: selectDueReviews(map.kcs, ladder, priorities, today),
       candidates: hasMap
@@ -182,6 +185,13 @@ function tutorToolActions(
         name: kcById.get(id)!.name,
         ...ladder.get(id)!,
       }));
+    },
+    async remember(text) {
+      if (!(await appendMemory(supabase, courseId, text))) {
+        throw new TutorToolError(
+          "Memory is full: the Student can tidy it on the Brief page.",
+        );
+      }
     },
     async readKcs(kcIds) {
       requireKnown(kcIds);

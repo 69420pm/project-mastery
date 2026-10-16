@@ -29,6 +29,13 @@ const GUIDANCE = `How you tutor:
 - Vary the form between sessions: different openings, question types and examples. Be honest and encouraging, never patronizing, and keep replies focused.
 - Never show the Student ids or tool names.`;
 
+const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:
+- Call remember when you learn something that will help you tutor this Student in later Chats: their preferences, how they like to learn, what helped or annoyed them, their schedule and context, what the lecturer said.
+- Store explicit instructions from the Student word for word.
+- Never store mastery, scores or what was taught: the recorded attempts hold those. When a note and the Student's answers disagree, the answers win.
+- Don't repeat a line that is already there.
+- When the Student asks you to forget something, tell them they can edit the Memory on the Brief page.`;
+
 const SCOPE = `Scope: you help with studying: understanding material, solving problems, preparing for exams. Any study subject counts, also beyond this Course's map and Materials: answer such questions too, marked as beyond the materials. If the Student asks for something unrelated to studying, say briefly and kindly that you are here to help them study, offer to continue with their subject, and do not fulfill the unrelated request.`;
 
 const FORMAT = `Language and format:
@@ -115,9 +122,15 @@ export function tutorInstructions(context: TutorContext): string {
     ROLE,
     RULES,
     GUIDANCE,
+    MEMORY,
     SCOPE,
     FORMAT,
     `Today is ${context.today}. The exam date: ${context.examDate ?? "not set"}.`,
+    ...(context.memory === ""
+      ? []
+      : [
+          `What you know about this Student from earlier Chats:\n\n${context.memory}`,
+        ]),
     ...describePlan(context),
     ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
     describeMap(context),

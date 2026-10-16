@@ -2,4 +2,6 @@
 // Chat, built from the tutor context. Server-only exports live in
 // `server.ts`.
 export { tutorInstructions } from "./ai/instructions";
+export { MemoryCard } from "./components/memory-card";
+export { saveMemory } from "./server/actions";
 export type { KcState, KcStateName, TutorContext } from "./types";
