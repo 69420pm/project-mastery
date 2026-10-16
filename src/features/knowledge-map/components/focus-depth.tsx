@@ -39,7 +39,7 @@ export function FocusDepthMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
-        <DropdownMenuLabel>A selected node highlights</DropdownMenuLabel>
+        <DropdownMenuLabel>Focus highlights</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={depth}
           onValueChange={(value) => onChange(value as FocusDepth)}
