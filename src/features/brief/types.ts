@@ -13,8 +13,26 @@ export type BriefUIMessage = UIMessage<BriefMessageMetadata>;
 /** What the study plan reads of a Brief; each null until answered. */
 export type ExamFacts = Pick<BriefFields, "examDate" | "hoursPerWeek" | "goal">;
 
-/** A Course's Brief conversation for its page. */
+/** A Course's Brief conversation and data for its page. */
 export type BriefWithMessages = {
   courseId: string;
   messages: BriefUIMessage[];
+  /** The exam facts, each null until answered. */
+  fields: BriefFields;
+  /** Markdown the AI keeps about the exam; null when empty. */
+  notes: string | null;
+  /** When the notes last changed, as an ISO timestamp. */
+  notesUpdatedAt: string | null;
+  /** The Materials the exam excludes, oldest first, with their chunk page. */
+  excludedMaterials: Array<{ id: string; name: string; href: string }>;
+};
+
+/** A Course's study plan as the Brief's panel shows it. */
+export type PanelPlan = {
+  /** Null without a running exam date. */
+  phase: "build" | "deepen" | "final_week" | null;
+  /** The whole percent of relevant KCs that fit; null without pacing. */
+  share: number | null;
+  hoursPerWeek: number | null;
+  leftOut: Array<{ id: string; name: string }>;
 };

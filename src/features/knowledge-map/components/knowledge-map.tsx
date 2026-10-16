@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  MessageCircleQuestionIcon,
-  RotateCwIcon,
-  WaypointsIcon,
-} from "lucide-react";
-import Link from "next/link";
+import { RotateCwIcon, WaypointsIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Markdown } from "@/components/markdown";
@@ -21,7 +16,6 @@ import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions"
 import type {
   BigIdeaView,
   ExerciseView,
-  FindingView,
   KcView,
   KnowledgeMapView,
   MapBuild,
@@ -67,9 +61,8 @@ const BUILD_POLL_MS = 2000;
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
  * Update map and its check report, then each big idea with its KCs and their
- * prerequisites, the prior knowledge, the semantic links, the Exercises and
- * the Findings, linking to the Course's Brief (`briefHref`) to answer the
- * open ones. Each KC shows its state badge from `kcStates`, the header the
+ * prerequisites, the prior knowledge, the semantic links and the Exercises.
+ * The study plan links to the Course's Brief (`briefHref`). Each KC shows its state badge from `kcStates`, the header the
  * reviews due, and each KC its Priority badge and reasons from
  * `priorities`. The header also shows the study plan from `plan`, and
  * each KC it leaves out a "won't fit" badge. The page refreshes itself
@@ -149,9 +142,6 @@ export function KnowledgeMap({
         <SemanticLinks links={map.semanticLinks} />
       )}
       {map.build?.finishedAt != null && <Exercises exercises={map.exercises} />}
-      {map.findings.length > 0 && (
-        <Findings findings={map.findings} briefHref={briefHref} />
-      )}
     </div>
   );
 }
@@ -452,65 +442,6 @@ function Exercises({ exercises }: { exercises: ExerciseView[] }) {
           ))}
         </ul>
       )}
-    </section>
-  );
-}
-
-/**
- * What the build found in the materials for the Student to confirm, with
- * where, whether it is answered and the answer, and a link to answer the
- * open ones in the Brief.
- */
-function Findings({
-  findings,
-  briefHref,
-}: {
-  findings: FindingView[];
-  briefHref: string;
-}) {
-  const anyOpen = findings.some((finding) => finding.status === "open");
-  return (
-    <section aria-label="Findings" className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-4">
-        <h2 className="text-lg font-semibold">Findings</h2>
-        {anyOpen && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={briefHref}>
-              <MessageCircleQuestionIcon />
-              Answer in the Brief
-            </Link>
-          </Button>
-        )}
-      </div>
-      <ul className="flex flex-col gap-2">
-        {findings.map((finding) => (
-          <li
-            key={finding.id}
-            className="flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <Markdown>{finding.text}</Markdown>
-              <Badge
-                variant={finding.status === "open" ? "outline" : "secondary"}
-                className="shrink-0"
-              >
-                {finding.status === "open" ? "Open" : "Answered"}
-              </Badge>
-            </div>
-            {finding.answer !== null && (
-              <p>
-                <span className="font-medium">Your answer:</span>{" "}
-                {finding.answer}
-              </p>
-            )}
-            {finding.sources.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Sources: {finding.sources.join(", ")}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

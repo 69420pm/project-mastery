@@ -38,7 +38,6 @@ const map: KnowledgeMapView = {
   priorKnowledge: [],
   semanticLinks: [],
   exercises: [],
-  findings: [],
   checkReport: null,
   canBuild: true,
 };

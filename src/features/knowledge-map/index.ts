@@ -6,6 +6,7 @@ export { KnowledgeMapLink } from "./components/knowledge-map-link";
 export { knowledgeMapPath } from "./domain/map-paths";
 export { startKnowledgeMapBuild } from "./server/actions";
 export type {
+  FindingView,
   KnowledgeMapView,
   MapKcStates,
   MapPlan,

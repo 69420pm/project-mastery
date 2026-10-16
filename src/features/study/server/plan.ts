@@ -40,10 +40,14 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
     exam,
     today: utcDay(new Date()),
   });
+  const kcName = new Map(map.kcs.map((kc) => [kc.id, kc.name]));
   return {
     phase,
     share: pacing?.share ?? null,
-    leftOut: pacing?.leftOut ?? [],
+    leftOut: (pacing?.leftOut ?? []).map((id) => ({
+      id,
+      name: kcName.get(id) ?? "",
+    })),
     hoursPerWeek: exam.hoursPerWeek,
   };
 }

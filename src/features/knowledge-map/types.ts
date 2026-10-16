@@ -74,15 +74,18 @@ export type ExerciseView = {
 };
 
 /**
- * A Finding with its sources as "Lecture 1 p. 3", whether the Student has
- * answered it, and the answer once they have.
+ * A Finding as the Brief's panel shows it: when it was asked and answered
+ * (ISO timestamps), the answer, and its sources as links to their chunks,
+ * labelled "Lecture 1 p. 3".
  */
 export type FindingView = {
   id: string;
   text: string;
-  sources: string[];
   status: FindingStatus;
+  askedAt: string | null;
+  answeredAt: string | null;
   answer: string | null;
+  sources: Array<{ label: string; href: string }>;
 };
 
 /** An open Finding as the Brief asks it. */
@@ -142,7 +145,6 @@ export type KnowledgeMapView = {
   semanticLinks: SemanticLinkView[];
   /** In reading order. */
   exercises: ExerciseView[];
-  findings: FindingView[];
   /** Null before a build stored one. */
   checkReport: CheckReportView | null;
   /** Whether Build may start: a Material is parsed and none waits or parses. */

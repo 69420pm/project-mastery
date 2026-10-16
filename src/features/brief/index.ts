@@ -4,7 +4,8 @@
 // knowledge-map feature and records usage through the usage feature, and
 // nothing imports it yet except pages.
 export { Brief } from "./components/brief";
+export { BriefPanel } from "./components/brief-panel";
 export { BriefHint } from "./components/brief-hint";
 export { BriefLink } from "./components/brief-link";
 export { briefPath } from "./domain/brief-paths";
-export type { BriefUIMessage, BriefWithMessages } from "./types";
+export type { BriefUIMessage, BriefWithMessages, PanelPlan } from "./types";

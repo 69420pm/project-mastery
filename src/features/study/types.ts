@@ -44,8 +44,8 @@ export type StudyPlan = {
   phase: Phase | null;
   /** The whole percent of relevant KCs that fit; null without pacing. */
   share: number | null;
-  /** The ids of the relevant KCs that won't fit. */
-  leftOut: string[];
+  /** The relevant KCs that won't fit. */
+  leftOut: Array<{ id: string; name: string }>;
   hoursPerWeek: number | null;
 };
 
