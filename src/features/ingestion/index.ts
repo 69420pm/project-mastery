@@ -10,4 +10,9 @@ export {
   type ParseState,
 } from "./domain/parse-state";
 export { startMaterialParse } from "./server/actions";
-export type { ChunkLabel, MaterialChunks, ParseStatus } from "./types";
+export type {
+  ChunkFinding,
+  ChunkLabel,
+  MaterialChunks,
+  ParseStatus,
+} from "./types";

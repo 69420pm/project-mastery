@@ -1,11 +1,11 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Markdown } from "@/components/markdown";
-import { PageCrop } from "@/components/page-crop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { chunkAnchor } from "@/features/ingestion/domain/chunk-anchor";
 import type {
+  ChunkFinding,
   ChunkLabel,
   ChunkView,
   ExerciseSolution,
@@ -38,6 +38,10 @@ type ChunkListProps = {
   backHref: string;
   /** The chunk view of a Material of the same Course, for solution links. */
   materialHref: (materialId: string) => string;
+  /** Where "Answer in the Brief" leads. */
+  briefHref: string;
+  /** The Findings about this Material's chunks, by chunk id. */
+  findings: Record<string, ChunkFinding[]>;
 };
 
 /**
@@ -49,8 +53,10 @@ export function ChunkList({
   material,
   backHref,
   materialHref,
+  briefHref,
+  findings,
 }: ChunkListProps) {
-  const { exam, file } = material;
+  const { exam } = material;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-4 pb-10 sm:px-6">
@@ -86,7 +92,8 @@ export function ChunkList({
             <li key={chunk.id}>
               <ChunkCard
                 chunk={chunk}
-                file={file}
+                findings={findings[chunk.id] ?? []}
+                briefHref={briefHref}
                 materialHref={materialHref}
               />
             </li>
@@ -99,11 +106,13 @@ export function ChunkList({
 
 function ChunkCard({
   chunk,
-  file,
+  findings,
+  briefHref,
   materialHref,
 }: {
   chunk: ChunkView;
-  file: MaterialChunks["file"];
+  findings: ChunkFinding[];
+  briefHref: string;
   materialHref: ChunkListProps["materialHref"];
 }) {
   return (
@@ -123,16 +132,6 @@ function ChunkCard({
       <Markdown className="min-w-0">{chunk.markdown}</Markdown>
       {chunk.figure && (
         <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          {file && (
-            <PageCrop
-              file={file.url}
-              mediaType={file.mediaType}
-              page={chunk.figure.page}
-              box={chunk.figure.box}
-              alt={chunk.figure.description}
-              className="mb-2 max-w-xl"
-            />
-          )}
           <figcaption className="font-medium">Figure</figcaption>
           <p className="text-muted-foreground">{chunk.figure.description}</p>
         </figure>
@@ -140,7 +139,52 @@ function ChunkCard({
       {chunk.solution && (
         <SolutionLine solution={chunk.solution} materialHref={materialHref} />
       )}
+      {findings.length > 0 && (
+        <ul aria-label="Findings" className="flex flex-col gap-2">
+          {findings.map((finding) => (
+            <li key={finding.id}>
+              <FindingCard finding={finding} briefHref={briefHref} />
+            </li>
+          ))}
+        </ul>
+      )}
     </article>
+  );
+}
+
+function FindingCard({
+  finding,
+  briefHref,
+}: {
+  finding: ChunkFinding;
+  briefHref: string;
+}) {
+  const answered = finding.status === "answered";
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+      <div>
+        <Badge variant={answered ? "secondary" : "outline"}>
+          {answered ? "Answered" : "Open"}
+        </Badge>
+      </div>
+      <Markdown className="min-w-0">{finding.text}</Markdown>
+      {finding.answer !== null && (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Your answer</span>
+          <p className="break-words whitespace-pre-wrap text-muted-foreground">
+            {finding.answer}
+          </p>
+        </div>
+      )}
+      {!answered && (
+        <Link
+          href={briefHref}
+          className="w-fit font-medium underline underline-offset-4"
+        >
+          Answer in the Brief
+        </Link>
+      )}
+    </div>
   );
 }
 
