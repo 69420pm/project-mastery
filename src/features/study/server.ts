@@ -9,6 +9,7 @@ import "server-only";
 
 export { TutorToolError, type TutorTools } from "./ai/tools";
 export { getKcStates } from "./server/attempts";
+export { getMemory } from "./server/memory";
 export { getOpeningLine } from "./server/opening";
 export { getPlan } from "./server/plan";
 export { startTutoring } from "./server/tutoring";

@@ -1191,6 +1191,43 @@ export type Database = {
           },
         ];
       };
+      memories: {
+        Row: {
+          course_id: string;
+          owner: string;
+          text: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          owner?: string;
+          text?: string;
+          updated_at?: string;
+        };
+        Update: {
+          course_id?: string;
+          owner?: string;
+          text?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "memories_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "memories_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       prerequisite_links: {
         Row: {
           course_id: string;
