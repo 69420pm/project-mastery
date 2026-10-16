@@ -204,6 +204,8 @@ function readStream(body: string) {
       .map((chunk) => chunk.delta)
       .join(""),
     error: chunks.find((chunk) => chunk.type === "error")?.errorText,
+    startMetadata: chunks.find((chunk) => chunk.type === "start")
+      ?.messageMetadata,
   };
 }
 
@@ -215,6 +217,8 @@ export async function send(body: unknown): Promise<{
   status: number;
   text?: string;
   error?: string;
+  /** The metadata on the reply's `start` part. */
+  startMetadata?: Record<string, unknown>;
   refusal?: string;
 }> {
   const response = await post(body);

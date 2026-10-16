@@ -339,6 +339,7 @@ export type Database = {
           parts: NonNullable<Json>;
           role: string;
           stopped: boolean;
+          tutor_context: Json | null;
         };
         ComputedFields: never;
         Insert: {
@@ -349,6 +350,7 @@ export type Database = {
           parts: NonNullable<Json>;
           role: string;
           stopped?: boolean;
+          tutor_context?: Json | null;
         };
         Update: {
           chat_id?: string;
@@ -358,6 +360,7 @@ export type Database = {
           parts?: NonNullable<Json>;
           role?: string;
           stopped?: boolean;
+          tutor_context?: Json | null;
         };
         Relationships: [
           {

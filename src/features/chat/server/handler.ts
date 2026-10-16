@@ -291,8 +291,10 @@ async function streamReply({
       originalMessages: messages,
       generateMessageId: () => replyId,
       messageMetadata: ({ part }) =>
+        // The context goes on `start`, before any tool call, so a streaming
+        // reply can show it at once.
         part.type === "start"
-          ? { modelId }
+          ? { modelId, tutorContext: tutoring.context }
           : part.type === "finish-step"
             ? { modelId: answeringModel(settings, part.response.modelId) }
             : undefined,
@@ -336,7 +338,11 @@ async function streamReply({
           const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,
             id: replyId,
-            metadata: { modelId, ...(stopped && { stopped }) },
+            metadata: {
+              modelId,
+              tutorContext: tutoring.context,
+              ...(stopped && { stopped }),
+            },
           });
           if (!kept) return;
         } catch (error) {

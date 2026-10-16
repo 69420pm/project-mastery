@@ -1,5 +1,6 @@
 import type { UIMessage } from "ai";
 import type { MaterialReference } from "@/features/courses";
+import type { TutorContext } from "@/features/study";
 
 /** What the server attaches to an AI message. */
 export type ChatMessageMetadata = {
@@ -7,6 +8,11 @@ export type ChatMessageMetadata = {
   modelId?: string;
   /** Whether the reply was stopped before it ended. */
   stopped?: boolean;
+  /**
+   * The tutor context the reply was given. Sent on the stream's `start`
+   * part; missing on replies from before it was saved.
+   */
+  tutorContext?: TutorContext;
 };
 
 /** The custom data parts of Chat messages, by name without `data-`. */

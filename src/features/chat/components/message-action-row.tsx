@@ -1,6 +1,7 @@
 "use client";
 
 import { RefreshCwIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   MessageAction,
   MessageActions,
@@ -19,6 +20,7 @@ export function MessageActionRow({
   stopped,
   hidden,
   onRegenerate,
+  children,
 }: {
   from: "user" | "assistant";
   /** The message's text, which Copy copies. */
@@ -29,6 +31,8 @@ export function MessageActionRow({
   hidden?: boolean;
   /** Offers Regenerate, for the last reply. */
   onRegenerate?: () => void;
+  /** More actions, after Copy and Regenerate. */
+  children?: ReactNode;
 }) {
   return (
     <MessageActions
@@ -51,6 +55,7 @@ export function MessageActionRow({
           <RefreshCwIcon />
         </MessageAction>
       )}
+      {children}
     </MessageActions>
   );
 }

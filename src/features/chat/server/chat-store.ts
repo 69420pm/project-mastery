@@ -2,6 +2,7 @@ import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
 import type { ChatUIMessage } from "@/features/chat/types";
+import type { TutorContext } from "@/features/study";
 
 /**
  * Reads and writes Chats and their messages as the signed-in Student, so Row
@@ -201,6 +202,9 @@ function toUIMessage(row: MessageRow): ChatUIMessage {
         metadata: {
           ...(row.model_id && { modelId: row.model_id }),
           ...(row.stopped && { stopped: true }),
+          ...(row.tutor_context && {
+            tutorContext: row.tutor_context as unknown as TutorContext,
+          }),
         },
       }
     : message;
@@ -213,7 +217,9 @@ export async function loadMessages(
 ): Promise<ChatUIMessage[]> {
   const { data, error } = await supabase
     .from("chat_messages")
-    .select("id, chat_id, role, parts, model_id, stopped, created_at")
+    .select(
+      "id, chat_id, role, parts, model_id, stopped, tutor_context, created_at",
+    )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
   if (error) fail("Loading the messages", error);
@@ -244,6 +250,8 @@ function messageRow(chatId: string, message: ChatUIMessage) {
     parts: message.parts as unknown as Json[],
     model_id: message.metadata?.modelId ?? null,
     stopped: message.metadata?.stopped ?? false,
+    tutor_context:
+      (message.metadata?.tutorContext as unknown as Json | undefined) ?? null,
   };
 }
 

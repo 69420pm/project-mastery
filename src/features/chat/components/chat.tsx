@@ -40,6 +40,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AttachedMaterials } from "@/features/chat/components/attached-materials";
+import { ContextAction } from "@/features/chat/components/context-action";
 import { MessageActionRow } from "@/features/chat/components/message-action-row";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
@@ -307,7 +308,11 @@ export function Chat({
                           }
                         : undefined
                     }
-                  />
+                  >
+                    {message.role === "assistant" && (
+                      <ContextAction context={message.metadata?.tutorContext} />
+                    )}
+                  </MessageActionRow>
                 </Message>
               );
             })

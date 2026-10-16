@@ -240,7 +240,7 @@ test.describe("signed in", () => {
     );
   });
 
-  test("a reply shows its tool calls as step cards that expand", async ({
+  test("a reply shows its tool calls as step cards that expand, and its context", async ({
     page,
     student,
     course,
@@ -278,6 +278,31 @@ test.describe("signed in", () => {
           { type: "step-start" },
           { type: "text", text: "Let's start with limits." },
         ],
+        tutor_context: {
+          today: "2026-10-16",
+          examDate: "2026-12-03",
+          hasMap: true,
+          phase: "build",
+          share: null,
+          leftOutCount: null,
+          goal: "pass",
+          memory: "",
+          mapPath: `/courses/${course.id}/map`,
+          dueReviews: { kcs: [], more: 0 },
+          candidates: [
+            {
+              bigIdea: "Calculus",
+              kcs: [
+                {
+                  id: "kc-2",
+                  name: "Continuity",
+                  type: "concept",
+                  anchors: [],
+                },
+              ],
+            },
+          ],
+        },
       });
     expect(error).toBeNull();
 
@@ -289,6 +314,12 @@ test.describe("signed in", () => {
 
     await card.click();
     await expect(page.getByText("What a function approaches.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Context" }).click();
+    const sheet = page.getByRole("dialog", { name: "Context" });
+    await expect(
+      sheet.getByRole("region", { name: "Candidates" }).getByText("Continuity"),
+    ).toBeVisible();
   });
 
   test("an unknown Chat or Course shows not-found", async ({
