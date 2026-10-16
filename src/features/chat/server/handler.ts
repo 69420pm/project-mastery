@@ -22,6 +22,7 @@ import {
 } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
 import { messageText } from "@/features/chat/domain/message-text";
+import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
   chatMessageMetadataSchema,
   chatNotFoundMessage,
@@ -291,11 +292,21 @@ async function streamReply({
       originalMessages: messages,
       generateMessageId: () => replyId,
       messageMetadata: ({ part }) =>
+        // The context goes on `start`, before any tool call, so a streaming
+        // reply can show it at once.
         part.type === "start"
-          ? { modelId }
+          ? { modelId, tutorContext: tutoring.context }
           : part.type === "finish-step"
             ? { modelId: answeringModel(settings, part.response.modelId) }
-            : undefined,
+            : part.type === "finish"
+              ? {
+                  usage: replyUsage(
+                    modelId,
+                    tokenUsage(part.totalUsage),
+                    false,
+                  ),
+                }
+              : undefined,
       onError: replyErrorMessage,
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.
@@ -317,7 +328,7 @@ async function streamReply({
               }),
               estimated: true,
             };
-        const record = { task: "chat" as const, modelId, ...usage };
+        const record = { task: "chat" as const, modelId, ...usage, replyId };
         try {
           await recordAiUsage(supabase, { ...record, chatId: chat.id });
         } catch {
@@ -336,7 +347,11 @@ async function streamReply({
           const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,
             id: replyId,
-            metadata: { modelId, ...(stopped && { stopped }) },
+            metadata: {
+              modelId,
+              tutorContext: tutoring.context,
+              ...(stopped && { stopped }),
+            },
           });
           if (!kept) return;
         } catch (error) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { materialReferenceSchema } from "@/features/courses";
+import type { TutorContext } from "@/features/study";
 
 /** The longest message a Student can send, in characters. */
 export const MAX_MESSAGE_LENGTH = 10_000;
@@ -17,6 +18,22 @@ export const chatMessageMetadataSchema = z
   .object({
     modelId: z.string().optional(),
     stopped: z.boolean().optional(),
+    // Built by the server and only displayed, so only its shape is checked.
+    tutorContext: z
+      .custom<TutorContext>(
+        (value) =>
+          typeof value === "object" && value !== null && !Array.isArray(value),
+      )
+      .optional(),
+    usage: z
+      .object({
+        inputTokens: z.number(),
+        cachedInputTokens: z.number(),
+        outputTokens: z.number(),
+        costUsd: z.number(),
+        estimated: z.boolean(),
+      })
+      .optional(),
   })
   .optional();
 

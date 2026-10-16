@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { modelName } from "../src/lib/ai/model-name";
-import { adminClient, expect, test } from "./fixtures";
+import { adminClient, expect, seedChat, test } from "./fixtures";
 
 // The mock AI (AI_PROVIDER=mock) quotes the message and ends with this.
 const REPLY_END = "it never calls a real model.";
@@ -238,6 +238,106 @@ test.describe("signed in", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
       "What is a group?",
     );
+  });
+
+  test("a reply shows its tool calls as step cards that expand, and its context", async ({
+    page,
+    student,
+    course,
+  }) => {
+    // The mock AI calls no tools, so the reply is stored as the AI would.
+    const chatId = await seedChat(student.id, course.id, {
+      firstMessage: "Teach me limits",
+      at: new Date(),
+    });
+    const replyId = randomUUID();
+    const { error: usageError } = await adminClient().from("ai_usage").insert({
+      owner: student.id,
+      chat_id: chatId,
+      reply_id: replyId,
+      task: "chat",
+      model_id: "mock",
+      input_tokens: 12_300,
+      cached_input_tokens: 8_100,
+      output_tokens: 640,
+      cost_usd: 0.0012,
+    });
+    expect(usageError).toBeNull();
+    const { error } = await adminClient()
+      .from("chat_messages")
+      .insert({
+        id: replyId,
+        chat_id: chatId,
+        role: "assistant",
+        model_id: "mock",
+        parts: [
+          { type: "step-start" },
+          {
+            type: "tool-readKcs",
+            toolCallId: "call-1",
+            state: "output-available",
+            input: { kcIds: ["kc-1"] },
+            output: {
+              kcs: [
+                {
+                  id: "kc-1",
+                  name: "Limits",
+                  type: "concept",
+                  description: "What a function approaches.",
+                  sources: [],
+                },
+              ],
+            },
+          },
+          { type: "step-start" },
+          { type: "text", text: "Let's start with limits." },
+        ],
+        tutor_context: {
+          today: "2026-10-16",
+          examDate: "2026-12-03",
+          hasMap: true,
+          phase: "build",
+          share: null,
+          leftOutCount: null,
+          goal: "pass",
+          memory: "",
+          mapPath: `/courses/${course.id}/map`,
+          dueReviews: { kcs: [], more: 0 },
+          candidates: [
+            {
+              bigIdea: "Calculus",
+              kcs: [
+                {
+                  id: "kc-2",
+                  name: "Continuity",
+                  type: "concept",
+                  anchors: [],
+                },
+              ],
+            },
+          ],
+        },
+      });
+    expect(error).toBeNull();
+
+    await page.goto(`${course.chatPath}/${chatId}`);
+    const card = page.getByRole("button", { name: "Read 1 KC: Limits" });
+    await expect(card).toBeVisible();
+    await expect(page.getByText("Let's start with limits.")).toBeVisible();
+    await expect(page.getByText("What a function approaches.")).toBeHidden();
+
+    await card.click();
+    await expect(page.getByText("What a function approaches.")).toBeVisible();
+
+    await expect(page.getByTestId("reply-footer")).toHaveText(
+      "mock · in 12.3k (8.1k cached) · out 640 · $0.0012",
+    );
+
+    await page.getByRole("button", { name: "Context" }).click();
+    const sheet = page.getByRole("dialog", { name: "Context" });
+    await expect(
+      sheet.getByRole("region", { name: "Candidates" }).getByText("Continuity"),
+    ).toBeVisible();
   });
 
   test("an unknown Chat or Course shows not-found", async ({

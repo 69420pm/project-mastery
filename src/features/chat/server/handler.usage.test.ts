@@ -44,6 +44,39 @@ describe("usage", () => {
     ]);
   });
 
+  test("the usage record has the reply's id, and the finish part and a reload carry the usage", async () => {
+    useMockModels({ chat: mockTextModel("Try it yourself first.") });
+    const chatId = randomUUID();
+
+    const reply = await send({
+      chatId,
+      courseId: COURSE,
+      message: userMessage("Hi"),
+    });
+
+    const replyRow = db.tables.chat_messages.find(
+      ({ role }) => role === "assistant",
+    )!;
+    expect(db.tables.ai_usage[0]!.reply_id).toBe(replyRow.id);
+    expect(reply.finishMetadata?.usage).toEqual({
+      inputTokens: 10,
+      cachedInputTokens: 0,
+      outputTokens: 20,
+      costUsd: expect.closeTo(0.000007, 12),
+      estimated: false,
+    });
+    const { loadMessages } = await import("./chat-store");
+    const supabase = await (
+      await import("@/lib/supabase/server")
+    ).createClient();
+    const loaded = await loadMessages(supabase, chatId);
+    expect(loaded.at(-1)?.metadata?.usage).toMatchObject({
+      inputTokens: 10,
+      outputTokens: 20,
+      estimated: false,
+    });
+  });
+
   test("a Course deleted while the reply streams drops the reply but still records its usage", async () => {
     const reply = mockTextModel("Gone before I end.");
     const doStream = reply.doStream.bind(reply);

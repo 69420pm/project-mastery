@@ -1,7 +1,8 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
-import type { ChatUIMessage } from "@/features/chat/types";
+import type { ChatUIMessage, ReplyUsage } from "@/features/chat/types";
+import type { TutorContext } from "@/features/study";
 
 /**
  * Reads and writes Chats and their messages as the signed-in Student, so Row
@@ -189,7 +190,10 @@ export async function deleteChat(
   return data[0] ? { courseId: data[0].course_id } : null;
 }
 
-function toUIMessage(row: MessageRow): ChatUIMessage {
+function toUIMessage(
+  row: MessageRow,
+  usage?: ReplyUsage | undefined,
+): ChatUIMessage {
   const message = {
     id: row.id,
     role: row.role as ChatUIMessage["role"],
@@ -201,6 +205,10 @@ function toUIMessage(row: MessageRow): ChatUIMessage {
         metadata: {
           ...(row.model_id && { modelId: row.model_id }),
           ...(row.stopped && { stopped: true }),
+          ...(row.tutor_context && {
+            tutorContext: row.tutor_context as unknown as TutorContext,
+          }),
+          ...(usage && { usage }),
         },
       }
     : message;
@@ -213,11 +221,36 @@ export async function loadMessages(
 ): Promise<ChatUIMessage[]> {
   const { data, error } = await supabase
     .from("chat_messages")
-    .select("id, chat_id, role, parts, model_id, stopped, created_at")
+    .select(
+      "id, chat_id, role, parts, model_id, stopped, tutor_context, created_at",
+    )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
   if (error) fail("Loading the messages", error);
-  return data.map(toUIMessage);
+
+  const replyIds = data
+    .filter(({ role }) => role === "assistant")
+    .map((r) => r.id);
+  const usage = new Map<string, ReplyUsage>();
+  if (replyIds.length > 0) {
+    const { data: rows, error: usageError } = await supabase
+      .from("ai_usage")
+      .select(
+        "reply_id, input_tokens, cached_input_tokens, output_tokens, cost_usd, estimated",
+      )
+      .in("reply_id", replyIds);
+    if (usageError) fail("Loading the replies' usage", usageError);
+    for (const row of rows) {
+      usage.set(row.reply_id!, {
+        inputTokens: row.input_tokens,
+        cachedInputTokens: row.cached_input_tokens,
+        outputTokens: row.output_tokens,
+        costUsd: Number(row.cost_usd),
+        estimated: row.estimated,
+      });
+    }
+  }
+  return data.map((row) => toUIMessage(row, usage.get(row.id)));
 }
 
 /** Whether the Chat has a message with this id. */
@@ -244,6 +277,8 @@ function messageRow(chatId: string, message: ChatUIMessage) {
     parts: message.parts as unknown as Json[],
     model_id: message.metadata?.modelId ?? null,
     stopped: message.metadata?.stopped ?? false,
+    tutor_context:
+      (message.metadata?.tutorContext as unknown as Json | undefined) ?? null,
   };
 }
 

@@ -53,6 +53,8 @@ export type AiUsageRecord = {
   estimated?: boolean;
   /** The Chat the call was made for, if any. */
   chatId?: string;
+  /** The id of the Chat reply the call produced, if any. */
+  replyId?: string;
 };
 
 /**
@@ -73,7 +75,7 @@ export async function recordAiUsage(
 ): Promise<void>;
 export async function recordAiUsage(
   supabase: Supabase,
-  { task, modelId, usage, estimated = false, chatId }: AiUsageRecord,
+  { task, modelId, usage, estimated = false, chatId, replyId }: AiUsageRecord,
   { studentId }: StudentScope = {},
 ): Promise<void> {
   assertStudentScope(supabase, { studentId });
@@ -88,6 +90,7 @@ export async function recordAiUsage(
     cost_usd: costUsd(modelId, usage),
     estimated,
     chat_id: chatId ?? null,
+    reply_id: replyId ?? null,
   });
   if (error) throw new Error(`Recording AI usage failed: ${error.message}`);
 }

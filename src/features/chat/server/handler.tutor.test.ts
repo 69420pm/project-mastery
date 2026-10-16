@@ -75,6 +75,26 @@ describe("the instructions", () => {
     expect(prompt).not.toContain("Propulsive efficiency");
   });
 
+  test("come from the context sent on the reply's start and saved with it", async () => {
+    useMockModels({ chat: mockTextModel("Let's dock on Newton's law.") });
+    seedMap();
+    const body = firstMessage();
+
+    const reply = await send(body);
+
+    const context = reply.startMetadata?.tutorContext;
+    expect(context).toMatchObject({
+      today: new Date().toISOString().slice(0, 10),
+      hasMap: true,
+      candidates: [expect.objectContaining({ bigIdea: "Thrust generation" })],
+    });
+    const [studentRow, replyRow] = db.tables.chat_messages.filter(
+      (row) => row.chat_id === body.chatId,
+    );
+    expect(studentRow?.tutor_context).toBeNull();
+    expect(replyRow?.tutor_context).toEqual(context);
+  });
+
   test("list the due reviews, and admit candidates whose Prerequisites are taught", async () => {
     const model = mockTextModel("What is the thrust equation?");
     useMockModels({ chat: model });
@@ -162,7 +182,8 @@ describe("readKcs", () => {
 
     const reply = await send(body);
 
-    expect(reply).toEqual({ status: 200, text: "How would you start?" });
+    expect(reply).toMatchObject({ status: 200, text: "How would you start?" });
+    expect(reply.error).toBeUndefined();
     const result = promptOf(model, 1);
     expect(result).toContain("Thrust equation, as the lecture states it.");
     expect(result).toContain("Lecture 7");

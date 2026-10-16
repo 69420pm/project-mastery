@@ -4,4 +4,11 @@
 export { tutorInstructions } from "./ai/instructions";
 export { MemoryCard } from "./components/memory-card";
 export { saveMemory } from "./server/actions";
-export type { KcState, KcStateName, TutorContext } from "./types";
+export type {
+  ExerciseView,
+  KcReading,
+  KcState,
+  KcStateName,
+  RecordedKc,
+  TutorContext,
+} from "./types";

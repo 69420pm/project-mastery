@@ -37,11 +37,13 @@ import {
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AttachedMaterials } from "@/features/chat/components/attached-materials";
+import { ContextAction } from "@/features/chat/components/context-action";
 import { MessageActionRow } from "@/features/chat/components/message-action-row";
+import { ReplyFooter } from "@/features/chat/components/reply-footer";
+import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
@@ -269,12 +271,17 @@ export function Chat({
               return (
                 <Message from={message.role} key={message.id}>
                   <MessageContent data-testid="message-text">
-                    {activity !== null ? (
-                      <Shimmer className="text-sm">{activity}</Shimmer>
-                    ) : message.role === "assistant" ? (
-                      <Markdown streaming={status === "streaming" && isLast}>
-                        {messageText(message.parts)}
-                      </Markdown>
+                    {message.role === "assistant" ? (
+                      <>
+                        <ReplyParts
+                          parts={message.parts}
+                          streaming={status === "streaming" && isLast}
+                          inProgress={isStreaming}
+                        />
+                        {activity !== null && (
+                          <Shimmer className="text-sm">{activity}</Shimmer>
+                        )}
+                      </>
                     ) : (
                       <>
                         <AttachedMaterials
@@ -303,7 +310,16 @@ export function Chat({
                           }
                         : undefined
                     }
-                  />
+                  >
+                    {message.role === "assistant" && (
+                      <>
+                        <ContextAction
+                          context={message.metadata?.tutorContext}
+                        />
+                        <ReplyFooter metadata={message.metadata} />
+                      </>
+                    )}
+                  </MessageActionRow>
                 </Message>
               );
             })

@@ -21,6 +21,7 @@ export type Database = {
           model_id: string;
           output_tokens: number;
           owner: string;
+          reply_id: string | null;
           task: string;
         };
         ComputedFields: never;
@@ -35,6 +36,7 @@ export type Database = {
           model_id: string;
           output_tokens: number;
           owner?: string;
+          reply_id?: string | null;
           task: string;
         };
         Update: {
@@ -48,6 +50,7 @@ export type Database = {
           model_id?: string;
           output_tokens?: number;
           owner?: string;
+          reply_id?: string | null;
           task?: string;
         };
         Relationships: [
@@ -339,6 +342,7 @@ export type Database = {
           parts: NonNullable<Json>;
           role: string;
           stopped: boolean;
+          tutor_context: Json | null;
         };
         ComputedFields: never;
         Insert: {
@@ -349,6 +353,7 @@ export type Database = {
           parts: NonNullable<Json>;
           role: string;
           stopped?: boolean;
+          tutor_context?: Json | null;
         };
         Update: {
           chat_id?: string;
@@ -358,6 +363,7 @@ export type Database = {
           parts?: NonNullable<Json>;
           role?: string;
           stopped?: boolean;
+          tutor_context?: Json | null;
         };
         Relationships: [
           {
