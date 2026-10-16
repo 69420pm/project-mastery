@@ -62,11 +62,11 @@ const BUILD_POLL_MS = 2000;
  * A Course's Knowledge map, read-only: the build's state with Build or
  * Update map and its check report, then each big idea with its KCs and their
  * prerequisites, the prior knowledge, the semantic links and the Exercises.
- * The study plan links to the Course's Brief (`briefHref`). Each KC shows its state badge from `kcStates`, the header the
- * reviews due, and each KC its Priority badge and reasons from
- * `priorities`. The header also shows the study plan from `plan`, and
- * each KC it leaves out a "won't fit" badge. The page refreshes itself
- * while a build or a priority run runs.
+ * The study plan links to the Course's Brief (`briefHref`). Each KC shows
+ * its state badge from `kcStates`, the header the reviews due, and each KC
+ * its Priority badge and reasons from `priorities`. The header also shows
+ * the study plan from `plan`, and each KC it leaves out a "won't fit"
+ * badge. The page refreshes itself while a build or a priority run runs.
  */
 export function KnowledgeMap({
   map,

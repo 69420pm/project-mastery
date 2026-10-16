@@ -4,9 +4,6 @@ import { createHash } from "node:crypto";
 export const OPENING_MESSAGE =
   "Let's get you set up for your exam. When is it? Tell me the date, and anything else you already know about it.";
 
-/** The `model_id` stored with a static message, which no model wrote. */
-export const STATIC_MODEL_ID = "static";
-
 /** A stable message id for `key`, so a static message is stored once. */
 function staticMessageId(key: string): string {
   const hex = createHash("sha1").update(key).digest("hex");

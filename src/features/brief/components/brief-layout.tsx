@@ -33,8 +33,8 @@ function useIsWide() {
 /**
  * The Brief page's layout: the conversation with the data panel beside it on
  * wide screens, and below `lg` the panel in a Sheet behind a "Brief data"
- * button. The panel is mounted once, so a Memory edit in progress is not
- * duplicated.
+ * button. The panel is mounted in one place at a time, so a Memory edit in
+ * progress is not duplicated. Closing the Sheet unmounts it, with any draft.
  */
 export function BriefLayout({
   conversation,
