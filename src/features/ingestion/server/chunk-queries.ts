@@ -1,6 +1,5 @@
 import "server-only";
 import { z } from "zod";
-import { boxSchema } from "@/features/ingestion/domain/figure-box";
 import {
   CHUNK_LABELS,
   type ExerciseSolution,
@@ -8,34 +7,10 @@ import {
   type ParseStatus,
 } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
-import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
-const figureSchema = z
-  .object({
-    description: z.string(),
-    page: z.number().int().min(1),
-    box: boxSchema.nullable(),
-  })
-  .nullable();
-
-const BUCKET = MATERIALS_BUCKET;
-
-/** How long the link to the Material's file works: one viewing session. */
-const FILE_URL_SECONDS = 60 * 60;
-
-/** A link to the Material's file, or null when it cannot be signed. */
-async function signFileUrl(supabase: Supabase, path: string) {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(path, FILE_URL_SECONDS);
-  if (error) {
-    console.error("Signing the Material's link failed", error);
-    return null;
-  }
-  return data.signedUrl;
-}
+const figureSchema = z.object({ description: z.string() }).nullable();
 
 /**
  * The signed-in Student's Material with its chunks in reading order, or null
@@ -52,7 +27,7 @@ export async function getMaterialChunks(
   const material = await supabase
     .from("materials")
     .select(
-      "id, course_id, name, media_type, storage_path, parse_status, is_exam, exam_year, exam_total_points",
+      "id, course_id, name, parse_status, is_exam, exam_year, exam_total_points",
     )
     .eq("id", materialId)
     .maybeSingle();
@@ -75,11 +50,6 @@ export async function getMaterialChunks(
   const figures = chunks.data.map((chunk) =>
     figureSchema.parse(chunk.figure ?? null),
   );
-  // Figures show their page of the Material's own file.
-  const fileUrl = figures.some(Boolean)
-    ? await signFileUrl(supabase, material.data.storage_path)
-    : null;
-
   const solutions = await exerciseSolutions(
     supabase,
     chunks.data.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
@@ -90,7 +60,6 @@ export async function getMaterialChunks(
     materialId: row.id,
     courseId: row.course_id,
     name: row.name,
-    file: fileUrl ? { url: fileUrl, mediaType: row.media_type } : null,
     parseStatus: row.parse_status as ParseStatus,
     exam: row.is_exam
       ? {

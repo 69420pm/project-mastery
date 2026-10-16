@@ -23,13 +23,8 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  /** Where the figure is in the Material's file: a page and a box on it. */
-  figure: {
-    description: string;
-    page: number;
-    /** Normalized to the page; null when the figure is the whole page. */
-    box: { x: number; y: number; width: number; height: number } | null;
-  } | null;
+  /** What a figure chunk shows, in words. */
+  figure: { description: string } | null;
   exerciseNumber: string | null;
   points: number | null;
   /** An exercise subtask's solution; null for other chunks. */
@@ -47,17 +42,21 @@ export type ExerciseSolution =
     }
   | { status: "no_solution" };
 
+/** A Finding about a chunk, as the chunk view shows it. */
+export type ChunkFinding = {
+  id: string;
+  text: string;
+  status: "open" | "answered";
+  /** The Student's answer; null while the Finding is open. */
+  answer: string | null;
+};
+
 /** A parsed Material with its chunks, for the chunk view. */
 export type MaterialChunks = {
   materialId: string;
   courseId: string;
   name: string;
   parseStatus: ParseStatus;
-  /**
-   * A short-lived link to the Material's file, for the pages of the figures.
-   * Null when no chunk has a figure, or the link could not be signed.
-   */
-  file: { url: string; mediaType: string } | null;
   exam: { year: number | null; totalPoints: number | null } | null;
   chunks: ChunkView[];
 };

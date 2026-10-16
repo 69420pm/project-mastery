@@ -71,29 +71,12 @@ beforeEach(() => {
   });
 });
 
-test("a figure chunk carries its page, box and description, and the Material gets a short-lived signed URL for its file", async () => {
+test("a figure chunk carries only its description", async () => {
   const material = await getMaterialChunks(MATERIAL);
 
   const [figure, text] = material?.chunks ?? [];
-  expect(figure?.figure).toEqual({
-    description: "A parabola.",
-    page: 2,
-    box: BOX,
-  });
+  expect(figure?.figure).toEqual({ description: "A parabola." });
   expect(text?.figure).toBeNull();
-  expect(material?.file).toEqual({
-    url: expect.stringContaining(`/course-files/${FILE}?`),
-    mediaType: "application/pdf",
-  });
-  expect(material?.file?.url).toContain("expiresIn=3600");
-});
-
-test("a Material without figures gets no URL signed", async () => {
-  (db.tables as Record<string, FakeRow[]>).chunks!.splice(0, 1);
-
-  const material = await getMaterialChunks(MATERIAL);
-
-  expect(material?.file).toBeNull();
 });
 
 test("an exercise carries its paired solution in another Material, or no solution", async () => {
