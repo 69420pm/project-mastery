@@ -303,4 +303,16 @@ export async function openSidebar(
   return page.getByRole("navigation", { name: list });
 }
 
+/**
+ * The Brief page's data panel: beside the conversation on a wide screen, in
+ * a Sheet that the "Brief data" button opens on a phone.
+ */
+export async function openBriefData(page: Page) {
+  if (test.info().project.name === "mobile") {
+    await page.getByRole("button", { name: "Brief data" }).click();
+    return page.getByRole("dialog", { name: "Brief data" });
+  }
+  return page.getByRole("complementary", { name: "Brief data" });
+}
+
 export { expect } from "@playwright/test";

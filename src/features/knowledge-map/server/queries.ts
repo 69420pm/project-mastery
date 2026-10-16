@@ -6,7 +6,6 @@ import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
 import {
   BLOOM_LEVELS,
   checkReportSchema,
-  FINDING_STATUSES,
   KC_TYPES,
   SEMANTIC_LINK_TYPES,
   SOLUTION_STATUSES,
@@ -40,7 +39,6 @@ export async function getKnowledgeMap(
     priorKnowledge: [],
     semanticLinks: [],
     exercises: [],
-    findings: [],
     checkReport: null,
     canBuild: false,
   };
@@ -59,8 +57,6 @@ export async function getKnowledgeMap(
     materials,
     exercises,
     exerciseKcs,
-    findings,
-    findingSources,
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
@@ -99,15 +95,6 @@ export async function getKnowledgeMap(
       .from("exercise_kcs")
       .select("exercise_id, kc_id")
       .eq("course_id", courseId),
-    supabase
-      .from("findings")
-      .select("id, text, status, answer")
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase
-      .from("finding_sources")
-      .select("finding_id, chunk_id")
-      .eq("course_id", courseId),
   ]);
   if (build.error) failed("Loading the build", build.error);
   if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
@@ -119,10 +106,6 @@ export async function getKnowledgeMap(
   if (semantic.error) failed("Loading the semantic links", semantic.error);
   if (exercises.error) failed("Loading the exercises", exercises.error);
   if (exerciseKcs.error) failed("Loading the exercise KCs", exerciseKcs.error);
-  if (findings.error) failed("Loading the findings", findings.error);
-  if (findingSources.error) {
-    failed("Loading the finding sources", findingSources.error);
-  }
 
   const report = checkReportSchema
     .nullable()
@@ -131,7 +114,6 @@ export async function getKnowledgeMap(
     ...new Set([
       ...sources.data.map((source) => source.chunk_id),
       ...(report?.uncoveredChunkIds ?? []),
-      ...findingSources.data.map((source) => source.chunk_id),
     ]),
   ]);
   // The list is newest first; places go in reading order, oldest first.
@@ -219,17 +201,6 @@ export async function getKnowledgeMap(
           .parse(exercise.difficulty),
       };
     }),
-    findings: findings.data.map((finding) => ({
-      id: finding.id,
-      text: finding.text,
-      status: z.enum(FINDING_STATUSES).parse(finding.status),
-      answer: finding.answer,
-      sources: pagesOf(
-        findingSources.data
-          .filter((source) => source.finding_id === finding.id)
-          .map((source) => source.chunk_id),
-      ),
-    })),
     checkReport: report && {
       uncoveredChunks: pagesOf(report.uncoveredChunkIds),
       ungroundedKcs: report.ungroundedKcs,

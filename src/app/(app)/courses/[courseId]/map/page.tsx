@@ -37,7 +37,7 @@ export default async function KnowledgeMapPage({
       briefHref={briefPath(courseId)}
       priorities={priorities}
       kcStates={kcStates}
-      plan={plan}
+      plan={{ ...plan, leftOut: plan.leftOut.map((kc) => kc.id) }}
     />
   );
 }

@@ -1,4 +1,4 @@
-import { adminClient, expect, test } from "./fixtures";
+import { adminClient, expect, openBriefData, test } from "./fixtures";
 
 // The mock AI (AI_PROVIDER=mock) quotes the message and ends with this.
 const REPLY_END = "it never calls a real model.";
@@ -83,14 +83,19 @@ test.describe("signed in", () => {
     await input.press("Enter");
     await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
 
-    await page.goto(`/courses/${course.id}/map`);
-    const findings = page.getByRole("region", { name: "Findings" });
-    await expect(findings.getByText("Answered")).toBeVisible();
+    // The panel refreshes after the reply, with no reload.
+    const panel = await openBriefData(page);
+    const findings = panel.getByRole("region", { name: "Findings" });
+    await expect(findings.getByText("Answered", { exact: true })).toBeVisible();
     await expect(
       findings.getByText("The printed answer is wrong, 50.8% is right"),
     ).toBeVisible();
+
+    // Findings no longer show on the map.
+    await page.goto(`/courses/${course.id}/map`);
     await expect(
-      findings.getByRole("link", { name: "Answer in the Brief" }),
-    ).toHaveCount(0);
+      page.getByRole("heading", { name: "Knowledge map" }),
+    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Findings" })).toHaveCount(0);
   });
 });

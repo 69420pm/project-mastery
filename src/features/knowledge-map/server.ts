@@ -7,6 +7,7 @@ import "server-only";
 // Next.js, so server code that smoke checks load imports it from here.
 export { knowledgeMapPath } from "./domain/map-paths";
 export { getChunkFindings } from "./server/chunk-findings";
+export { getFindings } from "./server/findings";
 export { getKnowledgeMap } from "./server/queries";
 export {
   answerFinding,

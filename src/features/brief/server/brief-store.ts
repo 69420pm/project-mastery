@@ -5,9 +5,9 @@ import { findingQuestion } from "@/features/brief/domain/findings";
 import {
   findingMessageId,
   OPENING_MESSAGE,
-  STATIC_MODEL_ID,
   openingMessageId,
 } from "@/features/brief/domain/opening";
+import { STATIC_MODEL_ID } from "@/features/brief/domain/static-messages";
 import {
   isIntakeDone,
   type BriefContext,

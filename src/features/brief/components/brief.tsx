@@ -3,7 +3,8 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { CircleAlertIcon, RotateCcwIcon } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -23,6 +24,7 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { messageText } from "@/features/brief/domain/message-text";
+import { withNewStaticMessages } from "@/features/brief/domain/static-messages";
 import {
   MAX_BRIEF_MESSAGE_LENGTH,
   briefMessageTooLongMessage,
@@ -47,26 +49,42 @@ type BriefProps = {
  */
 export function Brief({ brief, dailyLimit: initialDailyLimit }: BriefProps) {
   const { courseId } = brief;
+  const router = useRouter();
   const [inputError, setInputError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
-  const { messages, sendMessage, regenerate, status, error, clearError } =
-    useChat<BriefUIMessage>({
-      onFinish: () => {
-        // Every reply, or a refusal at the limit, can change the status.
-        refreshDailyLimitStatus().then(setDailyLimit, () => {});
-      },
-      id: `brief-${courseId}`,
-      messages: brief.messages,
-      // The database stores message ids as uuids.
-      generateId: () => crypto.randomUUID(),
-      transport: new DefaultChatTransport({
-        api: "/api/brief",
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: { courseId, message: messages.at(-1) },
-        }),
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    regenerate,
+    status,
+    error,
+    clearError,
+  } = useChat<BriefUIMessage>({
+    onFinish: ({ isError, isDisconnect }) => {
+      // Every reply, or a refusal at the limit, can change the status.
+      refreshDailyLimitStatus().then(setDailyLimit, () => {});
+      // The reply may have changed the data in the panel. A refresh keeps
+      // the client state, so the prompt's text and a Memory draft stay.
+      if (!isError && !isDisconnect) router.refresh();
+    },
+    id: `brief-${courseId}`,
+    messages: brief.messages,
+    // The database stores message ids as uuids.
+    generateId: () => crypto.randomUUID(),
+    transport: new DefaultChatTransport({
+      api: "/api/brief",
+      prepareSendMessagesRequest: ({ messages }) => ({
+        body: { courseId, message: messages.at(-1) },
       }),
-    });
+    }),
+  });
+  // `useChat` takes `messages` only once. A refresh can post the next
+  // Finding's static question, so it is appended as a reload would show it.
+  useEffect(() => {
+    setMessages((shown) => withNewStaticMessages(shown, brief.messages));
+  }, [brief.messages, setMessages]);
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
   // A reply that only saved answers has no text: it shows while it streams.
