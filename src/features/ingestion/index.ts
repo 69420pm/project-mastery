@@ -2,6 +2,7 @@
 // Server-only exports live in `server.ts`. It never imports the courses
 // feature, which starts parses and links to the chunk view.
 export { ChunkList } from "./components/chunk-list";
+export { chunkAnchor } from "./domain/chunk-anchor";
 export {
   canStartParse,
   isParseRunning,

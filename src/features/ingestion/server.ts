@@ -6,8 +6,10 @@ export { getMaterialChunks } from "./server/chunk-queries";
 export {
   getChunkPlaces,
   loadCourseChunks,
+  loadChunkSources,
   loadExerciseSolutions,
   type ChunkPlace,
+  type ChunkSource,
   type CourseChunk,
 } from "./server/course-chunks";
 export { startPairing } from "./server/start-pairing";

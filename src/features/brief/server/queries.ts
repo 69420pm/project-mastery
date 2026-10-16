@@ -6,6 +6,7 @@ import { loadFields, openBrief } from "@/features/brief/server/brief-store";
 import type { BriefWithMessages } from "@/features/brief/types";
 import { getUser, requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * The signed-in Student's Brief of a Course with its messages, created with
@@ -22,6 +23,23 @@ export async function getBrief(
 
   const messages = await openBrief(await createClient(), courseId);
   return messages && { courseId, messages };
+}
+
+/**
+ * The exam date of a Course's Brief as YYYY-MM-DD, read with `supabase`, a
+ * Student's session client; null when not set or without a Brief.
+ */
+export async function getExamDate(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("exam_date")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) throw new Error(`Loading the Brief failed: ${error.message}`);
+  return data?.exam_date ?? null;
 }
 
 /**

@@ -62,6 +62,63 @@ export async function getChunkPlaces(
   return places;
 }
 
+/** A chunk with its text and where it is, as the AI cites it. */
+export type ChunkSource = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  pageFrom: number;
+  pageTo: number;
+  markdown: string;
+};
+
+/**
+ * The chunks among `chunkIds` that `supabase`, a Student's session client,
+ * may read, in reading order: Materials in upload order, chunks by
+ * position. Deleted chunks are missing.
+ */
+export async function loadChunkSources(
+  supabase: Supabase,
+  chunkIds: string[],
+): Promise<ChunkSource[]> {
+  const ids = [...new Set(chunkIds)];
+  const rows = [];
+  // Ids go in the query string, so long lists are read in slices.
+  for (let start = 0; start < ids.length; start += ID_SLICE) {
+    const { data, error } = await supabase
+      .from("chunks")
+      .select("id, material_id, position, page_from, page_to, markdown")
+      .in("id", ids.slice(start, start + ID_SLICE));
+    if (error) failed("Loading the chunks", error);
+    rows.push(...data);
+  }
+  if (rows.length === 0) return [];
+
+  const materials = await supabase
+    .from("materials")
+    .select("id, name, created_at")
+    .in("id", [...new Set(rows.map((row) => row.material_id))]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  const material = new Map(materials.data.map((m) => [m.id, m]));
+  return rows
+    .filter((row) => material.has(row.material_id))
+    .toSorted(
+      (a, b) =>
+        material
+          .get(a.material_id)!
+          .created_at.localeCompare(material.get(b.material_id)!.created_at) ||
+        a.position - b.position,
+    )
+    .map((row) => ({
+      id: row.id,
+      materialId: row.material_id,
+      materialName: material.get(row.material_id)!.name,
+      pageFrom: row.page_from,
+      pageTo: row.page_to,
+      markdown: row.markdown,
+    }));
+}
+
 /**
  * The Course's exercise subtask chunks with their paired solution chunks,
  * as the last pairing pass stored them: exercise chunk id to solution chunk

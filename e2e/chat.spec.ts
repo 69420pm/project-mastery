@@ -51,7 +51,7 @@ test.describe("signed in", () => {
   }) => {
     await page.goto(course.chatPath);
     await expect(
-      page.getByRole("heading", { name: "What are you studying?" }),
+      page.getByRole("heading", { name: "Ready to study?" }),
     ).toBeVisible();
 
     await sendMessage(page, "What is $x^2$ for x = 3?");
