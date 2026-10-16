@@ -233,6 +233,57 @@ test("an Exercise node shows its solution status and opens its panel", async () 
   ).toHaveTextContent("Ex. 7.2battempted");
 });
 
+const faded = (name: string) =>
+  within(screen.getByRole("application", { name: "Knowledge map graph" }))
+    .getByRole("button", { name })
+    .closest(".react-flow__node")!
+    .classList.contains("opacity-30");
+
+test("a selected node focuses its neighbours until Esc", async () => {
+  renderMap({});
+  fireEvent.click(await screen.findByRole("button", { name: "Ex. 7.2b" }));
+  expect(faded("Nozzles")).toBe(false);
+  expect(faded("Momentum")).toBe(true);
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("complementary")).toBeNull();
+  expect(faded("Momentum")).toBe(false);
+});
+
+test("a check-report item highlights the KCs it names", async () => {
+  render(
+    <KnowledgeMap
+      map={{
+        ...map,
+        checkReport: {
+          uncoveredChunks: [],
+          ungroundedKcs: [],
+          orphanKcs: ["Nozzles"],
+          droppedCycleEdges: [],
+          unmappedExercises: [],
+          untestedKcs: [],
+          duplicates: [],
+        },
+      }}
+      briefHref="/brief"
+      priorities={{ running: false, failureReason: null, kcs: {} }}
+      learning={{}}
+      plan={plan({})}
+    />,
+  );
+  await screen.findByRole("button", { name: "Nozzles" });
+  const item = screen.getByRole("button", {
+    name: "KCs without links: Nozzles",
+  });
+  fireEvent.click(item);
+  expect(item).toHaveAttribute("aria-pressed", "true");
+  expect(faded("Nozzles")).toBe(false);
+  expect(faded("Momentum")).toBe(true);
+
+  fireEvent.click(item);
+  expect(faded("Momentum")).toBe(false);
+});
+
 test("a Big idea opens its KC count per state", async () => {
   renderMap({});
   fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));

@@ -73,4 +73,11 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
   await expect(
     panel.getByRole("region", { name: "Priority" }).getByText("Low priority"),
   ).toBeVisible({ timeout: 30_000 });
+
+  // Esc clears the selection, and the orphan check highlights its KC.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  const orphans = page.getByRole("button", { name: /^KCs without links/ });
+  await orphans.click();
+  await expect(orphans).toHaveAttribute("aria-pressed", "true");
 });

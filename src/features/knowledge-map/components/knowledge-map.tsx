@@ -2,7 +2,14 @@
 
 import { RotateCwIcon, WaypointsIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState, useTransition } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -12,6 +19,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  checkItems,
+  type FocusDepth,
+  kcIdsNamed,
+} from "@/features/knowledge-map/domain/focus";
 import { DEFAULT_LAYERS } from "@/features/knowledge-map/domain/map-graph";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
@@ -25,6 +37,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { BigIdeaPanel } from "./big-idea-panel";
 import { CheckReport } from "./check-report";
 import { ExercisePanel } from "./exercise-panel";
+import { FocusDepthMenu } from "./focus-depth";
 import { KcPanel } from "./kc-panel";
 import { LayerToggles } from "./layer-toggles";
 import { PriorityStatus } from "./kc-priority";
@@ -45,8 +58,10 @@ const BUILD_POLL_MS = 2000;
  * Course's Brief, `briefHref`) and the check report, then the map as a graph.
  * Clicking a KC opens every stat about it beside the graph, or in a Sheet
  * below `md`: its learning from `learning` and its Priority from
- * `priorities`. The page refreshes itself while a build or a priority run
- * runs, and a selected KC stays selected while it exists.
+ * `priorities`. The selected node is focused on the graph, as far as the
+ * focus depth reaches, and a check-report item highlights its KCs; Esc or a
+ * click on the empty canvas clears either. The page refreshes itself while a
+ * build or a priority run runs, and a selection stays while its node exists.
  */
 export function KnowledgeMap({
   map,
@@ -67,14 +82,35 @@ export function KnowledgeMap({
   useBuildPolling(building || priorities.running);
   const isWide = !useIsMobile();
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
+  const [depth, setDepth] = useState<FocusDepth>("neighbours");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The pressed check-report item's key; its KCs are matched by name on
+  // every render, so the highlight follows the polled map.
+  const [checkKey, setCheckKey] = useState<string | null>(null);
+  const select = (id: string) => {
+    setSelectedId(id);
+    setCheckKey(null);
+  };
+  const clear = () => {
+    setSelectedId(null);
+    setCheckKey(null);
+  };
+  useEscapeToClear(selectedId !== null || checkKey !== null, clear);
+  const highlighted = useMemo(() => {
+    const item =
+      map.checkReport &&
+      checkItems(map.checkReport).find((i) => i.key === checkKey);
+    if (!item) return null;
+    const all = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+    return kcIdsNamed(all, item.kcNames);
+  }, [checkKey, map]);
   const selected = selectedPanel({
     id: selectedId,
     map,
     learning,
     priorities,
     plan,
-    onSelect: setSelectedId,
+    onSelect: select,
   });
   const panel = selected?.panel ?? null;
   const panelLabel = selected?.label ?? "KC details";
@@ -106,7 +142,14 @@ export function KnowledgeMap({
 
       {map.checkReport && (
         <div className="max-w-3xl">
-          <CheckReport report={map.checkReport} />
+          <CheckReport
+            report={map.checkReport}
+            highlighted={checkKey}
+            onToggle={(key) => {
+              setSelectedId(null);
+              setCheckKey(key === checkKey ? null : key);
+            }}
+          />
         </div>
       )}
 
@@ -117,7 +160,8 @@ export function KnowledgeMap({
       ) : (
         <div className="flex gap-4">
           <div className="flex h-[70vh] min-h-96 min-w-0 flex-1 flex-col gap-2">
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              <FocusDepthMenu depth={depth} onChange={setDepth} />
               <LayerToggles layers={layers} onChange={setLayers} />
             </div>
             <div className="min-h-0 flex-1">
@@ -126,7 +170,10 @@ export function KnowledgeMap({
                 learning={learning}
                 layers={layers}
                 selectedId={selected ? selectedId : null}
-                onSelect={setSelectedId}
+                depth={depth}
+                highlighted={highlighted}
+                onSelect={select}
+                onClear={clear}
               />
             </div>
           </div>
@@ -329,6 +376,32 @@ function BuildButton({
       )}
     </div>
   );
+}
+
+/**
+ * Calls `clear` on Esc while `active`, unless a menu is open: Esc closes
+ * that first.
+ */
+function useEscapeToClear(active: boolean, clear: () => void) {
+  const latest = useRef(clear);
+  useEffect(() => {
+    latest.current = clear;
+  });
+  useEffect(() => {
+    if (!active) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest("[role=menu]")
+      ) {
+        return;
+      }
+      latest.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [active]);
 }
 
 /** Refreshes the page's data while a build or a priority run runs. */

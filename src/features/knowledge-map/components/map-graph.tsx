@@ -33,9 +33,16 @@ import {
   TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import {
+  type Focus,
+  type FocusDepth,
+  focusOn,
+} from "@/features/knowledge-map/domain/focus";
+import {
   buildMapGraph,
   type MapGraphEdge,
+  type MapGraphNode,
   type MapLayers,
+  type NodeLayout,
   nodeLayouts,
   toElkGraph,
 } from "@/features/knowledge-map/domain/map-graph";
@@ -83,11 +90,21 @@ export const SEMANTIC_LINK_COLORS: Record<SemanticLinkType, string> = {
   other: "var(--muted-foreground)",
 };
 
-type KcNodeData = { kc: KcView; state: KcState; selected: boolean };
+/**
+ * `related`: highlighted by the focus, or by a check-report item, without
+ * being the selected node.
+ */
+type KcNodeData = {
+  kc: KcView;
+  state: KcState;
+  selected: boolean;
+  related: boolean;
+};
 type BigIdeaNodeData = { name: string; selected: boolean };
 type ExerciseNodeData = {
   exercise: ExerciseView;
   selected: boolean;
+  related: boolean;
   badge: boolean;
 };
 type KcNode = Node<KcNodeData, "kc">;
@@ -118,7 +135,7 @@ function Handles({ source = true }: { source?: boolean }) {
 
 /** A KC: its type icon, name and state marker. */
 function KcNodeView({ data }: NodeProps<KcNode>) {
-  const { kc, state, selected } = data;
+  const { kc, state, selected, related } = data;
   const Icon = TYPE_ICONS[kc.type];
   const marker = STATE_MARKERS[state];
   return (
@@ -130,6 +147,7 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
         aria-pressed={selected}
         className={cn(
           "flex size-full items-start gap-2 rounded-lg border bg-card px-3 py-2 text-left text-sm shadow-xs transition-colors hover:border-ring",
+          related && "border-brand",
           selected && "border-brand ring-2 ring-brand/40",
         )}
       >
@@ -155,7 +173,7 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
 
 /** An Exercise: its name, difficulty and, if shown, its solution status. */
 function ExerciseNodeView({ data }: NodeProps<ExerciseNode>) {
-  const { exercise, selected, badge } = data;
+  const { exercise, selected, related, badge } = data;
   return (
     <>
       <Handles source={false} />
@@ -165,6 +183,7 @@ function ExerciseNodeView({ data }: NodeProps<ExerciseNode>) {
         aria-pressed={selected}
         className={cn(
           "flex size-full flex-col justify-between gap-1 rounded-md border border-dashed bg-card px-3 py-1.5 text-left text-xs shadow-xs transition-colors hover:border-ring",
+          related && "border-brand",
           selected && "border-solid border-brand ring-2 ring-brand/40",
         )}
       >
@@ -216,28 +235,38 @@ const EDGE_STYLES = {
   tests: { strokeDasharray: "2 4" },
 } as const;
 
-/** How React Flow draws each kind of edge. */
-function flowEdge(edge: MapGraphEdge): Edge {
-  const common = { id: edge.id, source: edge.source, target: edge.target };
+/**
+ * How React Flow draws each kind of edge: thicker when `focus` highlights
+ * it, faded when a focus leaves it out.
+ */
+function flowEdge(edge: MapGraphEdge, focus: Focus | null): Edge {
+  const focused = focus?.edges.has(edge.id) ?? false;
+  const common = {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    focusable: false,
+    ...(focus && !focused && { className: "opacity-15" }),
+  };
+  const width = focused ? { strokeWidth: 2 } : {};
   switch (edge.kind) {
     case "prerequisite":
       return {
         ...common,
+        style: width,
         markerEnd: { type: MarkerType.ArrowClosed },
-        focusable: false,
       };
     case "tests":
-      return { ...common, style: EDGE_STYLES.tests, focusable: false };
+      return { ...common, style: { ...EDGE_STYLES.tests, ...width } };
     case "semantic": {
       const color = SEMANTIC_LINK_COLORS[edge.coreType];
       return {
         ...common,
         label: edge.label,
-        style: { stroke: color, strokeDasharray: "6 4" },
+        style: { stroke: color, strokeDasharray: "6 4", ...width },
         labelStyle: { fill: color, fontSize: 11 },
         labelBgStyle: { fill: "var(--background)" },
         markerEnd: { type: MarkerType.Arrow, color },
-        focusable: false,
       };
     }
   }
@@ -249,20 +278,30 @@ function flowEdge(edge: MapGraphEdge): Edge {
  * prior knowledge leftmost, Exercises right of the KCs they test,
  * Prerequisites as arrows and Semantic links dashed. A skeleton shows until
  * the first layout. Clicking a KC, Exercise or Big idea calls `onSelect`
- * with its id.
+ * with its id, and clicking the empty canvas calls `onClear`.
+ *
+ * The selected node is focused: what `depth` reaches from it over the shown
+ * edges is highlighted and the rest fades. Without a selection, the nodes in
+ * `highlighted` (a check-report item's KCs) are highlighted instead.
  */
 export function MapGraph({
   map,
   learning,
   layers,
   selectedId,
+  depth,
+  highlighted,
   onSelect,
+  onClear,
 }: {
   map: KnowledgeMapView;
   learning: MapKcLearning;
   layers: MapLayers;
   selectedId: string | null;
+  depth: FocusDepth;
+  highlighted: Set<string> | null;
   onSelect: (id: string) => void;
+  onClear: () => void;
 }) {
   const graph = useMemo(() => buildMapGraph(map, layers), [map, layers]);
   const elkGraph = useMemo(() => toElkGraph(graph), [graph]);
@@ -277,7 +316,7 @@ export function MapGraph({
     );
     const exercises = new Map(map.exercises.map((e) => [e.id, e]));
     const bigIdeaName = new Map(map.bigIdeas.map((b) => [b.id, b.name]));
-    const nodes: Array<KcNode | BigIdeaNode | ExerciseNode> = [];
+    const placed: Array<{ node: MapGraphNode; layout: NodeLayout }> = [];
     const shown = new Set<string>();
     for (const node of graph.nodes) {
       const layout = layouts.get(node.id);
@@ -286,54 +325,83 @@ export function MapGraph({
       // waits for the next one.
       if (!layout || layout.parentId !== parentId) continue;
       if (parentId !== null && !shown.has(parentId)) continue;
-      const common = {
-        id: node.id,
-        position: { x: layout.x, y: layout.y },
-        width: layout.width,
-        height: layout.height,
-        focusable: false,
-      };
-      const selected = node.id === selectedId;
-      if (node.kind === "bigIdea") {
-        nodes.push({
-          ...common,
-          type: "bigIdea",
-          data: { name: bigIdeaName.get(node.id) ?? "", selected },
-        });
-      } else if (node.kind === "exercise") {
-        nodes.push({
-          ...common,
-          type: "exercise",
-          data: {
-            exercise: exercises.get(node.id)!,
-            selected,
-            badge: layers.solutionBadges,
-          },
-        });
-      } else {
-        nodes.push({
+      placed.push({ node, layout });
+      shown.add(node.id);
+    }
+    const visible = graph.edges.filter(
+      (edge) =>
+        !(edge.kind === "prerequisite" && edge.hidden) &&
+        shown.has(edge.source) &&
+        shown.has(edge.target),
+    );
+    const focus: Focus | null =
+      selectedId !== null && shown.has(selectedId)
+        ? focusOn(
+            selectedId,
+            depth,
+            placed.map((p) => p.node),
+            visible,
+          )
+        : highlighted && { nodes: highlighted, edges: new Set() };
+    // A Big idea's box stays clear while any of its KCs is in focus.
+    const inFocus = (node: MapGraphNode) =>
+      !focus ||
+      focus.nodes.has(node.id) ||
+      (node.kind === "bigIdea" &&
+        placed.some(
+          (p) =>
+            p.node.kind === "kc" &&
+            p.node.parentId === node.id &&
+            focus.nodes.has(p.node.id),
+        ));
+
+    const nodes = placed.map(
+      ({ node, layout }): KcNode | BigIdeaNode | ExerciseNode => {
+        const common = {
+          id: node.id,
+          position: { x: layout.x, y: layout.y },
+          width: layout.width,
+          height: layout.height,
+          focusable: false,
+          className: cn("transition-opacity", !inFocus(node) && "opacity-30"),
+        };
+        const selected = node.id === selectedId;
+        const related = !selected && focus !== null && focus.nodes.has(node.id);
+        if (node.kind === "bigIdea") {
+          return {
+            ...common,
+            type: "bigIdea",
+            data: { name: bigIdeaName.get(node.id) ?? "", selected },
+          };
+        }
+        if (node.kind === "exercise") {
+          return {
+            ...common,
+            type: "exercise",
+            data: {
+              exercise: exercises.get(node.id)!,
+              selected,
+              related,
+              badge: layers.solutionBadges,
+            },
+          };
+        }
+        return {
           ...common,
           type: "kc",
-          ...(parentId !== null && { parentId }),
+          ...(node.parentId !== null && { parentId: node.parentId }),
           data: {
             kc: kcs.get(node.id)!,
             state: learning[node.id]?.state ?? "new",
             selected,
+            related,
           },
-        });
-      }
-      shown.add(node.id);
-    }
-    const edges = graph.edges
-      .filter(
-        (edge) =>
-          !(edge.kind === "prerequisite" && edge.hidden) &&
-          shown.has(edge.source) &&
-          shown.has(edge.target),
-      )
-      .map(flowEdge);
+        };
+      },
+    );
+    const edges = visible.map((edge) => flowEdge(edge, focus));
     return { nodes, edges };
-  }, [graph, laidOut, map, learning, layers, selectedId]);
+  }, [graph, laidOut, map, learning, layers, selectedId, depth, highlighted]);
 
   if (!laidOut) {
     return (
@@ -350,6 +418,7 @@ export function MapGraph({
       edges={edges}
       nodeTypes={nodeTypes}
       onNodeClick={(_, node) => onSelect(node.id)}
+      onPaneClick={onClear}
       nodesDraggable={false}
       nodesConnectable={false}
       elementsSelectable={false}
