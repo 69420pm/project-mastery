@@ -32,8 +32,8 @@ export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
     "pnpm smoke tutor (the gold map with stand-in sources and Exercises, then one greeting in a Chat)",
-  // One call per step: reading the KCs, the Exercises and the text, with
-  // slack for a retry; the title is the only other call.
+  // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
+  // are recorded as one row (task `chat`), with the title the only other.
   maxCalls: 5,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
