@@ -46,10 +46,12 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { AttachedMaterials } from "@/features/chat/components/attached-materials";
 import { CopyAction } from "@/features/chat/components/copy-action";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
+import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
@@ -264,10 +266,18 @@ export function Chat({
             messages.map((message) => {
               const isLast = message === lastMessage;
               const isStreaming = isBusy && isLast;
+              // Until the reply has text, a line says what the AI is doing in
+              // its place, in the same box the text then fills.
+              const activity =
+                isStreaming && message.role === "assistant"
+                  ? replyActivity(message.parts)
+                  : null;
               return (
                 <Message from={message.role} key={message.id}>
                   <MessageContent data-testid="message-text">
-                    {message.role === "assistant" ? (
+                    {activity !== null ? (
+                      <Shimmer className="text-sm">{activity}</Shimmer>
+                    ) : message.role === "assistant" ? (
                       <Markdown streaming={status === "streaming" && isLast}>
                         {messageText(message.parts)}
                       </Markdown>
@@ -317,8 +327,13 @@ export function Chat({
               );
             })
           )}
-          {status === "submitted" && (
-            <Shimmer className="text-sm">Thinking…</Shimmer>
+          {/* Before the reply's message exists: the same box it fills. */}
+          {status === "submitted" && lastMessage?.role === "user" && (
+            <Message from="assistant">
+              <MessageContent>
+                <Shimmer className="text-sm">{THINKING}</Shimmer>
+              </MessageContent>
+            </Message>
           )}
           {/* At the limit, the notice below explains the refusal. */}
           {error && !limitReached && (
@@ -496,41 +511,6 @@ export function Chat({
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-/**
- * The Materials attached to a sent message, under their current names. A
- * deleted one shows the name it had when attached.
- */
-function AttachedMaterials({
-  parts,
-  materialsById,
-  onOpen,
-}: {
-  parts: ChatUIMessage["parts"];
-  materialsById: Map<string, MaterialListItem>;
-  onOpen: (material: MaterialListItem) => void;
-}) {
-  const references = parts.flatMap((part) =>
-    part.type === "data-material" ? [part.data] : [],
-  );
-  if (references.length === 0) return null;
-  return (
-    <div className="flex flex-wrap justify-end gap-1">
-      {references.map((reference, index) => {
-        const material = materialsById.get(reference.materialId);
-        return (
-          <MaterialChip
-            key={`${reference.materialId}-${index}`}
-            name={material?.name ?? reference.name}
-            mediaType={reference.mediaType}
-            deleted={!material}
-            onOpen={material && (() => onOpen(material))}
-          />
-        );
-      })}
     </div>
   );
 }
