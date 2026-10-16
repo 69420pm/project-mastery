@@ -43,6 +43,7 @@ export const SAMPLE_CONTEXT: TutorContext = {
   share: 70,
   leftOutCount: 3,
   goal: "good_grade",
+  memory: "",
   mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
   dueReviews: { kcs: [], more: 0 },
   candidates: [

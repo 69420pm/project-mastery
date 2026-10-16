@@ -45,6 +45,16 @@ export const recordAttemptInputSchema = z.object({
     .describe("The 1 to 8 KCs of this Course the question tested, each once."),
 });
 
+/** What `remember` takes: one line for the Memory. */
+export const rememberInputSchema = z.object({
+  text: z
+    .string()
+    .min(1)
+    .max(300)
+    .regex(/^[^\r\n]+$/, "One line, without line breaks.")
+    .describe("One line of at most 300 characters, without line breaks."),
+});
+
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
@@ -58,6 +68,8 @@ export type TutorToolActions = {
   recordAttempt: (
     attempt: z.infer<typeof recordAttemptInputSchema>,
   ) => Promise<RecordedKc[]>;
+  /** Appends one line to the Course's Memory. */
+  remember: (text: string) => Promise<void>;
 };
 
 /** A refused tool call: its message tells the model what to fix. */
@@ -87,6 +99,15 @@ export function tutorTools(actions: TutorToolActions) {
       execute: async (attempt) => ({
         kcs: await actions.recordAttempt(attempt),
       }),
+    }),
+    remember: tool({
+      description:
+        "Save one line to your Memory of this Student in this Course, which you read in every later Chat: something that will help you tutor them, such as a preference, how they like to learn or their context. The date is added for you.",
+      inputSchema: rememberInputSchema,
+      execute: async ({ text }) => {
+        await actions.remember(text);
+        return { ok: true };
+      },
     }),
   };
 }

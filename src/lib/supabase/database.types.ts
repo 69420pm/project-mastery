@@ -1422,6 +1422,10 @@ export type Database = {
         Args: { course_id: string; text: string };
         Returns: boolean;
       };
+      append_memory: {
+        Args: { course_id: string; text: string };
+        Returns: boolean;
+      };
       apply_knowledge_map_update: {
         Args: {
           p_check_report: Json;

@@ -76,6 +76,10 @@ _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the
 One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map.
 _Avoid_: Conversation, thread, session
 
+**Memory**:
+What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The Student can edit it on the Brief page.
+_Avoid_: Profile, notes (the Brief's notes are something else)
+
 **Daily limit**:
 The most a Student's AI use may cost per day, measured in US dollars.
 _Avoid_: Quota, budget, allowance, credits

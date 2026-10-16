@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(15);
 
 insert into auth.users (id, email)
 values
@@ -15,7 +15,8 @@ values
 insert into public.courses (id, owner, name)
 values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines'),
-  ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Biology');
+  ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Biology'),
+  ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'Thermodynamics');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
@@ -54,8 +55,33 @@ reset role;
 select is((select text from public.memories), 'Prefers short answers.',
   'another Student''s update changed nothing');
 
+-- append_memory, the `remember` tool's write, as the owner.
+set local role authenticated;
+set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
+select is(
+  public.append_memory('aaaaaaaa-0000-0000-0000-000000000003', 'Likes examples.'),
+  true, 'append_memory creates the Memory');
+select public.append_memory('aaaaaaaa-0000-0000-0000-000000000003', 'Studies on trains.');
+select is(
+  (select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000003'),
+  to_char(now() at time zone 'utc', 'YYYY-MM-DD') || ': Likes examples.' || E'\n'
+    || to_char(now() at time zone 'utc', 'YYYY-MM-DD') || ': Studies on trains.',
+  'append_memory appends dated lines');
+select is(
+  public.append_memory('aaaaaaaa-0000-0000-0000-000000000003', repeat('x', 3950)),
+  false, 'append_memory refuses a line past 4,000 characters');
+select is(
+  (select count(*)::int from public.memories
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000003' and text like '%xxx%'),
+  0, 'the refused line changed nothing');
+select throws_ok(
+  $$select public.append_memory('aaaaaaaa-0000-0000-0000-000000000002', 'Mine now.')$$,
+  '42501', null, 'append_memory refuses another Student''s Course');
+reset role;
+
 delete from public.courses where id = 'aaaaaaaa-0000-0000-0000-000000000001';
-select is((select count(*)::int from public.memories), 0,
+select is((select count(*)::int from public.memories
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 0,
   'a deleted Course takes its Memory with it');
 
 select * from finish();

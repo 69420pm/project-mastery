@@ -2,8 +2,8 @@
 // tutor a Student in a Chat. It reads the Knowledge map through the
 // knowledge-map feature, Priorities through priorities, the exam facts
 // through brief and chunks through ingestion. It owns the attempts log, the
-// review ladder replayed from it and the study plan (Phase and pacing)
-// derived on read. The instructions, which are
+// review ladder replayed from it, the study plan (Phase and pacing)
+// derived on read, and the Memory the AI keeps per Course. The instructions, which are
 // pure, live in `index.ts`.
 import "server-only";
 

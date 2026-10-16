@@ -37,6 +37,7 @@ const COURSE_TABLES = [
   "briefs",
   "chunks",
   "attempts",
+  "memories",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -75,6 +76,28 @@ function createDb() {
       briefs: [],
       chunks: [],
       attempts: [],
+      memories: [],
+    },
+    primaryKeys: { memories: ["course_id"] },
+    functions: {
+      // The real function appends as the Student; this one trusts the Course.
+      append_memory: (args, tables) => {
+        const line = `${new Date().toISOString().slice(0, 10)}: ${args.text}`;
+        const memory = tables.memories.find(
+          (row) => row.course_id === args.course_id,
+        );
+        const text = memory?.text ? `${memory.text}\n${line}` : line;
+        if (text.length > 4000) return false;
+        if (memory) memory.text = text;
+        else {
+          tables.memories.push({
+            course_id: args.course_id,
+            owner: signedIn,
+            text,
+          });
+        }
+        return true;
+      },
     },
     // The Storage folder the Student may use.
     userId: STUDENT,
