@@ -37,6 +37,10 @@ const attempt = (kcId: string, createdAt: string, exerciseId?: string) =>
     created_at: createdAt,
   });
 
+/** The exam date `days` from today, as YYYY-MM-DD. */
+const examIn = (days: number) =>
+  new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
+
 const promptOf = (
   model: ReturnType<typeof mockTextModel>,
   call: number,
@@ -87,6 +91,49 @@ describe("the instructions", () => {
     expect(prompt).toContain(
       `- Propulsive efficiency (id ${MAP.efficiency}, concept; anchors: Thrust equation (id ${MAP.thrust}))`,
     );
+  });
+
+  test("give the goal, the Phase and the left-out count when the plan has pacing", async () => {
+    const model = mockTextModel("Let's go.");
+    useMockModels({ chat: model });
+    seedMap();
+    db.tables.briefs.push({
+      owner: STUDENT,
+      course_id: COURSE,
+      exam_date: examIn(14),
+      hours_per_week: 0.5,
+      goal: "good_grade",
+    });
+
+    await send(firstMessage());
+
+    const prompt = promptOf(model, 0);
+    expect(prompt).toContain("Study phase: build.");
+    expect(prompt).toContain("goal is a good grade");
+    expect(prompt).toContain("about 50% of the KCs that matter fit");
+    expect(prompt).toContain("1 lowest-Priority KCs won't");
+  });
+
+  test("guide the final week to review, and add no plan without an exam date", async () => {
+    const model = mockTextModel("Let's review.");
+    useMockModels({ chat: model });
+    seedMap();
+    db.tables.briefs.push({
+      owner: STUDENT,
+      course_id: COURSE,
+      exam_date: examIn(5),
+      goal: "pass",
+    });
+
+    await send(firstMessage());
+    db.tables.briefs.length = 0;
+    await send(firstMessage());
+
+    const prompt = promptOf(model, 0);
+    expect(prompt).toContain("Study phase: final week.");
+    expect(prompt).toContain("Teach nothing new unless the Student asks.");
+    expect(prompt).toContain("goal is to pass");
+    expect(promptOf(model, 1)).not.toContain("Study phase");
   });
 
   test("without a map, have no candidates and point to the map page", async () => {

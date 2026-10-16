@@ -17,6 +17,14 @@ export type TutorContext = {
   examDate: string | null;
   /** Whether the Course has a built Knowledge map. */
   hasMap: boolean;
+  /** Where the study stands (`planStudy`); null without a running exam date. */
+  phase: Phase | null;
+  /** The whole percent of relevant KCs that fit; null without pacing. */
+  share: number | null;
+  /** How many relevant KCs won't fit; null without pacing. */
+  leftOutCount: number | null;
+  /** The Student's goal from the Brief; null until answered. */
+  goal: "pass" | "good_grade" | "master_everything" | null;
   /** The map page, where the Student builds the map. */
   mapPath: string;
   /** Most urgent first; none without a map. */
