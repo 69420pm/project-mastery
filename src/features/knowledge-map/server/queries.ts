@@ -124,12 +124,12 @@ export async function getKnowledgeMap(
   const chunks = await loadChunkSources(supabase, [
     ...sources.data.map((source) => source.chunk_id),
     ...(report?.uncoveredChunkIds ?? []),
-    ...exercises.data
-      .flatMap((exercise) => [
-        exercise.question_chunk_id,
-        pairedSolutions[exercise.question_chunk_id] ?? [],
-      ])
-      .flat(),
+    ...exercises.data.flatMap((exercise) => {
+      const solution = pairedSolutions[exercise.question_chunk_id];
+      return solution
+        ? [exercise.question_chunk_id, solution]
+        : [exercise.question_chunk_id];
+    }),
   ]);
   const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   /** The pages of these chunks in reading order, each page once. */
