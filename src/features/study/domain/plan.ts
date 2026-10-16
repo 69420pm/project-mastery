@@ -45,7 +45,8 @@ export type PlanInput = {
 /**
  * The plan from the relevant KCs (Priority above 0, not prior knowledge):
  * the final week in the last 7 days, deepen once every relevant KC is
- * taught, build otherwise. Pacing fits the untaught relevant KCs, highest
+ * taught, build otherwise, including when no KC is relevant yet (an unbuilt
+ * map), since deepen steers away from new KCs. Pacing fits the untaught relevant KCs, highest
  * Priority first and ties by name, into the hours until the final week.
  */
 export function planStudy({

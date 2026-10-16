@@ -50,6 +50,13 @@ describe("planStudy", () => {
     });
   });
 
+  test("builds while no KC is relevant yet", () => {
+    expect(plan({ kcs: [] })).toEqual({
+      phase: "build",
+      pacing: { share: 100, leftOut: [] },
+    });
+  });
+
   test("has a Phase but no pacing without weekly hours", () => {
     expect(plan({ exam: { hoursPerWeek: null } })).toEqual({
       phase: "build",

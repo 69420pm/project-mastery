@@ -102,7 +102,8 @@ set local role service_role;
 select public.replace_kc_priorities('aaaaaaaa-0000-0000-0000-000000000001', '[]');
 reset role;
 select results_eq(
-  $$select status, adjusted_at, adjustments -> 0 ->> 'reason' from public.priority_runs$$,
+  $$select status, adjusted_at, adjustments -> 0 ->> 'reason' from public.priority_runs
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('done', '2026-10-01T00:00:00Z'::timestamptz, 'Stressed')$$,
   'the adjustment and its adjusted_at are stored, and a reusing run keeps them');
 
