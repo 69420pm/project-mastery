@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, openBriefData, test } from "./fixtures";
 
 test.describe("signed in", () => {
   test("writes Memory on the Brief page and keeps it after a reload", async ({
@@ -6,19 +6,21 @@ test.describe("signed in", () => {
     course,
   }) => {
     await page.goto(`/courses/${course.id}/brief`);
-    await expect(page.getByText("What the AI knows about you")).toBeVisible();
+    const panel = await openBriefData(page);
+    await expect(panel.getByText("What the AI knows about you")).toBeVisible();
 
-    const memory = page.getByRole("textbox", { name: "Memory" });
+    const memory = panel.getByRole("textbox", { name: "Memory" });
     await expect(memory).toHaveAttribute(
       "placeholder",
       "Nothing yet. The AI adds notes as you study.",
     );
     await memory.fill("I prefer worked examples.");
-    await page.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Saved.", { exact: true })).toBeVisible();
+    await panel.getByRole("button", { name: "Save" }).click();
+    await expect(panel.getByText("Saved.", { exact: true })).toBeVisible();
 
     await page.reload();
-    await expect(page.getByRole("textbox", { name: "Memory" })).toHaveValue(
+    const reopened = await openBriefData(page);
+    await expect(reopened.getByRole("textbox", { name: "Memory" })).toHaveValue(
       "I prefer worked examples.",
     );
   });

@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { CircleAlertIcon, RotateCcwIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Conversation,
@@ -47,14 +48,18 @@ type BriefProps = {
  */
 export function Brief({ brief, dailyLimit: initialDailyLimit }: BriefProps) {
   const { courseId } = brief;
+  const router = useRouter();
   const [inputError, setInputError] = useState<string | null>(null);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const limitReached = dailyLimit.level === "reached";
   const { messages, sendMessage, regenerate, status, error, clearError } =
     useChat<BriefUIMessage>({
-      onFinish: () => {
+      onFinish: ({ isError, isDisconnect }) => {
         // Every reply, or a refusal at the limit, can change the status.
         refreshDailyLimitStatus().then(setDailyLimit, () => {});
+        // The reply may have changed the data in the panel. A refresh keeps
+        // the client state, so the prompt's text and a Memory draft stay.
+        if (!isError && !isDisconnect) router.refresh();
       },
       id: `brief-${courseId}`,
       messages: brief.messages,

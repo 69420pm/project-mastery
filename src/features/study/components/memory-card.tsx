@@ -27,6 +27,13 @@ export function MemoryCard({
   text: string;
 }) {
   const [value, setValue] = useState(text);
+  // The text the textarea started from: a refreshed `text` replaces the
+  // value only while the Student has not edited it, so a draft survives.
+  const [baseline, setBaseline] = useState(text);
+  if (text !== baseline) {
+    setBaseline(text);
+    if (value === baseline) setValue(text);
+  }
   const [status, setStatus] = useState<
     { kind: "saved" } | { kind: "error"; message: string } | null
   >(null);
@@ -36,6 +43,8 @@ export function MemoryCard({
     event.preventDefault();
     startTransition(async () => {
       const result = await saveMemory({ courseId, text: value });
+      // What was saved is now the text to compare a refresh against.
+      if (result.ok) setBaseline(value);
       setStatus(
         result.ok
           ? { kind: "saved" }
