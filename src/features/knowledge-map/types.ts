@@ -26,6 +26,17 @@ export type MapBuild = {
   finishedAt: string | null;
 } | null;
 
+/** A chunk that teaches a KC, as the map page shows it. */
+export type KcSourceView = {
+  chunkId: string;
+  material: string;
+  /** Such as "p. 3" or "pp. 3–4". */
+  pages: string;
+  /** The chunk on its Material's page. */
+  link: string;
+  markdown: string;
+};
+
 /** A KC as the map page shows it. */
 export type KcView = {
   id: string;
@@ -33,15 +44,24 @@ export type KcView = {
   description: string;
   type: KcType;
   bloom: BloomLevel | null;
-  /** Added because exercises need it while the content does not teach it. */
-  fromExercise: boolean;
-  /** Where it is taught, such as "Lecture 1 p. 3", in reading order. */
-  sources: string[];
-  /** The names of the KCs to learn before it. */
-  prerequisites: string[];
+  /**
+   * From the content, from an exercise that needs it while the content does
+   * not teach it, or prior knowledge.
+   */
+  origin: "content" | "exercise" | "prior";
+  /** The chunks that teach it, in reading order. */
+  sources: KcSourceView[];
 };
 
-/** A semantic link between two KCs, by name. */
+/** `from` must be learned before `to`, both KC ids. */
+export type PrerequisiteView = {
+  from: string;
+  to: string;
+  /** How sure the build was of the link, 0 to 1. */
+  confidence: number;
+};
+
+/** A semantic link between two KCs, by id. */
 export type SemanticLinkView = {
   from: string;
   to: string;
@@ -67,7 +87,7 @@ export type ExerciseView = {
   id: string;
   name: string;
   taskType: string;
-  /** The names of the KCs it tests, in map order. */
+  /** The ids of the KCs it tests, in map order. */
   kcs: string[];
   solutionStatus: SolutionStatus;
   difficulty: 1 | 2 | 3;
@@ -101,25 +121,52 @@ export type ReviewFinding = {
 
 /**
  * The KC priorities the map page shows, which the page passes in: each KC's
- * badge and reasons by KC id (none before the first run), whether a run is
- * running and why the last one failed.
+ * level, value, multiplier and reasons by KC id (none before the first run),
+ * whether a run is running and why the last one failed.
  */
 export type MapPriorities = {
   running: boolean;
   failureReason: string | null;
   kcs: Record<
     string,
-    { level: "high" | "medium" | "low" | "excluded"; reasons: string[] }
+    {
+      level: "high" | "medium" | "low" | "excluded";
+      value: number;
+      multiplier: number;
+      reasons: string[];
+    }
   >;
 };
 
+/** A KC's attempt as the map page shows it. */
+export type MapAttempt = {
+  /** An ISO timestamp. */
+  createdAt: string;
+  correct: boolean;
+  help: "none" | "some" | "solution_shown";
+  exerciseId: string | null;
+};
+
 /**
- * The KC states the map page shows, which the page passes in: a KC's state
- * by id; a KC missing here is new.
+ * What the Student has learned of each KC, which the page passes in, by KC
+ * id: its state and place on the review ladder, its attempts newest first,
+ * and whether the AI would propose it next, with the KCs it docks onto. A
+ * KC missing here is new, without attempts, and no candidate.
  */
-export type MapKcStates = Record<
+export type MapKcLearning = Record<
   string,
-  { state: "new" | "learning" | "due" | "mastered" }
+  {
+    state: "new" | "learning" | "due" | "mastered";
+    /** 1 to 5; null for a new KC. */
+    level: number | null;
+    /** As YYYY-MM-DD; null for a new KC. */
+    nextReview: string | null;
+    attempts: MapAttempt[];
+    /** Among the AI's top candidates to learn next. */
+    candidate: boolean;
+    /** Its Prerequisites that are prior knowledge or taught, as a candidate. */
+    anchors: Array<{ id: string; name: string }>;
+  }
 >;
 
 /**
@@ -142,6 +189,7 @@ export type KnowledgeMapView = {
   bigIdeas: BigIdeaView[];
   /** Prior knowledge the material assumes, which belongs to no big idea. */
   priorKnowledge: KcView[];
+  prerequisites: PrerequisiteView[];
   semanticLinks: SemanticLinkView[];
   /** In reading order. */
   exercises: ExerciseView[];

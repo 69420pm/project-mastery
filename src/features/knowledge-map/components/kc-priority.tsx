@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
 import type {
-  MapKcStates,
+  MapKcLearning,
   MapPriorities,
 } from "@/features/knowledge-map/types";
 
@@ -53,7 +53,7 @@ const STATE_NAMES = {
 } as const;
 
 /** A KC's state badge; a KC without attempts is new. */
-export function StateBadge({ state }: { state?: MapKcStates[string] }) {
+export function StateBadge({ state }: { state?: MapKcLearning[string] }) {
   const name = state?.state ?? "new";
   return (
     <Badge

@@ -12,6 +12,7 @@ import "server-only";
 export { tutorInstructions } from "./ai/instructions";
 export { TutorToolError, type TutorTools } from "./ai/tools";
 export { getKcStates } from "./server/attempts";
+export { getKcLearning } from "./server/learning";
 export { getMemory } from "./server/memory";
 export { getOpeningLine } from "./server/opening";
 export { getPlan } from "./server/plan";
