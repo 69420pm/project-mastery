@@ -276,6 +276,7 @@ export function Chat({
                         <ReplyParts
                           parts={message.parts}
                           streaming={status === "streaming" && isLast}
+                          inProgress={isStreaming}
                         />
                         {activity !== null && (
                           <Shimmer className="text-sm">{activity}</Shimmer>

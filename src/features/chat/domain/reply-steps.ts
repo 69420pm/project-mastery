@@ -4,8 +4,11 @@ import type { ExerciseView, KcReading, RecordedKc } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
-/** Whether a tool call is still on its way, has returned, or failed. */
-export type StepState = "running" | "done" | "error";
+/**
+ * Whether a tool call is still on its way, has returned, failed, or never
+ * returned because the reply was stopped.
+ */
+export type StepState = "running" | "done" | "error" | "stopped";
 
 /** What a step card shows when it is expanded, by tool. */
 export type StepDetail =
@@ -55,9 +58,13 @@ const HELP_LABELS: Record<string, string> = {
 /**
  * An AI reply's parts as the Chat shows them, in order: each run of text as
  * one segment, each tool call as a step. Other parts, such as `step-start`,
- * show nothing.
+ * show nothing. Once the reply is no longer in progress, a call that never
+ * returned (the Student stopped the reply) shows as stopped, not running.
  */
-export function replySegments(parts: ChatUIMessage["parts"]): ReplySegment[] {
+export function replySegments(
+  parts: ChatUIMessage["parts"],
+  { inProgress }: { inProgress: boolean },
+): ReplySegment[] {
   const segments: ReplySegment[] = [];
   // Exercise names from earlier findExercises calls, for recordAttempt.
   const exerciseNames = new Map<string, string>();
@@ -68,7 +75,7 @@ export function replySegments(parts: ChatUIMessage["parts"]): ReplySegment[] {
       else if (part.text !== "")
         segments.push({ kind: "text", text: part.text });
     } else if (isToolUIPart(part)) {
-      const step = replyStep(part, exerciseNames);
+      const step = replyStep(part, exerciseNames, inProgress);
       if (step.detail?.tool === "findExercises") {
         for (const { id, name } of step.detail.exercises) {
           exerciseNames.set(id, name);
@@ -86,6 +93,7 @@ type ToolPart = Extract<Part, { toolCallId: string }>;
 export function replyStep(
   part: ToolPart,
   exerciseNames: ReadonlyMap<string, string> = new Map(),
+  inProgress = true,
 ): ReplyStep {
   const name = getToolName(part);
   const base = { id: part.toolCallId, name };
@@ -101,7 +109,14 @@ export function replyStep(
     };
   }
   if (part.state !== "output-available") {
-    return { ...base, state: "running", summary: `${title}…`, detail: null };
+    return inProgress
+      ? { ...base, state: "running", summary: `${title}…`, detail: null }
+      : {
+          ...base,
+          state: "stopped",
+          summary: `${title} stopped`,
+          detail: null,
+        };
   }
   const { summary, detail } = describeOutput(
     name,

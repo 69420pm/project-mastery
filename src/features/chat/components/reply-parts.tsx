@@ -12,12 +12,15 @@ import type { ChatUIMessage } from "@/features/chat/types";
 export function ReplyParts({
   parts,
   streaming,
+  inProgress,
 }: {
   parts: ChatUIMessage["parts"];
   /** Whether the reply is still streaming in. */
   streaming: boolean;
+  /** Whether the reply is still being made, so its open calls are running. */
+  inProgress: boolean;
 }) {
-  const segments = replySegments(parts);
+  const segments = replySegments(parts, { inProgress });
   return segments.map((segment, i) =>
     segment.kind === "text" ? (
       <Markdown key={i} streaming={streaming && i === segments.length - 1}>

@@ -26,6 +26,7 @@ export function StepCard({ step }: { step: ReplyStep }) {
       className={cn(
         "w-full rounded-md border text-sm",
         failed && "border-destructive/50 text-destructive",
+        step.state === "stopped" && "text-muted-foreground",
       )}
     >
       <CollapsibleTrigger
