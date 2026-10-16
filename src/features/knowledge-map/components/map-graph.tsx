@@ -14,6 +14,10 @@ import {
 } from "@xyflow/react";
 import {
   BookmarkIcon,
+  CopyIcon,
+  FileQuestionMarkIcon,
+  FlaskConicalOffIcon,
+  UnlinkIcon,
   GitForkIcon,
   LibraryIcon,
   LightbulbIcon,
@@ -29,6 +33,15 @@ import type {
   SemanticLinkType,
 } from "@/features/knowledge-map/schemas";
 import {
+  bigIdeaColors,
+  type ColorBy,
+  kcColor,
+  priorityFractions,
+  sizeScale,
+} from "@/features/knowledge-map/domain/encodings";
+import {
+  type CheckBadgeKind,
+  checkBadges,
   DIFFICULTY_NAMES,
   TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
@@ -52,6 +65,7 @@ import type {
   KcView,
   KnowledgeMapView,
   MapKcLearning,
+  MapPriorities,
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
 import { SolutionBadge } from "./solution-badge";
@@ -62,6 +76,13 @@ const TYPE_ICONS: Record<KcType, LucideIcon> = {
   procedure: ListOrderedIcon,
   decision: GitForkIcon,
   prior: LibraryIcon,
+};
+
+const BADGE_ICONS: Record<CheckBadgeKind, LucideIcon> = {
+  orphan: UnlinkIcon,
+  ungrounded: FileQuestionMarkIcon,
+  untested: FlaskConicalOffIcon,
+  duplicate: CopyIcon,
 };
 
 type KcState = MapKcLearning[string]["state"];
@@ -99,6 +120,11 @@ type KcNodeData = {
   state: KcState;
   selected: boolean;
   related: boolean;
+  /** The colour-by encoding's colour. */
+  color: string;
+  /** The factor the visual shrinks by; the layout box stays fixed. */
+  scale: number;
+  badges: Array<{ kind: CheckBadgeKind; label: string }>;
 };
 type BigIdeaNodeData = { name: string; selected: boolean };
 type ExerciseNodeData = {
@@ -135,7 +161,7 @@ function Handles({ source = true }: { source?: boolean }) {
 
 /** A KC: its type icon, name and state marker. */
 function KcNodeView({ data }: NodeProps<KcNode>) {
-  const { kc, state, selected, related } = data;
+  const { kc, state, selected, related, color, scale, badges } = data;
   const Icon = TYPE_ICONS[kc.type];
   const marker = STATE_MARKERS[state];
   return (
@@ -145,12 +171,35 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
         type="button"
         aria-label={kc.name}
         aria-pressed={selected}
+        style={{
+          borderLeftColor: color,
+          backgroundColor: `color-mix(in oklch, ${color} 12%, var(--card))`,
+          ...(scale !== 1 && { transform: `scale(${scale})` }),
+        }}
         className={cn(
-          "flex size-full items-start gap-2 rounded-lg border bg-card px-3 py-2 text-left text-sm shadow-xs transition-colors hover:border-ring",
+          "relative flex size-full items-start gap-2 rounded-lg border border-l-4 bg-card px-3 py-2 text-left text-sm shadow-xs transition-colors hover:border-ring",
           related && "border-brand",
           selected && "border-brand ring-2 ring-brand/40",
         )}
       >
+        {badges.length > 0 && (
+          <span className="absolute -top-2 right-2 flex gap-1">
+            {badges.map((badge) => {
+              const BadgeIcon = BADGE_ICONS[badge.kind];
+              return (
+                <span
+                  key={badge.label}
+                  title={badge.label}
+                  role="img"
+                  aria-label={badge.label}
+                  className="flex size-5 items-center justify-center rounded-full border bg-warning text-warning-foreground"
+                >
+                  <BadgeIcon className="size-3" />
+                </span>
+              );
+            })}
+          </span>
+        )}
         <Icon
           aria-label={TYPE_NAMES[kc.type]}
           className="mt-0.5 size-4 shrink-0 text-muted-foreground"
@@ -287,7 +336,10 @@ function flowEdge(edge: MapGraphEdge, focus: Focus | null): Edge {
 export function MapGraph({
   map,
   learning,
+  priorities,
   layers,
+  colorBy,
+  sizeByPriority,
   selectedId,
   depth,
   highlighted,
@@ -296,7 +348,10 @@ export function MapGraph({
 }: {
   map: KnowledgeMapView;
   learning: MapKcLearning;
+  priorities: MapPriorities;
   layers: MapLayers;
+  colorBy: ColorBy;
+  sizeByPriority: boolean;
   selectedId: string | null;
   depth: FocusDepth;
   highlighted: Set<string> | null;
@@ -316,6 +371,11 @@ export function MapGraph({
     );
     const exercises = new Map(map.exercises.map((e) => [e.id, e]));
     const bigIdeaName = new Map(map.bigIdeas.map((b) => [b.id, b.name]));
+    const bigIdeaColor = bigIdeaColors(map.bigIdeas.map((b) => b.id));
+    const kcBigIdea = new Map(
+      map.bigIdeas.flatMap((b) => b.kcs.map((kc) => [kc.id, b.id] as const)),
+    );
+    const fractions = priorityFractions(priorities.kcs);
     const placed: Array<{ node: MapGraphNode; layout: NodeLayout }> = [];
     const shown = new Set<string>();
     for (const node of graph.nodes) {
@@ -386,22 +446,51 @@ export function MapGraph({
             },
           };
         }
+        const kc = kcs.get(node.id)!;
+        const state = learning[node.id]?.state ?? "new";
+        const fraction = fractions.get(node.id);
         return {
           ...common,
           type: "kc",
           ...(node.parentId !== null && { parentId: node.parentId }),
           data: {
-            kc: kcs.get(node.id)!,
-            state: learning[node.id]?.state ?? "new",
+            kc,
+            state,
             selected,
             related,
+            // Colours come from the Big idea even with its box off.
+            color: kcColor(
+              colorBy,
+              {
+                state,
+                type: kc.type,
+                bigIdeaId: kcBigIdea.get(node.id) ?? null,
+                fraction,
+              },
+              bigIdeaColor,
+            ),
+            scale:
+              sizeByPriority && fractions.size > 0 ? sizeScale(fraction) : 1,
+            badges: checkBadges(map.checkReport, kc.name),
           },
         };
       },
     );
     const edges = visible.map((edge) => flowEdge(edge, focus));
     return { nodes, edges };
-  }, [graph, laidOut, map, learning, layers, selectedId, depth, highlighted]);
+  }, [
+    graph,
+    laidOut,
+    map,
+    learning,
+    priorities,
+    layers,
+    colorBy,
+    sizeByPriority,
+    selectedId,
+    depth,
+    highlighted,
+  ]);
 
   if (!laidOut) {
     return (

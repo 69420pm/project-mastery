@@ -81,24 +81,41 @@ export const DIFFICULTY_NAMES: Record<1 | 2 | 3, string> = {
   3: "Hard",
 };
 
+export type CheckBadgeKind = "ungrounded" | "orphan" | "untested" | "duplicate";
+
 /**
  * What the check report says about a KC. The report lists KCs by name, so
- * this matches the exact name: every KC that shares it gets the flags.
+ * this matches the exact name: every KC that shares it gets the badges.
  */
+export function checkBadges(
+  report: CheckReportView | null,
+  kcName: string,
+): Array<{ kind: CheckBadgeKind; label: string }> {
+  if (!report) return [];
+  const badges: Array<{ kind: CheckBadgeKind; label: string } | false> = [
+    report.ungroundedKcs.includes(kcName) && {
+      kind: "ungrounded",
+      label: "No source",
+    },
+    report.orphanKcs.includes(kcName) && { kind: "orphan", label: "No links" },
+    report.untestedKcs.includes(kcName) && {
+      kind: "untested",
+      label: "No exercise tests it",
+    },
+    ...report.duplicates
+      .filter((pair) => pair.a === kcName || pair.b === kcName)
+      .map((pair) => ({
+        kind: "duplicate" as const,
+        label: `Possible duplicate of ${pair.a === kcName ? pair.b : pair.a}`,
+      })),
+  ];
+  return badges.filter((badge) => badge !== false);
+}
+
+/** The labels of a KC's check badges. */
 export function checkFlags(
   report: CheckReportView | null,
   kcName: string,
 ): string[] {
-  if (!report) return [];
-  return [
-    report.ungroundedKcs.includes(kcName) && "No source",
-    report.orphanKcs.includes(kcName) && "No links",
-    report.untestedKcs.includes(kcName) && "No exercise tests it",
-    ...report.duplicates
-      .filter((pair) => pair.a === kcName || pair.b === kcName)
-      .map(
-        (pair) =>
-          `Possible duplicate of ${pair.a === kcName ? pair.b : pair.a}`,
-      ),
-  ].filter((flag) => flag !== false);
+  return checkBadges(report, kcName).map((badge) => badge.label);
 }

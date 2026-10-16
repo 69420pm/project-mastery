@@ -24,7 +24,12 @@ import {
   type FocusDepth,
   kcIdsNamed,
 } from "@/features/knowledge-map/domain/focus";
-import { DEFAULT_LAYERS } from "@/features/knowledge-map/domain/map-graph";
+import { legendEntries } from "@/features/knowledge-map/domain/encodings";
+import {
+  STATE_NAMES,
+  TYPE_NAMES,
+} from "@/features/knowledge-map/domain/kc-labels";
+import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   KnowledgeMapView,
@@ -36,6 +41,7 @@ import type {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BigIdeaPanel } from "./big-idea-panel";
 import { CheckReport } from "./check-report";
+import { EncodingControls, Legend } from "./encoding-controls";
 import { ExercisePanel } from "./exercise-panel";
 import { FocusDepthMenu } from "./focus-depth";
 import { KcPanel } from "./kc-panel";
@@ -81,7 +87,8 @@ export function KnowledgeMap({
   const building = map.build?.status === "building";
   useBuildPolling(building || priorities.running);
   const isWide = !useIsMobile();
-  const [layers, setLayers] = useState(DEFAULT_LAYERS);
+  const [settings, saveSettings] = useSavedSettings();
+  const { layers, colorBy, sizeByPriority } = settings;
   const [depth, setDepth] = useState<FocusDepth>("neighbours");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // The pressed check-report item's key; its KCs are matched by name on
@@ -160,15 +167,43 @@ export function KnowledgeMap({
       ) : (
         <div className="flex gap-4">
           <div className="flex h-[70vh] min-h-96 min-w-0 flex-1 flex-col gap-2">
-            <div className="flex flex-wrap justify-end gap-2">
-              <FocusDepthMenu depth={depth} onChange={setDepth} />
-              <LayerToggles layers={layers} onChange={setLayers} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Legend
+                entries={legendEntries(
+                  colorBy,
+                  map.bigIdeas,
+                  TYPE_NAMES,
+                  STATE_NAMES,
+                )}
+              />
+              <div className="flex flex-wrap gap-2">
+                <FocusDepthMenu depth={depth} onChange={setDepth} />
+                <EncodingControls
+                  colorBy={colorBy}
+                  sizeByPriority={sizeByPriority}
+                  onColorBy={(next) =>
+                    saveSettings({ ...settings, colorBy: next })
+                  }
+                  onSizeByPriority={(on) =>
+                    saveSettings({ ...settings, sizeByPriority: on })
+                  }
+                />
+                <LayerToggles
+                  layers={layers}
+                  onChange={(next) =>
+                    saveSettings({ ...settings, layers: next })
+                  }
+                />
+              </div>
             </div>
             <div className="min-h-0 flex-1">
               <MapGraph
                 map={map}
                 learning={learning}
+                priorities={priorities}
                 layers={layers}
+                colorBy={colorBy}
+                sizeByPriority={sizeByPriority}
                 selectedId={selected ? selectedId : null}
                 depth={depth}
                 highlighted={highlighted}

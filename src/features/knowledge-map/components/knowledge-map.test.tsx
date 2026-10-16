@@ -284,6 +284,68 @@ test("a check-report item highlights the KCs it names", async () => {
   expect(faded("Momentum")).toBe(false);
 });
 
+const withOrphan = {
+  ...map,
+  checkReport: {
+    uncoveredChunks: [],
+    ungroundedKcs: [],
+    orphanKcs: ["Nozzles"],
+    droppedCycleEdges: [],
+    unmappedExercises: [],
+    untestedKcs: [],
+    duplicates: [],
+  },
+};
+
+const renderWith = (view: KnowledgeMapView) =>
+  render(
+    <KnowledgeMap
+      map={view}
+      briefHref="/brief"
+      priorities={{ running: false, failureReason: null, kcs: {} }}
+      learning={{}}
+      plan={plan({})}
+    />,
+  );
+
+test("a KC node shows its check-report badges", async () => {
+  renderWith(withOrphan);
+  const node = await screen.findByRole("button", { name: "Nozzles" });
+  expect(within(node).getByRole("img", { name: "No links" })).toBeVisible();
+  const other = screen.getByRole("button", { name: "Momentum" });
+  expect(within(other).queryByRole("img", { name: "No links" })).toBeNull();
+});
+
+describe("saved settings", () => {
+  const legend = () => screen.getByRole("list", { name: "Legend" });
+
+  test("a legend for the default colouring, then the saved one", async () => {
+    localStorage.clear();
+    const first = renderWith(withOrphan);
+    await screen.findByRole("button", { name: "Nozzles" });
+    expect(legend()).toHaveTextContent("Mastered");
+    first.unmount();
+
+    localStorage.setItem(
+      "knowledge-map-settings",
+      JSON.stringify({ colorBy: "bigIdea", layers: { exercises: false } }),
+    );
+    renderWith(withOrphan);
+    await screen.findByRole("button", { name: "Nozzles" });
+    expect(legend()).toHaveTextContent("Thrust");
+    expect(screen.queryByRole("button", { name: "Ex. 7.2b" })).toBeNull();
+  });
+
+  test("an invalid saved value falls back to the defaults", async () => {
+    localStorage.setItem("knowledge-map-settings", "{broken");
+    renderWith(withOrphan);
+    await screen.findByRole("button", { name: "Nozzles" });
+    expect(legend()).toHaveTextContent("Mastered");
+    expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();
+    localStorage.clear();
+  });
+});
+
 test("a Big idea opens its KC count per state", async () => {
   renderMap({});
   fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));
