@@ -51,9 +51,9 @@ import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
 import {
   courseNotFoundMessage,
+  getCourseWith,
   materialReferenceSchema,
-} from "@/features/courses";
-import { getCourseWith } from "@/features/courses/server";
+} from "@/features/courses/server";
 import { startTutoring, TutorToolError } from "@/features/study/server";
 import {
   checkDailyLimit,

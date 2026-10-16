@@ -3,6 +3,9 @@
 // that the Brief asks about.
 import "server-only";
 
+// Also in `index.ts`: `index.ts` loads React components, which fail outside
+// Next.js, so server code that smoke checks load imports it from here.
+export { knowledgeMapPath } from "./domain/map-paths";
 export { getKnowledgeMap } from "./server/queries";
 export {
   answerFinding,

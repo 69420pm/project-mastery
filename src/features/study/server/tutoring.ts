@@ -1,13 +1,15 @@
 import "server-only";
 import { getExamDate } from "@/features/brief/server";
-import { materialChunksPath } from "@/features/courses";
-import { chunkAnchor } from "@/features/ingestion";
+import { materialChunksPath } from "@/features/courses/server";
 import {
+  chunkAnchor,
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
-import { knowledgeMapPath } from "@/features/knowledge-map";
-import { loadStoredMap } from "@/features/knowledge-map/server";
+import {
+  knowledgeMapPath,
+  loadStoredMap,
+} from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import {
   TutorToolError,

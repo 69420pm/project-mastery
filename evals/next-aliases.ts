@@ -8,6 +8,10 @@ import { registerHooks } from "node:module";
  * the `react-server` condition). `run.ts` imports this before any eval.
  */
 const ALIASES: Record<string, string> = {
+  // The Chat feature's schemas, which client code shares, import the courses
+  // feature's `index.ts`, whose React components cannot load outside Next.js.
+  // `server.ts` exports the schemas they need without the components.
+  "@/features/courses": "@/features/courses/server",
   "next/navigation": "next/dist/api/navigation.react-server",
 };
 

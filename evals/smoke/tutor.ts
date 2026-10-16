@@ -175,10 +175,12 @@ export const tutorSmoke: SmokeCheck = {
     const candidateCalls = calls.filter(
       ({ kcIds }) => kcIds.length > 0 && kcIds.every((kc) => offered.has(kc)),
     );
+    // A link's target holds ids, but the Student sees only its label.
+    const shown = text.replace(/\]\([^)]*\)/g, "]");
     const named = [
-      ...[...offered].filter((kc) => text.includes(kc)),
-      ...(UUID.test(text) ? ["a UUID"] : []),
-      ...TOOL_NAMES.filter((name) => text.includes(name)),
+      ...[...offered].filter((kc) => shown.includes(kc)),
+      ...(UUID.test(shown) ? ["a UUID"] : []),
+      ...TOOL_NAMES.filter((name) => shown.includes(name)),
     ];
     return [
       result(
