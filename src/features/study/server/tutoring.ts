@@ -18,11 +18,17 @@ import {
   type TutorTools,
 } from "@/features/study/ai/tools";
 import { selectCandidates } from "@/features/study/domain/candidates";
-import { insertAttempts, loadLadder } from "@/features/study/server/attempts";
+import {
+  insertAttempts,
+  loadAttemptedExercises,
+  loadLadder,
+} from "@/features/study/server/attempts";
 import {
   rankExercises,
   solutionLabel,
 } from "@/features/study/domain/exercises";
+import { utcDay } from "@/features/study/domain/ladder";
+import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -40,19 +46,26 @@ export async function startTutoring(
   supabase: Supabase,
   courseId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, examDate] = await Promise.all([
+  const [map, priorities, [examDate, ladder]] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
-    getExamDate(supabase, courseId),
+    getExamDate(supabase, courseId).then(
+      async (examDate) =>
+        [examDate, await loadLadder(supabase, courseId, examDate)] as const,
+    ),
   ]);
   const hasMap = map.kcs.length > 0;
+  const today = utcDay(new Date());
   return {
     context: {
-      today: new Date().toISOString().slice(0, 10),
+      today,
       examDate,
       hasMap,
       mapPath: knowledgeMapPath(courseId),
-      candidates: hasMap ? selectCandidates(map, priorities) : [],
+      dueReviews: selectDueReviews(map.kcs, ladder, priorities, today),
+      candidates: hasMap
+        ? selectCandidates(map, priorities, new Set(ladder.keys()))
+        : [],
     },
     tools: tutorTools(tutorToolActions(supabase, courseId, map, examDate)),
   };
@@ -82,16 +95,30 @@ function tutorToolActions(
   return {
     async findExercises(kcIds) {
       requireKnown(kcIds);
+      const attempted = await loadAttemptedExercises(supabase, courseId);
+      const testing = map.exercises.filter((exercise) =>
+        exercise.kcs.some((id) => kcIds.includes(id)),
+      );
+      const unseen = testing.filter(({ id }) => !attempted.has(id));
+      if (unseen.length === 0) {
+        return {
+          exercises: [],
+          note:
+            testing.length === 0
+              ? "This Course has no Exercises for these KCs: pose a problem of your own."
+              : "The Student has tried every Exercise of this Course for these KCs: pose a problem of your own.",
+        };
+      }
       const [paired, questionChunks] = await Promise.all([
         loadExerciseSolutions(supabase, courseId),
         loadChunkSources(
           supabase,
-          map.exercises.map((exercise) => exercise.questionChunk),
+          unseen.map((exercise) => exercise.questionChunk),
         ),
       ]);
       const question = new Map(questionChunks.map((c) => [c.id, c]));
       const found = rankExercises(
-        map.exercises.flatMap((exercise) => {
+        unseen.flatMap((exercise) => {
           const chunk = question.get(exercise.questionChunk);
           return chunk ? [{ ...exercise, chunk, oldExam: chunk.isExam }] : [];
         }),
@@ -103,7 +130,7 @@ function tutorToolActions(
       const solutions = new Map(
         (await loadChunkSources(supabase, solutionIds)).map((c) => [c.id, c]),
       );
-      return found.map((exercise) => {
+      const exercises = found.map((exercise) => {
         const solutionChunk = solutions.get(
           paired[exercise.questionChunk] ?? "",
         );
@@ -121,6 +148,7 @@ function tutorToolActions(
           },
         };
       });
+      return { exercises };
     },
     async recordAttempt(attempt) {
       const kcIds = attempt.kcs.map(({ kcId }) => kcId);

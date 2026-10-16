@@ -1,12 +1,13 @@
 import type { CandidateGroup } from "@/features/study/domain/candidates";
 import type { KcStateName } from "@/features/study/domain/ladder";
+import type { DueReviews } from "@/features/study/domain/reviews";
 
 export type { KcStateName };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
- * the dates and what to propose learning next from the Course's Knowledge
- * map.
+ * the dates, the due reviews and what to propose learning next from the
+ * Course's Knowledge map.
  */
 export type TutorContext = {
   /** As YYYY-MM-DD. */
@@ -17,6 +18,8 @@ export type TutorContext = {
   hasMap: boolean;
   /** The map page, where the Student builds the map. */
   mapPath: string;
+  /** Most urgent first; none without a map. */
+  dueReviews: DueReviews;
   /** Ranked and grouped by big idea; empty without a map. */
   candidates: CandidateGroup[];
 };

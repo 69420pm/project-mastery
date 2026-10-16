@@ -80,6 +80,22 @@ export async function loadLadder(
   );
 }
 
+/** The ids of the Course's Exercises the Student has an attempt on. */
+export async function loadAttemptedExercises(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Set<string>> {
+  const rows = await allRows("Loading the attempted Exercises", (from, to) =>
+    supabase
+      .from("attempts")
+      .select("exercise_id")
+      .eq("course_id", courseId)
+      .order("id")
+      .range(from, to),
+  );
+  return new Set(rows.flatMap(({ exercise_id }) => exercise_id ?? []));
+}
+
 /**
  * The signed-in Student's KC states of a Course by KC id, replayed today
  * with the Brief's exam date. Only KCs with attempts are listed: a missing

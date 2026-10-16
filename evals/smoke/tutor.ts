@@ -2,13 +2,25 @@ import { randomUUID } from "node:crypto";
 import { respondInChat } from "@/features/chat/server";
 import { startTutoring } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
+import type { Supabase } from "@/lib/supabase/types";
 import { insertGoldMap } from "./gold-map";
 import { result, type SmokeCheck } from "./smoke-check";
 
-const MESSAGE = "Let's start studying.";
+const GREETING = "Let's start studying.";
+
+/**
+ * A plausible answer to a review question on the two due KCs: the five
+ * turbojet sections and thermal efficiency, the gold map's content KCs
+ * without Prerequisites.
+ */
+const ANSWER =
+  "I think the air goes through the intake, the compressor, the combustion chamber, the turbine and then the nozzle. Thermal efficiency is the useful power you get out, the gain in the jet's kinetic energy, divided by the heat the fuel puts in.";
+
+/** How long ago the due KCs were taught. */
+const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises"];
+const TOOL_NAMES = ["readKcs", "findExercises", "recordAttempt"];
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -22,19 +34,78 @@ async function insertRows(
   if (error) throw new Error(`${table}: ${error.message}`);
 }
 
+/** A tool call the AI made, with the KC ids it passed. */
+type ToolCall = { toolName: string; kcIds: string[] };
+
 /**
- * Sends "Let's start studying." in a new Chat of a Course with the
- * jet-engines gold map, a stand-in source chunk for every KC and the gold
- * Exercises with stand-in question chunks, through the real Chat handler,
- * and checks what the AI did and said.
+ * Sends `text` in the Chat through the real Chat handler as the Student,
+ * and returns the AI's tool calls and text.
+ */
+async function sendMessage(
+  client: Supabase,
+  studentId: string,
+  chat: { chatId: string; courseId: string },
+  text: string,
+): Promise<{ calls: ToolCall[]; text: string }> {
+  console.info(`Student: ${text}`);
+  const response = await respondInChat({
+    request: new Request("http://localhost/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        ...chat,
+        message: {
+          id: randomUUID(),
+          role: "user",
+          parts: [{ type: "text", text }],
+        },
+      }),
+    }),
+    supabase: client,
+    userId: studentId,
+  });
+  const body = await response.text();
+  if (!response.ok) throw new Error(`${response.status}: ${body}`);
+  const chunks = body
+    .split("\n")
+    .filter((line) => line.startsWith("data: {"))
+    .map((line) => JSON.parse(line.slice("data: ".length)));
+
+  const calls: ToolCall[] = [];
+  for (const part of chunks) {
+    if (part.type === "tool-input-available") {
+      console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
+      const kcIds =
+        part.input?.kcIds ??
+        part.input?.kcs?.map((kc: { kcId: string }) => kc.kcId) ??
+        [];
+      calls.push({ toolName: part.toolName, kcIds });
+    }
+    if (part.type === "tool-output-error" || part.type === "error") {
+      console.info(`  ${part.type}: ${part.errorText}`);
+    }
+  }
+  const reply = chunks
+    .filter((part) => part.type === "text-delta")
+    .map((part) => part.delta)
+    .join("");
+  console.info(`AI: ${reply}`);
+  return { calls, text: reply };
+}
+
+/**
+ * Sets up a Course with the jet-engines gold map, a stand-in source chunk
+ * for every KC, the gold Exercises with stand-in question chunks and two
+ * KCs taught a few days ago, so both are due. Then sends "Let's start
+ * studying." and a plausible answer in a new Chat, through the real Chat
+ * handler, and checks what the AI did and said.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources and Exercises, then one greeting in a Chat)",
+    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting and an answer in a Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with the title the only other.
-  maxCalls: 5,
+  maxCalls: 10,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
       .from("courses")
@@ -122,78 +193,90 @@ export const tutorSmoke: SmokeCheck = {
       ),
     );
 
+    // Two content KCs without Prerequisites, taught a few days ago. Only
+    // the admin client can backdate an attempt.
+    const hasPrerequisite = new Set(gold.prerequisites.map((link) => link.to));
+    const taught = gold.kcs
+      .filter((kc) => kc.bigIdea !== null && !hasPrerequisite.has(kc.id))
+      .slice(0, 2)
+      .map((kc) => id(kc.id));
+    const taughtAt = new Date(
+      Date.now() - TAUGHT_DAYS_AGO * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await insertRows(
+      supabase,
+      "attempts",
+      taught.map((kcId) => ({
+        ...owned,
+        kc_id: kcId,
+        correct: true,
+        help: "none",
+        created_at: taughtAt,
+      })),
+    );
+
     // The Chat runs as the Student, with Row Level Security as in the app.
     const client = await signInAsUser(supabase, studentId);
     const { context } = await startTutoring(client, course.id);
-    const offered = new Set(
-      context.candidates.flatMap(({ kcs }) =>
+    const due = new Set(context.dueReviews.kcs.map((kc) => kc.id));
+    const offered = new Set([
+      ...due,
+      ...context.candidates.flatMap(({ kcs }) =>
         kcs.flatMap((kc) => [kc.id, ...kc.anchors.map((a) => a.id)]),
       ),
+    ]);
+    console.info(
+      `Due reviews: ${due.size}; candidates: ${context.candidates.length} groups`,
     );
-    console.info(`Candidates offered: ${context.candidates.length} groups`);
-
-    console.info(`Student: ${MESSAGE}`);
-    const response = await respondInChat({
-      request: new Request("http://localhost/api/chat", {
-        method: "POST",
-        body: JSON.stringify({
-          chatId: randomUUID(),
-          courseId: course.id,
-          message: {
-            id: randomUUID(),
-            role: "user",
-            parts: [{ type: "text", text: MESSAGE }],
-          },
-        }),
-      }),
-      supabase: client,
-      userId: studentId,
-    });
-    const body = await response.text();
-    if (!response.ok) throw new Error(`${response.status}: ${body}`);
-    const chunks = body
-      .split("\n")
-      .filter((line) => line.startsWith("data: {"))
-      .map((line) => JSON.parse(line.slice("data: ".length)));
-
-    const calls: Array<{ toolName: string; kcIds: string[] }> = [];
-    for (const part of chunks) {
-      if (part.type === "tool-input-available") {
-        console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
-        calls.push({ toolName: part.toolName, kcIds: part.input?.kcIds ?? [] });
-      }
-      if (part.type === "tool-output-error" || part.type === "error") {
-        console.info(`  ${part.type}: ${part.errorText}`);
-      }
+    if (due.size !== taught.length) {
+      throw new Error(`Expected ${taught.length} due KCs, got ${due.size}`);
     }
-    const text = chunks
-      .filter((part) => part.type === "text-delta")
-      .map((part) => part.delta)
-      .join("");
-    console.info(`AI: ${text}`);
 
-    const candidateCalls = calls.filter(
-      ({ kcIds }) => kcIds.length > 0 && kcIds.every((kc) => offered.has(kc)),
+    const chat = { chatId: randomUUID(), courseId: course.id };
+    const first = await sendMessage(client, studentId, chat, GREETING);
+    const answeredAt = new Date().toISOString();
+    const second = await sendMessage(client, studentId, chat, ANSWER);
+
+    const { data: recorded, error: attemptsError } = await supabase
+      .from("attempts")
+      .select("kc_id")
+      .eq("course_id", course.id)
+      .gte("created_at", answeredAt);
+    if (attemptsError) throw new Error(attemptsError.message);
+    const courseKcs = new Set(gold.kcs.map((kc) => id(kc.id)));
+
+    const dueReads = first.calls.filter(
+      ({ toolName, kcIds }) =>
+        toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = text.replace(/\]\([^)]*\)/g, "]");
+    const shown = [first.text, second.text]
+      .join("\n")
+      .replace(/\]\([^)]*\)/g, "]");
     const named = [
       ...[...offered].filter((kc) => shown.includes(kc)),
       ...(UUID.test(shown) ? ["a UUID"] : []),
       ...TOOL_NAMES.filter((name) => shown.includes(name)),
     ];
+    const describe = (calls: ToolCall[]) =>
+      calls.length === 0
+        ? "no tool call"
+        : calls.map((c) => `${c.toolName} ×${c.kcIds.length}`).join(", ");
     return [
       result(
-        "a tool was called with candidate KC ids",
-        candidateCalls.length > 0,
-        calls.length === 0
-          ? "no tool call"
-          : calls.map((c) => `${c.toolName} ×${c.kcIds.length}`).join(", "),
+        "the first reply read a due KC",
+        dueReads.length > 0,
+        describe(first.calls),
       ),
       result(
-        "the reply ends by asking the Student something",
-        /\?[\s"'”)*_]*$/.test(text.trim()),
-        JSON.stringify(text.trim().slice(-80)),
+        "the first reply ends by asking the Student something",
+        /\?[\s"'”)*_]*$/.test(first.text.trim()),
+        JSON.stringify(first.text.trim().slice(-80)),
+      ),
+      result(
+        "the answer's turn recorded an attempt on a Course KC",
+        recorded.some(({ kc_id }) => courseKcs.has(kc_id)),
+        `${recorded.length} rows; ${describe(second.calls)}`,
       ),
       result(
         "no ids or tool names in the text",

@@ -40,6 +40,7 @@ export const SAMPLE_CONTEXT: TutorContext = {
   examDate: "2026-12-03",
   hasMap: true,
   mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
+  dueReviews: { kcs: [], more: 0 },
   candidates: [
     {
       bigIdea: "Differentiation rules",

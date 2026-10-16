@@ -51,7 +51,10 @@ export const recordAttemptInputSchema = z.object({
  */
 export type TutorToolActions = {
   readKcs: (kcIds: string[]) => Promise<KcReading[]>;
-  findExercises: (kcIds: string[]) => Promise<ExerciseView[]>;
+  /** A note, without Exercises, tells the model why there are none. */
+  findExercises: (
+    kcIds: string[],
+  ) => Promise<{ exercises: ExerciseView[]; note?: string }>;
   recordAttempt: (
     attempt: z.infer<typeof recordAttemptInputSchema>,
   ) => Promise<RecordedKc[]>;
@@ -73,11 +76,9 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     findExercises: tool({
       description:
-        "Find up to 3 Exercises of this Course that test any of the given KCs, old-exam ones first. Each comes with its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Exercises of this Course that test any of the given KCs and that the Student has not attempted yet, old-exam ones first. Each comes with its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
       inputSchema: findExercisesInputSchema,
-      execute: async ({ kcIds }) => ({
-        exercises: await actions.findExercises(kcIds),
-      }),
+      execute: async ({ kcIds }) => actions.findExercises(kcIds),
     }),
     recordAttempt: tool({
       description:

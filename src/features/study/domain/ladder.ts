@@ -47,7 +47,8 @@ export const utcDay = (timestamp: string | Date) =>
 const addDays = (day: string, days: number) =>
   utcDay(new Date(Date.parse(day) + days * DAY_MS));
 
-const daysBetween = (from: string, to: string) =>
+/** The days from one YYYY-MM-DD day to another, negative when earlier. */
+export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
 
 /**
