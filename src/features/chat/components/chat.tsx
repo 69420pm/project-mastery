@@ -6,7 +6,6 @@ import {
   CircleAlertIcon,
   FolderOpenIcon,
   PaperclipIcon,
-  RefreshCwIcon,
   RotateCcwIcon,
   UploadIcon,
 } from "lucide-react";
@@ -17,12 +16,7 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import {
-  Message,
-  MessageAction,
-  MessageActions,
-  MessageContent,
-} from "@/components/ai-elements/message";
+import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputActionMenu,
@@ -47,7 +41,7 @@ import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AttachedMaterials } from "@/features/chat/components/attached-materials";
-import { CopyAction } from "@/features/chat/components/copy-action";
+import { MessageActionRow } from "@/features/chat/components/message-action-row";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/features/chat/domain/message-text";
@@ -296,33 +290,20 @@ export function Chat({
                       </>
                     )}
                   </MessageContent>
-                  {!isStreaming && (
-                    <MessageActions
-                      className={
-                        message.role === "user" ? "justify-end" : undefined
-                      }
-                    >
-                      {message.metadata?.stopped && (
-                        <span className="px-1 text-xs text-muted-foreground">
-                          Stopped
-                        </span>
-                      )}
-                      <CopyAction text={messageText(message.parts)} />
-                      {message.role === "assistant" &&
-                        isLast &&
-                        !limitReached && (
-                          <MessageAction
-                            tooltip="Regenerate"
-                            onClick={() => {
-                              clearError();
-                              void regenerate({ body: { modelChoice } });
-                            }}
-                          >
-                            <RefreshCwIcon />
-                          </MessageAction>
-                        )}
-                    </MessageActions>
-                  )}
+                  <MessageActionRow
+                    from={message.role === "user" ? "user" : "assistant"}
+                    text={messageText(message.parts)}
+                    stopped={message.metadata?.stopped}
+                    hidden={isStreaming && message.role === "assistant"}
+                    onRegenerate={
+                      message.role === "assistant" && isLast && !limitReached
+                        ? () => {
+                            clearError();
+                            void regenerate({ body: { modelChoice } });
+                          }
+                        : undefined
+                    }
+                  />
                 </Message>
               );
             })
@@ -333,6 +314,7 @@ export function Chat({
               <MessageContent>
                 <Shimmer className="text-sm">{THINKING}</Shimmer>
               </MessageContent>
+              <MessageActionRow from="assistant" text="" hidden />
             </Message>
           )}
           {/* At the limit, the notice below explains the refusal. */}

@@ -16,6 +16,8 @@ export function CopyAction({ text }: { text: string }) {
   return (
     <MessageAction
       tooltip={copied ? "Copied" : "Copy"}
+      size="icon-xs"
+      className="hover:text-foreground"
       onClick={() => {
         navigator.clipboard.writeText(text).then(
           () => setCopied(true),
