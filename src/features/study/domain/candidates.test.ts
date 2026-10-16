@@ -53,6 +53,16 @@ describe("selectCandidates", () => {
     ]);
   });
 
+  test("leaves out taught KCs and admits KCs whose Prerequisites are taught", () => {
+    const groups = selectCandidates(map, {}, new Set(["a"]));
+
+    expect(ids(groups)).toEqual([
+      ["Thrust", ["b"]],
+      ["Cycles", ["c", "d", "e"]],
+    ]);
+    expect(groups[0]!.kcs[0]!.anchors).toEqual([{ id: "a", name: "KC a" }]);
+  });
+
   test("keeps at most 10", () => {
     const many: CandidateMap = {
       bigIdeas: [{ id: "B", name: "All" }],

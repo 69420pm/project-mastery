@@ -3,6 +3,7 @@ import {
   knowledgeMapSchema,
   type KnowledgeMap,
 } from "@/features/knowledge-map/schemas";
+import { allRows } from "@/lib/supabase/all-rows";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
 /**
@@ -11,29 +12,6 @@ import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
  * The build workflow reads them on the admin client, scoped to the Course,
  * and the Chat reads the map on the Student's session client.
  */
-
-const PAGE = 1000;
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
-
-/** Every row of a query, page by page, so none is cut off at the row limit. */
-async function allRows<Row>(
-  action: string,
-  page: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{ data: Row[] | null; error: { message: string } | null }>,
-): Promise<Row[]> {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await page(from, from + PAGE - 1);
-    if (error) failed(action, error);
-    rows.push(...(data ?? []));
-    if ((data ?? []).length < PAGE) return rows;
-  }
-}
 
 /** The ids of the Course's chunks that an update has processed. */
 export async function loadProcessedChunkIds(

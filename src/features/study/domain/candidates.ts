@@ -1,8 +1,9 @@
 /**
  * The candidate KCs the AI picks from when it proposes what to learn next
- * (#102): up to 10 KCs that are not prior knowledge, have a Priority above 0
- * and whose Prerequisites are all prior knowledge. Pure code; the tutor
- * context feeds it the stored map and the Priorities on every reply.
+ * (#102, #103): up to 10 KCs that are new (neither prior knowledge nor
+ * taught), have a Priority above 0 and whose Prerequisites are each prior
+ * knowledge or taught. Pure code; the tutor context feeds it the stored
+ * map, the Priorities and the taught KCs on every reply.
  */
 
 /** What candidate selection reads of a Course's map, in map order. */
@@ -24,7 +25,7 @@ export type Candidate = {
   id: string;
   name: string;
   type: string;
-  /** Its Prerequisites, all prior knowledge. */
+  /** Its Prerequisites, each prior knowledge or taught. */
   anchors: Array<{ id: string; name: string }>;
 };
 
@@ -36,14 +37,17 @@ export const MAX_CANDIDATES = 10;
 /**
  * The candidates of a map, grouped by big idea. They are ranked by Priority,
  * KCs without one last, ties in map order; the groups follow their best
- * ranked KC. `priorities` maps KC ids to their Priority.
+ * ranked KC. `priorities` maps KC ids to their Priority; `taught` holds the
+ * ids of KCs with attempts.
  */
 export function selectCandidates(
   map: CandidateMap,
   priorities: Record<string, number>,
+  taught: ReadonlySet<string> = new Set(),
 ): CandidateGroup[] {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
-  const isPrior = (id: string) => kcById.get(id)?.bigIdea === null;
+  const isKnown = (id: string) =>
+    kcById.get(id)?.bigIdea === null || taught.has(id);
   const prerequisitesOf = (id: string) =>
     map.prerequisites
       .filter((link) => link.to === id && kcById.has(link.from))
@@ -53,10 +57,10 @@ export function selectCandidates(
     .map((kc, position) => ({ kc, position, priority: priorities[kc.id] }))
     .filter(
       ({ kc, priority }) =>
-        kc.bigIdea !== null &&
+        !isKnown(kc.id) &&
         (priority === undefined || priority > 0) &&
         prerequisitesOf(kc.id).every((prerequisite) =>
-          isPrior(prerequisite.id),
+          isKnown(prerequisite.id),
         ),
     )
     .toSorted(

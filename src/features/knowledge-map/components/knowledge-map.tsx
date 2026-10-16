@@ -26,10 +26,16 @@ import type {
   KcView,
   KnowledgeMapView,
   MapBuild,
+  MapKcStates,
   MapPriorities,
   SemanticLinkView,
 } from "@/features/knowledge-map/types";
-import { PriorityBadge, PriorityReasons, PriorityStatus } from "./kc-priority";
+import {
+  PriorityBadge,
+  PriorityReasons,
+  PriorityStatus,
+  StateBadge,
+} from "./kc-priority";
 
 const TYPE_NAMES: Record<KcType, string> = {
   fact: "Fact",
@@ -61,7 +67,8 @@ const BUILD_POLL_MS = 2000;
  * Update map and its check report, then each big idea with its KCs and their
  * prerequisites, the prior knowledge, the semantic links, the Exercises and
  * the Findings, linking to the Course's Brief (`briefHref`) to answer the
- * open ones. Each KC shows its Priority badge and reasons from
+ * open ones. Each KC shows its state badge from `kcStates`, the header the
+ * reviews due, and each KC its Priority badge and reasons from
  * `priorities`. The page refreshes itself while a build or a priority run
  * runs.
  */
@@ -69,11 +76,17 @@ export function KnowledgeMap({
   map,
   briefHref,
   priorities,
+  kcStates,
 }: {
   map: KnowledgeMapView;
   briefHref: string;
   priorities: MapPriorities;
+  kcStates: MapKcStates;
 }) {
+  const dueCount = [
+    ...map.bigIdeas.flatMap((b) => b.kcs),
+    ...map.priorKnowledge,
+  ].filter((kc) => kcStates[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building || priorities.running);
 
@@ -92,6 +105,11 @@ export function KnowledgeMap({
         </div>
         <BuildStatus build={map.build} />
         <PriorityStatus priorities={priorities} />
+        {map.bigIdeas.length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            {dueCount} {dueCount === 1 ? "review" : "reviews"} due
+          </p>
+        )}
       </div>
 
       {map.checkReport && <CheckReport report={map.checkReport} />}
@@ -105,12 +123,17 @@ export function KnowledgeMap({
               key={bigIdea.id}
               bigIdea={bigIdea}
               priorities={priorities}
+              kcStates={kcStates}
             />
           ))}
         </ol>
       )}
       {map.priorKnowledge.length > 0 && (
-        <PriorKnowledge kcs={map.priorKnowledge} priorities={priorities} />
+        <PriorKnowledge
+          kcs={map.priorKnowledge}
+          priorities={priorities}
+          kcStates={kcStates}
+        />
       )}
       {map.semanticLinks.length > 0 && (
         <SemanticLinks links={map.semanticLinks} />
@@ -232,9 +255,11 @@ function useBuildPolling(building: boolean) {
 function BigIdea({
   bigIdea,
   priorities,
+  kcStates,
 }: {
   bigIdea: BigIdeaView;
   priorities: MapPriorities;
+  kcStates: MapKcStates;
 }) {
   return (
     <li className="flex flex-col gap-3">
@@ -250,7 +275,12 @@ function BigIdea({
         </div>
         <ul aria-label="Knowledge components" className="flex flex-col gap-2">
           {bigIdea.kcs.map((kc) => (
-            <Kc key={kc.id} kc={kc} priority={priorities.kcs[kc.id]} />
+            <Kc
+              key={kc.id}
+              kc={kc}
+              priority={priorities.kcs[kc.id]}
+              state={kcStates[kc.id]}
+            />
           ))}
         </ul>
       </section>
@@ -261,9 +291,11 @@ function BigIdea({
 function Kc({
   kc,
   priority,
+  state,
 }: {
   kc: KcView;
   priority?: MapPriorities["kcs"][string];
+  state?: MapKcStates[string];
 }) {
   return (
     <li>
@@ -275,6 +307,7 @@ function Kc({
           <Markdown>{kc.name}</Markdown>
         </div>
         <div className="flex flex-wrap gap-1.5">
+          <StateBadge state={state} />
           <PriorityBadge priority={priority} />
           <Badge variant="secondary">{TYPE_NAMES[kc.type]}</Badge>
           {kc.bloom && <Badge variant="outline">{BLOOM_NAMES[kc.bloom]}</Badge>}
@@ -302,9 +335,11 @@ function Kc({
 function PriorKnowledge({
   kcs,
   priorities,
+  kcStates,
 }: {
   kcs: KcView[];
   priorities: MapPriorities;
+  kcStates: MapKcStates;
 }) {
   return (
     <section aria-label="Prior knowledge" className="flex flex-col gap-3">
@@ -316,7 +351,12 @@ function PriorKnowledge({
       </div>
       <ul className="flex flex-col gap-2">
         {kcs.map((kc) => (
-          <Kc key={kc.id} kc={kc} priority={priorities.kcs[kc.id]} />
+          <Kc
+            key={kc.id}
+            kc={kc}
+            priority={priorities.kcs[kc.id]}
+            state={kcStates[kc.id]}
+          />
         ))}
       </ul>
     </section>

@@ -22,6 +22,21 @@ const firstMessage = (text = "Let's start studying.") => ({
   message: userMessage(text),
 });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A stored correct attempt on a KC, at `createdAt`. */
+const attempt = (kcId: string, createdAt: string, exerciseId?: string) =>
+  db.tables.attempts.push({
+    id: randomUUID(),
+    owner: STUDENT,
+    course_id: COURSE,
+    kc_id: kcId,
+    exercise_id: exerciseId ?? null,
+    correct: true,
+    help: "none",
+    created_at: createdAt,
+  });
+
 const promptOf = (
   model: ReturnType<typeof mockTextModel>,
   call: number,
@@ -54,6 +69,24 @@ describe("the instructions", () => {
     );
     // Its Prerequisite is not prior knowledge.
     expect(prompt).not.toContain("Propulsive efficiency");
+  });
+
+  test("list the due reviews, and admit candidates whose Prerequisites are taught", async () => {
+    const model = mockTextModel("What is the thrust equation?");
+    useMockModels({ chat: model });
+    seedMap();
+    // Taught four days ago, so due since three days.
+    attempt(MAP.thrust, new Date(Date.now() - 4 * DAY_MS).toISOString());
+
+    await send(firstMessage());
+
+    const prompt = promptOf(model, 0);
+    expect(prompt).toContain(
+      `- Thrust equation (id ${MAP.thrust}, procedure; level 1, overdue by 3 days)`,
+    );
+    expect(prompt).toContain(
+      `- Propulsive efficiency (id ${MAP.efficiency}, concept; anchors: Thrust equation (id ${MAP.thrust}))`,
+    );
   });
 
   test("without a map, have no candidates and point to the map page", async () => {
@@ -210,6 +243,30 @@ describe("findExercises", () => {
       `/courses/${COURSE}/materials/${EXAM}#chunk-${chunkOf(1)}`,
     );
     expect(result).toContain("Thrust equation");
+  });
+
+  test("skips Exercises the Student has attempted, and says when none are left", async () => {
+    const finding = () =>
+      mockToolModel(
+        [[{ toolName: "findExercises", input: { kcIds: [MAP.thrust] } }]],
+        "Try this one.",
+      );
+    seedExercises();
+    attempt(MAP.thrust, new Date().toISOString(), "ex-1");
+
+    const first = finding();
+    useMockModels({ chat: first });
+    await send(firstMessage());
+    attempt(MAP.thrust, new Date().toISOString(), "ex-3");
+    const second = finding();
+    useMockModels({ chat: second });
+    await send(firstMessage());
+
+    expect(promptOf(first, 1)).toContain("Ex. 3");
+    expect(promptOf(first, 1)).not.toContain("Ex. 1");
+    expect(promptOf(second, 1)).toContain(
+      "The Student has tried every Exercise of this Course for these KCs",
+    );
   });
 
   test("refuses ids of no KC of the Course, and the reply continues", async () => {

@@ -36,6 +36,7 @@ const COURSE_TABLES = [
   "kc_priorities",
   "briefs",
   "chunks",
+  "attempts",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -73,6 +74,7 @@ function createDb() {
       kc_priorities: [],
       briefs: [],
       chunks: [],
+      attempts: [],
     },
     // The Storage folder the Student may use.
     userId: STUDENT,
@@ -84,6 +86,12 @@ function createDb() {
         model_choice: "balanced",
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
+      // Recorded now, as in the database, so the ladder replays it today.
+      attempts: () => ({
+        owner: signedIn,
+        exercise_id: null,
+        created_at: new Date().toISOString(),
+      }),
       // Recorded now, as in the database, so it counts towards today's spend.
       ai_usage: () => ({
         owner: signedIn,

@@ -2,4 +2,4 @@
 // Chat, built from the tutor context. Server-only exports live in
 // `server.ts`.
 export { tutorInstructions } from "./ai/instructions";
-export type { TutorContext } from "./types";
+export type { KcState, KcStateName, TutorContext } from "./types";

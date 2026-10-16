@@ -1,6 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import type { MapPriorities } from "@/features/knowledge-map/types";
+import type {
+  MapKcStates,
+  MapPriorities,
+} from "@/features/knowledge-map/types";
 
 type KcPriority = MapPriorities["kcs"][string];
 
@@ -40,6 +43,26 @@ export function PriorityStatus({ priorities }: { priorities: MapPriorities }) {
     );
   }
   return null;
+}
+
+const STATE_NAMES = {
+  new: "New",
+  learning: "Learning",
+  due: "Due",
+  mastered: "Mastered",
+} as const;
+
+/** A KC's state badge; a KC without attempts is new. */
+export function StateBadge({ state }: { state?: MapKcStates[string] }) {
+  const name = state?.state ?? "new";
+  return (
+    <Badge
+      variant={name === "due" ? "default" : "outline"}
+      aria-label={`State: ${STATE_NAMES[name]}`}
+    >
+      {STATE_NAMES[name]}
+    </Badge>
+  );
 }
 
 /** A KC's Priority badge; nothing before the first run. */

@@ -110,6 +110,15 @@ export type MapPriorities = {
   >;
 };
 
+/**
+ * The KC states the map page shows, which the page passes in: a KC's state
+ * by id; a KC missing here is new.
+ */
+export type MapKcStates = Record<
+  string,
+  { state: "new" | "learning" | "due" | "mastered" }
+>;
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;
