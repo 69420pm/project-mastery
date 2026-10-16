@@ -28,6 +28,26 @@ export type KcSourceView = {
   markdown: string;
 };
 
+/** An Exercise as `findExercises` returns it. */
+export type ExerciseView = {
+  name: string;
+  taskType: string;
+  /** 1 to 3. */
+  difficulty: number;
+  /** The question's Markdown. */
+  question: string;
+  /** The question on its Material's page, where its figure shows. */
+  link: string;
+  /** The KCs it tests, by id and name. */
+  kcs: Array<{ id: string; name: string }>;
+  solution: {
+    /** Where it comes from and how far it is checked. */
+    status: string;
+    /** Null when the Course has no solution for it. */
+    markdown: string | null;
+  };
+};
+
 /** A KC as `readKcs` returns it. */
 export type KcReading = {
   id: string;
