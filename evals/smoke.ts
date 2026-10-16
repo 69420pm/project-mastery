@@ -22,9 +22,16 @@ import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
 import { prioritySmoke } from "./smoke/priority";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
+import { tutorSmoke } from "./smoke/tutor";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
-const CHECKS: SmokeCheck[] = [parseSmoke, mapSmoke, briefSmoke, prioritySmoke];
+const CHECKS: SmokeCheck[] = [
+  parseSmoke,
+  mapSmoke,
+  briefSmoke,
+  prioritySmoke,
+  tutorSmoke,
+];
 
 /**
  * The model every generating task is pinned to (docs/agents/live-ai.md). With

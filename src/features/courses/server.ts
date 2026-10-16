@@ -3,6 +3,7 @@ import "server-only";
 
 export {
   getCourse,
+  getCourseWith,
   getCourseList,
   getMaterialList,
   getMaterials,

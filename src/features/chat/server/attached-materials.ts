@@ -1,6 +1,7 @@
 import "server-only";
 import { convertToModelMessages, type ModelMessage } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
+import type { Supabase } from "@/lib/supabase/types";
 import {
   getMaterials,
   readMaterialFile,
@@ -54,6 +55,7 @@ function materialParts(messages: ChatUIMessage[]): MaterialPart[] {
  * may: each must be the Student's own and in the Chat's Course.
  */
 export async function attachmentRefusal(
+  supabase: Supabase,
   message: ChatUIMessage,
   courseId: string,
 ): Promise<string | null> {
@@ -61,7 +63,7 @@ export async function attachmentRefusal(
     ...new Set(materialParts([message]).map((part) => part.data.materialId)),
   ];
   if (ids.length === 0) return null;
-  const materials = await getMaterials(ids);
+  const materials = await getMaterials(ids, supabase);
   if (materials.some((material) => material.courseId !== courseId)) {
     return materialInOtherCourseMessage;
   }
@@ -75,15 +77,17 @@ export async function attachmentRefusal(
  * "failed" when Storage fails.
  */
 export async function loadAttachedMaterials(
+  supabase: Supabase,
   history: ChatUIMessage[],
 ): Promise<Map<string, LoadedMaterial> | "too large" | "failed"> {
   const parts = materialParts(history);
   if (parts.length === 0) return new Map();
   const materials = new Map(
     (
-      await getMaterials([
-        ...new Set(parts.map((part) => part.data.materialId)),
-      ])
+      await getMaterials(
+        [...new Set(parts.map((part) => part.data.materialId))],
+        supabase,
+      )
     ).map((material) => [material.id, material]),
   );
 
@@ -97,7 +101,8 @@ export async function loadAttachedMaterials(
   const loaded = new Map<string, LoadedMaterial>();
   const results = await Promise.all(
     [...materials.values()].map(
-      async (material) => [material, await readMaterialFile(material)] as const,
+      async (material) =>
+        [material, await readMaterialFile(material, supabase)] as const,
     ),
   );
   for (const [material, bytes] of results) {

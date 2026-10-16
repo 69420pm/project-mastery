@@ -53,7 +53,7 @@ import {
   courseNotFoundMessage,
   materialReferenceSchema,
 } from "@/features/courses";
-import { getCourse } from "@/features/courses/server";
+import { getCourseWith } from "@/features/courses/server";
 import { startTutoring, TutorToolError } from "@/features/study/server";
 import {
   checkDailyLimit,
@@ -89,6 +89,28 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const user = await getUser();
   if (!user) return refuse(401, "Sign in to chat with the AI.");
 
+  const response = await respondInChat({
+    request,
+    supabase: await createClient(),
+    userId: user.id,
+  });
+  after(flushTraces);
+  return response;
+}
+
+/**
+ * `handleChatRequest` from stage 2 on, as the Student whose session client
+ * `supabase` is. Smoke checks call it with a client they signed in.
+ */
+export async function respondInChat({
+  request,
+  supabase,
+  userId,
+}: {
+  request: Request;
+  supabase: Supabase;
+  userId: string;
+}): Promise<Response> {
   const parsed = chatRequestSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -108,10 +130,9 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     );
   }
 
-  const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
-  if (!existing && !(await getCourse(courseId!))) {
+  if (!existing && !(await getCourseWith(supabase, courseId!))) {
     return refuse(404, courseNotFoundMessage);
   }
 
@@ -119,6 +140,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   // Materials may have been deleted since.
   if (!existing || !(await hasMessage(supabase, existing.id, message.id))) {
     const refusal = await attachmentRefusal(
+      supabase,
       message,
       existing?.courseId ?? courseId!,
     );
@@ -155,7 +177,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   if (!history) return refuse(409, "This message was already sent.");
 
   // After storing the message, so Retry can send it again.
-  const materials = await loadAttachedMaterials(history);
+  const materials = await loadAttachedMaterials(supabase, history);
   if (materials === "too large") return refuse(413, materialsTooLargeMessage);
   if (materials === "failed") return refuse(503, materialsUnavailableMessage);
 
@@ -163,7 +185,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     request,
     supabase,
     chat: { ...chat, modelChoice: choice },
-    userId: user.id,
+    userId,
     history,
     materials,
     replyId,
@@ -262,7 +284,6 @@ async function streamReply({
         },
       }),
   );
-  after(flushTraces);
 
   return createUIMessageStreamResponse({
     stream: toUIMessageStream<ToolSet, ChatUIMessage>({
