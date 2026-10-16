@@ -25,6 +25,15 @@ export const chatMessageMetadataSchema = z
           typeof value === "object" && value !== null && !Array.isArray(value),
       )
       .optional(),
+    usage: z
+      .object({
+        inputTokens: z.number(),
+        cachedInputTokens: z.number(),
+        outputTokens: z.number(),
+        costUsd: z.number(),
+        estimated: z.boolean(),
+      })
+      .optional(),
   })
   .optional();
 

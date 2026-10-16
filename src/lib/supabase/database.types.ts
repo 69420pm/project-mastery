@@ -21,6 +21,7 @@ export type Database = {
           model_id: string;
           output_tokens: number;
           owner: string;
+          reply_id: string | null;
           task: string;
         };
         ComputedFields: never;
@@ -35,6 +36,7 @@ export type Database = {
           model_id: string;
           output_tokens: number;
           owner?: string;
+          reply_id?: string | null;
           task: string;
         };
         Update: {
@@ -48,6 +50,7 @@ export type Database = {
           model_id?: string;
           output_tokens?: number;
           owner?: string;
+          reply_id?: string | null;
           task?: string;
         };
         Relationships: [

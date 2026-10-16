@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { AttachedMaterials } from "@/features/chat/components/attached-materials";
 import { ContextAction } from "@/features/chat/components/context-action";
 import { MessageActionRow } from "@/features/chat/components/message-action-row";
+import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
@@ -310,7 +311,12 @@ export function Chat({
                     }
                   >
                     {message.role === "assistant" && (
-                      <ContextAction context={message.metadata?.tutorContext} />
+                      <>
+                        <ContextAction
+                          context={message.metadata?.tutorContext}
+                        />
+                        <ReplyFooter metadata={message.metadata} />
+                      </>
                     )}
                   </MessageActionRow>
                 </Message>

@@ -22,6 +22,7 @@ import {
 } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
 import { messageText } from "@/features/chat/domain/message-text";
+import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
   chatMessageMetadataSchema,
   chatNotFoundMessage,
@@ -297,7 +298,15 @@ async function streamReply({
           ? { modelId, tutorContext: tutoring.context }
           : part.type === "finish-step"
             ? { modelId: answeringModel(settings, part.response.modelId) }
-            : undefined,
+            : part.type === "finish"
+              ? {
+                  usage: replyUsage(
+                    modelId,
+                    tokenUsage(part.totalUsage),
+                    false,
+                  ),
+                }
+              : undefined,
       onError: replyErrorMessage,
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.
@@ -319,7 +328,7 @@ async function streamReply({
               }),
               estimated: true,
             };
-        const record = { task: "chat" as const, modelId, ...usage };
+        const record = { task: "chat" as const, modelId, ...usage, replyId };
         try {
           await recordAiUsage(supabase, { ...record, chatId: chat.id });
         } catch {

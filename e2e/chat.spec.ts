@@ -250,9 +250,23 @@ test.describe("signed in", () => {
       firstMessage: "Teach me limits",
       at: new Date(),
     });
+    const replyId = randomUUID();
+    const { error: usageError } = await adminClient().from("ai_usage").insert({
+      owner: student.id,
+      chat_id: chatId,
+      reply_id: replyId,
+      task: "chat",
+      model_id: "mock",
+      input_tokens: 12_300,
+      cached_input_tokens: 8_100,
+      output_tokens: 640,
+      cost_usd: 0.0012,
+    });
+    expect(usageError).toBeNull();
     const { error } = await adminClient()
       .from("chat_messages")
       .insert({
+        id: replyId,
         chat_id: chatId,
         role: "assistant",
         model_id: "mock",
@@ -314,6 +328,10 @@ test.describe("signed in", () => {
 
     await card.click();
     await expect(page.getByText("What a function approaches.")).toBeVisible();
+
+    await expect(page.getByTestId("reply-footer")).toHaveText(
+      "mock · in 12.3k (8.1k cached) · out 640 · $0.0012",
+    );
 
     await page.getByRole("button", { name: "Context" }).click();
     const sheet = page.getByRole("dialog", { name: "Context" });
