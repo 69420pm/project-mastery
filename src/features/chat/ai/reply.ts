@@ -6,7 +6,7 @@ import {
   type ModelChoiceKey,
 } from "@/lib/ai/models";
 import type { ModelOption } from "@/features/chat/types";
-import { tutorInstructions, type TutorContext } from "@/features/study/server";
+import { tutorInstructions, type TutorContext } from "@/features/study";
 
 /**
  * Call settings for the AI's reply in a Chat: the `chat` task's model for the
