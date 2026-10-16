@@ -8,5 +8,6 @@ import "server-only";
 
 export { TutorToolError, type TutorTools } from "./ai/tools";
 export { getKcStates } from "./server/attempts";
+export { getOpeningLine } from "./server/opening";
 export { startTutoring } from "./server/tutoring";
 export type { KcState, KcStateName, TutorContext } from "./types";

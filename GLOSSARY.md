@@ -52,6 +52,18 @@ _Avoid_: Issue, error, erratum
 How much a KC matters for this Student's exam, from old exams, Exercises, the Knowledge map and the Brief.
 _Avoid_: Weight, importance, relevance
 
+**Attempt**:
+The evidence for one KC from one problem or review question: whether the Student got it right and how much help they needed. The log of attempts is the only stored learning state.
+_Avoid_: Answer, result, score
+
+**Review**:
+Asking about a due KC again, to schedule its next one further out when the Student remembers it.
+_Avoid_: Revision, repetition, quiz
+
+**KC state**:
+Where a KC stands for a Student, from its attempts: _new_ (no attempts), _learning_ (level 1, not due), _due_ (its next review is today or earlier) or _mastered_ (level 2 or higher, not due).
+_Avoid_: Mastery level, status
+
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
 _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.

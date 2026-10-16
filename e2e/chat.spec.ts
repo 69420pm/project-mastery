@@ -45,6 +45,16 @@ test.describe("signed in", () => {
       .annotations.push({ type: "student", description: student.email });
   });
 
+  test("the empty state tells a Course without a map to build one", async ({
+    page,
+    course,
+  }) => {
+    await page.goto(course.chatPath);
+    await expect(
+      page.getByText("Build your Knowledge map to start studying"),
+    ).toBeVisible();
+  });
+
   test("a first message creates a Chat, streams the reply and keeps the history", async ({
     page,
     course,

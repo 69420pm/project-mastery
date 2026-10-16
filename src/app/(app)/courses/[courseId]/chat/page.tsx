@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Chat } from "@/features/chat";
 import { chatModelOptions, newChat } from "@/features/chat/server";
 import { getCourse, getMaterialList } from "@/features/courses/server";
+import { getOpeningLine } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -16,10 +17,11 @@ export default async function NewChatPage({
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
   const user = await requireUser(`/courses/${courseId}/chat`);
-  const [course, dailyLimit, materials] = await Promise.all([
+  const [course, dailyLimit, materials, emptyDescription] = await Promise.all([
     getCourse(courseId),
     getDailyLimitStatus(),
     getMaterialList(courseId),
+    getOpeningLine(courseId),
   ]);
   if (!course) notFound();
   const chat = newChat(course.id);
@@ -32,6 +34,7 @@ export default async function NewChatPage({
       modelOptions={chatModelOptions()}
       materials={materials}
       ownerId={user.id}
+      emptyDescription={emptyDescription}
       dailyLimit={dailyLimit}
     />
   );

@@ -96,9 +96,14 @@ type ChatProps = {
   materials: MaterialListItem[];
   /** The signed-in Student, whose Storage folder uploads go to. */
   ownerId: string;
+  /** The empty state's description, computed by the page. */
+  emptyDescription?: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
+
+const DEFAULT_EMPTY_DESCRIPTION =
+  "Say hi and the AI picks up with what's next on your map, or ask about anything.";
 
 /**
  * A Chat with the AI: the messages, streamed replies and the message input.
@@ -110,6 +115,7 @@ export function Chat({
   modelOptions,
   materials: courseMaterials,
   ownerId,
+  emptyDescription = DEFAULT_EMPTY_DESCRIPTION,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
   const chatId = chat.id;
@@ -252,7 +258,7 @@ export function Chat({
           {messages.length === 0 ? (
             <ConversationEmptyState
               title="Ready to study?"
-              description="Say hi and the AI picks up with what's next on your map, or ask about anything."
+              description={emptyDescription}
             />
           ) : (
             messages.map((message) => {
