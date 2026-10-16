@@ -7,4 +7,4 @@ export {
   loadBriefForPriorities,
   type BriefForPriorities,
 } from "./server/priority-input";
-export { getBrief, getIntakeDone } from "./server/queries";
+export { getBrief, getExamDate, getIntakeDone } from "./server/queries";

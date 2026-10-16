@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
+import type { TutorContext } from "@/features/study/server";
 import { aiTask } from "@/lib/ai/models";
 import type { EvalDefinition } from "./eval";
 
@@ -29,6 +30,48 @@ const expectedOutput = z.object({
 
 type Input = z.infer<typeof input>;
 
+/**
+ * A fixed tutor context from a small sample calculus map, so the eval runs
+ * the instructions as a Chat in a Course with a map gets them. No tools: the
+ * items test behaviour, not the course's sources.
+ */
+export const SAMPLE_CONTEXT: TutorContext = {
+  today: "2026-11-02",
+  examDate: "2026-12-03",
+  hasMap: true,
+  mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
+  candidates: [
+    {
+      bigIdea: "Differentiation rules",
+      kcs: [
+        {
+          id: "kc-product-rule",
+          name: "Product rule",
+          type: "procedure",
+          anchors: [{ id: "kc-power-rule", name: "Derivative of a power" }],
+        },
+        {
+          id: "kc-chain-rule",
+          name: "Chain rule",
+          type: "procedure",
+          anchors: [{ id: "kc-function", name: "Composition of functions" }],
+        },
+      ],
+    },
+    {
+      bigIdea: "Integration techniques",
+      kcs: [
+        {
+          id: "kc-parts",
+          name: "Integration by parts",
+          type: "procedure",
+          anchors: [{ id: "kc-antiderivative", name: "Antiderivative" }],
+        },
+      ],
+    },
+  ],
+};
+
 const JUDGE_INSTRUCTIONS = `You grade replies of an AI that tutors university students in a study app. You get the Chat so far, the AI's reply to the Student's last message, and the criteria the reply must meet.
 
 Pass the reply only if it meets every criterion. Judge what the reply actually does, not what it promises. Be strict but fair: wording and style may differ as long as the criteria are met.`;
@@ -47,7 +90,7 @@ export const chatEval: EvalDefinition<Input, z.infer<typeof expectedOutput>> = {
   expectedOutput,
   task: async ({ messages }) => {
     const { text } = await generateText({
-      ...chatReplySettings(),
+      ...chatReplySettings(undefined, SAMPLE_CONTEXT),
       messages,
     });
     return text;

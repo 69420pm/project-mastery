@@ -3,12 +3,13 @@ import {
   knowledgeMapSchema,
   type KnowledgeMap,
 } from "@/features/knowledge-map/schemas";
-import type { AdminSupabase } from "@/lib/supabase/types";
+import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
 /**
  * What an update reads of a Course's stored Knowledge map: the map itself,
  * with stored row ids as its ids, and the chunks earlier updates processed.
- * The build workflow reads them on the admin client, scoped to the Course.
+ * The build workflow reads them on the admin client, scoped to the Course,
+ * and the Chat reads the map on the Student's session client.
  */
 
 const PAGE = 1000;
@@ -50,9 +51,13 @@ export async function loadProcessedChunkIds(
   return rows.map((row) => row.chunk_id);
 }
 
-/** The Course's stored map, with its rows' ids; empty before the first. */
+/**
+ * The Course's stored map, with its rows' ids; empty before the first. Reads
+ * on the admin client or a Student's session client, where Row Level
+ * Security leaves another Student's Course empty.
+ */
 export async function loadStoredMap(
-  supabase: AdminSupabase,
+  supabase: Supabase,
   courseId: string,
 ): Promise<KnowledgeMap> {
   const [

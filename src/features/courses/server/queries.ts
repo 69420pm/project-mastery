@@ -18,6 +18,7 @@ import type {
 } from "@/features/courses/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * The signed-in Student's Courses, most recently updated first. Empty when
@@ -46,8 +47,9 @@ export async function getMaterialList(
  */
 export async function getMaterials(
   materialIds: string[],
+  supabase?: Supabase,
 ): Promise<StoredMaterial[]> {
-  return findMaterials(await createClient(), materialIds);
+  return findMaterials(supabase ?? (await createClient()), materialIds);
 }
 
 /**
@@ -56,8 +58,12 @@ export async function getMaterials(
  */
 export async function readMaterialFile(
   material: StoredMaterial,
+  supabase?: Supabase,
 ): Promise<Uint8Array | "missing" | "failed"> {
-  return downloadStoredFile(await createClient(), material.storagePath);
+  return downloadStoredFile(
+    supabase ?? (await createClient()),
+    material.storagePath,
+  );
 }
 
 /**
@@ -73,3 +79,15 @@ export const getCourse = cache(
     return findCourse(await createClient(), courseId);
   },
 );
+
+/**
+ * `getCourse` with an explicit client, as the Student whose client it is:
+ * for callers outside a request, such as smoke checks.
+ */
+export async function getCourseWith(
+  supabase: Supabase,
+  courseId: string,
+): Promise<CourseListItem | null> {
+  if (!z.uuid().safeParse(courseId).success) return null;
+  return findCourse(supabase, courseId);
+}

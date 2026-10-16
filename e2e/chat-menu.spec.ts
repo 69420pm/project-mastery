@@ -122,7 +122,7 @@ test("deleting the open Chat lands on a new Chat", async ({
 
   await expect(page).toHaveURL(course.chatPath);
   await expect(
-    page.getByRole("heading", { name: "What are you studying?" }),
+    page.getByRole("heading", { name: "Ready to study?" }),
   ).toBeVisible();
   await expect(
     (await openSidebar(page)).getByText("No chats yet."),

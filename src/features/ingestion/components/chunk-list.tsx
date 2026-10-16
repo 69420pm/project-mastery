@@ -4,6 +4,7 @@ import { Markdown } from "@/components/markdown";
 import { PageCrop } from "@/components/page-crop";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { chunkAnchor } from "@/features/ingestion/domain/chunk-anchor";
 import type {
   ChunkLabel,
   ChunkView,
@@ -38,9 +39,6 @@ type ChunkListProps = {
   /** The chunk view of a Material of the same Course, for solution links. */
   materialHref: (materialId: string) => string;
 };
-
-/** The anchor of a chunk in its Material's chunk view. */
-const chunkAnchor = (chunkId: string) => `chunk-${chunkId}`;
 
 /**
  * A parsed Material's chunks, read-only, in reading order: each with its

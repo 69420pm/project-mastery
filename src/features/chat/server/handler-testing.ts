@@ -18,6 +18,26 @@ export const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 /** Another Course of the Student. */
 export const OTHER_COURSE = "aaaaaaaa-c000-4000-8000-000000000002";
 
+/**
+ * The tables of a Course's Knowledge map, Priorities, Brief and chunks,
+ * which the tutor context reads. Visible to the Course's owner.
+ */
+const COURSE_TABLES = [
+  "big_ideas",
+  "kcs",
+  "kc_sources",
+  "prerequisite_links",
+  "semantic_links",
+  "exercises",
+  "exercise_kcs",
+  "exercise_solutions",
+  "findings",
+  "finding_sources",
+  "kc_priorities",
+  "briefs",
+  "chunks",
+] as const;
+
 let signedIn: string | null = STUDENT;
 /** The local tables of the current test. */
 export let db = createDb();
@@ -40,6 +60,19 @@ function createDb() {
       chat_messages: [],
       ai_usage: [],
       materials: [],
+      big_ideas: [],
+      kcs: [],
+      kc_sources: [],
+      prerequisite_links: [],
+      semantic_links: [],
+      exercises: [],
+      exercise_kcs: [],
+      exercise_solutions: [],
+      findings: [],
+      finding_sources: [],
+      kc_priorities: [],
+      briefs: [],
+      chunks: [],
     },
     // The Storage folder the Student may use.
     userId: STUDENT,
@@ -71,6 +104,11 @@ function createDb() {
       }
       if (table === "courses" || table === "materials") {
         return row.owner === signedIn;
+      }
+      if ((COURSE_TABLES as readonly string[]).includes(table)) {
+        return tables.courses.some(
+          (course) => course.id === row.course_id && course.owner === signedIn,
+        );
       }
       if (table === "ai_usage") {
         return (
@@ -191,4 +229,85 @@ export function seedChat(owner: string, messages: FakeRow[] = []) {
     }),
   );
   return chatId;
+}
+
+/** The ids of the map `seedMap` stores in the Student's Course. */
+export const MAP = {
+  bigIdea: "aaaaaaaa-b000-4000-8000-000000000001",
+  /** Prior knowledge: Newton's second law. */
+  prior: "aaaaaaaa-0000-4000-8000-000000000001",
+  /** Thrust, taught by `chunks[0]` and `chunks[1]`, Priority 0.8. */
+  thrust: "aaaaaaaa-0000-4000-8000-000000000002",
+  /** Propulsive efficiency, which needs thrust first. */
+  efficiency: "aaaaaaaa-0000-4000-8000-000000000003",
+  material: "aaaaaaaa-a000-4000-8000-000000000001",
+  chunks: [
+    "aaaaaaaa-c400-4000-8000-000000000001",
+    "aaaaaaaa-c400-4000-8000-000000000002",
+  ],
+} as const;
+
+/** Stores a small built Knowledge map with Priorities in the Student's Course. */
+export function seedMap() {
+  const owned = { owner: STUDENT, course_id: COURSE };
+  const kc = (
+    id: string,
+    position: number,
+    name: string,
+    type: string,
+    bigIdea: string | null,
+  ) => ({
+    ...owned,
+    id,
+    position,
+    name,
+    description: `${name}, as the lecture states it.`,
+    type,
+    big_idea_id: bigIdea,
+    bloom: bigIdea ? "apply" : null,
+    origin: bigIdea ? "content" : "prior",
+  });
+  db.tables.big_ideas.push({
+    ...owned,
+    id: MAP.bigIdea,
+    position: 0,
+    name: "Thrust generation",
+    description: "How engines make thrust.",
+  });
+  db.tables.kcs.push(
+    kc(MAP.prior, 0, "Newton's second law", "prior", null),
+    kc(MAP.thrust, 1, "Thrust equation", "procedure", MAP.bigIdea),
+    kc(MAP.efficiency, 2, "Propulsive efficiency", "concept", MAP.bigIdea),
+  );
+  db.tables.prerequisite_links.push(
+    ...[
+      { ...owned, id: 1, from_kc: MAP.prior, to_kc: MAP.thrust },
+      { ...owned, id: 2, from_kc: MAP.thrust, to_kc: MAP.efficiency },
+    ].map((link) => ({ ...link, extraction_confidence: 1 })),
+  );
+  db.tables.kc_priorities.push({
+    ...owned,
+    kc_id: MAP.thrust,
+    priority: 0.8,
+    multiplier: 1,
+    reasons: [],
+  });
+  db.tables.materials.push({
+    ...owned,
+    id: MAP.material,
+    name: "Lecture 7",
+    created_at: "2025-12-01T00:00:00.000Z",
+  });
+  MAP.chunks.forEach((id, position) => {
+    db.tables.chunks.push({
+      ...owned,
+      id,
+      material_id: MAP.material,
+      position,
+      page_from: 3 + position,
+      page_to: 3 + position * 2,
+      markdown: `Chunk ${position}: $F = \\dot m (v_e - v_0)$`,
+    });
+    db.tables.kc_sources.push({ ...owned, kc_id: MAP.thrust, chunk_id: id });
+  });
 }

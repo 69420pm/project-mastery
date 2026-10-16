@@ -6,18 +6,25 @@ import {
   type ModelChoiceKey,
 } from "@/lib/ai/models";
 import type { ModelOption } from "@/features/chat/types";
-import { CHAT_INSTRUCTIONS } from "./prompt";
+import { tutorInstructions, type TutorContext } from "@/features/study";
 
 /**
  * Call settings for the AI's reply in a Chat: the `chat` task's model for the
  * Student's choice (the default choice without one), with retries, fallbacks
- * and telemetry, plus the Chat instructions. The request handler and the
- * `chat` eval both use it, so the eval tests the real configuration:
+ * and telemetry, plus the tutor instructions with `context`. The request
+ * handler and the `chat` eval both use it, so the eval tests the real
+ * configuration:
  *
- *   streamText({ ...chatReplySettings(choice), messages })
+ *   streamText({ ...chatReplySettings(choice, context), messages, tools })
  */
-export function chatReplySettings(modelChoice?: string) {
-  return { ...aiTask("chat", modelChoice), instructions: CHAT_INSTRUCTIONS };
+export function chatReplySettings(
+  modelChoice: string | undefined,
+  context: TutorContext,
+) {
+  return {
+    ...aiTask("chat", modelChoice),
+    instructions: tutorInstructions(context),
+  };
 }
 
 /**

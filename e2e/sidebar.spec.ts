@@ -62,7 +62,7 @@ test("New chat opens an empty Chat", async ({ page, student, course }) => {
 
   await expect(page).toHaveURL(course.chatPath);
   await expect(
-    page.getByRole("heading", { name: "What are you studying?" }),
+    page.getByRole("heading", { name: "Ready to study?" }),
   ).toBeVisible();
   await expect(messageInput(page)).toBeVisible();
 });

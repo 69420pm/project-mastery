@@ -5,6 +5,9 @@ import {
   RetryError,
   consumeStream,
   createUIMessageStreamResponse,
+  InvalidToolInputError,
+  isStepCount,
+  NoSuchToolError,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -48,9 +51,10 @@ import { titleChat } from "@/features/chat/server/chat-title";
 import type { ChatUIMessage } from "@/features/chat/types";
 import {
   courseNotFoundMessage,
+  getCourseWith,
   materialReferenceSchema,
-} from "@/features/courses";
-import { getCourse } from "@/features/courses/server";
+} from "@/features/courses/server";
+import { startTutoring, TutorToolError } from "@/features/study/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
@@ -85,6 +89,28 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   const user = await getUser();
   if (!user) return refuse(401, "Sign in to chat with the AI.");
 
+  const response = await respondInChat({
+    request,
+    supabase: await createClient(),
+    userId: user.id,
+  });
+  after(flushTraces);
+  return response;
+}
+
+/**
+ * `handleChatRequest` from stage 2 on, as the Student whose session client
+ * `supabase` is. Smoke checks call it with a client they signed in.
+ */
+export async function respondInChat({
+  request,
+  supabase,
+  userId,
+}: {
+  request: Request;
+  supabase: Supabase;
+  userId: string;
+}): Promise<Response> {
   const parsed = chatRequestSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -104,10 +130,9 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     );
   }
 
-  const supabase = await createClient();
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
-  if (!existing && !(await getCourse(courseId!))) {
+  if (!existing && !(await getCourseWith(supabase, courseId!))) {
     return refuse(404, courseNotFoundMessage);
   }
 
@@ -115,6 +140,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   // Materials may have been deleted since.
   if (!existing || !(await hasMessage(supabase, existing.id, message.id))) {
     const refusal = await attachmentRefusal(
+      supabase,
       message,
       existing?.courseId ?? courseId!,
     );
@@ -151,7 +177,7 @@ export async function handleChatRequest(request: Request): Promise<Response> {
   if (!history) return refuse(409, "This message was already sent.");
 
   // After storing the message, so Retry can send it again.
-  const materials = await loadAttachedMaterials(history);
+  const materials = await loadAttachedMaterials(supabase, history);
   if (materials === "too large") return refuse(413, materialsTooLargeMessage);
   if (materials === "failed") return refuse(503, materialsUnavailableMessage);
 
@@ -159,12 +185,18 @@ export async function handleChatRequest(request: Request): Promise<Response> {
     request,
     supabase,
     chat: { ...chat, modelChoice: choice },
-    userId: user.id,
+    userId,
     history,
     materials,
     replyId,
   });
 }
+
+/**
+ * The most model calls one reply may take: tool steps to read KCs, a retry
+ * after a malformed call, and the text.
+ */
+const MAX_STEPS = 5;
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -226,10 +258,12 @@ async function streamReply({
     metadataSchema: chatMessageMetadataSchema,
     dataSchemas: { material: materialReferenceSchema },
   });
-  const settings = chatReplySettings(chat.modelChoice);
-  // What the provider reports when the call completes: its usage and the
-  // model that answered, a gateway fallback when the primary failed. A
-  // stopped or failed call reports neither.
+  // Read on every reply, so the candidates and dates are always current.
+  const tutoring = await startTutoring(supabase, chat.courseId);
+  const settings = chatReplySettings(chat.modelChoice, tutoring.context);
+  // What the provider reports when the call completes: its usage over all
+  // steps and the model that answered, a gateway fallback when the primary
+  // failed. A stopped or failed call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;
   let modelId = settings.model;
 
@@ -239,16 +273,17 @@ async function streamReply({
       streamText({
         ...settings,
         messages: await toModelMessages(messages, materials),
+        tools: tutoring.tools,
+        stopWhen: isStepCount(MAX_STEPS),
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),
-        onEnd: ({ usage, response }) => {
-          reportedUsage = usage;
+        onEnd: ({ totalUsage, response }) => {
+          reportedUsage = totalUsage;
           modelId = answeringModel(settings, response.modelId);
         },
       }),
   );
-  after(flushTraces);
 
   return createUIMessageStreamResponse({
     stream: toUIMessageStream<ToolSet, ChatUIMessage>({
@@ -331,8 +366,16 @@ function statusCode(error: unknown): number | undefined {
   return undefined;
 }
 
-/** The error the Student sees when a reply fails mid-stream. */
+/**
+ * The error the Student sees when a reply fails mid-stream. A tool call the
+ * model got wrong, or one a tool refused, keeps its own message: it is
+ * stored as the tool's error and tells the model what to fix on the next
+ * step and the next turn. The Chat shows only text parts.
+ */
 function replyErrorMessage(error: unknown): string {
+  if (InvalidToolInputError.isInstance(error)) return error.message;
+  if (NoSuchToolError.isInstance(error)) return error.message;
+  if (error instanceof TutorToolError) return error.message;
   return statusCode(error) === 429
     ? "The AI is busy right now. Please try again in a moment."
     : "The AI could not reply. Please try again.";

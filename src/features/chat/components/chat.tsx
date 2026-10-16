@@ -251,8 +251,8 @@ export function Chat({
         <ConversationContent className="mx-auto w-full max-w-3xl px-0">
           {messages.length === 0 ? (
             <ConversationEmptyState
-              title="What are you studying?"
-              description="Ask a question or share a problem you are working on."
+              title="Ready to study?"
+              description="Say hi and the AI picks up with what's next on your map, or ask about anything."
             />
           ) : (
             messages.map((message) => {

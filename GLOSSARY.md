@@ -54,10 +54,10 @@ _Avoid_: Weight, importance, relevance
 
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
-_Avoid_: Tutor, assistant, bot
+_Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.
 
 **Chat**:
-One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course.
+One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map.
 _Avoid_: Conversation, thread, session
 
 **Daily limit**:

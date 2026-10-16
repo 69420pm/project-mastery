@@ -6,6 +6,7 @@ import { priorityLevels } from "@/features/priorities/domain/priority";
 import { updatePriorities } from "@/features/priorities/workflows/update-priorities";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
+import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * The lazy start of the map page: queues a priority run of the signed-in
@@ -35,6 +36,24 @@ export async function ensurePriorities(courseId: string): Promise<void> {
       console.error("Recording a failed priority start failed:", recordError);
     }
   }
+}
+
+/**
+ * Each KC's Priority of a Course by KC id, read with `supabase`, a Student's
+ * session client; empty before the first run.
+ */
+export async function loadKcPriorities(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("kc_priorities")
+    .select("kc_id, priority")
+    .eq("course_id", courseId);
+  if (error) throw new Error(`Loading the priorities failed: ${error.message}`);
+  return Object.fromEntries(
+    data.map((row) => [row.kc_id, Number(row.priority)]),
+  );
 }
 
 /**
