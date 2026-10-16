@@ -3,7 +3,7 @@ import { z } from "zod";
 import { briefPath } from "@/features/brief/domain/brief-paths";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import { loadFields, openBrief } from "@/features/brief/server/brief-store";
-import type { BriefWithMessages } from "@/features/brief/types";
+import type { BriefWithMessages, ExamFacts } from "@/features/brief/types";
 import { getUser, requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
@@ -26,20 +26,26 @@ export async function getBrief(
 }
 
 /**
- * The exam date of a Course's Brief as YYYY-MM-DD, read with `supabase`, a
- * Student's session client; null when not set or without a Brief.
+ * The exam date, weekly hours and goal of a Course's Brief, read with
+ * `supabase`, a Student's session client; each null when not set or without
+ * a Brief.
  */
-export async function getExamDate(
+export async function getExamFacts(
   supabase: Supabase,
   courseId: string,
-): Promise<string | null> {
+): Promise<ExamFacts> {
   const { data, error } = await supabase
     .from("briefs")
-    .select("exam_date")
+    .select("exam_date, hours_per_week, goal")
     .eq("course_id", courseId)
     .maybeSingle();
   if (error) throw new Error(`Loading the Brief failed: ${error.message}`);
-  return data?.exam_date ?? null;
+  return {
+    examDate: data?.exam_date ?? null,
+    hoursPerWeek:
+      data?.hours_per_week == null ? null : Number(data.hours_per_week),
+    goal: (data?.goal ?? null) as ExamFacts["goal"],
+  };
 }
 
 /**

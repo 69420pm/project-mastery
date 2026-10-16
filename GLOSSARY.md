@@ -64,6 +64,10 @@ _Avoid_: Revision, repetition, quiz
 Where a KC stands for a Student, from its attempts: _new_ (no attempts), _learning_ (level 1, not due), _due_ (its next review is today or earlier) or _mastered_ (level 2 or higher, not due).
 _Avoid_: Mastery level, status
 
+**Phase**:
+Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
+_Avoid_: Stage, mode
+
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
 _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.

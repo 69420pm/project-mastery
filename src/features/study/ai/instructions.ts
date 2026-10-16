@@ -76,6 +76,39 @@ function describeMap(context: TutorContext): string {
   return `Candidates, best first, grouped by big idea (anchors are the prior knowledge or taught KCs each docks onto):\n\n${describeCandidates(context.candidates)}`;
 }
 
+const GOALS = {
+  pass: "to pass",
+  good_grade: "a good grade",
+  master_everything: "to master everything",
+} as const;
+
+const PHASE_GUIDANCE = {
+  build: null,
+  deepen: `Deepen phase: every KC that matters is taught. Favour exam-style problems, KCs that keep coming back as due, and questions that connect big ideas over new KCs.`,
+  final_week: `Final week: the exam is within 7 days. Give mixed Review of the most important KCs. Teach nothing new unless the Student asks. Offer once, early, an exam-conditions session on an old exam's Exercises (findExercises returns them first).`,
+} as const;
+
+function describePlan(context: TutorContext): string[] {
+  const { phase, goal, share, leftOutCount } = context;
+  if (phase === null) return [];
+  const lines = [`Study phase: ${phase.replace("_", " ")}.`];
+  if (goal !== null) {
+    lines.push(
+      `The Student's goal is ${GOALS[goal]}: weigh breadth against depth by it.`,
+    );
+  }
+  const guidance = PHASE_GUIDANCE[phase];
+  if (guidance !== null) lines.push(guidance);
+  if (share !== null && leftOutCount !== null) {
+    lines.push(
+      leftOutCount === 0
+        ? "At the Student's weekly hours, all KCs that matter fit before the final week."
+        : `At the Student's weekly hours, about ${share}% of the KCs that matter fit before the final week; ${leftOutCount} lowest-Priority KCs won't. Mention it only when the Student asks about time.`,
+    );
+  }
+  return [lines.join("\n")];
+}
+
 /** The AI's instructions in a Chat, with the current tutor context. */
 export function tutorInstructions(context: TutorContext): string {
   return [
@@ -85,6 +118,7 @@ export function tutorInstructions(context: TutorContext): string {
     SCOPE,
     FORMAT,
     `Today is ${context.today}. The exam date: ${context.examDate ?? "not set"}.`,
+    ...describePlan(context),
     ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
     describeMap(context),
   ].join("\n\n");

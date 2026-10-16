@@ -2,6 +2,8 @@ import { adminClient, expect, test } from "./fixtures";
 
 // The mock AI (AI_PROVIDER=mock) quotes the message and ends with this.
 const REPLY_END = "it never calls a real model.";
+// It streams a word every 75 ms, so a reply takes several seconds under load.
+const REPLY_DONE = { timeout: 15_000 };
 
 test.describe("signed in", () => {
   test("opens the Brief with its opening question and keeps the conversation", async ({
@@ -20,7 +22,7 @@ test.describe("signed in", () => {
     const input = page.getByRole("textbox", { name: "Message" });
     await input.fill("The exam is on 3 December.");
     await input.press("Enter");
-    await expect(log.getByText(REPLY_END)).toBeVisible();
+    await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
 
     // The reply is stored just as its stream ends.
     await expect
@@ -39,7 +41,7 @@ test.describe("signed in", () => {
     await expect(
       log.getByText("The exam is on 3 December.", { exact: true }),
     ).toBeVisible();
-    await expect(log.getByText(REPLY_END)).toBeVisible();
+    await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
   });
 
   test("asks an open Finding once intake is done and stores the answer", async ({
@@ -79,7 +81,7 @@ test.describe("signed in", () => {
     const input = page.getByRole("textbox", { name: "Message" });
     await input.fill("The printed answer is wrong, 50.8% is right");
     await input.press("Enter");
-    await expect(log.getByText(REPLY_END)).toBeVisible();
+    await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
 
     await page.goto(`/courses/${course.id}/map`);
     const findings = page.getByRole("region", { name: "Findings" });

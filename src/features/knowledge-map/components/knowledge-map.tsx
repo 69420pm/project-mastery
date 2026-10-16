@@ -20,13 +20,13 @@ import type {
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   BigIdeaView,
-  CheckReportView,
   ExerciseView,
   FindingView,
   KcView,
   KnowledgeMapView,
   MapBuild,
   MapKcStates,
+  MapPlan,
   MapPriorities,
   SemanticLinkView,
 } from "@/features/knowledge-map/types";
@@ -36,6 +36,8 @@ import {
   PriorityStatus,
   StateBadge,
 } from "./kc-priority";
+import { CheckReport } from "./check-report";
+import { LeftOutBadge, PlanLine } from "./study-plan";
 
 const TYPE_NAMES: Record<KcType, string> = {
   fact: "Fact",
@@ -69,20 +71,24 @@ const BUILD_POLL_MS = 2000;
  * the Findings, linking to the Course's Brief (`briefHref`) to answer the
  * open ones. Each KC shows its state badge from `kcStates`, the header the
  * reviews due, and each KC its Priority badge and reasons from
- * `priorities`. The page refreshes itself while a build or a priority run
- * runs.
+ * `priorities`. The header also shows the study plan from `plan`, and
+ * each KC it leaves out a "won't fit" badge. The page refreshes itself
+ * while a build or a priority run runs.
  */
 export function KnowledgeMap({
   map,
   briefHref,
   priorities,
   kcStates,
+  plan,
 }: {
   map: KnowledgeMapView;
   briefHref: string;
   priorities: MapPriorities;
   kcStates: MapKcStates;
+  plan: MapPlan;
 }) {
+  const leftOut = new Set(plan.leftOut);
   const dueCount = [
     ...map.bigIdeas.flatMap((b) => b.kcs),
     ...map.priorKnowledge,
@@ -106,9 +112,12 @@ export function KnowledgeMap({
         <BuildStatus build={map.build} />
         <PriorityStatus priorities={priorities} />
         {map.bigIdeas.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {dueCount} {dueCount === 1 ? "review" : "reviews"} due
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-muted-foreground">
+              {dueCount} {dueCount === 1 ? "review" : "reviews"} due
+            </p>
+            <PlanLine plan={plan} briefHref={briefHref} />
+          </div>
         )}
       </div>
 
@@ -124,6 +133,7 @@ export function KnowledgeMap({
               bigIdea={bigIdea}
               priorities={priorities}
               kcStates={kcStates}
+              leftOut={leftOut}
             />
           ))}
         </ol>
@@ -256,10 +266,12 @@ function BigIdea({
   bigIdea,
   priorities,
   kcStates,
+  leftOut,
 }: {
   bigIdea: BigIdeaView;
   priorities: MapPriorities;
   kcStates: MapKcStates;
+  leftOut: ReadonlySet<string>;
 }) {
   return (
     <li className="flex flex-col gap-3">
@@ -280,6 +292,7 @@ function BigIdea({
               kc={kc}
               priority={priorities.kcs[kc.id]}
               state={kcStates[kc.id]}
+              leftOut={leftOut.has(kc.id)}
             />
           ))}
         </ul>
@@ -292,10 +305,12 @@ function Kc({
   kc,
   priority,
   state,
+  leftOut = false,
 }: {
   kc: KcView;
   priority?: MapPriorities["kcs"][string];
   state?: MapKcStates[string];
+  leftOut?: boolean;
 }) {
   return (
     <li>
@@ -308,6 +323,7 @@ function Kc({
         </div>
         <div className="flex flex-wrap gap-1.5">
           <StateBadge state={state} />
+          <LeftOutBadge leftOut={leftOut} />
           <PriorityBadge priority={priority} />
           <Badge variant="secondary">{TYPE_NAMES[kc.type]}</Badge>
           {kc.bloom && <Badge variant="outline">{BLOOM_NAMES[kc.bloom]}</Badge>}
@@ -495,58 +511,6 @@ function Findings({
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-/**
- * What the last build's checks found, or that they all passed, and the KCs
- * no Exercise tests and possible duplicate KCs, which fail no check.
- */
-function CheckReport({ report }: { report: CheckReportView }) {
-  const findings = [
-    report.uncoveredChunks.length > 0 &&
-      `Pages with content no KC covers: ${report.uncoveredChunks.join(", ")}`,
-    report.ungroundedKcs.length > 0 &&
-      `KCs without a source: ${report.ungroundedKcs.join(", ")}`,
-    report.orphanKcs.length > 0 &&
-      `KCs without links: ${report.orphanKcs.join(", ")}`,
-    report.droppedCycleEdges.length > 0 &&
-      `Prerequisites dropped to break cycles: ${report.droppedCycleEdges
-        .map((edge) => `${edge.from} → ${edge.to}`)
-        .join(", ")}`,
-    report.unmappedExercises.length > 0 &&
-      `Exercises without a KC: ${report.unmappedExercises.join(", ")}`,
-  ].filter((finding) => finding !== false);
-  return (
-    <section
-      aria-label="Check report"
-      className="flex flex-col gap-1.5 rounded-xl bg-muted/50 px-4 py-3 text-sm"
-    >
-      <h2 className="font-medium">Checks</h2>
-      {findings.length === 0 ? (
-        <p className="text-muted-foreground">All checks passed.</p>
-      ) : (
-        <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
-          {findings.map((finding) => (
-            <li key={finding}>
-              <Markdown>{finding}</Markdown>
-            </li>
-          ))}
-        </ul>
-      )}
-      {report.untestedKcs.length > 0 && (
-        <div className="text-muted-foreground">
-          <Markdown>{`KCs no exercise tests: ${report.untestedKcs.join(", ")}`}</Markdown>
-        </div>
-      )}
-      {report.duplicates.length > 0 && (
-        <div className="text-muted-foreground">
-          <Markdown>{`Possible duplicate KCs: ${report.duplicates
-            .map((pair) => `${pair.a} and ${pair.b}`)
-            .join("; ")}`}</Markdown>
-        </div>
-      )}
     </section>
   );
 }

@@ -39,6 +39,10 @@ export const SAMPLE_CONTEXT: TutorContext = {
   today: "2026-11-02",
   examDate: "2026-12-03",
   hasMap: true,
+  phase: "build",
+  share: 70,
+  leftOutCount: 3,
+  goal: "good_grade",
   mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
   dueReviews: { kcs: [], more: 0 },
   candidates: [

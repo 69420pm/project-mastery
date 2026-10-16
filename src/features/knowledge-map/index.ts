@@ -8,6 +8,7 @@ export { startKnowledgeMapBuild } from "./server/actions";
 export type {
   KnowledgeMapView,
   MapKcStates,
+  MapPlan,
   MapPriorities,
   ReviewFinding,
 } from "./types";

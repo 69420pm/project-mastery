@@ -1,5 +1,5 @@
 import "server-only";
-import { getExamDate } from "@/features/brief/server";
+import { getExamFacts } from "@/features/brief/server";
 import { materialChunksPath } from "@/features/courses/server";
 import {
   chunkAnchor,
@@ -28,6 +28,7 @@ import {
   solutionLabel,
 } from "@/features/study/domain/exercises";
 import { utcDay } from "@/features/study/domain/ladder";
+import { planStudy } from "@/features/study/domain/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
@@ -46,21 +47,33 @@ export async function startTutoring(
   supabase: Supabase,
   courseId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, [examDate, ladder]] = await Promise.all([
+  const [map, priorities, [exam, ladder]] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
-    getExamDate(supabase, courseId).then(
-      async (examDate) =>
-        [examDate, await loadLadder(supabase, courseId, examDate)] as const,
+    getExamFacts(supabase, courseId).then(
+      async (facts) =>
+        [facts, await loadLadder(supabase, courseId, facts.examDate)] as const,
     ),
   ]);
+  const { examDate } = exam;
   const hasMap = map.kcs.length > 0;
   const today = utcDay(new Date());
+  const { phase, pacing } = planStudy({
+    kcs: map.kcs,
+    priorities,
+    taught: new Set(ladder.keys()),
+    exam,
+    today,
+  });
   return {
     context: {
       today,
       examDate,
       hasMap,
+      phase,
+      share: pacing?.share ?? null,
+      leftOutCount: pacing?.leftOut.length ?? null,
+      goal: exam.goal,
       mapPath: knowledgeMapPath(courseId),
       dueReviews: selectDueReviews(map.kcs, ladder, priorities, today),
       candidates: hasMap
