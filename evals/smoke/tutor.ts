@@ -255,7 +255,11 @@ export const tutorSmoke: SmokeCheck = {
     const answeredAt = new Date().toISOString();
     const second = await sendMessage(client, studentId, chat, ANSWER);
     const memoryBefore = await readMemory(supabase, course.id);
+    // The turn may cross UTC midnight, so either day counts as "this turn".
+    const utcDay = () => new Date().toISOString().slice(0, 10);
+    const turnDays = [utcDay()];
     const third = await sendMessage(client, studentId, chat, PREFERENCE);
+    turnDays.push(utcDay());
     const memoryAfter = await readMemory(supabase, course.id);
     const newLines = memoryAfter
       .split("\n")
@@ -310,7 +314,7 @@ export const tutorSmoke: SmokeCheck = {
         "the preference's turn added a line to the Memory",
         memoryAfter.startsWith(memoryBefore) &&
           newLines.some((line) =>
-            line.startsWith(`${new Date().toISOString().slice(0, 10)}: `),
+            turnDays.some((day) => line.startsWith(`${day}: `)),
           ),
         `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
       ),
