@@ -2,7 +2,7 @@
 name: architect
 description: Audits the codebase's structure across units for /sweep and writes its findings file. Spawned by /sweep after the module auditors.
 model: opus
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash, Write
 ---
 

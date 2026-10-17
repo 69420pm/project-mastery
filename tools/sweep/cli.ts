@@ -72,6 +72,8 @@ async function jscpd() {
 type Totals = { total: number; covered: number };
 type Summary = Record<string, Record<"lines" | "branches", Totals>>;
 
+// Runs `pnpm test:coverage`'s Vitest run with its include widened: the config
+// covers only src/, and the units also hold tools/ and evals/.
 async function coverage() {
   const dir = path.join(outDir, "coverage");
   const { code } = await run([

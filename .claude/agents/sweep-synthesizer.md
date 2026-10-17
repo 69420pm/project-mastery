@@ -2,7 +2,7 @@
 name: sweep-synthesizer
 description: Turns a sweep's findings into one decision issue of ranked change groups. Spawned last by /sweep.
 model: opus
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash, Write
 ---
 

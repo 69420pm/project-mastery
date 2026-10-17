@@ -14,7 +14,7 @@ How this repo equips coding agents: what to change when a run goes wrong, and wh
 | Place                    | Holds                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------ |
 | `AGENTS.md`              | Pointers only, loaded into every session                                             |
-| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues                                 |
+| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues, sweeps                         |
 | `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked                  |
 | `docs/agents/notes/`     | Verified library and environment gotchas                                             |
 | `.claude/skills/`        | Workflows the user starts (`/build`, `/to-spec`, `/retro`, `/sweep`, `/sweep-apply`) |

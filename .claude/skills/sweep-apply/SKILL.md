@@ -20,7 +20,7 @@ You apply a `/sweep` decision issue, given as `<issue>`: each ticked group becom
 5. **Groups.** For each group left in the plan, in order:
    - **Branch** `<type>/<issue>-<n>-<kebab title>` from the top open branch of the stack, or from the base branch while there is none. The type is the group's.
    - **Build.** One `builder` in the foreground, without `isolation`. Its prompt: the issue number, the job `sweep group`, and the group's checkbox text verbatim. Check that the worktree is clean afterwards.
-   - **PR.** Push, then `gh pr create --base <branch below, or main>` with the title `<type>: <group title>`. The body follows pull-requests.md and opens with `Group <n> of #<issue>`; the last group of this run adds `Closes #<issue>`.
+   - **PR.** Push, then `gh pr create --base <branch below, or main>` with the title `<type>: <group title>`. The body follows pull-requests.md and opens with `Group <n> of #<issue>`. The stack's top PR carries `Closes #<issue>`: add it to each new PR and remove it from the PR below with `gh pr edit`.
    - **Stopped.** A builder that hands off `Stopped:` gets no PR. Comment on the issue with the group, the builder's reason, and the ticked groups that depend on it, directly or through another group; skip those too.
 
 6. **CI.** Watch each new or pushed PR with `gh pr checks <pr> --watch`, run in the background. A red check goes to a `builder` on that branch with its failed log (`gh run view <run> --log-failed`). Push the fix, then rebase the branches above it with `git rebase <fixed branch> --update-refs` from the top branch, push them with `--force-with-lease`, and wait again.

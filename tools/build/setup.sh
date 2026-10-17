@@ -10,10 +10,10 @@
 # anything else feat) unless given, e.g. `refactor`. Safe to run again.
 set -euo pipefail
 
-usage='usage: tools/build/setup.sh <spec-issue> [feat|fix|refactor|chore|docs]'
+usage='usage: tools/build/setup.sh <spec-issue> [feat|fix|refactor|chore|docs|test]'
 issue=${1:?$usage}
 type=${2:-}
-[[ "$issue" =~ ^[0-9]+$ && "$type" =~ ^(feat|fix|refactor|chore|docs)?$ ]] || {
+[[ "$issue" =~ ^[0-9]+$ && "$type" =~ ^(feat|fix|refactor|chore|docs|test)?$ ]] || {
   echo "$usage (got '$*')" >&2
   exit 1
 }
