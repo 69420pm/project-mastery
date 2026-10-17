@@ -9,7 +9,7 @@ Facts every `/sweep` agent shares. `/sweep` runs the agents; `/sweep-apply` buil
 - **Surviving mutants** from `pnpm -s sweep mutate`: `mutants/<unit>.md`, one per line. Only units with `domain/`, `server/`, `ai/`, `workflows/` or `lib/` code are mutated.
 - **Units** and the paths each one holds are defined in `tools/sweep/units.ts`, with what every check leaves out (generated code, tests and test helpers).
 - **Spec issues** of a unit: `git log --format=%s -- <paths>` lists squash-merged PRs as `(#<pr>)`, and `gh pr view <pr> --json closingIssuesReferences` names the issues each one closed.
-- **Rejected** groups of earlier sweeps, with the user's reason, are in `docs/sweeps/<date>.md`.
+- **Rejected** groups of earlier sweeps, with the user's reason, are in `docs/sweeps/<date>.md` (see [Record](#record)).
 
 ## Findings files
 
@@ -29,3 +29,7 @@ Each finding is a `###` heading naming the problem, then three lines:
 - **Change**: the proposed change and what it gains.
 
 A finding is a bug, a missing test on a critical path, or code that costs readers or maintainers: dead, duplicated, misplaced, misnamed against `GLOSSARY.md`, or contradicting a doc. Taste is not a finding. "No findings" is a complete file.
+
+## Record
+
+`/sweep-apply` adds `docs/sweeps/<sweep date>.md` in the stack's first PR, from the decision issue: the audited commit, the headline numbers, the issue link, and each group in a list as `applied` (ticked) or `rejected` (unticked), with the user's reason when the issue's comments give one. Parked groups are left out, so a later sweep can raise them again. The synthesizer skips a rejected group's findings until the code they name changes.
