@@ -8,6 +8,7 @@ const schema = z
     LANGFUSE_SECRET_KEY: z.string().optional(),
     // The EU cloud is https://cloud.langfuse.com (the SDK default when unset).
     LANGFUSE_BASE_URL: z.url().optional(),
+    AI_PROVIDER: z.string().optional(),
   })
   .refine(
     (env) =>
@@ -26,6 +27,18 @@ const schema = z
 export function isLangfuseConfigured(): boolean {
   const env = parseEnv(schema, process.env);
   return Boolean(env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY);
+}
+
+/**
+ * Whether AI calls are traced: Langfuse keys are set and the calls are real.
+ * The mock provider's replies are not traced; they filled most of the free
+ * plan's units with calls that say nothing about the AI.
+ */
+export function isTracingEnabled(): boolean {
+  return (
+    isLangfuseConfigured() &&
+    parseEnv(schema, process.env).AI_PROVIDER !== "mock"
+  );
 }
 
 /**
