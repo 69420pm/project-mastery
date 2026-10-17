@@ -130,7 +130,7 @@ export function KnowledgeMap({
       ) : (
         <div className="flex min-h-96 flex-1 gap-4">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Legend
                 entries={legendEntries(
                   colorBy,
@@ -139,7 +139,7 @@ export function KnowledgeMap({
                   STATE_NAMES,
                 )}
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
                 <FocusDepthMenu depth={depth} onChange={setDepth} />
                 <EncodingControls
                   colorBy={colorBy}

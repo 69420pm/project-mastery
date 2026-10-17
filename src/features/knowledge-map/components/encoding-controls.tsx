@@ -69,10 +69,10 @@ export function Legend({ entries }: { entries: LegendEntry[] }) {
   return (
     <ul
       aria-label="Legend"
-      className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+      className="flex min-w-0 gap-4 overflow-x-auto pb-1 text-xs whitespace-nowrap text-muted-foreground"
     >
       {entries.map((entry) => (
-        <li key={entry.label} className="flex items-center gap-1.5">
+        <li key={entry.label} className="flex shrink-0 items-center gap-1.5">
           <span
             aria-hidden
             className="size-2.5 rounded-sm"
