@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // Used by `pnpm -s sweep` (tools/sweep). Generated code and tests are not
+  // audited; their imports still count as uses.
+  "entry": ["tools/*/cli.ts", "evals/run.ts", "evals/smoke.ts"],
+  "ignore": [
+    "src/components/ui/**",
+    "src/components/ai-elements/**",
+    "src/lib/supabase/database.types.ts",
+    "**/*.test.{ts,tsx}",
+    "**/*-testing.ts",
+    "e2e/**",
+  ],
+  // Run as binaries from tools/sweep/cli.ts; Stryker's command runner is part
+  // of its core package.
+  "ignoreDependencies": [
+    "jscpd",
+    "@stryker-mutator/core",
+    "@stryker-mutator/command-runner",
+  ],
+}

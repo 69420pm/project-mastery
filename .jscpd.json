@@ -1,0 +1,16 @@
+{
+  "path": ["src", "tools", "evals"],
+  "format": ["typescript", "tsx"],
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*-testing.ts",
+    "src/components/ui/**",
+    "src/components/ai-elements/**",
+    "**/database.types.ts"
+  ],
+  "minTokens": 50,
+  "reporters": ["ai"],
+  "noColors": true,
+  "noTips": true
+}

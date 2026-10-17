@@ -2,7 +2,7 @@
 
 Every change reaches `main` through a PR that the maintainer reviews and squash-merges. Agents push branches and open PRs; they never push to `main` or merge.
 
-- **Branch:** `<type>/<issue>-<kebab-description>`, or `<type>/<kebab-description>` without an issue. The type is a Conventional Commits type: `feat`, `fix`, `refactor`, `chore` or `docs`.
+- **Branch:** `<type>/<issue>-<kebab-description>`, or `<type>/<kebab-description>` without an issue. The type is a Conventional Commits type: `feat`, `fix`, `refactor`, `test`, `chore` or `docs`.
 - **Title:** Conventional Commits, in lower case after the type (`feat: parse materials into chunks`). It becomes the commit on `main`.
 - **Body:** write it with the Write tool into your scratchpad and pass it with `--body-file`, also for `gh pr edit`. Multi-line `--body` strings break on shell quoting.
 - **Draft:** a long run opens the PR as a draft after its first commit (`gh pr create --draft --base main`), pushes as it goes, and runs `gh pr ready` when done.
