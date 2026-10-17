@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { isLangfuseConfigured } from "./env";
+import { isLangfuseConfigured, isTracingEnabled } from "./env";
 import { flushTraces, withTraceAttributes } from "./index";
 
 afterEach(() => {
@@ -27,6 +27,32 @@ describe("isLangfuseConfigured", () => {
     vi.stubEnv("LANGFUSE_SECRET_KEY", undefined);
 
     expect(() => isLangfuseConfigured()).toThrow(/LANGFUSE_SECRET_KEY/);
+  });
+});
+
+describe("isTracingEnabled", () => {
+  test("is true with keys and a real provider", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "pk-lf-test");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "sk-lf-test");
+    vi.stubEnv("AI_PROVIDER", "gateway");
+
+    expect(isTracingEnabled()).toBe(true);
+  });
+
+  test("is false for the mock provider, even with keys", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "pk-lf-test");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "sk-lf-test");
+    vi.stubEnv("AI_PROVIDER", "mock");
+
+    expect(isTracingEnabled()).toBe(false);
+  });
+
+  test("is false without keys", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "");
+    vi.stubEnv("AI_PROVIDER", "gateway");
+
+    expect(isTracingEnabled()).toBe(false);
   });
 });
 
