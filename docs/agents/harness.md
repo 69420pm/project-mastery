@@ -11,15 +11,15 @@ How this repo equips coding agents: what to change when a run goes wrong, and wh
 
 ## Where things live
 
-| Place                    | Holds                                                               |
-| ------------------------ | ------------------------------------------------------------------- |
-| `AGENTS.md`              | Pointers only, loaded into every session                            |
-| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues                |
-| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked |
-| `docs/agents/notes/`     | Verified library and environment gotchas                            |
-| `.claude/skills/`        | Workflows the user starts (`/build`, `/to-spec`, `/retro`)          |
-| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`)                     |
-| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop          |
-| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm -s retro`)    |
-| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)    |
-| ESLint rules, tests      | Rules a machine can check                                           |
+| Place                    | Holds                                                                |
+| ------------------------ | -------------------------------------------------------------------- |
+| `AGENTS.md`              | Pointers only, loaded into every session                             |
+| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues                 |
+| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked  |
+| `docs/agents/notes/`     | Verified library and environment gotchas                             |
+| `.claude/skills/`        | Workflows the user starts (`/build`, `/to-spec`, `/retro`, `/sweep`) |
+| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`, `/sweep`'s auditors) |
+| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop           |
+| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm -s retro`)     |
+| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)     |
+| ESLint rules, tests      | Rules a machine can check                                            |
