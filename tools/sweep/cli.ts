@@ -8,7 +8,6 @@
  */
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { computeMetrics, formatMetrics } from "./metrics";
 import { isExcluded, listFiles, listUnits, unitOf, type Unit } from "./units";
@@ -16,6 +15,10 @@ import { isExcluded, listFiles, listUnits, unitOf, type Unit } from "./units";
 const root = process.cwd();
 const units = listUnits(root);
 const outDir = path.join(".sweep", new Date().toISOString().slice(0, 10));
+
+// Each Stryker process runs its own single-worker Vitest. One per core, as
+// Stryker defaults to, exhausted the VM's memory and crashed it.
+const MUTATION_CONCURRENCY = 4;
 
 /** Runs a command and resolves with its exit code and output. */
 function run(
@@ -186,7 +189,7 @@ async function mutate(unit: Unit) {
     {
       SWEEP_MUTATE: folders.map((f) => `${f}/**/*.ts`).join(","),
       SWEEP_TESTS: unit.paths.join(" "),
-      SWEEP_CONCURRENCY: String(Math.max(1, os.availableParallelism() - 1)),
+      SWEEP_CONCURRENCY: String(MUTATION_CONCURRENCY),
       SWEEP_REPORT: report,
     },
   );
@@ -230,6 +233,31 @@ async function mutate(unit: Unit) {
   );
 }
 
+/**
+ * Runs `work` with the local Supabase stack stopped, to free its memory for
+ * the mutation runs. The unit tests mock the database. The stack comes back
+ * afterwards if it was running; if this process is killed, `pnpm db:start`.
+ */
+async function withoutSupabase(work: () => Promise<void>) {
+  const running = await run([
+    "docker",
+    "ps",
+    "--quiet",
+    "--filter",
+    "name=supabase_db_",
+  ])
+    .then(({ out }) => out.trim() !== "")
+    .catch(() => false);
+  if (!running) return work();
+  console.log("Stopping the local Supabase; it restarts when the run ends.");
+  await run(["pnpm", "exec", "supabase", "stop"]);
+  try {
+    await work();
+  } finally {
+    await run(["pnpm", "exec", "supabase", "start"]);
+  }
+}
+
 async function main([command, ...names]: string[]) {
   if (command === "mutate") {
     const chosen = names.length
@@ -240,7 +268,9 @@ async function main([command, ...names]: string[]) {
         })
       : units.filter((u) => u.mutate.length);
     console.log(`Units: ${chosen.map((u) => u.name).join(", ")}`);
-    for (const unit of chosen) await mutate(unit);
+    await withoutSupabase(async () => {
+      for (const unit of chosen) await mutate(unit);
+    });
   } else if (command === undefined) {
     console.log(`Units: ${units.map((u) => u.name).join(", ")}`);
     metrics();
