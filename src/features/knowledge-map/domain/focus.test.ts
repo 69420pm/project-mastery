@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { checkItems, focusOn, kcIdsNamed } from "./focus";
+import { focusOn } from "./focus";
 import type { MapGraphEdge, MapGraphNode } from "./map-graph";
 
 // a → b → c → d, b → e, Exercise x tests c, and a semantic link e – d.
@@ -65,36 +65,5 @@ describe("focus", () => {
       "c",
       "d",
     ]);
-  });
-});
-
-describe("the check report", () => {
-  const report = {
-    uncoveredChunks: ["p. 3"],
-    ungroundedKcs: [],
-    orphanKcs: ["Thrust"],
-    droppedCycleEdges: [
-      { from: "Lift", to: "Drag", extractionConfidence: 0.5 },
-    ],
-    unmappedExercises: ["Ex. 1"],
-    untestedKcs: [],
-    duplicates: [{ a: "Lift", b: "Thrust", similarity: 0.9 }],
-  };
-
-  test("lists the items that name KCs", () => {
-    expect(checkItems(report).map((item) => [item.key, item.kcNames])).toEqual([
-      ["orphan", ["Thrust"]],
-      ["cycles", ["Lift", "Drag"]],
-      ["duplicates", ["Lift", "Thrust"]],
-    ]);
-  });
-
-  test("matches KCs by exact name, every KC sharing it", () => {
-    const kcs = [
-      { id: "1", name: "Thrust" },
-      { id: "2", name: "Thrust" },
-      { id: "3", name: "thrust" },
-    ];
-    expect([...kcIdsNamed(kcs, ["Thrust"])]).toEqual(["1", "2"]);
   });
 });

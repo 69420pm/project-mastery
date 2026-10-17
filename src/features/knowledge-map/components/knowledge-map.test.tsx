@@ -250,38 +250,18 @@ test("a selected node focuses its neighbours until Esc", async () => {
   expect(faded("Momentum")).toBe(false);
 });
 
-test("a check-report item highlights the KCs it names", async () => {
-  render(
-    <KnowledgeMap
-      map={{
-        ...map,
-        checkReport: {
-          uncoveredChunks: [],
-          ungroundedKcs: [],
-          orphanKcs: ["Nozzles"],
-          droppedCycleEdges: [],
-          unmappedExercises: [],
-          untestedKcs: [],
-          duplicates: [],
-        },
-      }}
-      briefHref="/brief"
-      priorities={{ running: false, failureReason: null, kcs: {} }}
-      learning={{}}
-      plan={plan({})}
-    />,
-  );
+test("the check report has no box of its own", async () => {
+  renderWith(withOrphan);
   await screen.findByRole("button", { name: "Nozzles" });
-  const item = screen.getByRole("button", {
-    name: "KCs without links: Nozzles",
-  });
-  fireEvent.click(item);
-  expect(item).toHaveAttribute("aria-pressed", "true");
-  expect(faded("Nozzles")).toBe(false);
-  expect(faded("Momentum")).toBe(true);
+  expect(screen.queryByText(/KCs without links/)).toBeNull();
+});
 
-  fireEvent.click(item);
-  expect(faded("Momentum")).toBe(false);
+test("the graph has zoom buttons and no library attribution", async () => {
+  renderWith(withOrphan);
+  await screen.findByRole("button", { name: "Nozzles" });
+  expect(screen.getByRole("button", { name: "Zoom in" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Zoom out" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: /React Flow/ })).toBeNull();
 });
 
 const withOrphan = {

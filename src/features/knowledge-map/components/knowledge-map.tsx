@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   type ReactNode,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useTransition,
@@ -19,11 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  checkItems,
-  type FocusDepth,
-  kcIdsNamed,
-} from "@/features/knowledge-map/domain/focus";
+import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
 import { legendEntries } from "@/features/knowledge-map/domain/encodings";
 import {
   STATE_NAMES,
@@ -40,7 +35,6 @@ import type {
 } from "@/features/knowledge-map/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BigIdeaPanel } from "./big-idea-panel";
-import { CheckReport } from "./check-report";
 import { EncodingControls, Legend } from "./encoding-controls";
 import { ExercisePanel } from "./exercise-panel";
 import { FocusDepthMenu } from "./focus-depth";
@@ -61,12 +55,12 @@ const BUILD_POLL_MS = 2000;
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
  * Update map, the reviews due, the study plan from `plan` (linking to the
- * Course's Brief, `briefHref`) and the check report, then the map as a graph.
- * Clicking a KC opens every stat about it beside the graph, or in a Sheet
- * below `md`: its learning from `learning` and its Priority from
+ * Course's Brief, `briefHref`), then the map as a graph filling the rest of
+ * the page. Clicking a KC opens every stat about it beside the graph, or in a
+ * Sheet below `md`: its learning from `learning` and its Priority from
  * `priorities`. The selected node is focused on the graph, as far as the
- * focus depth reaches, and a check-report item highlights its KCs; Esc or a
- * click on the empty canvas clears either. The page refreshes itself while a
+ * focus depth reaches; Esc or a click on the empty canvas clears it. The page
+ * refreshes itself while a
  * build or a priority run runs, and a selection stays while its node exists.
  */
 export function KnowledgeMap({
@@ -91,40 +85,22 @@ export function KnowledgeMap({
   const { layers, colorBy, sizeByPriority } = settings;
   const [depth, setDepth] = useState<FocusDepth>("neighbours");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // The pressed check-report item's key; its KCs are matched by name on
-  // every render, so the highlight follows the polled map.
-  const [checkKey, setCheckKey] = useState<string | null>(null);
-  const select = (id: string) => {
-    setSelectedId(id);
-    setCheckKey(null);
-  };
-  const clear = () => {
-    setSelectedId(null);
-    setCheckKey(null);
-  };
-  useEscapeToClear(selectedId !== null || checkKey !== null, clear);
-  const highlighted = useMemo(() => {
-    const item =
-      map.checkReport &&
-      checkItems(map.checkReport).find((i) => i.key === checkKey);
-    if (!item) return null;
-    const all = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
-    return kcIdsNamed(all, item.kcNames);
-  }, [checkKey, map]);
+  const clear = () => setSelectedId(null);
+  useEscapeToClear(selectedId !== null, clear);
   const selected = selectedPanel({
     id: selectedId,
     map,
     learning,
     priorities,
     plan,
-    onSelect: select,
+    onSelect: setSelectedId,
   });
   const panel = selected?.panel ?? null;
   const panelLabel = selected?.label ?? "KC details";
 
   return (
-    <div className="flex w-full flex-1 flex-col gap-6 px-4 pt-4 pb-6 sm:px-6">
-      <div className="flex max-w-3xl flex-col gap-2">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-4 px-4 pt-2 pb-4 sm:px-6">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">
             Knowledge map
@@ -147,26 +123,13 @@ export function KnowledgeMap({
         )}
       </div>
 
-      {map.checkReport && (
-        <div className="max-w-3xl">
-          <CheckReport
-            report={map.checkReport}
-            highlighted={checkKey}
-            onToggle={(key) => {
-              setSelectedId(null);
-              setCheckKey(key === checkKey ? null : key);
-            }}
-          />
-        </div>
-      )}
-
       {map.bigIdeas.length === 0 ? (
         <div className="max-w-3xl">
           <EmptyMap building={building} />
         </div>
       ) : (
-        <div className="flex gap-4">
-          <div className="flex h-[70vh] min-h-96 min-w-0 flex-1 flex-col gap-2">
+        <div className="flex min-h-96 flex-1 gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Legend
                 entries={legendEntries(
@@ -206,8 +169,7 @@ export function KnowledgeMap({
                 sizeByPriority={sizeByPriority}
                 selectedId={selected ? selectedId : null}
                 depth={depth}
-                highlighted={highlighted}
-                onSelect={select}
+                onSelect={setSelectedId}
                 onClear={clear}
               />
             </div>
@@ -215,7 +177,7 @@ export function KnowledgeMap({
           {isWide && panel && (
             <aside
               aria-label={panelLabel}
-              className="h-[70vh] min-h-96 w-96 shrink-0 overflow-y-auto rounded-xl border"
+              className="w-96 shrink-0 overflow-y-auto rounded-xl border"
             >
               <div className="flex justify-end px-2 pt-2">
                 <Button

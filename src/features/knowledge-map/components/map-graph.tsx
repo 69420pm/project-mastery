@@ -3,7 +3,6 @@
 import "@xyflow/react/dist/style.css";
 import {
   Background,
-  Controls,
   type Edge,
   Handle,
   MarkerType,
@@ -69,6 +68,7 @@ import type {
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
 import { SolutionBadge } from "./solution-badge";
+import { ZoomControls } from "./zoom-controls";
 
 const TYPE_ICONS: Record<KcType, LucideIcon> = {
   fact: BookmarkIcon,
@@ -112,8 +112,7 @@ export const SEMANTIC_LINK_COLORS: Record<SemanticLinkType, string> = {
 };
 
 /**
- * `related`: highlighted by the focus, or by a check-report item, without
- * being the selected node.
+ * `related`: highlighted by the focus without being the selected node.
  */
 type KcNodeData = {
   kc: KcView;
@@ -330,8 +329,7 @@ function flowEdge(edge: MapGraphEdge, focus: Focus | null): Edge {
  * with its id, and clicking the empty canvas calls `onClear`.
  *
  * The selected node is focused: what `depth` reaches from it over the shown
- * edges is highlighted and the rest fades. Without a selection, the nodes in
- * `highlighted` (a check-report item's KCs) are highlighted instead.
+ * edges is highlighted and the rest fades.
  */
 export function MapGraph({
   map,
@@ -342,7 +340,6 @@ export function MapGraph({
   sizeByPriority,
   selectedId,
   depth,
-  highlighted,
   onSelect,
   onClear,
 }: {
@@ -354,7 +351,6 @@ export function MapGraph({
   sizeByPriority: boolean;
   selectedId: string | null;
   depth: FocusDepth;
-  highlighted: Set<string> | null;
   onSelect: (id: string) => void;
   onClear: () => void;
 }) {
@@ -402,7 +398,7 @@ export function MapGraph({
             placed.map((p) => p.node),
             visible,
           )
-        : highlighted && { nodes: highlighted, edges: new Set() };
+        : null;
     // A Big idea's box stays clear while any of its KCs is in focus.
     const inFocus = (node: MapGraphNode) =>
       !focus ||
@@ -489,7 +485,6 @@ export function MapGraph({
     sizeByPriority,
     selectedId,
     depth,
-    highlighted,
   ]);
 
   if (!laidOut) {
@@ -513,10 +508,11 @@ export function MapGraph({
       elementsSelectable={false}
       fitView
       minZoom={0.1}
+      proOptions={{ hideAttribution: true }}
       className="rounded-xl border"
     >
       <Background />
-      <Controls showInteractive={false} />
+      <ZoomControls />
     </ReactFlow>
   );
 }
