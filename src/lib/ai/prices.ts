@@ -23,6 +23,12 @@ export type ModelPrice = {
  *   cached input on 2027-01-01 (Google's pricing page).
  * - Gemini 3.1 Flash-Lite cached input is $0.025 at Google and $0.03 through
  *   AI Gateway; this table uses the higher one.
+ * - DeepSeek V4.1 Flash 1017 is priced at its off-peak rate, checked on
+ *   2026-10-17 against the AI Gateway model list and DeepSeek's pricing page
+ *   (https://api-docs.deepseek.com/quick_start/pricing). Both charge twice
+ *   that from 01:00 to 04:00 and 06:00 to 10:00 UTC on weekdays, excluding
+ *   Chinese public holidays; this table has no time of day, so calls in those
+ *   hours are recorded at half their cost.
  */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
   "google/gemini-3.1-flash-lite": {
@@ -41,4 +47,9 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   "openai/gpt-5-nano": { input: 0.05, output: 0.4, cachedInput: 0.005 },
   "cohere/embed-v5.0-fast": { input: 0.08, output: 0, cachedInput: 0 },
   "xiaomi/mimo-v2.6-flash": { input: 0.14, output: 0.28, cachedInput: 0.0028 },
+  "deepseek/deepseek-v4.1-flash-1017": {
+    input: 0.15,
+    output: 0.6,
+    cachedInput: 0.003,
+  },
 };
