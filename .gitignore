@@ -51,6 +51,10 @@ next-env.d.ts
 /src/app/.well-known/workflow/
 /.swc
 
+# /sweep outputs and Stryker sandboxes
+/.sweep/
+/.stryker-tmp/
+
 # editor swap files
 *.swp
 *.swo

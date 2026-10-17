@@ -40,6 +40,8 @@ const ALLOWED_FILES = [
   "tools/agent/*.ts",
   // Transcript digest for /retro.
   "tools/retro/*.ts",
+  // Deterministic checks for /sweep.
+  "tools/sweep/*.ts",
 ];
 
 /** Unit tests sit next to the file they test, under the same name. */

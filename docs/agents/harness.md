@@ -21,4 +21,5 @@ How this repo equips coding agents: what to change when a run goes wrong, and wh
 | `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`)                     |
 | `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop          |
 | `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm -s retro`)    |
+| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)    |
 | ESLint rules, tests      | Rules a machine can check                                           |
