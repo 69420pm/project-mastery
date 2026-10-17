@@ -5,7 +5,9 @@ const env = process.env;
 
 const config = {
   testRunner: "command",
-  commandRunner: { command: `pnpm exec vitest run ${env.SWEEP_TESTS ?? ""}` },
+  commandRunner: {
+    command: `nice -n 10 pnpm exec vitest run --maxWorkers=1 ${env.SWEEP_TESTS ?? ""}`,
+  },
   mutate: [
     ...(
       env.SWEEP_MUTATE ??
