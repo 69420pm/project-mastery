@@ -1,54 +1,48 @@
 "use client";
 
-import { RotateCwIcon, WaypointsIcon } from "lucide-react";
+import { RotateCwIcon, WaypointsIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { Markdown } from "@/components/markdown";
-import { Badge } from "@/components/ui/badge";
+import {
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import type {
-  BloomLevel,
-  KcType,
-  SolutionStatus,
-} from "@/features/knowledge-map/schemas";
+import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
+import { legendEntries } from "@/features/knowledge-map/domain/encodings";
+import {
+  STATE_NAMES,
+  TYPE_NAMES,
+} from "@/features/knowledge-map/domain/kc-labels";
+import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
-  BigIdeaView,
-  ExerciseView,
-  KcView,
   KnowledgeMapView,
   MapBuild,
-  MapKcStates,
+  MapKcLearning,
   MapPlan,
   MapPriorities,
-  SemanticLinkView,
 } from "@/features/knowledge-map/types";
-import {
-  PriorityBadge,
-  PriorityReasons,
-  PriorityStatus,
-  StateBadge,
-} from "./kc-priority";
-import { CheckReport } from "./check-report";
-import { LeftOutBadge, PlanLine } from "./study-plan";
-
-const TYPE_NAMES: Record<KcType, string> = {
-  fact: "Fact",
-  concept: "Concept",
-  procedure: "Procedure",
-  decision: "Decision",
-  prior: "Prior knowledge",
-};
-
-const BLOOM_NAMES: Record<BloomLevel, string> = {
-  remember: "Remember",
-  understand: "Understand",
-  apply: "Apply",
-  analyze: "Analyze",
-  evaluate: "Evaluate",
-  create: "Create",
-};
+import { useIsMobile } from "@/hooks/use-mobile";
+import { BigIdeaPanel } from "./big-idea-panel";
+import { EncodingControls, Legend } from "./encoding-controls";
+import { ExercisePanel } from "./exercise-panel";
+import { FocusDepthMenu } from "./focus-depth";
+import { KcPanel } from "./kc-panel";
+import { LayerToggles } from "./layer-toggles";
+import { PriorityStatus } from "./kc-priority";
+import { MapGraph } from "./map-graph";
+import { PlanLine } from "./study-plan";
 
 const dateFormat = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -60,37 +54,52 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
- * Update map and its check report, then each big idea with its KCs and their
- * prerequisites, the prior knowledge, the semantic links and the Exercises.
- * The study plan links to the Course's Brief (`briefHref`). Each KC shows
- * its state badge from `kcStates`, the header the reviews due, and each KC
- * its Priority badge and reasons from `priorities`. The header also shows
- * the study plan from `plan`, and each KC it leaves out a "won't fit"
- * badge. The page refreshes itself while a build or a priority run runs.
+ * Update map, the reviews due, the study plan from `plan` (linking to the
+ * Course's Brief, `briefHref`), then the map as a graph filling the rest of
+ * the page. Clicking a KC opens every stat about it beside the graph, or in a
+ * Sheet below `md`: its learning from `learning` and its Priority from
+ * `priorities`. The selected node is focused on the graph, as far as the
+ * focus depth reaches; Esc or a click on the empty canvas clears it. The page
+ * refreshes itself while a
+ * build or a priority run runs, and a selection stays while its node exists.
  */
 export function KnowledgeMap({
   map,
   briefHref,
   priorities,
-  kcStates,
+  learning,
   plan,
 }: {
   map: KnowledgeMapView;
   briefHref: string;
   priorities: MapPriorities;
-  kcStates: MapKcStates;
+  learning: MapKcLearning;
   plan: MapPlan;
 }) {
-  const leftOut = new Set(plan.leftOut);
-  const dueCount = [
-    ...map.bigIdeas.flatMap((b) => b.kcs),
-    ...map.priorKnowledge,
-  ].filter((kc) => kcStates[kc.id]?.state === "due").length;
+  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+  const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building || priorities.running);
+  const isWide = !useIsMobile();
+  const [settings, saveSettings] = useSavedSettings();
+  const { layers, colorBy, sizeByPriority } = settings;
+  const [depth, setDepth] = useState<FocusDepth>("neighbours");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const clear = () => setSelectedId(null);
+  useEscapeToClear(selectedId !== null, clear);
+  const selected = selectedPanel({
+    id: selectedId,
+    map,
+    learning,
+    priorities,
+    plan,
+    onSelect: setSelectedId,
+  });
+  const panel = selected?.panel ?? null;
+  const panelLabel = selected?.label ?? "KC details";
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-4 pb-10 sm:px-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-4 px-4 pt-2 pb-4 sm:px-6">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -114,36 +123,160 @@ export function KnowledgeMap({
         )}
       </div>
 
-      {map.checkReport && <CheckReport report={map.checkReport} />}
-
       {map.bigIdeas.length === 0 ? (
-        <EmptyMap building={building} />
+        <div className="max-w-3xl">
+          <EmptyMap building={building} />
+        </div>
       ) : (
-        <ol aria-label="Big ideas" className="flex flex-col gap-6">
-          {map.bigIdeas.map((bigIdea) => (
-            <BigIdea
-              key={bigIdea.id}
-              bigIdea={bigIdea}
-              priorities={priorities}
-              kcStates={kcStates}
-              leftOut={leftOut}
-            />
-          ))}
-        </ol>
+        <div className="flex min-h-96 flex-1 gap-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <Legend
+                entries={legendEntries(
+                  colorBy,
+                  map.bigIdeas,
+                  TYPE_NAMES,
+                  STATE_NAMES,
+                )}
+              />
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <FocusDepthMenu depth={depth} onChange={setDepth} />
+                <EncodingControls
+                  colorBy={colorBy}
+                  sizeByPriority={sizeByPriority}
+                  onColorBy={(next) =>
+                    saveSettings({ ...settings, colorBy: next })
+                  }
+                  onSizeByPriority={(on) =>
+                    saveSettings({ ...settings, sizeByPriority: on })
+                  }
+                />
+                <LayerToggles
+                  layers={layers}
+                  onChange={(next) =>
+                    saveSettings({ ...settings, layers: next })
+                  }
+                />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1">
+              <MapGraph
+                map={map}
+                learning={learning}
+                priorities={priorities}
+                layers={layers}
+                colorBy={colorBy}
+                sizeByPriority={sizeByPriority}
+                selectedId={selected ? selectedId : null}
+                depth={depth}
+                onSelect={setSelectedId}
+                onClear={clear}
+              />
+            </div>
+          </div>
+          {isWide && panel && (
+            <aside
+              aria-label={panelLabel}
+              className="w-96 shrink-0 overflow-y-auto rounded-xl border"
+            >
+              <div className="flex justify-end px-2 pt-2">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Close"
+                  onClick={() => setSelectedId(null)}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+              {panel}
+            </aside>
+          )}
+        </div>
       )}
-      {map.priorKnowledge.length > 0 && (
-        <PriorKnowledge
-          kcs={map.priorKnowledge}
-          priorities={priorities}
-          kcStates={kcStates}
-        />
-      )}
-      {map.semanticLinks.length > 0 && (
-        <SemanticLinks links={map.semanticLinks} />
-      )}
-      {map.build?.finishedAt != null && <Exercises exercises={map.exercises} />}
+      <Sheet
+        open={!isWide && panel !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedId(null);
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          aria-label={panelLabel}
+          className="max-h-[80vh] overflow-y-auto"
+        >
+          <SheetHeader className="pb-0">
+            <SheetTitle>{panelLabel}</SheetTitle>
+            <SheetDescription className="sr-only">
+              Everything about the selected node.
+            </SheetDescription>
+          </SheetHeader>
+          {panel}
+        </SheetContent>
+      </Sheet>
     </div>
   );
+}
+
+/**
+ * The selected KC's, Exercise's or Big idea's panel with its label; null
+ * when nothing, or a node the map no longer has, is selected.
+ */
+function selectedPanel({
+  id,
+  map,
+  learning,
+  priorities,
+  plan,
+  onSelect,
+}: {
+  id: string | null;
+  map: KnowledgeMapView;
+  learning: MapKcLearning;
+  priorities: MapPriorities;
+  plan: MapPlan;
+  onSelect: (id: string) => void;
+}): { label: string; panel: ReactNode } | null {
+  if (id === null) return null;
+  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+  const kc = kcs.find((k) => k.id === id);
+  if (kc) {
+    return {
+      label: "KC details",
+      panel: (
+        <KcPanel
+          kc={kc}
+          map={map}
+          learning={learning}
+          priorities={priorities}
+          leftOut={plan.leftOut.includes(kc.id)}
+          onSelect={onSelect}
+        />
+      ),
+    };
+  }
+  const exercise = map.exercises.find((e) => e.id === id);
+  if (exercise) {
+    return {
+      label: "Exercise details",
+      panel: (
+        <ExercisePanel
+          exercise={exercise}
+          kcs={new Map(kcs.map((k) => [k.id, k]))}
+          learning={learning}
+          onSelect={onSelect}
+        />
+      ),
+    };
+  }
+  const bigIdea = map.bigIdeas.find((b) => b.id === id);
+  if (bigIdea) {
+    return {
+      label: "Big idea details",
+      panel: <BigIdeaPanel bigIdea={bigIdea} learning={learning} />,
+    };
+  }
+  return null;
 }
 
 function EmptyMap({ building }: { building: boolean }) {
@@ -242,6 +375,32 @@ function BuildButton({
   );
 }
 
+/**
+ * Calls `clear` on Esc while `active`, unless a menu is open: Esc closes
+ * that first.
+ */
+function useEscapeToClear(active: boolean, clear: () => void) {
+  const latest = useRef(clear);
+  useEffect(() => {
+    latest.current = clear;
+  });
+  useEffect(() => {
+    if (!active) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest("[role=menu]")
+      ) {
+        return;
+      }
+      latest.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [active]);
+}
+
 /** Refreshes the page's data while a build or a priority run runs. */
 function useBuildPolling(building: boolean) {
   const router = useRouter();
@@ -250,198 +409,4 @@ function useBuildPolling(building: boolean) {
     const timer = setInterval(() => router.refresh(), BUILD_POLL_MS);
     return () => clearInterval(timer);
   }, [building, router]);
-}
-
-function BigIdea({
-  bigIdea,
-  priorities,
-  kcStates,
-  leftOut,
-}: {
-  bigIdea: BigIdeaView;
-  priorities: MapPriorities;
-  kcStates: MapKcStates;
-  leftOut: ReadonlySet<string>;
-}) {
-  return (
-    <li className="flex flex-col gap-3">
-      <section aria-label={bigIdea.name} className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          {/* Not an h2: the markdown renders a paragraph, which h2 may not hold. */}
-          <div role="heading" aria-level={2} className="text-lg font-semibold">
-            <Markdown>{bigIdea.name}</Markdown>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <Markdown>{bigIdea.description}</Markdown>
-          </div>
-        </div>
-        <ul aria-label="Knowledge components" className="flex flex-col gap-2">
-          {bigIdea.kcs.map((kc) => (
-            <Kc
-              key={kc.id}
-              kc={kc}
-              priority={priorities.kcs[kc.id]}
-              state={kcStates[kc.id]}
-              leftOut={leftOut.has(kc.id)}
-            />
-          ))}
-        </ul>
-      </section>
-    </li>
-  );
-}
-
-function Kc({
-  kc,
-  priority,
-  state,
-  leftOut = false,
-}: {
-  kc: KcView;
-  priority?: MapPriorities["kcs"][string];
-  state?: MapKcStates[string];
-  leftOut?: boolean;
-}) {
-  return (
-    <li>
-      <article
-        aria-label={kc.name}
-        className="flex flex-col gap-1.5 rounded-xl border px-4 py-3"
-      >
-        <div className="font-medium">
-          <Markdown>{kc.name}</Markdown>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <StateBadge state={state} />
-          <LeftOutBadge leftOut={leftOut} />
-          <PriorityBadge priority={priority} />
-          <Badge variant="secondary">{TYPE_NAMES[kc.type]}</Badge>
-          {kc.bloom && <Badge variant="outline">{BLOOM_NAMES[kc.bloom]}</Badge>}
-          {kc.fromExercise && <Badge variant="outline">from an exercise</Badge>}
-        </div>
-        <div className="text-sm text-muted-foreground">
-          <Markdown>{kc.description}</Markdown>
-        </div>
-        <PriorityReasons priority={priority} />
-        {kc.prerequisites.length > 0 && (
-          <div className="text-xs text-muted-foreground">
-            <Markdown>{`Needs: ${kc.prerequisites.join(", ")}`}</Markdown>
-          </div>
-        )}
-        {kc.sources.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Sources: {kc.sources.join(", ")}
-          </p>
-        )}
-      </article>
-    </li>
-  );
-}
-
-function PriorKnowledge({
-  kcs,
-  priorities,
-  kcStates,
-}: {
-  kcs: KcView[];
-  priorities: MapPriorities;
-  kcStates: MapKcStates;
-}) {
-  return (
-    <section aria-label="Prior knowledge" className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold">Prior knowledge</h2>
-        <p className="text-sm text-muted-foreground">
-          What the materials assume you know already.
-        </p>
-      </div>
-      <ul className="flex flex-col gap-2">
-        {kcs.map((kc) => (
-          <Kc
-            key={kc.id}
-            kc={kc}
-            priority={priorities.kcs[kc.id]}
-            state={kcStates[kc.id]}
-          />
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function SemanticLinks({ links }: { links: SemanticLinkView[] }) {
-  return (
-    <section aria-label="Semantic links" className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Semantic links</h2>
-      <ul className="flex flex-col gap-1 text-sm">
-        {links.map((link, index) => (
-          <li key={index}>
-            <Markdown>{`${link.from} → *${link.label}* → ${link.to}`}</Markdown>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-const STATUS_NAMES: Record<SolutionStatus, string> = {
-  given: "Solution given",
-  generated: "Solution generated",
-  verified: "Solution verified",
-  disputed: "Solution disputed",
-};
-
-const DIFFICULTY_NAMES = { 1: "Easy", 2: "Medium", 3: "Hard" } as const;
-
-/** Every Exercise in reading order, with what it tests. */
-function Exercises({ exercises }: { exercises: ExerciseView[] }) {
-  return (
-    <section aria-label="Exercises" className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Exercises</h2>
-      {exercises.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          The materials have no exercises.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {exercises.map((exercise) => (
-            <li key={exercise.id}>
-              <article
-                aria-label={exercise.name}
-                className="flex flex-col gap-1.5 rounded-xl border px-4 py-3"
-              >
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">{exercise.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {exercise.taskType}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge
-                    variant={
-                      exercise.solutionStatus === "disputed"
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {STATUS_NAMES[exercise.solutionStatus]}
-                  </Badge>
-                  <Badge variant="outline">
-                    {DIFFICULTY_NAMES[exercise.difficulty]}
-                  </Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  <Markdown>
-                    {exercise.kcs.length > 0
-                      ? `Tests: ${exercise.kcs.join(", ")}`
-                      : "Tests no KC of the map."}
-                  </Markdown>
-                </div>
-              </article>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
 }

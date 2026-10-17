@@ -97,7 +97,12 @@ export async function getPriorities(courseId: string): Promise<MapPriorities> {
     kcs: Object.fromEntries(
       rows.data.map((row) => [
         row.kc_id,
-        { level: levels.get(row.kc_id) ?? "low", reasons: row.reasons },
+        {
+          level: levels.get(row.kc_id) ?? "low",
+          value: Number(row.priority),
+          multiplier: Number(row.multiplier),
+          reasons: row.reasons,
+        },
       ]),
     ),
   };

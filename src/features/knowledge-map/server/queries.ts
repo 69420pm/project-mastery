@@ -1,7 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import { getMaterialList } from "@/features/courses/server";
-import { getChunkPlaces } from "@/features/ingestion/server";
+import { getMaterialList, materialChunksPath } from "@/features/courses/server";
+import {
+  chunkAnchor,
+  loadChunkSources,
+  loadExerciseSolutions,
+} from "@/features/ingestion/server";
 import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
 import {
   BLOOM_LEVELS,
@@ -11,6 +15,7 @@ import {
   SOLUTION_STATUSES,
 } from "@/features/knowledge-map/schemas";
 import type {
+  KcSourceView,
   KcView,
   KnowledgeMapView,
   MapBuild,
@@ -37,6 +42,7 @@ export async function getKnowledgeMap(
     build: null,
     bigIdeas: [],
     priorKnowledge: [],
+    prerequisites: [],
     semanticLinks: [],
     exercises: [],
     checkReport: null,
@@ -57,6 +63,7 @@ export async function getKnowledgeMap(
     materials,
     exercises,
     exerciseKcs,
+    pairedSolutions,
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
@@ -79,7 +86,7 @@ export async function getKnowledgeMap(
       .eq("course_id", courseId),
     supabase
       .from("prerequisite_links")
-      .select("from_kc, to_kc")
+      .select("from_kc, to_kc, extraction_confidence")
       .eq("course_id", courseId),
     supabase
       .from("semantic_links")
@@ -88,13 +95,16 @@ export async function getKnowledgeMap(
     getMaterialList(courseId),
     supabase
       .from("exercises")
-      .select("id, name, task_type, solution_status, difficulty")
+      .select(
+        "id, name, task_type, solution_status, solution, difficulty, question_chunk_id",
+      )
       .eq("course_id", courseId)
       .order("position"),
     supabase
       .from("exercise_kcs")
       .select("exercise_id, kc_id")
       .eq("course_id", courseId),
+    loadExerciseSolutions(supabase, courseId),
   ]);
   if (build.error) failed("Loading the build", build.error);
   if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
@@ -110,51 +120,54 @@ export async function getKnowledgeMap(
   const report = checkReportSchema
     .nullable()
     .parse(build.data?.check_report ?? null);
-  const places = await getChunkPlaces([
-    ...new Set([
-      ...sources.data.map((source) => source.chunk_id),
-      ...(report?.uncoveredChunkIds ?? []),
-    ]),
+  // In reading order: Materials in upload order, chunks by position.
+  const chunks = await loadChunkSources(supabase, [
+    ...sources.data.map((source) => source.chunk_id),
+    ...(report?.uncoveredChunkIds ?? []),
+    ...exercises.data.flatMap((exercise) => {
+      const solution = pairedSolutions[exercise.question_chunk_id];
+      return solution
+        ? [exercise.question_chunk_id, solution]
+        : [exercise.question_chunk_id];
+    }),
   ]);
-  // The list is newest first; places go in reading order, oldest first.
-  const materialOrder = new Map(
-    materials.map((material, index) => [material.id, -index]),
-  );
-  const materialName = new Map(materials.map((m) => [m.id, m.name]));
+  const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   /** The pages of these chunks in reading order, each page once. */
   const pagesOf = (chunkIds: string[]) => [
     ...new Set(
-      places
-        .filter((place) => chunkIds.includes(place.id))
-        .toSorted(
-          (a, b) =>
-            (materialOrder.get(a.materialId) ?? 0) -
-              (materialOrder.get(b.materialId) ?? 0) || a.position - b.position,
-        )
-        .map(
-          (place) =>
-            `${materialName.get(place.materialId) ?? "Material"} p. ${place.pageFrom}`,
-        ),
+      chunks
+        .filter((chunk) => chunkIds.includes(chunk.id))
+        .map((chunk) => `${chunk.materialName} p. ${chunk.pageFrom}`),
     ),
   ];
+  const sourcesOf = (kcId: string): KcSourceView[] => {
+    const ids = new Set(
+      sources.data
+        .filter((source) => source.kc_id === kcId)
+        .map((source) => source.chunk_id),
+    );
+    return chunks
+      .filter((chunk) => ids.has(chunk.id))
+      .map((chunk) => ({
+        chunkId: chunk.id,
+        material: chunk.materialName,
+        pages:
+          chunk.pageFrom === chunk.pageTo
+            ? `p. ${chunk.pageFrom}`
+            : `pp. ${chunk.pageFrom}–${chunk.pageTo}`,
+        link: `${materialChunksPath(courseId, chunk.materialId)}#${chunkAnchor(chunk.id)}`,
+        markdown: chunk.markdown,
+      }));
+  };
 
-  const kcName = new Map(kcs.data.map((kc) => [kc.id, kc.name]));
   const kcView = (kc: (typeof kcs.data)[number]): KcView => ({
     id: kc.id,
     name: kc.name,
     description: kc.description,
     type: z.enum(KC_TYPES).parse(kc.type),
     bloom: z.enum(BLOOM_LEVELS).nullable().parse(kc.bloom),
-    fromExercise: kc.origin === "exercise",
-    sources: pagesOf(
-      sources.data
-        .filter((source) => source.kc_id === kc.id)
-        .map((source) => source.chunk_id),
-    ),
-    prerequisites: prerequisites.data
-      .filter((link) => link.to_kc === kc.id)
-      .map((link) => kcName.get(link.from_kc) ?? "")
-      .toSorted(),
+    origin: z.enum(["content", "exercise", "prior"]).parse(kc.origin),
+    sources: sourcesOf(kc.id),
   });
 
   const mapBuild: MapBuild = build.data && {
@@ -176,9 +189,14 @@ export async function getKnowledgeMap(
     priorKnowledge: kcs.data
       .filter((kc) => kc.big_idea_id === null)
       .map(kcView),
+    prerequisites: prerequisites.data.map((link) => ({
+      from: link.from_kc,
+      to: link.to_kc,
+      confidence: Number(link.extraction_confidence),
+    })),
     semanticLinks: semantic.data.map((link) => ({
-      from: kcName.get(link.from_kc) ?? "",
-      to: kcName.get(link.to_kc) ?? "",
+      from: link.from_kc,
+      to: link.to_kc,
       coreType: z.enum(SEMANTIC_LINK_TYPES).parse(link.core_type),
       label: link.label,
     })),
@@ -192,13 +210,20 @@ export async function getKnowledgeMap(
         id: exercise.id,
         name: exercise.name,
         taskType: exercise.task_type,
-        kcs: kcs.data.filter((kc) => tested.has(kc.id)).map((kc) => kc.name),
+        kcs: kcs.data.filter((kc) => tested.has(kc.id)).map((kc) => kc.id),
         solutionStatus: z
           .enum(SOLUTION_STATUSES)
           .parse(exercise.solution_status),
         difficulty: z
           .union([z.literal(1), z.literal(2), z.literal(3)])
           .parse(exercise.difficulty),
+        question: chunkById.get(exercise.question_chunk_id)?.markdown ?? null,
+        // A generated solution is stored; a printed one is its paired chunk.
+        solution:
+          exercise.solution ??
+          chunkById.get(pairedSolutions[exercise.question_chunk_id] ?? "")
+            ?.markdown ??
+          null,
       };
     }),
     checkReport: report && {
