@@ -12,10 +12,14 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({ auth }),
 }));
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ origin: "http://localhost:3000" }),
+const request = vi.hoisted(() => ({
+  headers: {} as Record<string, string>,
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers(request.headers),
+}));
+const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => cache);
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`redirect:${url}`);
@@ -31,6 +35,8 @@ function form(fields: Record<string, string>) {
 }
 
 beforeEach(() => {
+  request.headers = { origin: "http://localhost:3000" };
+  cache.revalidatePath.mockClear();
   for (const fn of Object.values(auth)) {
     fn.mockReset();
     fn.mockResolvedValue({ data: {}, error: null });
@@ -54,6 +60,7 @@ describe("signIn with a password", () => {
       email: "alice@example.com",
       password: "secret",
     });
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
   test("never redirects off-site", async () => {
@@ -86,22 +93,73 @@ describe("signIn with a password", () => {
     expect(auth.signInWithPassword).not.toHaveBeenCalled();
   });
 
-  test("returns the message for a Supabase error", async () => {
-    auth.signInWithPassword.mockResolvedValue({
-      data: {},
-      error: { code: "invalid_credentials" },
-    });
+  test.each([
+    ["invalid_credentials", "Email or password is incorrect."],
+    [
+      "email_not_confirmed",
+      "Confirm your email address first. The link is in your inbox.",
+    ],
+    ["weak_password", "Choose a password with at least 8 characters."],
+    [
+      "over_request_rate_limit",
+      "Too many attempts. Wait a moment and try again.",
+    ],
+    [
+      "over_email_send_rate_limit",
+      "Too many attempts. Wait a moment and try again.",
+    ],
+    ["some_new_code", "Something went wrong. Please try again."],
+    [undefined, "Something went wrong. Please try again."],
+  ])("returns the message for the error code %s", async (code, message) => {
+    auth.signInWithPassword.mockResolvedValue({ data: {}, error: { code } });
 
     const state = await signIn(
       null,
       form({ email: "alice@example.com", password: "wrong" }),
     );
 
-    expect(state).toEqual({
-      ok: false,
-      message: "Email or password is incorrect.",
-      email: "alice@example.com",
-    });
+    expect(state).toEqual({ ok: false, message, email: "alice@example.com" });
+    expect(cache.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("the origin of email links", () => {
+  async function emailRedirectTo() {
+    await signUp(
+      null,
+      form({ email: "alice@example.com", password: "long enough" }),
+    );
+    return auth.signUp.mock.calls[0]![0].options.emailRedirectTo;
+  }
+
+  test("uses the forwarded host and protocol behind a proxy", async () => {
+    request.headers = {
+      "x-forwarded-host": "mastery.example",
+      "x-forwarded-proto": "https",
+      host: "internal:3000",
+    };
+    expect(await emailRedirectTo()).toBe(
+      "https://mastery.example/auth/confirm?next=%2Fcourses",
+    );
+  });
+
+  test("falls back to the host over http", async () => {
+    request.headers = { host: "localhost:3000" };
+    expect(await emailRedirectTo()).toBe(
+      "http://localhost:3000/auth/confirm?next=%2Fcourses",
+    );
+  });
+
+  test("prefers the origin header", async () => {
+    request.headers = {
+      origin: "https://app.example",
+      "x-forwarded-host": "mastery.example",
+      "x-forwarded-proto": "https",
+      host: "internal:3000",
+    };
+    expect(await emailRedirectTo()).toBe(
+      "https://app.example/auth/confirm?next=%2Fcourses",
+    );
   });
 });
 
@@ -201,6 +259,24 @@ describe("signUp", () => {
     });
     expect(auth.signUp).not.toHaveBeenCalled();
   });
+
+  test("returns the message for a Supabase error", async () => {
+    auth.signUp.mockResolvedValue({
+      data: {},
+      error: { code: "weak_password" },
+    });
+
+    const state = await signUp(
+      null,
+      form({ email: "alice@example.com", password: "long enough" }),
+    );
+
+    expect(state).toEqual({
+      ok: false,
+      message: "Choose a password with at least 8 characters.",
+      email: "alice@example.com",
+    });
+  });
 });
 
 describe("signOut", () => {
@@ -209,5 +285,6 @@ describe("signOut", () => {
       "redirect:/login?message=signed-out",
     );
     expect(auth.signOut).toHaveBeenCalled();
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 });
