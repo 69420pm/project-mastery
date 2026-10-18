@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import type { KnowledgeMap } from "@/features/knowledge-map/schemas";
 import {
   clustersOf,
+  cosine,
   DEDUP_THRESHOLD,
   mergeablePairs,
   remainingDuplicates,
@@ -42,6 +43,49 @@ describe("similarPairs and clustersOf", () => {
     expect(clustersOf(pairs, ["far", "new2", "new1", "old"])).toEqual([
       ["new2", "new1", "old"],
     ]);
+  });
+
+  test("join a chain of three KCs into one cluster, though its ends are apart", () => {
+    const kcs = ["a", "b", "c"].map((id) => ({ id }));
+    // a–b and b–c are close, a–c below the threshold.
+    const tilt = Math.acos(DEDUP_THRESHOLD);
+    const vectors = [0, tilt, 2 * tilt].map((angle) => [
+      Math.cos(angle),
+      Math.sin(angle),
+    ]);
+    const pairs = similarPairs(kcs, vectors, new Set(["a", "b", "c"]));
+    expect(pairs.map(({ a, b }) => `${a}-${b}`)).toEqual(["a-b", "b-c"]);
+    expect(clustersOf(pairs, ["c", "a", "b"])).toEqual([["c", "a", "b"]]);
+  });
+
+  test("join overlapping pairs once and keep separate clusters apart", () => {
+    const pair = (a: string, b: string) => ({ a, b, similarity: 0.9 });
+    expect(
+      clustersOf(
+        [pair("x", "y"), pair("p", "q"), pair("y", "z"), pair("x", "z")],
+        ["p", "x", "y", "z", "q", "lone"],
+      ),
+    ).toEqual([
+      ["p", "q"],
+      ["x", "y", "z"],
+    ]);
+  });
+
+  test("rate a zero vector 0 alike, not NaN, and never pair it", () => {
+    expect(cosine([0, 0], [1, 0])).toBe(0);
+    expect(cosine([1, 0], [0, 0])).toBe(0);
+    expect(cosine([3, 4], [6, 8])).toBeCloseTo(1);
+    const kcs = [{ id: "zero" }, { id: "new" }];
+    expect(
+      similarPairs(
+        kcs,
+        [
+          [0, 0],
+          [1, 0],
+        ],
+        new Set(["new"]),
+      ),
+    ).toEqual([]);
   });
 
   test("never pair two KCs that existed before the update", () => {
