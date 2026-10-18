@@ -37,6 +37,7 @@ const ARCHITECTURE_RULES = new Set([
   "no-restricted-imports",
   "no-restricted-syntax",
   "no-restricted-properties",
+  "import-x/no-cycle",
 ]);
 
 /** The architecture rules that report on `code` placed at `filePath`. */
@@ -334,6 +335,19 @@ const cases = {
       file: "src/features/auth/domain/example.ts",
       code: "export const key = process.env.SECRET;",
       expected: ["no-restricted-properties"],
+    },
+    {
+      // src/lib/app-env.ts imports @/lib/env, so env.ts cannot import it back.
+      name: "no import cycles",
+      file: "src/lib/env.ts",
+      code: 'import { getAppEnv } from "@/lib/app-env";\nexport const env = getAppEnv;',
+      expected: ["import-x/no-cycle"],
+    },
+    {
+      name: "an import in one direction is not a cycle",
+      file: "src/lib/example.ts",
+      code: 'import { getAppEnv } from "@/lib/app-env";\nexport const env = getAppEnv;',
+      expected: [],
     },
     {
       name: "env modules read process.env",
