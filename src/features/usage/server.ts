@@ -7,6 +7,7 @@ export {
   dailyLimitReachedMessage,
   getDailyLimitStatus,
 } from "./server/daily-limit";
+export { recordReplyUsage } from "./server/reply-usage";
 export {
   recordAiUsage,
   type AdminStudentScope,

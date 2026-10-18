@@ -23,7 +23,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Markdown } from "@/components/markdown";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { messageText } from "@/features/brief/domain/message-text";
+import { messageText } from "@/lib/ai/reply";
 import { withNewStaticMessages } from "@/features/brief/domain/static-messages";
 import {
   MAX_BRIEF_MESSAGE_LENGTH,

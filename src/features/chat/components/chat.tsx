@@ -46,7 +46,7 @@ import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
-import { messageText } from "@/features/chat/domain/message-text";
+import { messageText } from "@/lib/ai/reply";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";

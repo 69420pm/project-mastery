@@ -1,13 +1,9 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import {
-  APICallError,
-  RetryError,
   consumeStream,
   createUIMessageStreamResponse,
-  InvalidToolInputError,
   isStepCount,
-  NoSuchToolError,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -18,10 +14,10 @@ import { after } from "next/server";
 import {
   DEFAULT_MODEL_CHOICE,
   chatReplySettings,
+  modelChoiceRefusal,
   offeredModelChoice,
 } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
-import { messageText } from "@/features/chat/domain/message-text";
 import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
   chatMessageMetadataSchema,
@@ -60,10 +56,11 @@ import { startTutoring, TutorToolError } from "@/features/study/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
-  recordAiUsage,
+  recordReplyUsage,
 } from "@/features/usage/server";
-import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
-import { answeringModel, modelChoices } from "@/lib/ai/models";
+import { tokenUsage } from "@/lib/ai/cost";
+import { answeringModel } from "@/lib/ai/models";
+import { messageText, replyErrorMessage } from "@/lib/ai/reply";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
@@ -121,16 +118,8 @@ export async function respondInChat({
   }
   const { chatId, courseId, modelChoice, message } = parsed.data;
 
-  const offered = modelChoices("chat");
-  const isOffered = (key: string) =>
-    offered.some((choice) => choice.key === key);
-  if (modelChoice !== undefined && !isOffered(modelChoice)) {
-    const labels = offered.map(({ label }) => label);
-    return refuse(
-      400,
-      `This model is not available. Choose ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}.`,
-    );
-  }
+  const choiceRefusal = modelChoiceRefusal(modelChoice);
+  if (choiceRefusal) return refuse(400, choiceRefusal);
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -332,39 +321,24 @@ async function streamReply({
                   ),
                 }
               : undefined,
-      onError: replyErrorMessage,
+      onError: chatReplyErrorMessage,
       // Runs before the response ends, so the client sees the recorded usage
       // once the reply has finished.
       onEnd: async ({ responseMessage, isAborted, isCancelled, outcome }) => {
         const stopped = isAborted || isCancelled === true;
-        // A stopped or failed call reports no usage, so its cost is
-        // estimated from the text and files sent and the text received. Otherwise stopping
-        // would dodge the limit.
-        const usage = reportedUsage
-          ? { usage: tokenUsage(reportedUsage) }
-          : {
-              usage: estimatedUsage({
-                input: [
-                  settings.instructions,
-                  ...messages.map(({ parts }) => messageText(parts)),
-                ].join("\n"),
-                output: messageText(responseMessage.parts),
-                files: sentMaterials(messages, materials),
-              }),
-              estimated: true,
-            };
-        const record = { task: "chat" as const, modelId, ...usage, replyId };
-        try {
-          await recordAiUsage(supabase, { ...record, chatId: chat.id });
-        } catch {
-          // The Chat, or its Course, was deleted during the reply. The spend
-          // still counts towards the Daily limit, without the Chat.
-          try {
-            await recordAiUsage(supabase, record);
-          } catch (error) {
-            console.error("Recording the Chat reply's usage failed:", error);
-          }
-        }
+        await recordReplyUsage(supabase, {
+          task: "chat",
+          modelId,
+          reported: reportedUsage,
+          input: [
+            settings.instructions,
+            ...messages.map(({ parts }) => messageText(parts)),
+          ].join("\n"),
+          output: messageText(responseMessage.parts),
+          files: sentMaterials(messages, materials),
+          chatId: chat.id,
+          replyId,
+        });
 
         if (outcome.status === "failed") return;
         if (stopped && messageText(responseMessage.parts) === "") return;
@@ -400,23 +374,11 @@ async function streamReply({
   });
 }
 
-function statusCode(error: unknown): number | undefined {
-  if (RetryError.isInstance(error)) return statusCode(error.lastError);
-  if (APICallError.isInstance(error)) return error.statusCode;
-  return undefined;
-}
-
 /**
- * The error the Student sees when a reply fails mid-stream. A tool call the
- * model got wrong, or one a tool refused, keeps its own message: it is
- * stored as the tool's error and tells the model what to fix on the next
- * step and the next turn. The Chat shows only text parts.
+ * `replyErrorMessage`, where a call a tool refused also keeps its own
+ * message, as one the model got wrong does. The Chat shows only text parts.
  */
-function replyErrorMessage(error: unknown): string {
-  if (InvalidToolInputError.isInstance(error)) return error.message;
-  if (NoSuchToolError.isInstance(error)) return error.message;
+function chatReplyErrorMessage(error: unknown): string {
   if (error instanceof TutorToolError) return error.message;
-  return statusCode(error) === 429
-    ? "The AI is busy right now. Please try again in a moment."
-    : "The AI could not reply. Please try again.";
+  return replyErrorMessage(error);
 }

@@ -47,6 +47,19 @@ export function offeredModelChoice(
   );
 }
 
+/**
+ * Why a request's model choice is refused: null when `key` is offered or no
+ * choice was sent, otherwise the message naming the offered choices.
+ */
+export function modelChoiceRefusal(key: string | undefined): string | null {
+  const offered = modelChoices("chat");
+  if (key === undefined || offered.some((choice) => choice.key === key)) {
+    return null;
+  }
+  const labels = offered.map(({ label }) => label);
+  return `This model is not available. Choose ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}.`;
+}
+
 /** The model choices the picker offers, in display order. */
 export function chatModelOptions(): ModelOption[] {
   return modelChoices("chat").map(({ key, label, model }) => ({

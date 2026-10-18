@@ -1,4 +1,4 @@
-import { messageText } from "@/features/chat/domain/message-text";
+import { messageText } from "@/lib/ai/reply";
 import type { ChatUIMessage } from "@/features/chat/types";
 
 /** The longest label shown for an untitled Chat, before the ellipsis. */
