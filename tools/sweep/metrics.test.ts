@@ -35,6 +35,18 @@ write(
   "src/features/b/index.ts",
   'import { helper } from "@/features/a";\nimport { cn } from "@/lib/cn";\n\nexport const b = helper() + cn();\n',
 );
+write(
+  "src/features/c/index.ts",
+  [
+    'const name = "x";',
+    "const t = `a ${name} b`;",
+    "// A comment after an interpolated template.",
+    "const u = `${{ k: 1 }.k}`;",
+    "",
+    "// Another comment.",
+    "export const v = t + u;",
+  ].join("\n"),
+);
 write("src/lib/cn.ts", "export const cn = () => 1;\nexport const other = 2;\n");
 write("src/components/ui/button.tsx", "export const Button = 1;\n");
 
@@ -54,6 +66,10 @@ it("counts lines of code, without comments or blank lines", () => {
   expect(byName.a!.loc).toBe(5);
   expect(byName.b!.loc).toBe(3);
   expect(byName.components!.loc).toBe(0);
+});
+
+it("counts lines after an interpolated template", () => {
+  expect(metrics().c!.loc).toBe(4);
 });
 
 it("counts public exports", () => {

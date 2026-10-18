@@ -102,8 +102,10 @@ export async function startDevServer() {
 /** Stops the dev server that `agent up` started. */
 export async function stopDevServer() {
   const { pid } = readState();
-  if (pid === undefined || !isRunning(pid)) {
-    const port = await findDevServer();
+  const port = await findDevServer();
+  // A pid kept from before a reboot or crash can now belong to an unrelated
+  // process: signal it only while this checkout's server answers.
+  if (pid === undefined || !isRunning(pid) || port === null) {
     writeState({ pid: undefined });
     return port === null
       ? "app       not running"

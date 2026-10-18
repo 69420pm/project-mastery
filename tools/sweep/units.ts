@@ -16,7 +16,7 @@ export type Unit = {
 /** Generated code, tests and test helpers, left out of every check. */
 export function isExcluded(file: string): boolean {
   return (
-    /(\.test|-testing)\.tsx?$/.test(file) ||
+    /(\.test|\.spec|-testing)\.(tsx?|mjs)$/.test(file) ||
     file.startsWith("src/components/ui/") ||
     file.startsWith("src/components/ai-elements/") ||
     file.endsWith("database.types.ts") ||
@@ -24,7 +24,10 @@ export function isExcluded(file: string): boolean {
   );
 }
 
-/** Each feature, then lib, components, app with hooks, supabase, tools with evals. */
+/**
+ * Each feature, then lib, components, hooks, app, supabase, and tools with
+ * evals, e2e and the ESLint rules.
+ */
 export function listUnits(root: string): Unit[] {
   const features = readdirSync(path.join(root, "src/features"), {
     withFileTypes: true,
@@ -42,13 +45,18 @@ export function listUnits(root: string): Unit[] {
     })),
     { name: "lib", paths: ["src/lib"], mutate: ["src/lib"] },
     { name: "components", paths: ["src/components"], mutate: [] },
+    { name: "hooks", paths: ["src/hooks"], mutate: [] },
     {
       name: "app",
-      paths: ["src/app", "src/hooks", "src/proxy.ts", "src/instrumentation.ts"],
+      paths: ["src/app", "src/proxy.ts", "src/instrumentation.ts"],
       mutate: [],
     },
     { name: "supabase", paths: ["supabase"], mutate: [] },
-    { name: "tools", paths: ["tools", "evals"], mutate: [] },
+    {
+      name: "tools",
+      paths: ["tools", "evals", "e2e", "eslint"],
+      mutate: [],
+    },
   ];
 }
 
@@ -59,7 +67,7 @@ export function unitOf(units: Unit[], file: string): Unit | undefined {
   );
 }
 
-const CODE = /\.(ts|tsx|mts|sql)$/;
+const CODE = /\.(ts|tsx|mts|mjs|sql)$/;
 
 /** Repo-relative code files under a folder, or the file itself. */
 export function listFiles(root: string, rel: string): string[] {
