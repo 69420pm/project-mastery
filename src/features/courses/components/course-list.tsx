@@ -3,6 +3,8 @@
 import { BookOpenIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
 import { RowActionsMenu } from "@/components/row-actions-menu";
 import { Button } from "@/components/ui/button";
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
@@ -27,26 +29,24 @@ export function CourseList({ courses }: { courses: CourseWithCounts[] }) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-4 pb-10">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
-        {courses.length > 0 && newCourseButton}
-      </div>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6">
+      <PageHeader
+        title="Courses"
+        description="Each course keeps the materials and chats for one exam."
+        actions={courses.length > 0 && newCourseButton}
+      />
 
       {courses.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-12 text-center">
-          <BookOpenIcon className="size-8 text-muted-foreground" />
-          <h2 className="text-lg font-medium">Create your first course</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            A course keeps everything for one exam together. Name it after the
-            lecture you are preparing for.
-          </p>
-          {newCourseButton}
-        </div>
+        <EmptyState
+          icon={<BookOpenIcon />}
+          title="Create your first course"
+          description="A course keeps everything for one exam together. Name it after the lecture you are preparing for."
+          action={newCourseButton}
+        />
       ) : (
         <ul
           aria-label="Courses"
-          className="flex flex-col divide-y rounded-xl border"
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
           {courses.map((course) => (
             <CourseListEntry key={course.id} course={course} />
@@ -65,26 +65,44 @@ export function CourseList({ courses }: { courses: CourseWithCounts[] }) {
   );
 }
 
+const plural = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? "" : "s"}`;
+
 /**
- * One Course in the list, opening a new Chat in it, with its "…" menu to
- * rename or delete it.
+ * One Course in the list, a card that opens a new Chat in it, with its "…"
+ * menu to rename or delete it.
  */
 function CourseListEntry({ course }: { course: CourseWithCounts }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
 
   return (
-    <li className="flex items-center gap-2 py-2 pr-2 pl-4">
-      <Link
-        href={coursePath(course.id)}
-        className="min-w-0 flex-1 truncate rounded-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    <li className="group relative flex items-start gap-3 rounded-xl border bg-card p-4 transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-muted/50">
+      <div
+        aria-hidden
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground"
       >
-        {course.name}
-      </Link>
-      <RowActionsMenu
-        label="Course actions"
-        onRename={() => setDialog("rename")}
-        onDelete={() => setDialog("delete")}
-      />
+        <BookOpenIcon className="size-4" />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {/* The link covers the card; the menu sits above it. */}
+        <Link
+          href={coursePath(course.id)}
+          className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-xl"
+        >
+          {course.name}
+        </Link>
+        <p className="text-sm text-muted-foreground">
+          {plural(course.materialCount, "material")} ·{" "}
+          {plural(course.chatCount, "chat")}
+        </p>
+      </div>
+      <div className="relative -my-1 -mr-2">
+        <RowActionsMenu
+          label="Course actions"
+          onRename={() => setDialog("rename")}
+          onDelete={() => setDialog("delete")}
+        />
+      </div>
       <CourseNameDialog
         open={dialog === "rename"}
         onOpenChange={(open) => setDialog(open ? "rename" : null)}

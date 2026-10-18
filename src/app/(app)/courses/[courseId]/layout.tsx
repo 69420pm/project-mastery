@@ -1,24 +1,33 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { PathBreadcrumb } from "@/components/path-breadcrumb";
 import { UserMenu } from "@/features/auth";
-import { BriefLink } from "@/features/brief";
-import { ChatList, ChatListProvider, NewChatLink } from "@/features/chat";
+import { BriefLink, briefPath } from "@/features/brief";
+import {
+  ChatList,
+  ChatListProvider,
+  ChatTitle,
+  NewChatLink,
+  newChatPath,
+} from "@/features/chat";
 import { getChatList } from "@/features/chat/server";
 import {
   COURSE_LIST_PATH,
   CourseSwitcher,
   MaterialsLink,
+  materialsPath,
 } from "@/features/courses";
 import { getCourse, getCourseList } from "@/features/courses/server";
-import { KnowledgeMapLink } from "@/features/knowledge-map";
+import { KnowledgeMapLink, knowledgeMapPath } from "@/features/knowledge-map";
 import { getUser } from "@/lib/auth/user";
 import { isSidebarOpen } from "@/lib/sidebar-state";
 
 /**
  * Shell inside a Course: the sidebar shows the Course switcher, New chat,
- * Materials, the Brief, the Knowledge map and the Course's Chats. An unknown
- * or another Student's Course is not found.
+ * Materials, the Brief, the Knowledge map and the Course's Chats, and the top
+ * bar where in the Course the page is. An unknown or another Student's
+ * Course is not found.
  *
  * It only reads the user: each page calls `requireUser` with its own path, so
  * signing in returns there. Layouts also do not re-render on client
@@ -56,6 +65,31 @@ export default async function CourseLayout({
           )
         }
         content={course && <ChatList />}
+        breadcrumb={
+          course && (
+            <PathBreadcrumb
+              trail={[
+                { href: COURSE_LIST_PATH, label: "Courses" },
+                { href: newChatPath(course.id), label: course.name },
+              ]}
+              sections={[
+                {
+                  path: newChatPath(course.id),
+                  label: "New chat",
+                  exact: true,
+                },
+                { path: newChatPath(course.id), label: <ChatTitle /> },
+                {
+                  path: materialsPath(course.id),
+                  label: "Materials",
+                  href: materialsPath(course.id),
+                },
+                { path: briefPath(course.id), label: "Brief" },
+                { path: knowledgeMapPath(course.id), label: "Knowledge map" },
+              ]}
+            />
+          )
+        }
         footer={user && <UserMenu email={user.email} />}
       >
         {children}

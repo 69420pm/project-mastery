@@ -22,13 +22,15 @@ type AppShellProps = {
   content?: ReactNode;
   /** The sidebar's footer, such as the account menu. */
   footer?: ReactNode;
+  /** Where the page is, in the top bar beside the sidebar toggle. */
+  breadcrumb?: ReactNode;
   /** The page. */
   children: ReactNode;
 };
 
 /**
  * Shell for signed-in pages: a collapsible sidebar with the logo, which is a
- * slide-over on a phone, next to the page.
+ * slide-over on a phone, next to the page under a top bar.
  */
 export function AppShell({
   defaultOpen,
@@ -36,13 +38,14 @@ export function AppShell({
   header,
   content,
   footer,
+  breadcrumb,
   children,
 }: AppShellProps) {
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <Sidebar>
         <SidebarHeader>
-          <SidebarLogoLink href={homeHref}>Project Mastery</SidebarLogoLink>
+          <SidebarLogoLink href={homeHref} />
           {header}
         </SidebarHeader>
         <SidebarContent>{content}</SidebarContent>
@@ -50,9 +53,15 @@ export function AppShell({
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="h-svh min-w-0">
-        <div className="flex h-12 shrink-0 items-center px-2">
-          <SidebarTrigger />
-        </div>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+          <SidebarTrigger className="-ml-1" />
+          {breadcrumb && (
+            <>
+              <div aria-hidden className="mr-1 h-4 w-px shrink-0 bg-border" />
+              {breadcrumb}
+            </>
+          )}
+        </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {children}
         </div>

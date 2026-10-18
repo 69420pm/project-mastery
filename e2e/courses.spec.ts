@@ -54,7 +54,7 @@ test("a Student creates, renames and deletes a Course", async ({
   await create.getByRole("button", { name: "Create" }).click();
 
   await expect(create).toBeHidden();
-  await expect(courseList(page).getByRole("listitem")).toHaveText(["Lin Alg"]);
+  await expect(courseList(page).getByRole("link")).toHaveText(["Lin Alg"]);
   await expect.poll(() => storedCourseNames(student.id)).toEqual(["Lin Alg"]);
 
   const menu = await openCourseMenu(page, "Lin Alg");
@@ -67,7 +67,7 @@ test("a Student creates, renames and deletes a Course", async ({
   await rename.getByRole("button", { name: "Save" }).click();
 
   await expect(rename).toBeHidden();
-  await expect(courseList(page).getByRole("listitem")).toHaveText([
+  await expect(courseList(page).getByRole("link")).toHaveText([
     "Linear Algebra",
   ]);
   await expect
@@ -103,7 +103,7 @@ test("the Course list shows the most recently updated Course first", async ({
 
   await page.goto("/courses");
 
-  await expect(courseList(page).getByRole("listitem")).toHaveText([
+  await expect(courseList(page).getByRole("link")).toHaveText([
     "Newer",
     "Older",
   ]);
