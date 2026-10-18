@@ -92,3 +92,25 @@ test("saved settings fall back to the defaults when missing or invalid", () => {
   expect(parsed.layers.semanticLinks.causes).toBe(false);
   expect(parsed.layers.semanticLinks.is_a).toBe(true);
 });
+
+test("a malformed saved `layers` falls back key by key", () => {
+  const layers = (value: unknown) =>
+    parseSettings(JSON.stringify({ colorBy: "bigIdea", layers: value }));
+  for (const value of ["all", null, [], 1]) {
+    expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "bigIdea" });
+  }
+  const parsed = layers({
+    priorKnowledge: false,
+    exercises: "false",
+    solutionBadges: false,
+    prerequisites: 0,
+    bigIdeaGroups: false,
+    semanticLinks: "none",
+  });
+  expect(parsed.layers).toEqual({
+    ...DEFAULT_SETTINGS.layers,
+    priorKnowledge: false,
+    solutionBadges: false,
+    bigIdeaGroups: false,
+  });
+});
