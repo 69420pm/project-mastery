@@ -209,6 +209,19 @@ describe("fakeSupabase functions", () => {
   });
 });
 
+describe("fakeSupabase delete", () => {
+  it("removes rows in place, so a held table stays current", async () => {
+    const db = fakeSupabase({
+      tables: { materials: [{ id: "material-1" }, { id: "material-2" }] },
+    });
+    const materials = db.tables.materials;
+
+    await db.from("materials").delete().eq("id", "material-1");
+
+    expect(materials).toEqual([{ id: "material-2" }]);
+  });
+});
+
 describe("fakeSupabase foreign keys", () => {
   it("refuses a row whose referenced row is missing, as Postgres does", async () => {
     const db = fakeSupabase({

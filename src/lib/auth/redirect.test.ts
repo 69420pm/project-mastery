@@ -32,11 +32,25 @@ describe("safeRedirectPath", () => {
     expect(safeRedirectPath(null, ORIGIN)).toBe(SIGNED_IN_PATH);
     expect(safeRedirectPath("", ORIGIN, "/login")).toBe("/login");
   });
+
+  test("falls back to the Courses page by default", () => {
+    expect(safeRedirectPath(undefined, ORIGIN)).toBe("/courses");
+  });
+
+  test("falls back for a target that is not a URL", () => {
+    expect(safeRedirectPath("http://", ORIGIN)).toBe(SIGNED_IN_PATH);
+  });
 });
 
 describe("confirmRedirectPath", () => {
   test("returns a plain next path", () => {
     expect(confirmRedirectPath("/courses", ORIGIN)).toBe("/courses");
+  });
+
+  test("keeps a next parameter of a path other than /auth/confirm", () => {
+    expect(confirmRedirectPath("/settings?next=%2Fother", ORIGIN)).toBe(
+      "/settings?next=%2Fother",
+    );
   });
 
   test("unwraps a next URL that points back at /auth/confirm", () => {

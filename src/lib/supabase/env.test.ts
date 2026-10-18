@@ -45,6 +45,18 @@ describe("supabasePublicEnvSchema", () => {
     expect(parse(LOCAL_URL, legacyKey("service_role"))).toBe(false);
   });
 
+  test("rejects an anon payload that is not a JWT", () => {
+    expect(parse(LOCAL_URL, legacyKey("anon").slice(3))).toBe(false);
+    expect(parse(LOCAL_URL, legacyKey("anon").replace(/^eyJ/, "xyJ"))).toBe(
+      false,
+    );
+  });
+
+  test("rejects a URL that is not http or https", () => {
+    expect(parse("xhttps://example.com", "sb_publishable_example")).toBe(false);
+    expect(parse("httpsx://example.com", "sb_publishable_example")).toBe(false);
+  });
+
   test("rejects malformed values", () => {
     expect(parse("127.0.0.1:54321", "sb_publishable_example")).toBe(false);
     expect(parse("ftp://example.com", "sb_publishable_example")).toBe(false);
