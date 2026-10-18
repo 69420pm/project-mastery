@@ -18,7 +18,10 @@ async function uploadFromNewChat(page: Page) {
   ).toBeVisible();
 }
 
-const PNG = path.join(__dirname, "files", "whiteboard.png");
+const PNG = path.join(
+  __dirname,
+  "../src/features/ingestion/workflows/test-files/whiteboard.png",
+);
 
 async function storedMaterialNames(courseId: string) {
   const { data, error } = await adminClient()
