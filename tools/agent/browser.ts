@@ -72,7 +72,7 @@ export async function snapshot() {
   return `${url}\n${tidySnapshot(tree)}`;
 }
 
-/** `react` commands print only in JSON mode in agent-browser 0.38. */
+/** `react` commands print only in JSON mode (seen in agent-browser 0.38). */
 export async function react(args: string[]) {
   const { output } = await browser(["react", ...args, "--json"]);
   const reply = JSON.parse(output) as {

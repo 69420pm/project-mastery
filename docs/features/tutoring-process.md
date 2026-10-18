@@ -41,7 +41,7 @@ The map stores no topics. The AI picks a connected handful from the candidates, 
 
 ## The AI's reply
 
-A reply streams one call with the `chat` task's model for the Student's choice, with the instructions and the tools, and at most 5 steps (`MAX_STEPS` in `src/features/chat/server/handler.ts`). The Daily limit is checked before the model is called. The tool calls are stored with the reply, and the Chat shows only its text.
+A reply streams one call with the `chat` task's model for the Student's choice, with the instructions and the tools, and at most 5 steps (`MAX_STEPS` in `src/features/chat/server/handler.ts`). The Daily limit is checked before the model is called. The tool calls are stored with the reply, and the Chat shows each as a collapsed step card in reply order, with a one-line summary written by code. Each reply also stores the tutor context it was given (`chat_messages.tutor_context`), which the reply's Context sheet shows with the instructions re-rendered by today's code.
 
 | Tool            | Takes                                                                                               | Gives back                                                                                                                                                                                                                                                                   |
 | --------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,7 +84,7 @@ Every reply checks the Student's Daily limit first and is refused with 429 at th
 
 ## Tables
 
-- **Learner state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`).
+- **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`).
 - **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`), `chunks` and `exercise_solutions`.
 - **Written elsewhere:** `ai_usage`. The `append_memory` function (`security invoker`) writes the Memory line.
 
@@ -115,6 +115,6 @@ From the deferred items of #101 and its build order:
 - Plan: personal pace (time is not measured, and every KC takes a fixed 30 minutes), goal handling beyond the AI's context, move, pin and skip controls, an "if time allows" group, and an AI summary of the plan.
 - Memory: topic notes, session notes, consolidation, a trigger for ending a Chat, and pinned instructions. The Student edits the whole text, not single notes.
 - Guidance from #101 that the instructions do not yet give: active recall every two or three KCs, asking for confidence before a reveal, probing known misconceptions, asking why a step works after a correct answer, saying so when help is used without an attempt, and steering difficulty beyond fading scaffolds. Interleaving easily confused KCs (the `contrasts_with` links in #101) is also not built.
-- Stored topics, a mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, showing tool calls in the Chat, and photos of handwritten work, which #101 leaves untested.
+- Stored topics, a mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, and photos of handwritten work, which #101 leaves untested.
 
 The open decisions of #101 stay open: what ends a Chat for notes and consolidation, whether the plan needs stored topics, how pacing measures time, and how handwritten work is submitted and read.

@@ -323,7 +323,9 @@ export const architecture = [
   },
   {
     // Only the env modules read process.env, so every variable is validated
-    // in one place and secrets stay out of feature code.
+    // in one place and secrets stay out of feature code. Tests and
+    // instrumentation.ts (which checks NEXT_RUNTIME before any module loads)
+    // are exempt.
     name: "project/env",
     files: ["src/**/*.{ts,tsx}"],
     ignores: [...ENV_FILES, TEST_FILES, "src/instrumentation.ts"],
@@ -334,7 +336,7 @@ export const architecture = [
           object: "process",
           property: "env",
           message:
-            "Read environment variables through a validated env module (src/lib/**/env.ts or *-env.ts) instead of process.env.",
+            "Read environment variables through a validated env module (src/**/env.ts or src/**/*-env.ts) instead of process.env.",
         },
       ],
     },

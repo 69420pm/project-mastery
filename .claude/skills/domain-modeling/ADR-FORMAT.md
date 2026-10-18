@@ -2,25 +2,29 @@
 
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 
-Create the `docs/adr/` directory lazily: only when the first ADR is needed.
-
 ## Template
 
 ```md
 # {Short title of the decision}
 
-{1-3 sentences: what's the context, what did we decide, and why.}
+**Context.** {The situation and constraints that force a choice.}
+
+**Decision.** {What we decided, and the alternatives it rules out when they are worth remembering.}
+
+**Consequences.** {What follows: costs, limits, what becomes easier or harder.}
 ```
 
-That's it. An ADR can be a single paragraph. The value is in recording *that* a decision was made and *why*, not in filling out sections.
+Each part is one paragraph. Keep them short: the value is in recording _that_ a decision was made and _why_, not in filling the sections.
 
-## Optional sections
+## Superseding
 
-Only include these when they add genuine value. Most ADRs won't need them.
+A later ADR that replaces all or part of an earlier one says so in its Decision. The earlier ADR keeps its text and gets a blockquote under its title that names the part replaced and links the new ADR:
 
-- **Status** frontmatter (`proposed | accepted | deprecated | superseded by ADR-NNNN`): useful when decisions are revisited
-- **Considered Options**: only when the rejected alternatives are worth remembering
-- **Consequences**: only when non-obvious downstream effects need to be called out
+```md
+> Local development: superseded by [ADR 0016](0016-gemini-api-for-local-development.md), which moves the text tasks to the Gemini API. Preview and production are unchanged.
+```
+
+There is no Status field. Changing a recorded decision means updating its ADR, or superseding it this way, in the same PR.
 
 ## Numbering
 

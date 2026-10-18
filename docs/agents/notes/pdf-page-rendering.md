@@ -1,6 +1,6 @@
 # PDF page rendering and the parse workflow
 
-Installed: unpdf 1.8.1, @napi-rs/canvas 1.0.11, workflow 5.0.1. Code: `src/features/ingestion/workflows/page-images.ts`, `parse-steps.ts`.
+Installed: unpdf 1.8.1, @napi-rs/canvas 1.0.11, workflow 5.2.2. Code: `src/features/ingestion/workflows/page-images.ts`, `parse-steps.ts`.
 
 - **Native binding must stay external.** Bundled by Next.js (Turbopack), `@napi-rs/canvas` fails in a step with "Cannot find native binding". `next.config.ts` lists it in `serverExternalPackages`; Next's built-in list has `canvas` but not `@napi-rs/canvas`.
 - **Rendering.** `renderPageAsImage(pdf, n, { canvasImport: () => import("@napi-rs/canvas"), scale: 2 })` returns PNG bytes; `getDocumentProxy` takes ownership of its buffer, so pass a copy. Hand-written fixture PDFs with inexact xref offsets still open.
