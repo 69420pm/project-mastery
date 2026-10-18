@@ -1,5 +1,4 @@
 import "server-only";
-import { generateText } from "ai";
 import {
   fileCallSettings,
   fileMessages,
@@ -14,16 +13,12 @@ import {
 } from "@/features/ingestion/domain/file-chunks";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  dailyQuotaAsNull,
   fail,
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
-import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
-import { answeringModel } from "@/lib/ai/models";
+import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * The file call of a parse (step 3 of `parse-material.ts`): one text call
@@ -66,26 +61,12 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
     throw new Error("The Material's pages have no units to chunk.");
   }
 
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") {
-    return { ok: false, reason: dailyLimitReason };
-  }
-
-  const settings = fileCallSettings(units);
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName: "parse-file" },
-    () => generateText({ ...settings, messages: fileMessages(units) }),
-  ).catch(dailyQuotaAsNull);
-  if (!result) return { ok: false, reason: dailyLimitReason };
-  await recordAiUsage(
+  const result = await meteredGenerate(
     supabase,
-    {
-      task: "ingest",
-      modelId: answeringModel(settings, result.response.modelId),
-      usage: tokenUsage(result.usage),
-    },
-    { studentId },
+    { studentId, task: "ingest", traceName: "parse-file" },
+    { ...fileCallSettings(units), messages: fileMessages(units) },
   );
+  if (!result) return { ok: false, reason: dailyLimitReason };
 
   const ids = units.map((unit) => unit.id) as [string, ...string[]];
   const { chunks, exam } = fileResultSchema(ids).parse(result.output);

@@ -1,5 +1,4 @@
 import "server-only";
-import { generateText } from "ai";
 import { loadBriefForPriorities } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
 import {
@@ -15,12 +14,8 @@ import type {
   KcPriority,
   PriorityInput,
 } from "@/features/priorities/domain/priority";
-import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
-import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { answeringModel } from "@/lib/ai/models";
+import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * The steps of a priority run (`update-priorities.ts`). Each runs on the
@@ -180,29 +175,13 @@ export async function adjustPriorities(
   input: AdjustInput,
 ): Promise<AdjustmentEntry[] | null> {
   "use step";
-  const supabase = createAdminClient();
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") return null;
-
   const { call, entries } = adjustCall(input);
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName: "priority-adjust" },
-    () => generateText(call),
-  ).catch((error: unknown) => {
-    if (isDailyQuotaError(error)) return null;
-    throw error;
-  });
-  if (!result) return null;
-  await recordAiUsage(
-    supabase,
-    {
-      task: "priority",
-      modelId: answeringModel(call, result.response.modelId),
-      usage: tokenUsage(result.usage),
-    },
-    { studentId },
+  const result = await meteredGenerate(
+    createAdminClient(),
+    { studentId, task: "priority", traceName: "priority-adjust" },
+    call,
   );
-  return entries(result.output);
+  return result && entries(result.output);
 }
 
 /**

@@ -1,5 +1,4 @@
 import "server-only";
-import { generateText } from "ai";
 import {
   contentPairingMessages,
   contentPairingSchema,
@@ -14,17 +13,13 @@ import {
 } from "@/features/ingestion/domain/exercise-pairing";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  dailyQuotaAsNull,
   fail,
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
-import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
-import { answeringModel } from "@/lib/ai/models";
+import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminSupabase } from "@/lib/supabase/types";
-import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * Step 5 of a parse, and the whole of the workflow after a Material is
@@ -239,28 +234,15 @@ async function pairByContent(
   }
   if (!(await isLatest(supabase, pass))) return "outdated";
 
-  const { studentId } = pass;
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") return "limit";
-  const settings = contentPairingSettings(offeredExercises, offeredSolutions);
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName: "pair-exercises" },
-    () =>
-      generateText({
-        ...settings,
-        messages: contentPairingMessages(offeredExercises, offeredSolutions),
-      }),
-  ).catch(dailyQuotaAsNull);
-  if (!result) return "limit";
-  await recordAiUsage(
+  const result = await meteredGenerate(
     supabase,
+    { studentId: pass.studentId, task: "ingest", traceName: "pair-exercises" },
     {
-      task: "ingest",
-      modelId: answeringModel(settings, result.response.modelId),
-      usage: tokenUsage(result.usage),
+      ...contentPairingSettings(offeredExercises, offeredSolutions),
+      messages: contentPairingMessages(offeredExercises, offeredSolutions),
     },
-    { studentId },
   );
+  if (!result) return "limit";
 
   const ids = (offered: OfferedChunk[]) =>
     offered.map((chunk) => chunk.id) as [string, ...string[]];

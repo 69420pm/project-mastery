@@ -1,5 +1,4 @@
 import "server-only";
-import { embedMany, generateText } from "ai";
 import {
   loadCourseChunks,
   loadExerciseSolutions,
@@ -51,12 +50,9 @@ import {
   loadStoredMap,
 } from "@/features/knowledge-map/server/stored-map";
 import type { MapChunk } from "@/features/knowledge-map/types";
-import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
-import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { aiTask, answeringModel, type AiTask } from "@/lib/ai/models";
+import { meteredEmbed, meteredGenerate } from "@/features/usage/server";
+import type { AiTask } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * The steps of a Knowledge map update (`build-knowledge-map.ts`). Each runs on
@@ -129,41 +125,21 @@ export async function loadBuildInput(
 }
 
 /**
- * One model call for the Student, after checking their Daily limit, with
- * its usage recorded. Null when the Daily limit or the provider's daily
- * quota is used up.
+ * The output of one metered model call for the Student. Null when the Daily
+ * limit or the provider's daily quota is used up.
  */
 async function mapCall(
   studentId: string,
   traceName: string,
-  call: Parameters<typeof generateText>[0] & {
-    model: string;
-    providerOptions?: { gateway?: { models?: readonly string[] } };
-  },
+  call: Parameters<typeof meteredGenerate>[2],
   task: AiTask = "map",
 ): Promise<unknown> {
-  const supabase = createAdminClient();
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") return null;
-
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName },
-    () => generateText(call),
-  ).catch((error: unknown) => {
-    if (isDailyQuotaError(error)) return null;
-    throw error;
-  });
-  if (!result) return null;
-  await recordAiUsage(
-    supabase,
-    {
-      task,
-      modelId: answeringModel(call, result.response.modelId),
-      usage: tokenUsage(result.usage),
-    },
-    { studentId },
+  const result = await meteredGenerate(
+    createAdminClient(),
+    { studentId, task, traceName },
+    call,
   );
-  return result.output;
+  return result && result.output;
 }
 
 const limitReached = { ok: false, reason: dailyLimitReason } as const;
@@ -394,38 +370,13 @@ export async function embedKcs(
   values: string[],
 ): Promise<StepOutcome<number[][]>> {
   "use step";
-  const supabase = createAdminClient();
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") return limitReached;
-  const settings = aiTask("embed");
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName: "map-dedup-embed" },
-    () => embedMany({ ...settings, values }),
-  ).catch((error: unknown) => {
-    if (isDailyQuotaError(error)) return null;
-    throw error;
-  });
-  if (!result) return limitReached;
-  // A provider that reports no usage for embeddings makes `embedMany` sum
-  // it to NaN: estimate it from the text then.
-  const reported = Number.isFinite(result.usage.tokens);
-  await recordAiUsage(
-    supabase,
-    {
-      task: "embed",
-      modelId: settings.model,
-      usage: reported
-        ? {
-            inputTokens: result.usage.tokens,
-            cachedInputTokens: 0,
-            outputTokens: 0,
-          }
-        : estimatedUsage({ input: values.join(""), output: "" }),
-      estimated: !reported,
-    },
-    { studentId },
+  const embeddings = await meteredEmbed(
+    createAdminClient(),
+    { studentId, traceName: "map-dedup-embed" },
+    { values },
   );
-  return { ok: true, value: result.embeddings };
+  if (!embeddings) return limitReached;
+  return { ok: true, value: embeddings };
 }
 
 /**
