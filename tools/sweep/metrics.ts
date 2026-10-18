@@ -105,7 +105,7 @@ export function formatMetrics({ units, files }: Metrics): string {
   return [
     "# Metrics",
     "",
-    "Lines of code exclude blank and comment lines. Public exports are a feature's index.ts and server.ts exports, and every export elsewhere. The app unit holds src/app, src/hooks and the root files; tools holds tools and evals.",
+    "Lines of code exclude blank and comment lines. Public exports are a feature's index.ts and server.ts exports, and every export elsewhere. The app unit holds src/app and the root files; tools holds tools, evals, e2e and eslint.",
     "",
     "| Unit | Files | LOC | Public exports | Used outside | Fan-in | Fan-out |",
     "| --- | --: | --: | --: | --: | --: | --: |",
@@ -259,11 +259,25 @@ function linesOfCode(text: string, tsx: boolean): number {
     return lo;
   };
   const lines = new Set<number>();
+  // One entry per open brace: true when it is a template's `${`, whose `}`
+  // the scanner must rescan as the rest of the template.
+  const braces: boolean[] = [];
   for (
     let token = scanner.scan();
     token !== ts.SyntaxKind.EndOfFileToken;
     token = scanner.scan()
   ) {
+    if (token === ts.SyntaxKind.CloseBraceToken && braces.pop()) {
+      token = scanner.reScanTemplateToken(false);
+    }
+    if (
+      token === ts.SyntaxKind.TemplateHead ||
+      token === ts.SyntaxKind.TemplateMiddle
+    ) {
+      braces.push(true);
+    } else if (token === ts.SyntaxKind.OpenBraceToken) {
+      braces.push(false);
+    }
     const last = lineOf(Math.max(scanner.getTokenEnd() - 1, 0));
     for (let line = lineOf(scanner.getTokenStart()); line <= last; line++) {
       lines.add(line);
