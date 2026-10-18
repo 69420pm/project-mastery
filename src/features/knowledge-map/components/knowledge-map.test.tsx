@@ -23,7 +23,7 @@ vi.mock("@/features/knowledge-map/hooks/use-graph-layout", async () => {
       useEffect(() => {
         void elk.layout(graph as never).then(setLaidOut);
       }, [graph]);
-      return laidOut;
+      return { laidOut, failed: false };
     },
   };
 });

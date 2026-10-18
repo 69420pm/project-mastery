@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { parseEnv } from "@/lib/env";
+import { optional, parseEnv } from "@/lib/env";
 
 const schema = z
   .object({
-    // Empty keys (as copied from .env.example) count as unset.
-    LANGFUSE_PUBLIC_KEY: z.string().optional(),
-    LANGFUSE_SECRET_KEY: z.string().optional(),
+    LANGFUSE_PUBLIC_KEY: optional(z.string()),
+    LANGFUSE_SECRET_KEY: optional(z.string()),
     // The EU cloud is https://cloud.langfuse.com (the SDK default when unset).
-    LANGFUSE_BASE_URL: z.url().optional(),
+    LANGFUSE_BASE_URL: optional(z.url()),
     AI_PROVIDER: z.string().optional(),
   })
   .refine(
@@ -25,7 +24,10 @@ const schema = z
  * skipped (local development without keys, tests, CI).
  */
 export function isLangfuseConfigured(): boolean {
-  const env = parseEnv(schema, process.env);
+  return hasKeys(parseEnv(schema, process.env));
+}
+
+function hasKeys(env: z.infer<typeof schema>): boolean {
   return Boolean(env.LANGFUSE_PUBLIC_KEY && env.LANGFUSE_SECRET_KEY);
 }
 
@@ -35,10 +37,8 @@ export function isLangfuseConfigured(): boolean {
  * plan's units with calls that say nothing about the AI.
  */
 export function isTracingEnabled(): boolean {
-  return (
-    isLangfuseConfigured() &&
-    parseEnv(schema, process.env).AI_PROVIDER !== "mock"
-  );
+  const env = parseEnv(schema, process.env);
+  return hasKeys(env) && env.AI_PROVIDER !== "mock";
 }
 
 /**
