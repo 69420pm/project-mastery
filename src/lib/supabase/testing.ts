@@ -188,7 +188,9 @@ export function fakeSupabase<Table extends string>(
         result = { data: rows, error: null };
       } else if (action.kind === "delete") {
         const rows = matching();
-        tables[table] = rowsOf(table).filter((row) => !rows.includes(row));
+        // In place, as insert pushes, so earlier references stay valid.
+        const stored = rowsOf(table);
+        for (const row of rows) stored.splice(stored.indexOf(row), 1);
         result = { data: rows, error: null };
       } else {
         const rows = matching().sort((a, b) => {

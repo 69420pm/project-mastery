@@ -52,6 +52,23 @@ describe("modelIdFor", () => {
     expect(() => modelIdFor("chat")).toThrow(/AI_MODEL_CHAT/);
   });
 
+  test("treats an empty override as unset", () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+    vi.stubEnv("AI_MODEL_CHAT", "");
+
+    expect(modelIdFor("chat")).toBe(AI_TASKS.chat.model);
+  });
+
+  test.each([" google/gemini-3.8-flash", "google/gemini-3.8-flash x"])(
+    "rejects an override with junk around the id: %j",
+    (id) => {
+      vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+      vi.stubEnv("AI_MODEL_CHAT", id);
+
+      expect(() => modelIdFor("chat")).toThrow(/AI_MODEL_CHAT/);
+    },
+  );
+
   test("rejects an override without a price, since every call is priced", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_CHAT", "acme/unpriced");
@@ -366,6 +383,9 @@ describe("answeringModel", () => {
   test("matches an id reported without its provider prefix", () => {
     expect(answeringModel(settings, "gemini-3.5-flash-lite")).toBe(
       "google/gemini-3.5-flash-lite",
+    );
+    expect(answeringModel(settings, "mimo-v2.6-flash")).toBe(
+      "xiaomi/mimo-v2.6-flash",
     );
   });
 

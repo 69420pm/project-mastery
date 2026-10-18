@@ -63,4 +63,25 @@ describe("updateSession", () => {
     expect(response.cookies.get("sb-auth-token")?.value).toBe("refreshed");
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
+
+  test("passes the refreshed cookie on to Server Components", async () => {
+    getClaims.mockImplementation(async () => {
+      await cookieMethods?.setAll?.(
+        [{ name: "sb-auth-token", value: "refreshed", options: {} }],
+        {},
+      );
+      return { data: null, error: null };
+    });
+
+    const response = await updateSession(
+      new NextRequest("http://localhost:3000/courses", {
+        headers: { cookie: "sb-auth-token=stale" },
+      }),
+    );
+
+    // The request headers Next.js hands to the rendered route.
+    expect(response.headers.get("x-middleware-request-cookie")).toBe(
+      "sb-auth-token=refreshed",
+    );
+  });
 });

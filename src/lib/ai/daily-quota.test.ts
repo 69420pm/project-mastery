@@ -55,4 +55,33 @@ describe("isDailyQuotaError", () => {
   test("is false for other errors", () => {
     expect(isDailyQuotaError(new Error("bad output"))).toBe(false);
   });
+
+  test("is false for a 500 whose body says daily", () => {
+    const error = new APICallError({
+      message: "Internal error",
+      url: "https://example.test",
+      requestBodyValues: {},
+      statusCode: 500,
+      responseBody: "daily maintenance",
+    });
+    expect(isDailyQuotaError(error)).toBe(false);
+  });
+
+  test("is false for a 429 without a body", () => {
+    const error = new APICallError({
+      message: "Too many requests",
+      url: "https://example.test",
+      requestBodyValues: {},
+      statusCode: 429,
+    });
+    expect(isDailyQuotaError(error)).toBe(false);
+  });
+
+  test("is false for a plain error that carries a 429 status", () => {
+    const error = Object.assign(new Error("Requests per day exceeded"), {
+      statusCode: 429,
+      responseBody: "daily",
+    });
+    expect(isDailyQuotaError(error)).toBe(false);
+  });
 });
