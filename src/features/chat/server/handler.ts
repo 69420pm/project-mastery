@@ -29,6 +29,7 @@ import {
   chatRequestSchema,
 } from "@/features/chat/schemas";
 import {
+  cancelReply,
   createChat,
   deleteChat,
   findChat,
@@ -153,6 +154,12 @@ export async function respondInChat({
     return refuse(429, dailyLimitReachedMessage);
   }
 
+  // Refused before the reply starts, which would make a reply still streaming
+  // from an earlier request stale.
+  const stored = existing ? await loadMessages(supabase, existing.id) : [];
+  const resent = resentHistory(stored, message);
+  if (resent === "refused") return refuse(409, alreadySentMessage);
+
   // The reply's id, marked as the Chat's latest before the Student's message
   // is stored, so a stopped reply still ending from an earlier request can
   // never be kept after it.
@@ -174,8 +181,21 @@ export async function respondInChat({
     await startReply(supabase, chat.id, { modelChoice: choice, replyId });
   }
 
-  const history = await addStudentMessage(supabase, chat, message, !existing);
-  if (!history) return refuse(409, "This message was already sent.");
+  const history =
+    resent ??
+    ((await saveStudentMessage(supabase, chat, message, !existing)) && [
+      ...stored,
+      message,
+    ]);
+  if (!history) {
+    if (existing) {
+      await cancelReply(supabase, chat.id, {
+        replyId,
+        previousReplyId: existing.latestReplyId,
+      });
+    }
+    return refuse(409, alreadySentMessage);
+  }
 
   // After storing the message, so Retry can send it again.
   const materials = await loadAttachedMaterials(supabase, history);
@@ -206,34 +226,39 @@ function refuse(status: number, message: string) {
   });
 }
 
+const alreadySentMessage = "This message was already sent.";
+
 /**
- * Stores the Student's message and returns the history to answer, which ends
- * with it. When the message is already the Chat's last Student message, as
- * when regenerating or retrying a failed reply, the history leaves out any
- * reply stored after it, which the new reply replaces once it is saved.
- * Returns null if the message id is taken elsewhere.
+ * The history to answer when the message is already stored: when it is the
+ * Chat's last Student message, as when regenerating or retrying a failed
+ * reply, the history up to it, leaving out any reply stored after it, which
+ * the new reply replaces once it is saved. "refused" when a later Student
+ * message follows it, and null when it is not stored.
  */
-async function addStudentMessage(
+function resentHistory(
+  stored: ChatUIMessage[],
+  message: ChatUIMessage,
+): ChatUIMessage[] | "refused" | null {
+  const index = stored.findIndex((m) => m.id === message.id);
+  if (index === -1) return null;
+  const later = stored.slice(index + 1);
+  if (later.some((m) => m.role === "user")) return "refused";
+  return stored.slice(0, index + 1);
+}
+
+/**
+ * Stores the Student's new message. Returns false if its id is taken
+ * elsewhere, deleting a new Chat so none is left empty.
+ */
+async function saveStudentMessage(
   supabase: Supabase,
   chat: StoredChat,
   message: ChatUIMessage,
   isNewChat: boolean,
-): Promise<ChatUIMessage[] | null> {
-  const stored = await loadMessages(supabase, chat.id);
-  const index = stored.findIndex((m) => m.id === message.id);
-  if (index !== -1) {
-    const later = stored.slice(index + 1);
-    if (later.some((m) => m.role === "user")) return null;
-    return stored.slice(0, index + 1);
-  }
-
+): Promise<boolean> {
   const saved = await saveMessage(supabase, chat.id, message);
-  if (!saved) {
-    // Never leave an empty Chat behind.
-    if (isNewChat) await deleteChat(supabase, chat.id);
-    return null;
-  }
-  return [...stored, message];
+  if (!saved && isNewChat) await deleteChat(supabase, chat.id);
+  return saved;
 }
 
 async function streamReply({

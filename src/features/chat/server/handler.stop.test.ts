@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import {
   STUDENT,
+  CLASSMATE,
   COURSE,
   db,
   userMessage,
@@ -171,5 +172,56 @@ describe("a stopped reply", () => {
       "Never mind, how?",
       "Next reply.",
     ]);
+  });
+});
+
+describe("a refused send", () => {
+  test("does not drop the reply still streaming from the request before it", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const answer = mockTextModel("Second reply.");
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: async (options) => {
+          await gate;
+          return answer.doStream(options);
+        },
+      }),
+    });
+    const first = randomUUID();
+    const chatId = seedChat(STUDENT, [
+      { id: first, role: "user", parts: [{ type: "text", text: "One" }] },
+      { role: "assistant", parts: [{ type: "text", text: "Reply" }] },
+    ]);
+
+    const streaming = await post({ chatId, message: userMessage("Two") });
+    const refused = await send({ chatId, message: userMessage("One", first) });
+    release();
+    await streaming.text();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(refused.status).toBe(409);
+    expect(storedMessages(chatId).map(({ text }) => text)).toEqual([
+      "One",
+      "Reply",
+      "Two",
+      "Second reply.",
+    ]);
+  });
+
+  test("with a message id taken in another Chat keeps the latest reply", async () => {
+    useMockModels({ chat: mockTextModel("Never sent.") });
+    const takenId = randomUUID();
+    seedChat(CLASSMATE, [
+      { id: takenId, role: "user", parts: [{ type: "text", text: "Mine" }] },
+    ]);
+    const chatId = seedChat(STUDENT);
+    const chat = db.tables.chats.find(({ id }) => id === chatId)!;
+    chat.latest_reply_id = "streaming-reply";
+
+    const refused = await send({ chatId, message: userMessage("Hi", takenId) });
+
+    expect(refused.status).toBe(409);
+    expect(chat.latest_reply_id).toBe("streaming-reply");
   });
 });
