@@ -238,7 +238,7 @@ describe("figures", () => {
 describe("parsing an image Material", () => {
   test("parses the uploaded image as its one page, without rendering", async () => {
     const png = await readFile(
-      path.join(process.cwd(), "e2e", "files", "whiteboard.png"),
+      path.join(import.meta.dirname, "test-files", "whiteboard.png"),
     );
     seedMaterial("image/png", png);
     const { model, prompts } = pageModel([
