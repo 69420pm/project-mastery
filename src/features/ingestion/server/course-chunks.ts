@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CHUNK_LABELS, type ChunkLabel } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
 import { allRows } from "@/lib/supabase/all-rows";
+import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
@@ -17,10 +18,6 @@ export type CourseChunk = {
   /** As printed, such as "7.2b"; null for chunks that are no exercise. */
   exerciseNumber: string | null;
 };
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /** Where a chunk is: its Material, first page and position. */
 export type ChunkPlace = {
@@ -133,27 +130,23 @@ export async function loadExerciseSolutions(
   supabase: Supabase,
   courseId: string,
 ): Promise<Record<string, string | null>> {
-  const pairs: Record<string, string | null> = {};
-  for (let from = 0; ; from += PAGE) {
-    const page = await supabase
+  const rows = await allRows("Loading the exercise solutions", (from, to) =>
+    supabase
       .from("exercise_solutions")
       .select("exercise_chunk_id, solution_chunk_id")
       .eq("course_id", courseId)
       .order("exercise_chunk_id")
-      .range(from, from + PAGE - 1);
-    if (page.error) failed("Loading the exercise solutions", page.error);
-    for (const pair of page.data) {
-      pairs[pair.exercise_chunk_id] = pair.solution_chunk_id;
-    }
-    if (page.data.length < PAGE) return pairs;
+      .range(from, to),
+  );
+  const pairs: Record<string, string | null> = {};
+  for (const pair of rows) {
+    pairs[pair.exercise_chunk_id] = pair.solution_chunk_id;
   }
+  return pairs;
 }
 
 /** Chunk ids per `in` filter, which keeps the query string short. */
 const ID_SLICE = 100;
-
-/** Rows per page; PostgREST returns at most 1000 rows per request. */
-const PAGE = 1000;
 
 /**
  * Every chunk of the Course's `parsed` Materials in reading order: Materials
@@ -175,27 +168,24 @@ export async function loadCourseChunks(
 
   const chunks: CourseChunk[] = [];
   for (const material of materials.data) {
-    // Paged, so a long Material is never cut off at the row limit.
-    for (let from = 0; ; from += PAGE) {
-      const page = await supabase
+    const rows = await allRows("Loading the chunks", (from, to) =>
+      supabase
         .from("chunks")
         .select("id, position, page_from, label, markdown, exercise_number")
         .eq("material_id", material.id)
         .order("position")
-        .range(from, from + PAGE - 1);
-      if (page.error) failed("Loading the chunks", page.error);
-      for (const chunk of page.data) {
-        chunks.push({
-          id: chunk.id,
-          materialId: material.id,
-          materialName: material.name,
-          pageFrom: chunk.page_from,
-          label: z.enum(CHUNK_LABELS).parse(chunk.label),
-          markdown: chunk.markdown,
-          exerciseNumber: chunk.exercise_number,
-        });
-      }
-      if (page.data.length < PAGE) break;
+        .range(from, to),
+    );
+    for (const chunk of rows) {
+      chunks.push({
+        id: chunk.id,
+        materialId: material.id,
+        materialName: material.name,
+        pageFrom: chunk.page_from,
+        label: z.enum(CHUNK_LABELS).parse(chunk.label),
+        markdown: chunk.markdown,
+        exerciseNumber: chunk.exercise_number,
+      });
     }
   }
   return chunks;

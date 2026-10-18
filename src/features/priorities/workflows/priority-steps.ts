@@ -21,16 +21,13 @@ import type {
 } from "@/features/priorities/domain/priority";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failed } from "@/lib/supabase/failed";
 
 /**
  * The steps of a priority run (`update-priorities.ts`). Each runs on the
  * admin client, since no Student is signed in, and so scopes every query to
  * the Course itself.
  */
-
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /**
  * What a run reads once: the map, the Course's chunks and Materials, the
@@ -68,7 +65,7 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
     .eq("course_id", courseId)
     .eq("status", "running")
     .maybeSingle();
-  if (run.error) fail("Loading the priority run", run.error);
+  if (run.error) failed("Loading the priority run", run.error);
   if (!run.data) return null;
 
   const [map, chunks, brief] = await Promise.all([
@@ -181,7 +178,7 @@ export async function storePriorities(
     p_priorities: priorities,
     ...(adjustments && { p_adjustments: adjustments }),
   });
-  if (error) fail("Storing the priorities", error);
+  if (error) failed("Storing the priorities", error);
 }
 
 /** Marks the running run failed with a reason for the Student. */
@@ -192,5 +189,5 @@ export async function failRun(courseId: string, reason: string): Promise<void> {
     .update({ status: "failed", failure_reason: reason })
     .eq("course_id", courseId)
     .eq("status", "running");
-  if (error) fail("Recording the failed priority run", error);
+  if (error) failed("Recording the failed priority run", error);
 }

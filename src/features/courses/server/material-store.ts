@@ -8,6 +8,7 @@ import type {
   StoredMaterial,
 } from "@/features/courses/types";
 import type { ParseStatus } from "@/features/ingestion";
+import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -15,10 +16,6 @@ import type { Supabase } from "@/lib/supabase/types";
  * Row Level Security and the bucket policies apply: another Student's
  * Material reads as missing.
  */
-
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /** A Material's stored file, or null when it is missing or not theirs. */
 export async function findStoredFile(
@@ -150,7 +147,7 @@ export async function insertMaterial(
   if (!error) return "ok";
   if (error.code === "23505") return "duplicate";
   if (error.code === "42501") return "denied";
-  fail("Registering the Material", error);
+  failed("Registering the Material", error);
 }
 
 /** The Student's Material with this id, or null when it is missing or not theirs. */
@@ -168,7 +165,7 @@ export async function findMaterial(
     .select("course_id, name, media_type, storage_path")
     .eq("id", materialId)
     .maybeSingle();
-  if (error) fail("Loading the Material", error);
+  if (error) failed("Loading the Material", error);
   return (
     data && {
       courseId: data.course_id,
@@ -192,7 +189,7 @@ export async function findMaterials(
     .from("materials")
     .select("id, course_id, name, media_type, size_bytes, storage_path")
     .in("id", materialIds);
-  if (error) fail("Loading the Materials", error);
+  if (error) failed("Loading the Materials", error);
   return data.map((row) => ({
     id: row.id,
     courseId: row.course_id,
@@ -233,7 +230,7 @@ export async function updateMaterialName(
     .update({ name })
     .eq("id", materialId)
     .select("id");
-  if (error) fail("Renaming the Material", error);
+  if (error) failed("Renaming the Material", error);
   return data.length > 0;
 }
 
@@ -246,7 +243,7 @@ export async function removeMaterial(
     .from("materials")
     .delete()
     .eq("id", materialId);
-  if (error) fail("Deleting the Material", error);
+  if (error) failed("Deleting the Material", error);
 }
 
 /**
@@ -280,7 +277,7 @@ export async function listMaterials(
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
-  if (error) fail("Loading the Materials", error);
+  if (error) failed("Loading the Materials", error);
   return data.map((row) => ({
     id: row.id,
     name: row.name,

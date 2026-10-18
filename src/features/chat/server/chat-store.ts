@@ -1,5 +1,6 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import type { ChatUIMessage, ReplyUsage } from "@/features/chat/types";
 import type { TutorContext } from "@/features/study";
@@ -40,10 +41,6 @@ function toStoredChat(row: {
 
 const chatColumns = "id, course_id, title, model_choice, latest_reply_id";
 
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
-
 /** The Student's Chat with this id, or null when it is missing or not theirs. */
 export async function findChat(
   supabase: Supabase,
@@ -54,7 +51,7 @@ export async function findChat(
     .select(chatColumns)
     .eq("id", chatId)
     .maybeSingle();
-  if (error) fail("Loading the Chat", error);
+  if (error) failed("Loading the Chat", error);
   return data ? toStoredChat(data) : null;
 }
 
@@ -87,7 +84,7 @@ export async function createChat(
   if (error?.code === "23505") return "taken";
   // The insert policy, or the foreign key once the Course is deleted.
   if (error?.code === "42501" || error?.code === "23503") return "no course";
-  if (error) fail("Creating the Chat", error);
+  if (error) failed("Creating the Chat", error);
   return toStoredChat(data);
 }
 
@@ -107,7 +104,7 @@ export async function startReply(
     .from("chats")
     .update({ model_choice: modelChoice, latest_reply_id: replyId })
     .eq("id", chatId);
-  if (error) fail("Starting the reply", error);
+  if (error) failed("Starting the reply", error);
 }
 
 /**
@@ -127,7 +124,7 @@ export async function cancelReply(
     .update({ latest_reply_id: previousReplyId })
     .eq("id", chatId)
     .eq("latest_reply_id", replyId);
-  if (error) fail("Cancelling the reply", error);
+  if (error) failed("Cancelling the reply", error);
 }
 
 /**
@@ -144,7 +141,7 @@ export async function setGeneratedTitle(
     .update({ title })
     .eq("id", chatId)
     .eq("title_set_manually", false);
-  if (error) fail("Saving the title", error);
+  if (error) failed("Saving the title", error);
 }
 
 /**
@@ -161,7 +158,7 @@ export async function renameChat(
     .update({ title, title_set_manually: true })
     .eq("id", chatId)
     .select("id");
-  if (error) fail("Renaming the Chat", error);
+  if (error) failed("Renaming the Chat", error);
   return data.length > 0;
 }
 
@@ -186,7 +183,7 @@ export async function listChats(
     .order("last_message_at", { ascending: false })
     .order("created_at", { referencedTable: "chat_messages", ascending: true })
     .limit(1, { referencedTable: "chat_messages" });
-  if (error) fail("Listing the Chats", error);
+  if (error) failed("Listing the Chats", error);
   return data.map((chat) => {
     const first = chat.chat_messages[0];
     return {
@@ -213,7 +210,7 @@ export async function deleteChat(
     .delete()
     .eq("id", chatId)
     .select("course_id");
-  if (error) fail("Deleting the Chat", error);
+  if (error) failed("Deleting the Chat", error);
   return data[0] ? { courseId: data[0].course_id } : null;
 }
 
@@ -253,7 +250,7 @@ export async function loadMessages(
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
-  if (error) fail("Loading the messages", error);
+  if (error) failed("Loading the messages", error);
 
   const usage = await loadReplyUsage(
     supabase,
@@ -278,7 +275,7 @@ export async function countChatsAttaching(
       "parts",
       JSON.stringify([{ type: "data-material", data: { materialId } }]),
     );
-  if (error) fail("Counting the Chats with the Material", error);
+  if (error) failed("Counting the Chats with the Material", error);
   return new Set(data.map((row) => row.chat_id)).size;
 }
 
@@ -294,7 +291,7 @@ export async function hasMessage(
     .eq("chat_id", chatId)
     .eq("id", messageId)
     .maybeSingle();
-  if (error) fail("Loading the message", error);
+  if (error) failed("Loading the message", error);
   return data !== null;
 }
 
@@ -324,7 +321,7 @@ export async function saveMessage(
     .from("chat_messages")
     .insert(messageRow(chatId, message));
   if (error?.code === "23505") return false;
-  if (error) fail("Saving the message", error);
+  if (error) failed("Saving the message", error);
   return true;
 }
 
@@ -349,14 +346,14 @@ export async function saveReply(
     .select("created_at")
     .single();
   if (error?.code === "23505") return false;
-  if (error) fail("Saving the reply", error);
+  if (error) failed("Saving the reply", error);
 
   const { data: chat, error: chatError } = await supabase
     .from("chats")
     .select("latest_reply_id")
     .eq("id", chatId)
     .maybeSingle();
-  if (chatError) fail("Loading the Chat", chatError);
+  if (chatError) failed("Loading the Chat", chatError);
   if (chat?.latest_reply_id !== reply.id) {
     await deleteMessage(supabase, reply.id);
     return false;
@@ -369,7 +366,7 @@ export async function saveReply(
     .eq("id", replyTo)
     .single();
   if (studentMessageError) {
-    fail("Loading the Student's message", studentMessageError);
+    failed("Loading the Student's message", studentMessageError);
   }
   const { error: deleteError } = await supabase
     .from("chat_messages")
@@ -378,7 +375,7 @@ export async function saveReply(
     .eq("role", "assistant")
     .gt("created_at", studentMessage.created_at)
     .lt("created_at", saved.created_at);
-  if (deleteError) fail("Deleting the replaced reply", deleteError);
+  if (deleteError) failed("Deleting the replaced reply", deleteError);
   return true;
 }
 
@@ -387,5 +384,5 @@ async function deleteMessage(supabase: Supabase, messageId: string) {
     .from("chat_messages")
     .delete()
     .eq("id", messageId);
-  if (error) fail("Deleting the message", error);
+  if (error) failed("Deleting the message", error);
 }

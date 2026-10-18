@@ -1,5 +1,6 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import { getMaterialList } from "@/features/courses/server";
 import { findingQuestion } from "@/features/brief/domain/findings";
@@ -27,10 +28,6 @@ import {
 
 type MessageRow = Database["public"]["Tables"]["brief_messages"]["Row"];
 
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
-
 /**
  * Creates the Course's Brief and its static opening message when they do not
  * exist yet. Returns false when the Course is not (or no longer) the
@@ -46,7 +43,7 @@ export async function ensureBrief(
   // 23505: it exists. The insert policy and the foreign key refuse a Course
   // that is not the Student's or was deleted.
   if (error?.code === "42501" || error?.code === "23503") return false;
-  if (error && error.code !== "23505") fail("Creating the Brief", error);
+  if (error && error.code !== "23505") failed("Creating the Brief", error);
 
   const { error: openingError } = await supabase.from("brief_messages").insert({
     id: openingMessageId(courseId),
@@ -56,7 +53,7 @@ export async function ensureBrief(
     model_id: STATIC_MODEL_ID,
   });
   if (openingError && openingError.code !== "23505") {
-    fail("Saving the opening message", openingError);
+    failed("Saving the opening message", openingError);
   }
   return true;
 }
@@ -97,7 +94,7 @@ export async function askNextFinding(
     parts: [{ type: "text", text: findingQuestion(next) }],
     model_id: STATIC_MODEL_ID,
   });
-  if (error && error.code !== "23505") fail("Asking the Finding", error);
+  if (error && error.code !== "23505") failed("Asking the Finding", error);
   await markFindingAsked(supabase, courseId, next.id);
 }
 
@@ -125,7 +122,7 @@ export async function loadMessages(
     .select("id, course_id, owner, role, parts, model_id, created_at")
     .eq("course_id", courseId)
     .order("created_at", { ascending: true });
-  if (error) fail("Loading the messages", error);
+  if (error) failed("Loading the messages", error);
   return data.map(toUIMessage);
 }
 
@@ -146,7 +143,7 @@ export async function saveMessage(
     model_id: message.metadata?.modelId ?? null,
   });
   if (error?.code === "23505") return false;
-  if (error) fail("Saving the message", error);
+  if (error) failed("Saving the message", error);
   return true;
 }
 
@@ -168,7 +165,7 @@ async function loadBrief(supabase: Supabase, courseId: string) {
     )
     .eq("course_id", courseId)
     .maybeSingle();
-  if (error) fail("Loading the Brief", error);
+  if (error) failed("Loading the Brief", error);
   if (!data) return null;
   const fields: BriefFields = {
     examDate: data.exam_date,
@@ -217,7 +214,7 @@ async function loadExcludedIds(supabase: Supabase, courseId: string) {
     .from("brief_excluded_materials")
     .select("material_id")
     .eq("course_id", courseId);
-  if (error) fail("Loading the excluded Materials", error);
+  if (error) failed("Loading the excluded Materials", error);
   return new Set(data.map((row) => row.material_id));
 }
 
@@ -250,7 +247,7 @@ export async function saveBrief(
     fields,
     ...(excludedMaterialIds && { excluded_material_ids: excludedMaterialIds }),
   });
-  if (error) fail("Saving the Brief", error);
+  if (error) failed("Saving the Brief", error);
   if (!data) throw new Error("Saving the Brief failed: it does not exist");
 }
 
@@ -268,7 +265,7 @@ export async function addBriefNote(
     course_id: courseId,
     text,
   });
-  if (error) fail("Saving the note", error);
+  if (error) failed("Saving the note", error);
   if (data === null) throw new Error("Saving the note failed: no Brief");
   return data;
 }

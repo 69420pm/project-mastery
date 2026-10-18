@@ -1,3 +1,5 @@
+import { failed } from "./failed";
+
 /** The most rows the API returns per request. */
 const PAGE = 1000;
 
@@ -16,7 +18,7 @@ export async function allRows<Row>(
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await page(from, from + PAGE - 1);
-    if (error) throw new Error(`${action} failed: ${error.message}`);
+    if (error) failed(action, error);
     rows.push(...(data ?? []));
     if ((data ?? []).length < PAGE) return rows;
   }

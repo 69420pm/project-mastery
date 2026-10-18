@@ -13,12 +13,12 @@ import {
 } from "@/features/ingestion/domain/file-chunks";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  fail,
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failed } from "@/lib/supabase/failed";
 
 /**
  * The file call of a parse (step 3 of `parse-material.ts`): one text call
@@ -42,14 +42,14 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
     .select("id")
     .eq("material_id", materialId)
     .limit(1);
-  if (existing.error) fail("Loading the chunks", existing.error);
+  if (existing.error) failed("Loading the chunks", existing.error);
   if (existing.data.length > 0) return { ok: true };
 
   const pages = await supabase
     .from("material_pages")
     .select("page_number, units")
     .eq("material_id", materialId);
-  if (pages.error) fail("Loading the page results", pages.error);
+  if (pages.error) failed("Loading the page results", pages.error);
   const units = materialUnits(
     pages.data.map((page) => ({
       pageNumber: page.page_number,
@@ -95,7 +95,7 @@ export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
     p_exam_year: oldExam?.year ?? undefined,
     p_exam_total_points: oldExam?.totalPoints ?? undefined,
   });
-  if (replaced.error) fail("Storing the chunks", replaced.error);
+  if (replaced.error) failed("Storing the chunks", replaced.error);
   return { ok: true };
 }
 
