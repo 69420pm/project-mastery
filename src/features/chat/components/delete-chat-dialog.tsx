@@ -1,17 +1,6 @@
 "use client";
 
-import { type MouseEvent, useState, useTransition } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Spinner } from "@/components/ui/spinner";
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { deleteChat } from "@/features/chat/server/actions";
 import type { ChatListItem } from "@/features/chat/types";
 
@@ -35,55 +24,16 @@ export function DeleteChatDialog({
   isOpen,
   onLeave,
 }: DeleteChatDialogProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function handleDelete(event: MouseEvent) {
-    // Stay open until the Chat is gone, or to show why it is not.
-    event.preventDefault();
-    startTransition(async () => {
-      if (isOpen) onLeave?.();
-      const result = await deleteChat({ chatId: chat.id, leave: isOpen });
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      onOpenChange(false);
-    });
-  }
-
   return (
-    <AlertDialog
+    <ConfirmDeleteDialog
       open={open}
-      onOpenChange={(next) => {
-        setError(null);
-        onOpenChange(next);
+      onOpenChange={onOpenChange}
+      title="Delete chat?"
+      description={`“${chat.label}” and all its messages will be deleted permanently.`}
+      onConfirm={() => {
+        if (isOpen) onLeave?.();
+        return deleteChat({ chatId: chat.id, leave: isOpen });
       }}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete chat?</AlertDialogTitle>
-          <AlertDialogDescription>
-            “{chat.label}” and all its messages will be deleted permanently.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            disabled={isPending}
-            onClick={handleDelete}
-          >
-            {isPending && <Spinner data-icon="inline-start" />}
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    />
   );
 }

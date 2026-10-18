@@ -1,16 +1,10 @@
 "use client";
 
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { MoreHorizontalIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { RowActionsMenu } from "@/components/row-actions-menu";
 import { SidebarLink } from "@/components/sidebar-link";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -75,32 +69,18 @@ function ChatListEntry({
       <SidebarLink href={href} isActive={isOpen}>
         <span>{chat.label}</span>
       </SidebarLink>
-      {/* Not modal, so focus moves cleanly into a dialog opened from it. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
+      <RowActionsMenu
+        label="Chat actions"
+        onRename={() => setDialog("rename")}
+        onDelete={() => setDialog("delete")}
+        trigger={
           <SidebarMenuAction showOnHover aria-label="Chat actions">
             <MoreHorizontalIcon />
           </SidebarMenuAction>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          side={isMobile ? "bottom" : "right"}
-          align={isMobile ? "end" : "start"}
-        >
-          <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setDialog("rename")}>
-              <PencilIcon />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => setDialog("delete")}
-            >
-              <Trash2Icon />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        }
+        side={isMobile ? "bottom" : "right"}
+        align={isMobile ? "end" : "start"}
+      />
       <RenameChatDialog
         chat={chat}
         open={dialog === "rename"}
