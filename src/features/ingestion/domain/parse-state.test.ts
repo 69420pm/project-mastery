@@ -37,6 +37,21 @@ describe("canStartParse", () => {
   });
 });
 
+describe("parseStateLabel", () => {
+  test.each([
+    [state("not_parsed"), "Not parsed"],
+    [state("queued"), "Waiting"],
+    [state("queued", true), "Not started"],
+    [state("parsing"), "Parsing"],
+    [{ ...state("parsing"), pagesDone: 2, pagesTotal: 5 }, "Parsing 2/5"],
+    [{ ...state("parsing"), pagesDone: 0, pagesTotal: 3 }, "Parsing 0/3"],
+    [state("parsed"), "Parsed"],
+    [state("failed"), "Failed"],
+  ])("labels %o as %s", (parseState, label) => {
+    expect(parseStateLabel(parseState)).toBe(label);
+  });
+});
+
 describe("a queued Material whose parse could not start", () => {
   test("reads as not started, and the page stops refreshing for it", () => {
     expect(parseStateLabel(state("queued", true))).toBe("Not started");

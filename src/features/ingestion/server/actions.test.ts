@@ -1,40 +1,23 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+import { fakeSupabase } from "@/lib/supabase/testing";
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
 
 let signedIn: string | null = STUDENT;
-let db = createDb();
-
-/**
- * The Student's tables. `queue_material_parse` stands in for the database
- * function, whose guard pgTAP tests: it queues a `not_parsed` or `failed`
- * Material and says whether it did.
- */
-function createDb() {
-  return fakeSupabase({
-    tables: { materials: [] as FakeRow[] },
-    functions: {
-      queue_material_parse: ({ material_id }, tables) => {
-        const material = tables.materials.find(
-          (row) =>
-            row.id === material_id &&
-            row.owner === signedIn &&
-            (row.parse_status === "not_parsed" ||
-              row.parse_status === "failed" ||
-              (row.parse_status === "queued" && row.parse_start_failed)),
-        );
-        if (material) {
-          material.parse_status = "queued";
-          material.parse_start_failed = false;
-        }
-        return Boolean(material);
-      },
+/** What `queue_material_parse` answers; pgTAP tests its real guard. */
+let queued = true;
+const queueCalls: unknown[] = [];
+const db = fakeSupabase({
+  tables: {},
+  functions: {
+    queue_material_parse: (args) => {
+      queueCalls.push(args);
+      return queued;
     },
-  });
-}
+  },
+});
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -48,76 +31,34 @@ vi.mock("workflow/api", () => ({ start: startWorkflow }));
 const { parseMaterial } = await import("@/features/ingestion/server");
 const { startMaterialParse } = await import("./actions");
 
-function seedMaterial(parseStatus: string, startFailed = false) {
-  db.tables.materials.push({
-    id: MATERIAL,
-    owner: STUDENT,
-    parse_status: parseStatus,
-    parse_start_failed: startFailed,
-  });
-}
-
 beforeEach(() => {
   signedIn = STUDENT;
-  db = createDb();
+  queued = true;
+  queueCalls.length = 0;
   startWorkflow.mockReset();
 });
 
 describe("startMaterialParse", () => {
-  test.each(["not_parsed", "failed"])(
-    "starts the parse of a %s Material",
-    async (status) => {
-      seedMaterial(status);
+  test("starts the parse when the Material is queued", async () => {
+    const result = await startMaterialParse({ materialId: MATERIAL });
 
-      const result = await startMaterialParse({ materialId: MATERIAL });
-
-      expect(result).toEqual({ ok: true, data: undefined });
-      expect(db.tables.materials[0]?.parse_status).toBe("queued");
-      expect(startWorkflow).toHaveBeenCalledExactlyOnceWith(parseMaterial, [
-        MATERIAL,
-      ]);
-    },
-  );
-
-  test.each(["queued", "parsing", "parsed"])(
-    "does nothing for a %s Material",
-    async (status) => {
-      seedMaterial(status);
-
-      const result = await startMaterialParse({ materialId: MATERIAL });
-
-      expect(result).toEqual({ ok: true, data: undefined });
-      expect(db.tables.materials[0]?.parse_status).toBe(status);
-      expect(startWorkflow).not.toHaveBeenCalled();
-    },
-  );
-
-  test("starts the parse of a queued Material whose workflow did not start, once", async () => {
-    seedMaterial("queued", true);
-
-    await Promise.all([
-      startMaterialParse({ materialId: MATERIAL }),
-      startMaterialParse({ materialId: MATERIAL }),
-    ]);
-
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(queueCalls).toEqual([{ material_id: MATERIAL }]);
     expect(startWorkflow).toHaveBeenCalledExactlyOnceWith(parseMaterial, [
       MATERIAL,
     ]);
   });
 
-  test("starts one parse when pressed twice at once", async () => {
-    seedMaterial("failed");
+  test("does nothing when the Material is not queued", async () => {
+    queued = false;
 
-    await Promise.all([
-      startMaterialParse({ materialId: MATERIAL }),
-      startMaterialParse({ materialId: MATERIAL }),
-    ]);
+    const result = await startMaterialParse({ materialId: MATERIAL });
 
-    expect(startWorkflow).toHaveBeenCalledOnce();
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(startWorkflow).not.toHaveBeenCalled();
   });
 
   test("refuses a signed-out visitor", async () => {
-    seedMaterial("failed");
     signedIn = null;
 
     const result = await startMaterialParse({ materialId: MATERIAL });
@@ -126,13 +67,13 @@ describe("startMaterialParse", () => {
       ok: false,
       message: "Sign in again to continue.",
     });
-    expect(startWorkflow).not.toHaveBeenCalled();
+    expect(queueCalls).toEqual([]);
   });
 
   test("refuses an id that is not a Material's", async () => {
     const result = await startMaterialParse({ materialId: "not-an-id" });
 
     expect(result.ok).toBe(false);
-    expect(startWorkflow).not.toHaveBeenCalled();
+    expect(queueCalls).toEqual([]);
   });
 });

@@ -3,7 +3,11 @@ import type { Page } from "@playwright/test";
 import { adminClient, expect, storedFilePaths, test } from "./fixtures";
 
 const PDF = path.join(__dirname, "files", "lecture-notes.pdf");
-const PNG = path.join(__dirname, "files", "whiteboard.png");
+// Shared with the ingestion unit tests, which Stryker runs without e2e/.
+const PNG = path.join(
+  __dirname,
+  "../src/features/ingestion/workflows/test-files/whiteboard.png",
+);
 
 /** The stored Materials of a Course, oldest first. */
 async function storedMaterials(courseId: string) {
