@@ -79,6 +79,30 @@ test("shows an auth error as an alert", async () => {
   );
 });
 
+test("creates an account from the sign-up tab and confirms the email", async () => {
+  actions.signUp.mockResolvedValue({
+    ok: true,
+    data: undefined,
+    email: "alice@example.com",
+  });
+  render(<LoginForms next="/courses" />);
+
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Create account" }));
+  fireEvent.change(await screen.findByLabelText("Email"), {
+    target: { value: "alice@example.com" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "long enough" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  expect(await screen.findByText("Check your inbox")).toBeInTheDocument();
+  const formData = actions.signUp.mock.calls[0]![1];
+  expect(formData.get("email")).toBe("alice@example.com");
+  expect(formData.get("next")).toBe("/courses");
+  expect(actions.signIn).not.toHaveBeenCalled();
+});
+
 test("confirms a sent sign-in link and lets the user start over", async () => {
   actions.signIn.mockResolvedValue({
     ok: true,

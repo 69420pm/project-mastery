@@ -40,6 +40,33 @@ describe("confirmEmailLink", () => {
     });
   });
 
+  test.each([
+    "email",
+    "signup",
+    "magiclink",
+    "invite",
+    "recovery",
+    "email_change",
+  ])("verifies a %s link and redirects to its next path", async (type) => {
+    await expect(
+      confirmEmailLink(
+        request(`token_hash=abc&type=${type}&next=%2Fcourses%2F42%2Fmap`),
+      ),
+    ).rejects.toThrow(/^redirect:\/courses\/42\/map$/);
+
+    expect(auth.verifyOtp).toHaveBeenCalledWith({ type, token_hash: "abc" });
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+
+  test("sends a PKCE code that fails to the error page", async () => {
+    auth.exchangeCodeForSession.mockResolvedValue({
+      error: new Error("invalid code"),
+    });
+    await expect(
+      confirmEmailLink(request("code=xyz&next=%2Fcourses")),
+    ).rejects.toThrow(/^redirect:\/auth\/error$/);
+  });
+
   test("unwraps the redirect URL that email templates pass as next", async () => {
     const next = encodeURIComponent(
       "http://localhost:3000/auth/confirm?next=%2Fcourses",
