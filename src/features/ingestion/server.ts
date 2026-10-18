@@ -8,10 +8,12 @@ export { chunkAnchor } from "./domain/chunk-anchor";
 export { getMaterialChunks } from "./server/chunk-queries";
 export {
   getChunkPlaces,
+  loadChunkPoints,
   loadCourseChunks,
   loadChunkSources,
   loadExerciseSolutions,
   type ChunkPlace,
+  type ChunkPoints,
   type ChunkSource,
   type CourseChunk,
 } from "./server/course-chunks";

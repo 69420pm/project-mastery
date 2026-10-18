@@ -1,6 +1,7 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
+import { getMaterialList } from "@/features/courses/server";
 import { findingQuestion } from "@/features/brief/domain/findings";
 import {
   findingMessageId,
@@ -193,21 +194,17 @@ export async function loadContext(
 ): Promise<BriefContext | null> {
   const [brief, materials, excluded] = await Promise.all([
     loadBrief(supabase, courseId),
-    supabase
-      .from("materials")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("created_at", { ascending: true }),
+    getMaterialList(courseId, supabase),
     loadExcludedIds(supabase, courseId),
   ]);
-  if (materials.error) fail("Loading the Materials", materials.error);
   if (!brief) return null;
   return {
     ...brief,
     findings: isIntakeDone(brief.fields)
       ? await getOpenFindings(supabase, courseId)
       : [],
-    materials: materials.data.map(({ id, name }) => ({
+    // Oldest first, as the Student uploaded them.
+    materials: materials.toReversed().map(({ id, name }) => ({
       id,
       name,
       excluded: excluded.has(id),

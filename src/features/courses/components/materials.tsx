@@ -21,7 +21,10 @@ import { RowActionsMenu } from "@/components/row-actions-menu";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
-import { DeleteMaterialDialog } from "@/features/courses/components/delete-material-dialog";
+import {
+  DeleteMaterialDialog,
+  type CountMaterialChats,
+} from "@/features/courses/components/delete-material-dialog";
 import { MaterialViewer } from "@/features/courses/components/material-viewer";
 import { materialChunksPath } from "@/features/courses/domain/course-paths";
 import {
@@ -53,6 +56,8 @@ type MaterialsProps = {
   courseId: string;
   /** The Course's Materials, newest first. */
   materials: MaterialListItem[];
+  /** In how many Chats a Material is attached, for its delete warning. */
+  countMaterialChats: CountMaterialChats;
 };
 
 /**
@@ -60,7 +65,12 @@ type MaterialsProps = {
  * dropping them, with progress, and the Materials, newest first, to open,
  * rename or delete.
  */
-export function Materials({ ownerId, courseId, materials }: MaterialsProps) {
+export function Materials({
+  ownerId,
+  courseId,
+  materials,
+  countMaterialChats,
+}: MaterialsProps) {
   const { uploads, add, retry, remove } = useMaterialUploads({
     ownerId,
     courseId,
@@ -146,6 +156,7 @@ export function Materials({ ownerId, courseId, materials }: MaterialsProps) {
               key={material.id}
               courseId={courseId}
               material={material}
+              countMaterialChats={countMaterialChats}
               onOpen={() => setOpened(material)}
             />
           ))}
@@ -330,10 +341,12 @@ function useParsePolling(materials: MaterialListItem[]) {
 function MaterialEntry({
   courseId,
   material,
+  countMaterialChats,
   onOpen,
 }: {
   courseId: string;
   material: MaterialListItem;
+  countMaterialChats: CountMaterialChats;
   onOpen: () => void;
 }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
@@ -376,6 +389,7 @@ function MaterialEntry({
       />
       <DeleteMaterialDialog
         material={material}
+        countMaterialChats={countMaterialChats}
         open={dialog === "delete"}
         onOpenChange={(open) => setDialog(open ? "delete" : null)}
       />
