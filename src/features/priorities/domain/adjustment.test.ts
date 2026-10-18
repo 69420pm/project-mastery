@@ -33,6 +33,22 @@ describe("adjustmentOf", () => {
     expect(adjust("k1").multiplier).toBe(2);
     expect(adjust("k2").multiplier).toBe(0);
   });
+
+  test.each([
+    ["a non-finite multiplier keeps 1", Number.NaN, "a", 1, ["a"]],
+    ["an empty reason gives no reason", 0.5, "", 0.5, []],
+  ])("%s", (_, multiplier, reason, expected, reasons) => {
+    const adjust = adjustmentOf([{ id: "k1", multiplier, reason }], kcs);
+    expect(adjust("k1")).toEqual({ multiplier: expected, reasons });
+  });
+
+  test("an unknown KC keeps 1", () => {
+    const adjust = adjustmentOf(
+      [{ id: "b1", multiplier: 2, reason: "Stressed" }],
+      kcs,
+    );
+    expect(adjust("unknown")).toEqual({ multiplier: 1, reasons: [] });
+  });
 });
 
 describe("adjustmentPlan", () => {
@@ -54,6 +70,26 @@ describe("adjustmentPlan", () => {
 
   test("reuses when nothing changed after the last adjustment", () => {
     expect(adjustmentPlan(base)).toBe("reuse");
+  });
+
+  test.each([
+    ["the notes", { notesUpdatedAt: base.adjustedAt }],
+    ["the map", { mapFinishedAt: base.adjustedAt }],
+    ["an answer", { answeredAt: [base.adjustedAt] }],
+  ])("reuses when %s changed exactly at the last adjustment", (_, at) => {
+    expect(adjustmentPlan({ ...base, ...at })).toBe("reuse");
+  });
+
+  test("reuses without notes when only older answers exist", () => {
+    expect(
+      adjustmentPlan({
+        ...base,
+        hasNotes: false,
+        notesUpdatedAt: null,
+        mapFinishedAt: null,
+        answeredAt: ["2026-10-01T08:00:00Z"],
+      }),
+    ).toBe("reuse");
   });
 
   test("calls when the notes, an answer or the map are newer", () => {

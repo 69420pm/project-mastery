@@ -1,5 +1,7 @@
 // @vitest-environment node
-import { beforeEach, expect, test, vi } from "vitest";
+import { APICallError } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
@@ -41,6 +43,7 @@ function createDb() {
     defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
     functions: {
       replace_kc_priorities: (args, tables) => {
+        if (storeFails) throw new Error("could not serialize access");
         const run = tables.priority_runs.find(
           (row) =>
             row.course_id === args.p_course_id && row.status === "running",
@@ -71,6 +74,7 @@ function createDb() {
   });
 }
 
+let storeFails = false;
 let db = createDb();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => markAdminClient(db as unknown as Supabase),
@@ -79,6 +83,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 const { updatePriorities } = await import("./update-priorities");
 
 beforeEach(() => {
+  storeFails = false;
   db = createDb();
 });
 
@@ -252,4 +257,203 @@ test("notes adjust the multipliers once, and a rerun with unchanged notes reuses
     status: "done",
     adjusted_at: "2026-10-02T00:00:00Z",
   });
+});
+
+const ADJUSTED = JSON.stringify({
+  entries: [{ id: "K2", multiplier: 2, reason: "The lecturer stressed it" }],
+});
+
+/** A priority model that fails every call with `error`. */
+function failingModel(error: () => Error) {
+  return new MockLanguageModelV4({
+    doGenerate: async () => {
+      throw error();
+    },
+  });
+}
+
+const storedK2 = () =>
+  db.tables.kc_priorities.find((row: FakeRow) => row.kc_id === "k2");
+
+describe("a run that asks the model", () => {
+  /** Seeds notes the model was never asked about, and a stored adjustment. */
+  function seedUnadjusted() {
+    seedCourse();
+    db.tables.briefs.push({
+      course_id: COURSE,
+      notes: "The thrust equation is stressed.",
+      notes_updated_at: "2026-10-01T12:00:00Z",
+    });
+    const stored = [{ id: "k2", multiplier: 0.5, reason: "Stored" }];
+    (db.tables.priority_runs[0] as FakeRow).adjustments = stored;
+    return stored;
+  }
+
+  test.each([
+    [
+      "a reached Daily limit",
+      () => {
+        vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+        db.tables.ai_usage.push({
+          owner: STUDENT,
+          task: "chat",
+          cost_usd: 5,
+          created_at: new Date().toISOString(),
+        });
+        return mockTextModel(ADJUSTED);
+      },
+      0,
+    ],
+    [
+      "a daily-quota error",
+      () =>
+        failingModel(
+          () =>
+            new APICallError({
+              message: "Quota exceeded",
+              url: "https://example.com",
+              requestBodyValues: {},
+              statusCode: 429,
+              responseBody: '{"error":{"message":"Requests per day exceeded"}}',
+              isRetryable: false,
+            }),
+        ),
+      1,
+    ],
+  ])(
+    "stopped by %s reuses the stored adjustment and leaves adjusted_at null",
+    async (_, setUp, calls) => {
+      const stored = seedUnadjusted();
+      const model = setUp();
+      useMockModels({ priority: model });
+
+      await updatePriorities(COURSE);
+
+      expect(model.doGenerateCalls).toHaveLength(calls);
+      expect(
+        db.tables.ai_usage.filter((row: FakeRow) => row.task === "priority"),
+      ).toEqual([]);
+      expect(storedK2()).toMatchObject({
+        multiplier: 0.5,
+        reasons: expect.arrayContaining(["Stored"]),
+      });
+      expect(db.tables.priority_runs[0]).toMatchObject({
+        status: "done",
+        adjusted_at: null,
+        adjustments: stored,
+      });
+    },
+  );
+
+  test("fails on another model error and keeps the previous priorities", async () => {
+    seedUnadjusted();
+    db.tables.kc_priorities.push({
+      kc_id: "k1",
+      course_id: COURSE,
+      priority: 1,
+    });
+    useMockModels({
+      priority: failingModel(() => new Error("The provider broke")),
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await updatePriorities(COURSE);
+
+    expect(db.tables.priority_runs[0]).toMatchObject({
+      status: "failed",
+      adjusted_at: null,
+    });
+    expect(db.tables.kc_priorities).toEqual([
+      { kc_id: "k1", course_id: COURSE, priority: 1 },
+    ]);
+  });
+});
+
+describe("the Findings and notes a run reads", () => {
+  const finding = (status: string) => ({
+    id: `f-${status}`,
+    course_id: COURSE,
+    kind: "scope",
+    text: "Is Ex. 1 in the exam?",
+    status,
+    answer: status === "answered" ? "Yes, it is stressed." : null,
+    answered_at: status === "answered" ? "2026-10-01T12:00:00Z" : null,
+    position: 0,
+  });
+
+  test("an answered Finding alone asks the model once, with the answer", async () => {
+    seedCourse();
+    db.tables.findings.push(finding("answered"));
+    const model = mockTextModel(ADJUSTED);
+    useMockModels({ priority: model });
+
+    await updatePriorities(COURSE);
+
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(JSON.stringify(model.doGenerateCalls[0]?.prompt)).toContain(
+      "Yes, it is stressed.",
+    );
+    expect(storedK2()).toMatchObject({ multiplier: 2 });
+  });
+
+  test.each([
+    ["an open Finding", () => db.tables.findings.push(finding("open"))],
+    [
+      "whitespace-only notes",
+      () =>
+        db.tables.briefs.push({
+          course_id: COURSE,
+          notes: "  \n\t ",
+          notes_updated_at: "2026-10-01T12:00:00Z",
+        }),
+    ],
+  ])("%s asks no model and leaves every multiplier 1", async (_, seed) => {
+    seedCourse();
+    seed();
+    const model = mockTextModel(ADJUSTED);
+    useMockModels({ priority: model });
+
+    await updatePriorities(COURSE);
+
+    expect(model.doGenerateCalls).toHaveLength(0);
+    expect(storedK2()).toMatchObject({ multiplier: 1 });
+    expect(db.tables.priority_runs[0]?.status).toBe("done");
+  });
+});
+
+test("an exam Exercise past the first 1,000 chunks still counts its points", async () => {
+  seedCourse();
+  // Chunks are read in id order, so these come before the exam chunk.
+  for (let i = 0; i < 1000; i++) {
+    db.tables.chunks.push({
+      id: `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, "0")}`,
+      course_id: COURSE,
+      material_id: "m-lecture",
+      points: null,
+    });
+  }
+
+  await updatePriorities(COURSE);
+
+  expect(storedK2()).toMatchObject({
+    priority: 0.75,
+    reasons: ["10 points in old exams", "Tested by 1 Exercise"],
+  });
+});
+
+test("a failing store fails the run and keeps the previous priorities", async () => {
+  seedCourse();
+  db.tables.kc_priorities.push({ kc_id: "k1", course_id: COURSE, priority: 1 });
+  storeFails = true;
+  vi.spyOn(console, "error").mockImplementation(() => {});
+
+  await updatePriorities(COURSE);
+
+  expect(db.tables.priority_runs[0]).toMatchObject({
+    status: "failed",
+    failure_reason: "The priorities could not be computed.",
+  });
+  expect(db.tables.kc_priorities).toEqual([
+    { kc_id: "k1", course_id: COURSE, priority: 1 },
+  ]);
 });
