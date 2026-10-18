@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { messageText } from "./message-text";
+import { messageText } from "./reply";
 
 test("joins the text parts of a message and skips other parts", () => {
   expect(

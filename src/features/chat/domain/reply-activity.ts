@@ -1,4 +1,4 @@
-import { messageText } from "@/features/chat/domain/message-text";
+import { messageText } from "@/lib/ai/reply";
 import type { ChatUIMessage } from "@/features/chat/types";
 
 /** What the AI is doing while a tutor tool runs, by tool name. */
