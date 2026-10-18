@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { computeMetrics, formatMetrics } from "./metrics";
 import { isExcluded, listFiles, listUnits, unitOf, type Unit } from "./units";
+import { withoutSupabase } from "./without-supabase";
 
 const root = process.cwd();
 const units = listUnits(root);
@@ -233,31 +234,6 @@ async function mutate(unit: Unit) {
   );
 }
 
-/**
- * Runs `work` with the local Supabase stack stopped, to free its memory for
- * the mutation runs. The unit tests mock the database. The stack comes back
- * afterwards if it was running; if this process is killed, `pnpm db:start`.
- */
-async function withoutSupabase(work: () => Promise<void>) {
-  const running = await run([
-    "docker",
-    "ps",
-    "--quiet",
-    "--filter",
-    "name=supabase_db_",
-  ])
-    .then(({ out }) => out.trim() !== "")
-    .catch(() => false);
-  if (!running) return work();
-  console.log("Stopping the local Supabase; it restarts when the run ends.");
-  await run(["pnpm", "exec", "supabase", "stop"]);
-  try {
-    await work();
-  } finally {
-    await run(["pnpm", "exec", "supabase", "start"]);
-  }
-}
-
 async function main([command, ...names]: string[]) {
   if (command === "mutate") {
     const chosen = names.length
@@ -268,7 +244,7 @@ async function main([command, ...names]: string[]) {
         })
       : units.filter((u) => u.mutate.length);
     console.log(`Units: ${chosen.map((u) => u.name).join(", ")}`);
-    await withoutSupabase(async () => {
+    await withoutSupabase(run, async () => {
       for (const unit of chosen) await mutate(unit);
     });
   } else if (command === undefined) {

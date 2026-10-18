@@ -45,7 +45,7 @@ const ALLOWED_FILES = [
 ];
 
 /** Unit tests sit next to the file they test, under the same name. */
-const TEST_FILES = "{src,tools}/**/*.test.{ts,tsx}";
+const TEST_FILES = "{src,tools,evals}/**/*.test.{ts,tsx}";
 
 const ENV_FILES = ["src/**/env.ts", "src/**/*-env.ts"];
 

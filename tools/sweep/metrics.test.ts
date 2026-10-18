@@ -38,24 +38,45 @@ write(
 write("src/lib/cn.ts", "export const cn = () => 1;\nexport const other = 2;\n");
 write("src/components/ui/button.tsx", "export const Button = 1;\n");
 
-it("counts lines, used exports and coupling per unit", () => {
+const metrics = () => {
   const { units } = computeMetrics(root, listUnits(root));
-  const byName = Object.fromEntries(units.map((u) => [u.unit, u]));
+  return Object.fromEntries(units.map((u) => [u.unit, u]));
+};
 
-  expect(byName.a).toEqual({
-    unit: "a",
-    files: 2,
-    loc: 5,
-    publicExports: 2,
-    usedOutside: 1,
-    fanIn: ["b"],
-    fanOut: [],
-  });
-  expect(byName.b).toMatchObject({ loc: 3, fanIn: [], fanOut: ["a", "lib"] });
-  expect(byName.lib).toMatchObject({
-    publicExports: 2,
-    usedOutside: 1,
-    fanIn: ["b"],
-  });
-  expect(byName.components).toMatchObject({ files: 0, loc: 0 });
+it("counts source files per unit, without tests", () => {
+  const byName = metrics();
+  expect(byName.a!.files).toBe(2);
+  expect(byName.components!.files).toBe(0);
+});
+
+it("counts lines of code, without comments or blank lines", () => {
+  const byName = metrics();
+  expect(byName.a!.loc).toBe(5);
+  expect(byName.b!.loc).toBe(3);
+  expect(byName.components!.loc).toBe(0);
+});
+
+it("counts public exports", () => {
+  const byName = metrics();
+  expect(byName.a!.publicExports).toBe(2);
+  expect(byName.lib!.publicExports).toBe(2);
+});
+
+it("counts the exports used outside the unit", () => {
+  const byName = metrics();
+  expect(byName.a!.usedOutside).toBe(1);
+  expect(byName.lib!.usedOutside).toBe(1);
+});
+
+it("lists the units that import each unit", () => {
+  const byName = metrics();
+  expect(byName.a!.fanIn).toEqual(["b"]);
+  expect(byName.b!.fanIn).toEqual([]);
+  expect(byName.lib!.fanIn).toEqual(["b"]);
+});
+
+it("lists the units each unit imports", () => {
+  const byName = metrics();
+  expect(byName.a!.fanOut).toEqual([]);
+  expect(byName.b!.fanOut).toEqual(["a", "lib"]);
 });

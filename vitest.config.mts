@@ -12,6 +12,7 @@ export default defineConfig({
     include: [
       "src/**/*.test.{ts,tsx}",
       "tools/**/*.test.ts",
+      "evals/**/*.test.ts",
       "eslint/**/*.test.mjs",
     ],
     coverage: {
