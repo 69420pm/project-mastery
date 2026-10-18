@@ -1,7 +1,7 @@
 import type { AdminSupabase } from "@/lib/supabase/types";
 
 /** What a smoke check gets from the runner (`evals/smoke.ts`). */
-export type SmokeContext = {
+type SmokeContext = {
   /** Bypasses Row Level Security: scope every query to `studentId`. */
   supabase: AdminSupabase;
   /** A throwaway Student, deleted with all its data after the check. */

@@ -15,8 +15,7 @@ export function pageUnreadableReason(pageNumber: number): string {
 }
 
 /** Any other step failed for good, such as a Database or Storage failure. */
-export const parseFailedReason =
-  "The material could not be parsed. Please try again.";
+const parseFailedReason = "The material could not be parsed. Please try again.";
 
 const REASON_PREFIX = "Parse failure: ";
 

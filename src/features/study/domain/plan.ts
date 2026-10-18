@@ -20,13 +20,13 @@ export const PHASE_NAMES = {
  * The days before the exam that are only Review: the final week is the exam
  * day plus these 7 days before it.
  */
-export const FINAL_WEEK_DAYS = 7;
+const FINAL_WEEK_DAYS = 7;
 
 /** The fixed time a KC takes, covering its teaching and later Reviews. */
-export const MINUTES_PER_KC = 30;
+const MINUTES_PER_KC = 30;
 
 /** Whether the weekly hours until the final week cover the relevant KCs. */
-export type Pacing = {
+type Pacing = {
   /** (taught + fitting) / relevant, as a whole percent rounded down. */
   share: number;
   /** The untaught relevant KCs that won't fit, lowest Priority last. */

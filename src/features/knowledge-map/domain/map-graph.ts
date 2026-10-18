@@ -14,10 +14,10 @@ import type { KnowledgeMapView } from "@/features/knowledge-map/types";
  */
 
 /** A KC node's size; the node clamps longer names. */
-export const KC_NODE_SIZE = { width: 224, height: 72 } as const;
+const KC_NODE_SIZE = { width: 224, height: 72 } as const;
 
 /** An Exercise node's size; the node clamps longer names. */
-export const EXERCISE_NODE_SIZE = { width: 200, height: 64 } as const;
+const EXERCISE_NODE_SIZE = { width: 200, height: 64 } as const;
 
 /** Room around a group's KCs, with its name on top. */
 const GROUP_PADDING = "[top=44,left=16,bottom=16,right=16]";

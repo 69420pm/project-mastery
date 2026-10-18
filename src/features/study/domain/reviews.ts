@@ -10,7 +10,7 @@ import {
 } from "@/features/study/domain/ladder";
 
 /** A due KC as the AI is told of it. */
-export type DueReview = {
+type DueReview = {
   id: string;
   name: string;
   type: string;
@@ -23,7 +23,7 @@ export type DueReview = {
 /** The most urgent due KCs, and how many more are due. */
 export type DueReviews = { kcs: DueReview[]; more: number };
 
-export const MAX_DUE_REVIEWS = 8;
+const MAX_DUE_REVIEWS = 8;
 
 /**
  * The due KCs of `kcs` (in map order) on `today` (YYYY-MM-DD), ranked by

@@ -18,7 +18,11 @@ import { CONFIRM_PATH, safeRedirectPath } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput } from "@/lib/validation/action";
 
-/** The site's origin, for links in auth emails. */
+/**
+ * The site's origin, for links in auth emails. It comes from request headers
+ * a client can set; Supabase's redirect allow-list is what guards it, by
+ * refusing a link to any origin that is not listed.
+ */
 async function getOrigin() {
   const headerList = await headers();
   const origin = headerList.get("origin");

@@ -57,7 +57,7 @@ export const addNoteInputSchema = z.object({
 });
 
 /** What `answerFinding` takes: a question about the materials and the answer. */
-export const answerFindingInputSchema = z.object({
+const answerFindingInputSchema = z.object({
   findingId: z
     .string()
     .describe("The id of the question the Student answered."),
@@ -114,5 +114,3 @@ export function briefTools(actions: BriefToolActions) {
     }),
   };
 }
-
-export type BriefTools = ReturnType<typeof briefTools>;

@@ -5,7 +5,7 @@
  */
 
 /** A KC as the base reads it. */
-export type PriorityKc = {
+type PriorityKc = {
   id: string;
   /** Prior knowledge, which no Brief exclusion removes. */
   prior: boolean;
@@ -52,7 +52,7 @@ function normalized(values: Map<string, number>): Map<string, number> {
 }
 
 /** For each KC, how many KCs need it directly or through Prerequisites. */
-export function dependentCounts(
+function dependentCounts(
   kcIds: string[],
   prerequisites: PriorityInput["prerequisites"],
 ): Map<string, number> {
@@ -80,7 +80,7 @@ export function dependentCounts(
  * has points and belongs to an exam Material, and its points are split
  * equally across its KCs.
  */
-export function examPoints(input: PriorityInput): Map<string, number> {
+function examPoints(input: PriorityInput): Map<string, number> {
   const points = new Map(input.kcs.map((kc) => [kc.id, 0]));
   for (const exercise of input.exercises) {
     const chunk = input.chunks[exercise.questionChunk];
@@ -127,7 +127,7 @@ export function baseFactors(input: PriorityInput): Map<string, BaseFactors> {
  * The base: `0.5 · exam + 0.25 · exercises + 0.25 · dependents`, or
  * `0.5 · exercises + 0.5 · dependents` when the Course has no exam points.
  */
-export function baseOf(factors: BaseFactors, hasExamPoints: boolean): number {
+function baseOf(factors: BaseFactors, hasExamPoints: boolean): number {
   return hasExamPoints
     ? 0.5 * factors.exam + 0.25 * factors.exercises + 0.25 * factors.dependents
     : 0.5 * factors.exercises + 0.5 * factors.dependents;
@@ -138,7 +138,7 @@ export function baseOf(factors: BaseFactors, hasExamPoints: boolean): number {
  * Materials the Brief excludes gets ×0, with the reason naming them. Null
  * for any other KC.
  */
-export function exclusionOf(
+function exclusionOf(
   kc: PriorityKc,
   input: Pick<PriorityInput, "chunks" | "materials">,
   excludedMaterialIds: ReadonlySet<string>,

@@ -133,7 +133,7 @@ export type ModelChoiceKey<Task extends AiTask> =
  * Retries per call for retryable errors such as `429` from rate limits. The
  * AI SDK backs off exponentially and honors `retry-after`.
  */
-export const AI_MAX_RETRIES = 3;
+const AI_MAX_RETRIES = 3;
 
 const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
 

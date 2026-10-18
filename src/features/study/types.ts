@@ -72,7 +72,7 @@ export type RecordedKc = {
 };
 
 /** A source chunk of a KC as `readKcs` returns it. */
-export type KcSourceView = {
+type KcSourceView = {
   material: string;
   /** Such as "p. 3" or "pp. 3–4". */
   pages: string;

@@ -14,7 +14,7 @@ import {
  * history counts, each time it is referenced, because the whole history is
  * sent on every turn (ADR 0007).
  */
-export const MAX_MATERIAL_BYTES_PER_REQUEST = 20 * 1024 * 1024;
+const MAX_MATERIAL_BYTES_PER_REQUEST = 20 * 1024 * 1024;
 
 export const materialsTooLargeMessage =
   "The materials in this chat are too large for the AI together. Start a new chat or attach fewer materials.";
@@ -22,9 +22,9 @@ export const materialsTooLargeMessage =
 export const materialsUnavailableMessage =
   "Your materials could not be loaded. Please try again.";
 
-export const materialNotFoundMessage = "An attached material does not exist.";
+const materialNotFoundMessage = "An attached material does not exist.";
 
-export const materialInOtherCourseMessage =
+const materialInOtherCourseMessage =
   "An attached material belongs to another course.";
 
 /** A Material whose file was read for the model. */

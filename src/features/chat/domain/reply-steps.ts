@@ -8,7 +8,7 @@ type Part = ChatUIMessage["parts"][number];
  * Whether a tool call is still on its way, has returned, failed, or never
  * returned because the reply was stopped.
  */
-export type StepState = "running" | "done" | "error" | "stopped";
+type StepState = "running" | "done" | "error" | "stopped";
 
 /** What a step card shows when it is expanded, by tool. */
 export type StepDetail =
@@ -90,7 +90,7 @@ export function replySegments(
 type ToolPart = Extract<Part, { toolCallId: string }>;
 
 /** One tool call as its card shows it. */
-export function replyStep(
+function replyStep(
   part: ToolPart,
   exerciseNames: ReadonlyMap<string, string> = new Map(),
   inProgress = true,

@@ -51,8 +51,6 @@ export function fileResultSchema(unitIds: readonly [string, ...string[]]) {
   });
 }
 
-export type FileResult = z.infer<ReturnType<typeof fileResultSchema>>;
-
 const FILE_INSTRUCTIONS = `You get every unit of one course material (slides, a script, an exercise sheet, a solution sheet or an old exam) in reading order, as JSON: its id, page, label, exercise number and points, whether it continues from the previous page or onto the next, and its Markdown. Group the units into the material's final chunks.
 
 - A chunk is one or more neighbouring units that belong together by the material's structure. A definition, section, example or solution that runs over a page break is one chunk. Units that stand on their own stay separate chunks.

@@ -75,7 +75,7 @@ type SchemaDefinition = JSONSchema7 | boolean;
  * value for an array of enum values), the first enum value, null where null
  * is allowed, and strings with a formula.
  */
-export function mockObject(definition: SchemaDefinition | undefined): unknown {
+function mockObject(definition: SchemaDefinition | undefined): unknown {
   const schema = typeof definition === "object" ? definition : {};
   const options = schema.anyOf ?? schema.oneOf;
   if (options) {

@@ -6,8 +6,8 @@ import type {
   RecordedKc,
 } from "@/features/study/types";
 
-/** What `readKcs` takes: KC ids of the Course. */
-export const readKcsInputSchema = z.object({
+/** What `readKcs` and `findExercises` take: KC ids of the Course. */
+const kcIdsInputSchema = z.object({
   kcIds: z
     .array(z.string())
     .min(1)
@@ -15,11 +15,8 @@ export const readKcsInputSchema = z.object({
     .describe("The ids of 1 to 8 KCs of this Course."),
 });
 
-/** What `findExercises` takes: KC ids of the Course. */
-export const findExercisesInputSchema = readKcsInputSchema;
-
 /** What `recordAttempt` takes: the evidence of one problem or review question. */
-export const recordAttemptInputSchema = z.object({
+const recordAttemptInputSchema = z.object({
   exerciseId: z
     .string()
     .optional()
@@ -46,7 +43,7 @@ export const recordAttemptInputSchema = z.object({
 });
 
 /** What `remember` takes: one line for the Memory. */
-export const rememberInputSchema = z.object({
+const rememberInputSchema = z.object({
   text: z
     .string()
     .min(1)
@@ -83,13 +80,13 @@ export function tutorTools(actions: TutorToolActions) {
     readKcs: tool({
       description:
         "Read KCs of this Course before teaching them: each KC's name, type and description, and up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite.",
-      inputSchema: readKcsInputSchema,
+      inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => ({ kcs: await actions.readKcs(kcIds) }),
     }),
     findExercises: tool({
       description:
         "Find up to 3 Exercises of this Course that test any of the given KCs and that the Student has not attempted yet, old-exam ones first. Each comes with its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
-      inputSchema: findExercisesInputSchema,
+      inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => actions.findExercises(kcIds),
     }),
     recordAttempt: tool({

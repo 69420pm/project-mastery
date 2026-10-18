@@ -4,10 +4,8 @@
 export { KnowledgeMap } from "./components/knowledge-map";
 export { KnowledgeMapLink } from "./components/knowledge-map-link";
 export { knowledgeMapPath } from "./domain/map-paths";
-export { startKnowledgeMapBuild } from "./server/actions";
 export type {
   FindingView,
-  KnowledgeMapView,
   MapKcLearning,
   MapPriorities,
   ReviewFinding,

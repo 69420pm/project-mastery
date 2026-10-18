@@ -21,7 +21,7 @@ export type CandidateMap = {
 };
 
 /** A KC the AI may teach next, with the KCs it docks onto. */
-export type Candidate = {
+type Candidate = {
   id: string;
   name: string;
   type: string;
@@ -32,7 +32,7 @@ export type Candidate = {
 /** Candidates of one big idea, best ranked first. */
 export type CandidateGroup = { bigIdea: string; kcs: Candidate[] };
 
-export const MAX_CANDIDATES = 10;
+const MAX_CANDIDATES = 10;
 
 /**
  * The candidates of a map, grouped by big idea. They are ranked by Priority,

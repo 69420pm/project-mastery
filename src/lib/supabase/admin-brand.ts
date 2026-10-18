@@ -4,6 +4,9 @@ import type { Supabase } from "./types";
  * Marks the admin (service role) client, so code that scopes data by Row
  * Level Security can tell that it has none. Features may import this file;
  * only workflows may import `admin.ts`, which creates the client (ADR 0003).
+ * Exported because the exported client types name it.
+ *
+ * @public
  */
 export const ADMIN_CLIENT: unique symbol = Symbol("admin Supabase client");
 

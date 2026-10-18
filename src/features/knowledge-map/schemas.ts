@@ -62,7 +62,7 @@ const id = z.string().trim().min(1).max(100);
 const name = z.string().trim().min(1).max(200);
 const description = z.string().trim().min(1).max(1000);
 
-export const bigIdeaSchema = z.object({ id, name, description });
+const bigIdeaSchema = z.object({ id, name, description });
 
 /**
  * A knowledge component that `source` chunks teach, or prior knowledge the
@@ -70,7 +70,7 @@ export const bigIdeaSchema = z.object({ id, name, description });
  * KC comes from the content, or from an exercise that needs it when the
  * content does not teach it.
  */
-export function kcSchema<Source extends z.ZodType>(source: Source) {
+function kcSchema<Source extends z.ZodType>(source: Source) {
   const common = { id, name, description, sources: z.array(source) };
   return z.discriminatedUnion("type", [
     z.object({
@@ -92,13 +92,13 @@ export function kcSchema<Source extends z.ZodType>(source: Source) {
 }
 
 /** `from` must be learned before `to`. */
-export const prerequisiteSchema = z.object({
+const prerequisiteSchema = z.object({
   from: id,
   to: id,
   extractionConfidence: z.number().min(0).max(1),
 });
 
-export const semanticLinkSchema = z.object({
+const semanticLinkSchema = z.object({
   from: id,
   to: id,
   coreType: z.enum(SEMANTIC_LINK_TYPES),
@@ -112,7 +112,7 @@ export const semanticLinkSchema = z.object({
  * solution's status and a difficulty from 1 (easy) to 3 (hard). Only a
  * `generated` solution is stored; a printed one stays in its chunk.
  */
-export function exerciseSchema<Source extends z.ZodType>(source: Source) {
+function exerciseSchema<Source extends z.ZodType>(source: Source) {
   return z
     .object({
       id,
@@ -138,7 +138,7 @@ export function exerciseSchema<Source extends z.ZodType>(source: Source) {
  * its chunks. A stored Finding carries its row id; a new one has none. Its
  * review status and answer are the Student's and stay out of the map.
  */
-export function findingSchema<Source extends z.ZodType>(source: Source) {
+function findingSchema<Source extends z.ZodType>(source: Source) {
   return z.object({
     id: id.optional(),
     kind: z.enum(FINDING_KINDS),

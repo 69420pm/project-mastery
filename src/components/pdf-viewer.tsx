@@ -3,8 +3,6 @@
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export type { PdfViewerProps } from "./pdf-viewer-core";
-
 /**
  * PDF viewer that jumps to a given page, e.g. for citations. PDF.js needs
  * browser APIs, so it is loaded on the client only and kept out of the

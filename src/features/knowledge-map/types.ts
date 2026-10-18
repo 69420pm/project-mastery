@@ -54,7 +54,7 @@ export type KcView = {
 };
 
 /** `from` must be learned before `to`, both KC ids. */
-export type PrerequisiteView = {
+type PrerequisiteView = {
   from: string;
   to: string;
   /** How sure the build was of the link, 0 to 1. */
@@ -62,7 +62,7 @@ export type PrerequisiteView = {
 };
 
 /** A semantic link between two KCs, by id. */
-export type SemanticLinkView = {
+type SemanticLinkView = {
   from: string;
   to: string;
   coreType: SemanticLinkType;

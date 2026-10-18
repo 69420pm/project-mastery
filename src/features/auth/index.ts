@@ -2,9 +2,4 @@
 // exports live in `server.ts`.
 export { LoginForms } from "./components/login-forms";
 export { UserMenu } from "./components/user-menu";
-export {
-  getLoginMessage,
-  type LoginMessageCode,
-} from "./domain/login-messages";
-export { signIn, signOut, signUp } from "./server/actions";
-export type { AuthFormState } from "./types";
+export { getLoginMessage } from "./domain/login-messages";

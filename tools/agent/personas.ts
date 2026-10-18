@@ -10,7 +10,7 @@ export const PERSONAS = {
   classmate: { email: "classmate@example.com", displayName: "Casey Classmate" },
 } as const;
 
-export type PersonaName = keyof typeof PERSONAS;
+type PersonaName = keyof typeof PERSONAS;
 
 /** Local only: the stack's auth accepts it, nothing else does. */
 export const PERSONA_PASSWORD = "agent-password-123";

@@ -39,8 +39,6 @@ const goldSchema = z.object({
   ),
 });
 
-export type Gold = z.infer<typeof goldSchema>;
-
 async function insert(supabase: AdminSupabase, table: string, rows: object[]) {
   const { error } = await supabase.from(table as "kcs").insert(rows as never);
   if (error) throw new Error(`${table}: ${error.message}`);

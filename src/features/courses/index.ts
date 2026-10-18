@@ -11,18 +11,12 @@ export { Materials } from "./components/materials";
 export { MaterialsLink } from "./components/materials-link";
 export {
   COURSE_LIST_PATH,
-  coursePath,
   materialChunksPath,
   materialsPath,
 } from "./domain/course-paths";
 export {
-  courseNotFoundMessage,
   MATERIAL_MEDIA_TYPES,
   materialReferenceSchema,
   type MaterialReference,
 } from "./schemas";
-export type {
-  CourseListItem,
-  CourseWithCounts,
-  MaterialListItem,
-} from "./types";
+export type { MaterialListItem } from "./types";

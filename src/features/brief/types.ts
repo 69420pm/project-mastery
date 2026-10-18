@@ -2,7 +2,7 @@ import type { UIMessage } from "ai";
 import type { BriefFields } from "@/features/brief/domain/intake";
 
 /** What the server attaches to an AI message of a Brief. */
-export type BriefMessageMetadata = {
+type BriefMessageMetadata = {
   /** The model that wrote the reply. */
   modelId?: string;
 };

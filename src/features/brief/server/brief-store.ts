@@ -78,7 +78,7 @@ export async function openBrief(
  * waits for an answer. Safe to call concurrently: the message's id derives
  * from the Finding's, so it is stored once.
  */
-export async function askNextFinding(
+async function askNextFinding(
   supabase: Supabase,
   courseId: string,
 ): Promise<void> {
