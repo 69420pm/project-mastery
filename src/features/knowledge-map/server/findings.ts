@@ -5,11 +5,8 @@ import { chunkAnchor, getChunkPlaces } from "@/features/ingestion/server";
 import { FINDING_STATUSES } from "@/features/knowledge-map/schemas";
 import type { FindingView } from "@/features/knowledge-map/types";
 import { getUser } from "@/lib/auth/user";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /**
  * Every Finding of the signed-in Student's Course, open ones first and each
@@ -21,28 +18,35 @@ export async function getFindings(courseId: string): Promise<FindingView[]> {
   const supabase = await createClient();
 
   const [findings, sources, materials] = await Promise.all([
-    supabase
-      .from("findings")
-      .select("id, text, status, answer, asked_at, answered_at")
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase
-      .from("finding_sources")
-      .select("finding_id, chunk_id")
-      .eq("course_id", courseId),
+    allRows("Loading the findings", (from, to) =>
+      supabase
+        .from("findings")
+        .select("id, text, status, answer, asked_at, answered_at")
+        .eq("course_id", courseId)
+        .order("position")
+        .order("id")
+        .range(from, to),
+    ),
+    allRows("Loading the finding sources", (from, to) =>
+      supabase
+        .from("finding_sources")
+        .select("finding_id, chunk_id")
+        .eq("course_id", courseId)
+        .order("finding_id")
+        .order("chunk_id")
+        .range(from, to),
+    ),
     getMaterialList(courseId),
   ]);
-  if (findings.error) failed("Loading the findings", findings.error);
-  if (sources.error) failed("Loading the finding sources", sources.error);
 
   const places = await getChunkPlaces([
-    ...new Set(sources.data.map((source) => source.chunk_id)),
+    ...new Set(sources.map((source) => source.chunk_id)),
   ]);
   const placeOf = new Map(places.map((place) => [place.id, place]));
   const materialName = new Map(materials.map((m) => [m.id, m.name]));
 
-  const views = findings.data.map((finding): FindingView => {
-    const chunks = sources.data
+  const views = findings.map((finding): FindingView => {
+    const chunks = sources
       .filter((source) => source.finding_id === finding.id)
       .flatMap((source) => placeOf.get(source.chunk_id) ?? []);
     return {

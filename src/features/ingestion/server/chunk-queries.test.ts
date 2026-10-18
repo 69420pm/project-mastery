@@ -130,3 +130,42 @@ test("an exercise carries its paired solution in another Material, or no solutio
   expect(second?.solution).toEqual({ status: "no_solution" });
   expect(figure?.solution).toBeNull();
 });
+
+test("a Material past the row limit comes back whole, each exercise with its solution", async () => {
+  const exercises = Array.from({ length: 1200 }, (_, i) => ({
+    id: `e${String(i).padStart(4, "0")}`,
+    material_id: MATERIAL,
+    position: 2 + i,
+    page_from: 3,
+    page_to: 3,
+    label: "exercise",
+    markdown: `Exercise ${i}`,
+    figure: null,
+    exercise_number: String(i),
+    points: 1,
+  }));
+  const tables = db.tables as Record<string, FakeRow[]>;
+  db = fakeSupabase({
+    tables: {
+      ...tables,
+      // Stored against reading order, which the read restores.
+      chunks: [...exercises.toReversed(), ...tables.chunks!],
+      exercise_solutions: exercises.map((exercise) => ({
+        exercise_chunk_id: exercise.id,
+        solution_chunk_id: null,
+        status: "no_solution",
+      })),
+    },
+    userId: STUDENT,
+    maxRows: 1000,
+    maxInValues: 100,
+  });
+
+  const material = await getMaterialChunks(MATERIAL);
+
+  expect(material?.chunks).toHaveLength(1202);
+  expect(material?.chunks.map((chunk) => chunk.position)).toEqual(
+    Array.from({ length: 1202 }, (_, i) => i),
+  );
+  expect(material?.chunks.at(-1)?.solution).toEqual({ status: "no_solution" });
+});

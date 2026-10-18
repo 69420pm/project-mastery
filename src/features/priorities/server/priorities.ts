@@ -5,6 +5,7 @@ import type { MapPriorities } from "@/features/knowledge-map";
 import { priorityLevels } from "@/features/priorities/domain/priority";
 import { updatePriorities } from "@/features/priorities/workflows/update-priorities";
 import { getUser } from "@/lib/auth/user";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -46,11 +47,14 @@ export async function loadKcPriorities(
   supabase: Supabase,
   courseId: string,
 ): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from("kc_priorities")
-    .select("kc_id, priority")
-    .eq("course_id", courseId);
-  if (error) throw new Error(`Loading the priorities failed: ${error.message}`);
+  const data = await allRows("Loading the priorities", (from, to) =>
+    supabase
+      .from("kc_priorities")
+      .select("kc_id, priority")
+      .eq("course_id", courseId)
+      .order("kc_id")
+      .range(from, to),
+  );
   return Object.fromEntries(
     data.map((row) => [row.kc_id, Number(row.priority)]),
   );
@@ -72,20 +76,21 @@ export async function getPriorities(courseId: string): Promise<MapPriorities> {
       .select("status, failure_reason")
       .eq("course_id", courseId)
       .maybeSingle(),
-    supabase
-      .from("kc_priorities")
-      .select("kc_id, priority, multiplier, reasons")
-      .eq("course_id", courseId),
+    allRows("Loading the priorities", (from, to) =>
+      supabase
+        .from("kc_priorities")
+        .select("kc_id, priority, multiplier, reasons")
+        .eq("course_id", courseId)
+        .order("kc_id")
+        .range(from, to),
+    ),
   ]);
   if (run.error) {
     throw new Error(`Loading the priority run failed: ${run.error.message}`);
   }
-  if (rows.error) {
-    throw new Error(`Loading the priorities failed: ${rows.error.message}`);
-  }
 
   const levels = priorityLevels(
-    rows.data.map((row) => ({
+    rows.map((row) => ({
       kcId: row.kc_id,
       priority: Number(row.priority),
       multiplier: Number(row.multiplier),
@@ -95,7 +100,7 @@ export async function getPriorities(courseId: string): Promise<MapPriorities> {
     running: run.data?.status === "running",
     failureReason: run.data?.failure_reason ?? null,
     kcs: Object.fromEntries(
-      rows.data.map((row) => [
+      rows.map((row) => [
         row.kc_id,
         {
           level: levels.get(row.kc_id) ?? "low",
