@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(25);
 
 insert into auth.users (id, email)
 values
@@ -135,8 +135,8 @@ select is(
       'bigIdeas', jsonb_build_array(jsonb_build_object('id', (select big_idea from kept),
         'name', 'Ignored', 'description', 'Ignored.')),
       'kcs', jsonb_build_array(
-        jsonb_build_object('id', (select kc from kept), 'name', 'Ignored',
-          'description', 'Ignored.', 'type', 'fact', 'bloom', 'remember',
+        jsonb_build_object('id', (select kc from kept), 'name', 'Thrust',
+          'description', 'Net forward force.', 'type', 'fact', 'bloom', 'remember',
           'bigIdea', (select big_idea from kept), 'origin', 'content',
           'sources', '["cccccccc-0000-0000-0000-000000000001"]'::jsonb),
         jsonb_build_object('id', 'k1', 'name', 'Specific thrust', 'description', 'F / mdot.',
@@ -153,9 +153,56 @@ select results_eq(
     from public.kcs k join public.big_ideas b on b.id = k.big_idea_id
     where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by k.position$$,
   $$values ('Thrust', 1, true, 'Thrust'), ('Specific thrust', 2, false, 'Thrust')$$,
-  'a kept KC keeps its id and fields, a new one comes after, a left-out one goes');
+  'a kept KC keeps its id and big idea, a new one comes after, a left-out one goes');
 select is((select count(*)::int from public.prerequisite_links
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 1, 'links are the update''s');
+
+-- A kept KC moves to a new big idea while its old one is left out: it keeps
+-- its id, place, sources, Prerequisites and Attempts, and takes the map's
+-- fields.
+insert into kept (kc)
+  select k.id from public.kcs k
+  where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' and k.name = 'Specific thrust';
+insert into public.attempts (owner, course_id, kc_id, correct, help)
+  select '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', kc, true, 'none'
+  from kept where big_idea is not null;
+update public.knowledge_map_builds set status = 'building'
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+set local role service_role;
+select is(
+  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
+    jsonb_build_object(
+      'bigIdeas', jsonb_build_array(jsonb_build_object('id', 'b2',
+        'name', 'Propulsion', 'description', 'Engines push.')),
+      'kcs', jsonb_build_array(
+        jsonb_build_object('id', (select kc from kept where big_idea is not null),
+          'name', 'Net thrust', 'description', 'Forward force.', 'type', 'concept',
+          'bloom', 'understand', 'bigIdea', 'b2', 'origin', 'content',
+          'sources', '["cccccccc-0000-0000-0000-000000000001"]'::jsonb),
+        jsonb_build_object('id', (select kc from kept where big_idea is null),
+          'name', 'Specific thrust', 'description', 'F / mdot.', 'type', 'concept',
+          'bloom', 'understand', 'bigIdea', 'b2', 'origin', 'content',
+          'sources', '["cccccccc-0000-0000-0000-000000000001"]'::jsonb)),
+      'prerequisites', jsonb_build_array(jsonb_build_object(
+        'from', (select kc from kept where big_idea is not null),
+        'to', (select kc from kept where big_idea is null), 'extractionConfidence', 0.7)),
+      'semanticLinks', '[]'::jsonb),
+    '{}', '{}'),
+  true, 'an update that moves a KC off a left-out big idea succeeds');
+reset role;
+select results_eq(
+  $$select k.id = (select kc from kept where big_idea is not null), k.position, k.name, k.type,
+      b.name, (select count(*)::int from public.kc_sources s where s.kc_id = k.id),
+      (select count(*)::int from public.prerequisite_links l where l.from_kc = k.id),
+      (select count(*)::int from public.attempts a where a.kc_id = k.id)
+    from public.kcs k join public.big_ideas b on b.id = k.big_idea_id
+    where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by k.position$$,
+  $$values (true, 1, 'Net thrust', 'concept', 'Propulsion', 1, 1, 1),
+    (false, 2, 'Specific thrust', 'concept', 'Propulsion', 1, 0, 0)$$,
+  'a moved KC keeps its id, place, sources, Prerequisites and Attempts under its new big idea');
+select is((select array_agg(name) from public.big_ideas
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  '{Propulsion}'::text[], 'the left-out big idea is gone');
 
 -- Owners only.
 set local role authenticated;
