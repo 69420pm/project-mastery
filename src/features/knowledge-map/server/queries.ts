@@ -21,6 +21,7 @@ import type {
   MapBuild,
 } from "@/features/knowledge-map/types";
 import { getUser } from "@/lib/auth/user";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 
 function failed(action: string, error: { message: string }): never {
@@ -75,56 +76,74 @@ export async function getKnowledgeMap(
       .select("id, name, description")
       .eq("course_id", courseId)
       .order("position"),
-    supabase
-      .from("kcs")
-      .select("id, big_idea_id, name, description, type, bloom, origin")
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase
-      .from("kc_sources")
-      .select("kc_id, chunk_id")
-      .eq("course_id", courseId),
-    supabase
-      .from("prerequisite_links")
-      .select("from_kc, to_kc, extraction_confidence")
-      .eq("course_id", courseId),
-    supabase
-      .from("semantic_links")
-      .select("from_kc, to_kc, core_type, label")
-      .eq("course_id", courseId),
+    allRows("Loading the KCs", (from, to) =>
+      supabase
+        .from("kcs")
+        .select("id, big_idea_id, name, description, type, bloom, origin")
+        .eq("course_id", courseId)
+        .order("position")
+        .order("id")
+        .range(from, to),
+    ),
+    allRows("Loading the KC sources", (from, to) =>
+      supabase
+        .from("kc_sources")
+        .select("kc_id, chunk_id")
+        .eq("course_id", courseId)
+        .order("kc_id")
+        .order("chunk_id")
+        .range(from, to),
+    ),
+    allRows("Loading the prerequisites", (from, to) =>
+      supabase
+        .from("prerequisite_links")
+        .select("from_kc, to_kc, extraction_confidence")
+        .eq("course_id", courseId)
+        .order("id")
+        .range(from, to),
+    ),
+    allRows("Loading the semantic links", (from, to) =>
+      supabase
+        .from("semantic_links")
+        .select("from_kc, to_kc, core_type, label")
+        .eq("course_id", courseId)
+        .order("id")
+        .range(from, to),
+    ),
     getMaterialList(courseId),
-    supabase
-      .from("exercises")
-      .select(
-        "id, name, task_type, solution_status, solution, difficulty, question_chunk_id",
-      )
-      .eq("course_id", courseId)
-      .order("position"),
-    supabase
-      .from("exercise_kcs")
-      .select("exercise_id, kc_id")
-      .eq("course_id", courseId),
+    allRows("Loading the exercises", (from, to) =>
+      supabase
+        .from("exercises")
+        .select(
+          "id, name, task_type, solution_status, solution, difficulty, question_chunk_id",
+        )
+        .eq("course_id", courseId)
+        .order("position")
+        .order("id")
+        .range(from, to),
+    ),
+    allRows("Loading the exercise KCs", (from, to) =>
+      supabase
+        .from("exercise_kcs")
+        .select("exercise_id, kc_id")
+        .eq("course_id", courseId)
+        .order("exercise_id")
+        .order("kc_id")
+        .range(from, to),
+    ),
     loadExerciseSolutions(supabase, courseId),
   ]);
   if (build.error) failed("Loading the build", build.error);
   if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
-  if (kcs.error) failed("Loading the KCs", kcs.error);
-  if (sources.error) failed("Loading the KC sources", sources.error);
-  if (prerequisites.error) {
-    failed("Loading the prerequisites", prerequisites.error);
-  }
-  if (semantic.error) failed("Loading the semantic links", semantic.error);
-  if (exercises.error) failed("Loading the exercises", exercises.error);
-  if (exerciseKcs.error) failed("Loading the exercise KCs", exerciseKcs.error);
 
   const report = checkReportSchema
     .nullable()
     .parse(build.data?.check_report ?? null);
   // In reading order: Materials in upload order, chunks by position.
   const chunks = await loadChunkSources(supabase, [
-    ...sources.data.map((source) => source.chunk_id),
+    ...sources.map((source) => source.chunk_id),
     ...(report?.uncoveredChunkIds ?? []),
-    ...exercises.data.flatMap((exercise) => {
+    ...exercises.flatMap((exercise) => {
       const solution = pairedSolutions[exercise.question_chunk_id];
       return solution
         ? [exercise.question_chunk_id, solution]
@@ -142,7 +161,7 @@ export async function getKnowledgeMap(
   ];
   const sourcesOf = (kcId: string): KcSourceView[] => {
     const ids = new Set(
-      sources.data
+      sources
         .filter((source) => source.kc_id === kcId)
         .map((source) => source.chunk_id),
     );
@@ -160,7 +179,7 @@ export async function getKnowledgeMap(
       }));
   };
 
-  const kcView = (kc: (typeof kcs.data)[number]): KcView => ({
+  const kcView = (kc: (typeof kcs)[number]): KcView => ({
     id: kc.id,
     name: kc.name,
     description: kc.description,
@@ -184,25 +203,23 @@ export async function getKnowledgeMap(
     ),
     bigIdeas: bigIdeas.data.map((bigIdea) => ({
       ...bigIdea,
-      kcs: kcs.data.filter((kc) => kc.big_idea_id === bigIdea.id).map(kcView),
+      kcs: kcs.filter((kc) => kc.big_idea_id === bigIdea.id).map(kcView),
     })),
-    priorKnowledge: kcs.data
-      .filter((kc) => kc.big_idea_id === null)
-      .map(kcView),
-    prerequisites: prerequisites.data.map((link) => ({
+    priorKnowledge: kcs.filter((kc) => kc.big_idea_id === null).map(kcView),
+    prerequisites: prerequisites.map((link) => ({
       from: link.from_kc,
       to: link.to_kc,
       confidence: Number(link.extraction_confidence),
     })),
-    semanticLinks: semantic.data.map((link) => ({
+    semanticLinks: semantic.map((link) => ({
       from: link.from_kc,
       to: link.to_kc,
       coreType: z.enum(SEMANTIC_LINK_TYPES).parse(link.core_type),
       label: link.label,
     })),
-    exercises: exercises.data.map((exercise) => {
+    exercises: exercises.map((exercise) => {
       const tested = new Set(
-        exerciseKcs.data
+        exerciseKcs
           .filter((link) => link.exercise_id === exercise.id)
           .map((link) => link.kc_id),
       );
@@ -210,7 +227,7 @@ export async function getKnowledgeMap(
         id: exercise.id,
         name: exercise.name,
         taskType: exercise.task_type,
-        kcs: kcs.data.filter((kc) => tested.has(kc.id)).map((kc) => kc.id),
+        kcs: kcs.filter((kc) => tested.has(kc.id)).map((kc) => kc.id),
         solutionStatus: z
           .enum(SOLUTION_STATUSES)
           .parse(exercise.solution_status),

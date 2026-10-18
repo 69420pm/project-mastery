@@ -7,6 +7,7 @@ import {
   type ParseStatus,
 } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -36,23 +37,23 @@ export async function getMaterialChunks(
   }
   if (!material.data) return null;
 
-  const chunks = await supabase
-    .from("chunks")
-    .select(
-      "id, position, page_from, page_to, label, markdown, figure, exercise_number, points",
-    )
-    .eq("material_id", materialId)
-    .order("position");
-  if (chunks.error) {
-    throw new Error(`Loading the chunks failed: ${chunks.error.message}`);
-  }
+  const chunks = await allRows("Loading the chunks", (from, to) =>
+    supabase
+      .from("chunks")
+      .select(
+        "id, position, page_from, page_to, label, markdown, figure, exercise_number, points",
+      )
+      .eq("material_id", materialId)
+      .order("position")
+      .range(from, to),
+  );
 
-  const figures = chunks.data.map((chunk) =>
+  const figures = chunks.map((chunk) =>
     figureSchema.parse(chunk.figure ?? null),
   );
   const solutions = await exerciseSolutions(
     supabase,
-    chunks.data.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
+    chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
   );
 
   const row = material.data;
@@ -70,7 +71,7 @@ export async function getMaterialChunks(
               : Number(row.exam_total_points),
         }
       : null,
-    chunks: chunks.data.map((chunk, index) => ({
+    chunks: chunks.map((chunk, index) => ({
       id: chunk.id,
       position: chunk.position,
       pageFrom: chunk.page_from,
@@ -89,6 +90,30 @@ function failed(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
 
+/** Ids per `in` filter, which keeps the query string short. */
+const ID_SLICE = 100;
+
+/**
+ * The rows `read` gives for `ids`, read in slices of `ID_SLICE` distinct
+ * ids, since ids go in the query string. No ids make no request.
+ */
+async function inSlices<Row>(
+  action: string,
+  ids: string[],
+  read: (
+    slice: string[],
+  ) => PromiseLike<{ data: Row[] | null; error: { message: string } | null }>,
+): Promise<Row[]> {
+  const unique = [...new Set(ids)];
+  const rows: Row[] = [];
+  for (let start = 0; start < unique.length; start += ID_SLICE) {
+    const { data, error } = await read(unique.slice(start, start + ID_SLICE));
+    if (error) failed(action, error);
+    rows.push(...(data ?? []));
+  }
+  return rows;
+}
+
 /**
  * The solutions of these exercise chunks, by exercise chunk id, with the
  * Material each solution is in. Exercises without a pair, such as an
@@ -100,40 +125,31 @@ async function exerciseSolutions(
 ): Promise<Map<string, ExerciseSolution>> {
   const result = new Map<string, ExerciseSolution>();
   if (exerciseIds.length === 0) return result;
-  const pairs = await supabase
-    .from("exercise_solutions")
-    .select("exercise_chunk_id, solution_chunk_id, status")
-    .in("exercise_chunk_id", exerciseIds);
-  if (pairs.error) failed("Loading the exercise solutions", pairs.error);
-
-  const solutionIds = pairs.data.flatMap(
-    (pair) => pair.solution_chunk_id ?? [],
+  const pairs = await inSlices(
+    "Loading the exercise solutions",
+    exerciseIds,
+    (ids) =>
+      supabase
+        .from("exercise_solutions")
+        .select("exercise_chunk_id, solution_chunk_id, status")
+        .in("exercise_chunk_id", ids),
   );
-  const solutionChunks =
-    solutionIds.length === 0
-      ? []
-      : await supabase
-          .from("chunks")
-          .select("id, material_id, exercise_number")
-          .in("id", solutionIds)
-          .then(({ data, error }) => {
-            if (error) failed("Loading the solution chunks", error);
-            return data;
-          });
-  const materialIds = [...new Set(solutionChunks.map((c) => c.material_id))];
-  const materials =
-    materialIds.length === 0
-      ? []
-      : await supabase
-          .from("materials")
-          .select("id, name")
-          .in("id", materialIds)
-          .then(({ data, error }) => {
-            if (error) failed("Loading the solutions' Materials", error);
-            return data;
-          });
+  const solutionChunks = await inSlices(
+    "Loading the solution chunks",
+    pairs.flatMap((pair) => pair.solution_chunk_id ?? []),
+    (ids) =>
+      supabase
+        .from("chunks")
+        .select("id, material_id, exercise_number")
+        .in("id", ids),
+  );
+  const materials = await inSlices(
+    "Loading the solutions' Materials",
+    solutionChunks.map((c) => c.material_id),
+    (ids) => supabase.from("materials").select("id, name").in("id", ids),
+  );
 
-  for (const pair of pairs.data) {
+  for (const pair of pairs) {
     const solution = solutionChunks.find(
       (chunk) => chunk.id === pair.solution_chunk_id,
     );

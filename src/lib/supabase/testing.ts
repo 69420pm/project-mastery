@@ -48,6 +48,16 @@ export type FakeSupabaseOptions<Table extends string> = {
       tables: Record<NoInfer<Table>, FakeRow[]>,
     ) => unknown
   >;
+  /**
+   * PostgREST's `max_rows`: a select returns at most this many rows, as
+   * `supabase/config.toml` caps it, so a reader must page with `range`.
+   */
+  maxRows?: number;
+  /**
+   * The most values an `in` filter may hold before the query string is too
+   * long: a longer list fails the request with `414`.
+   */
+  maxInValues?: number;
   /** The signed-in user, whose folder in Storage the fake lets them use. */
   userId?: string;
   /** Row Level Security: whether the current user may see and write `row`. */
@@ -136,6 +146,7 @@ export function fakeSupabase<Table extends string>(
     let single: "one" | "maybe" | undefined;
     let limitTo = Infinity;
     let offset = 0;
+    let uriTooLong = false;
 
     // Embedded one-to-many resources, such as `chat_messages(parts)`, with
     // their `referencedTable` order and limit.
@@ -221,6 +232,7 @@ export function fakeSupabase<Table extends string>(
     }
 
     function run(): Result {
+      if (uriTooLong) return failure("414", "URI Too Long");
       let result: Result;
       if (action.kind === "insert") {
         result = insert(action.rows);
@@ -248,7 +260,8 @@ export function fakeSupabase<Table extends string>(
         for (const row of rows) stored.splice(stored.indexOf(row), 1);
         result = { data: rows, error: null };
       } else {
-        const rows = sorted(matching(), orders).slice(offset, offset + limitTo);
+        const count = Math.min(limitTo, options.maxRows ?? Infinity);
+        const rows = sorted(matching(), orders).slice(offset, offset + count);
         result = { data: rows.map(withEmbeds), error: null };
       }
       if (result.error) return result;
@@ -321,6 +334,9 @@ export function fakeSupabase<Table extends string>(
         return builder;
       },
       in(column: string, values: unknown[]) {
+        if (values.length > (options.maxInValues ?? Infinity)) {
+          uriTooLong = true;
+        }
         filters.push((row) => values.includes(row[column]));
         return builder;
       },

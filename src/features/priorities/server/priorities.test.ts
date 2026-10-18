@@ -22,6 +22,8 @@ function createDb() {
       kc_priorities: [] as FakeRow[],
       calls: [] as FakeRow[],
     },
+    // PostgREST's row limit, as supabase/config.toml sets it.
+    maxRows: 1000,
     functions: {
       queue_priority_run: (args, tables) => {
         tables.calls.push({ name: "queue", ...args });
@@ -47,7 +49,8 @@ vi.mock("@/lib/auth/user", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 
-const { ensurePriorities, getPriorities } = await import("./priorities");
+const { ensurePriorities, getPriorities, loadKcPriorities } =
+  await import("./priorities");
 
 beforeEach(() => {
   signedIn = true;
@@ -170,5 +173,28 @@ describe("getPriorities", () => {
       multiplier: 1,
       reasons: ["Reason a"],
     });
+  });
+
+  test("reads every KC of a Course past the row limit", async () => {
+    db.tables.kc_priorities.push(
+      ...Array.from({ length: 1500 }, (_, i) => ({
+        course_id: COURSE,
+        kc_id: `kc-${String(i).padStart(4, "0")}`,
+        priority: String(i / 1500),
+        multiplier: "1",
+        reasons: [],
+      })),
+    );
+
+    const { kcs } = await getPriorities(COURSE);
+    const stored = await loadKcPriorities(
+      db as unknown as Parameters<typeof loadKcPriorities>[0],
+      COURSE,
+    );
+
+    expect(Object.keys(kcs)).toHaveLength(1500);
+    expect(kcs["kc-1499"]?.level).toBe("high");
+    expect(Object.keys(stored)).toHaveLength(1500);
+    expect(stored["kc-1499"]).toBeCloseTo(1499 / 1500);
   });
 });
