@@ -15,6 +15,8 @@ export type StoredChat = {
   courseId: string;
   title: string | null;
   modelChoice: string;
+  /** The reply the latest request writes (`startReply`). */
+  latestReplyId: string | null;
 };
 
 type MessageRow = Database["public"]["Tables"]["chat_messages"]["Row"];
@@ -24,14 +26,18 @@ function toStoredChat(row: {
   course_id: string;
   title: string | null;
   model_choice: string;
+  latest_reply_id: string | null;
 }): StoredChat {
   return {
     id: row.id,
     courseId: row.course_id,
     title: row.title,
     modelChoice: row.model_choice,
+    latestReplyId: row.latest_reply_id,
   };
 }
+
+const chatColumns = "id, course_id, title, model_choice, latest_reply_id";
 
 function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
@@ -44,7 +50,7 @@ export async function findChat(
 ): Promise<StoredChat | null> {
   const { data, error } = await supabase
     .from("chats")
-    .select("id, course_id, title, model_choice")
+    .select(chatColumns)
     .eq("id", chatId)
     .maybeSingle();
   if (error) fail("Loading the Chat", error);
@@ -75,7 +81,7 @@ export async function createChat(
       model_choice: modelChoice,
       latest_reply_id: replyId,
     })
-    .select("id, course_id, title, model_choice")
+    .select(chatColumns)
     .single();
   if (error?.code === "23505") return "taken";
   // The insert policy, or the foreign key once the Course is deleted.
@@ -101,6 +107,26 @@ export async function startReply(
     .update({ model_choice: modelChoice, latest_reply_id: replyId })
     .eq("id", chatId);
   if (error) fail("Starting the reply", error);
+}
+
+/**
+ * Undoes `startReply` for a refused request: marks `previousReplyId` as the
+ * latest reply again, unless a later request has started its own since.
+ */
+export async function cancelReply(
+  supabase: Supabase,
+  chatId: string,
+  {
+    replyId,
+    previousReplyId,
+  }: { replyId: string; previousReplyId: string | null },
+) {
+  const { error } = await supabase
+    .from("chats")
+    .update({ latest_reply_id: previousReplyId })
+    .eq("id", chatId)
+    .eq("latest_reply_id", replyId);
+  if (error) fail("Cancelling the reply", error);
 }
 
 /**
