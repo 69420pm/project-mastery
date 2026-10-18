@@ -1,9 +1,24 @@
 // @vitest-environment node
 import { describe, expect, test } from "vitest";
 import {
+  dailyLimitLevel,
   dailyLimitReset,
   utcDayStart,
 } from "@/features/usage/domain/daily-limit";
+
+describe("Daily limit level", () => {
+  test.each([
+    [0.79, 1, "ok"],
+    [0.8, 1, "warning"],
+    [0.99, 1, "warning"],
+    [1, 1, "reached"],
+    [1.5, 1, "reached"],
+    [0, 0, "reached"],
+    [1000, undefined, "ok"],
+  ] as const)("spending %s of %s is %s", (spent, limit, level) => {
+    expect(dailyLimitLevel(spent, limit)).toBe(level);
+  });
+});
 
 describe("Daily limit window", () => {
   test("the day starts at 00:00 UTC", () => {
