@@ -1,5 +1,4 @@
 import "server-only";
-import { generateText } from "ai";
 import {
   pageCallSettings,
   pageMessages,
@@ -14,14 +13,10 @@ import {
   parseFailureError,
 } from "@/features/ingestion/domain/parse-failure";
 import { openPdf } from "@/features/ingestion/workflows/page-images";
-import { checkDailyLimit, recordAiUsage } from "@/features/usage/server";
-import { tokenUsage } from "@/lib/ai/cost";
-import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { answeringModel } from "@/lib/ai/models";
+import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
-import { withTraceAttributes } from "@/lib/tracing";
 
 /**
  * The steps of a Material parse (`parse-material.ts`). Each runs on the
@@ -183,31 +178,21 @@ export async function readPage(
   if ((await storedPageNumbers(supabase, materialId)).includes(page.pageNumber))
     return recordProgress(supabase, materialId);
 
-  const dailyLimit = await checkDailyLimit(supabase, { studentId });
-  if (dailyLimit.level === "reached") {
-    return { ok: false, reason: dailyLimitReason };
-  }
-
   const image = await pageImage(supabase, material, page.pageNumber);
-  const settings = pageCallSettings();
-  const result = await withTraceAttributes(
-    { userId: studentId, traceName: "parse-page" },
-    () =>
-      generateText({
-        ...settings,
-        messages: pageMessages(image.bytes, image.mediaType),
-      }),
-  ).catch((error) => pageCallFailed(error, page.pageNumber));
-  if (!result) return { ok: false, reason: dailyLimitReason };
-  await recordAiUsage(
+  const result = await meteredGenerate(
     supabase,
     {
+      studentId,
       task: "ingest",
-      modelId: answeringModel(settings, result.response.modelId),
-      usage: tokenUsage(result.usage),
+      traceName: "parse-page",
+      callFailed: (error) => pageCallFailed(error, page.pageNumber),
     },
-    { studentId },
+    {
+      ...pageCallSettings(),
+      messages: pageMessages(image.bytes, image.mediaType),
+    },
   );
+  if (!result) return { ok: false, reason: dailyLimitReason };
 
   const units = pageUnits(() => result.output, page.pageNumber).map((unit) =>
     unit.figure
@@ -226,19 +211,11 @@ export async function readPage(
   return recordProgress(supabase, materialId);
 }
 
-/** A model call's error, or null for a used-up daily quota of the provider. */
-export function dailyQuotaAsNull(error: unknown): null {
-  if (isDailyQuotaError(error)) return null;
-  throw error;
-}
-
 /**
- * A failed page call: null for a used-up daily quota of the provider, and
- * otherwise the page's reason for the Student once the step's retries are
- * spent.
+ * A failed page call: the page's reason for the Student once the step's
+ * retries are spent.
  */
-function pageCallFailed(error: unknown, pageNumber: number): null {
-  if (isDailyQuotaError(error)) return null;
+function pageCallFailed(error: unknown, pageNumber: number): never {
   console.error(`The page call for page ${pageNumber} failed:`, error);
   throw parseFailureError(pageUnreadableReason(pageNumber));
 }
