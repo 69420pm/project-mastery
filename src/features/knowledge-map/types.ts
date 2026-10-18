@@ -173,19 +173,6 @@ export type MapKcLearning = Record<
   }
 >;
 
-/**
- * The study plan the map page shows, which the page passes in: the Phase
- * (null without an exam date or once it has passed), the whole percent of
- * the KCs that matter that fit (null without pacing), the ids of the KCs
- * that won't, and the weekly hours.
- */
-export type MapPlan = {
-  phase: "build" | "deepen" | "final_week" | null;
-  share: number | null;
-  leftOut: string[];
-  hoursPerWeek: number | null;
-};
-
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;

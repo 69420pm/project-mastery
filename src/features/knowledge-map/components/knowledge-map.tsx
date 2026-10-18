@@ -30,7 +30,6 @@ import type {
   KnowledgeMapView,
   MapBuild,
   MapKcLearning,
-  MapPlan,
   MapPriorities,
 } from "@/features/knowledge-map/types";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -42,7 +41,6 @@ import { KcPanel } from "./kc-panel";
 import { LayerToggles } from "./layer-toggles";
 import { PriorityStatus } from "./kc-priority";
 import { MapGraph } from "./map-graph";
-import { PlanLine } from "./study-plan";
 
 const dateFormat = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -54,27 +52,31 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's Knowledge map, read-only: the build's state with Build or
- * Update map, the reviews due, the study plan from `plan` (linking to the
- * Course's Brief, `briefHref`), then the map as a graph filling the rest of
- * the page. Clicking a KC opens every stat about it beside the graph, or in a
- * Sheet below `md`: its learning from `learning` and its Priority from
- * `priorities`. The selected node is focused on the graph, as far as the
+ * Update map, the reviews due, the study plan's line (`planLine`, a slot, since
+ * the study feature that owns the plan depends on this one), then the map as
+ * a graph filling the rest of the page. Clicking a KC opens every stat about
+ * it beside the graph, or in a Sheet below `md`: its learning from
+ * `learning`, its Priority from `priorities` and, for a KC in `leftOut`, the
+ * `leftOutBadge`. The selected node is focused on the graph, as far as the
  * focus depth reaches; Esc or a click on the empty canvas clears it. The page
  * refreshes itself while a
  * build or a priority run runs, and a selection stays while its node exists.
  */
 export function KnowledgeMap({
   map,
-  briefHref,
   priorities,
   learning,
-  plan,
+  planLine,
+  leftOut,
+  leftOutBadge,
 }: {
   map: KnowledgeMapView;
-  briefHref: string;
   priorities: MapPriorities;
   learning: MapKcLearning;
-  plan: MapPlan;
+  planLine: ReactNode;
+  /** The ids of the KCs the weekly hours won't fit. */
+  leftOut: string[];
+  leftOutBadge: ReactNode;
 }) {
   const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
   const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
@@ -92,7 +94,8 @@ export function KnowledgeMap({
     map,
     learning,
     priorities,
-    plan,
+    leftOut,
+    leftOutBadge,
     onSelect: setSelectedId,
   });
   const panel = selected?.panel ?? null;
@@ -118,7 +121,7 @@ export function KnowledgeMap({
             <p className="text-sm text-muted-foreground">
               {dueCount} {dueCount === 1 ? "review" : "reviews"} due
             </p>
-            <PlanLine plan={plan} briefHref={briefHref} />
+            {planLine}
           </div>
         )}
       </div>
@@ -227,14 +230,16 @@ function selectedPanel({
   map,
   learning,
   priorities,
-  plan,
+  leftOut,
+  leftOutBadge,
   onSelect,
 }: {
   id: string | null;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
-  plan: MapPlan;
+  leftOut: string[];
+  leftOutBadge: ReactNode;
   onSelect: (id: string) => void;
 }): { label: string; panel: ReactNode } | null {
   if (id === null) return null;
@@ -249,7 +254,8 @@ function selectedPanel({
           map={map}
           learning={learning}
           priorities={priorities}
-          leftOut={plan.leftOut.includes(kc.id)}
+          leftOut={leftOut.includes(kc.id)}
+          leftOutBadge={leftOutBadge}
           onSelect={onSelect}
         />
       ),

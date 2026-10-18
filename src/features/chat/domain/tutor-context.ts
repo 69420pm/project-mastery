@@ -1,10 +1,4 @@
-import type { TutorContext } from "@/features/study";
-
-const PHASES = {
-  build: "Build",
-  deepen: "Deepen",
-  final_week: "Final week",
-} as const;
+import { PHASE_NAMES, type TutorContext } from "@/features/study";
 
 const GOALS = {
   pass: "Pass",
@@ -14,7 +8,7 @@ const GOALS = {
 
 /** The Phase as the Context sheet shows it. */
 export function phaseLabel(phase: TutorContext["phase"]): string {
-  return phase === null ? "None" : PHASES[phase];
+  return phase === null ? "None" : PHASE_NAMES[phase];
 }
 
 /** The goal as the Context sheet shows it. */

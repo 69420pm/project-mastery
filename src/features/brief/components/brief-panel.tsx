@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import type { BriefFields } from "@/features/brief/domain/intake";
-import type { BriefWithMessages, PanelPlan } from "@/features/brief/types";
+import type { BriefWithMessages } from "@/features/brief/types";
 import type { FindingView } from "@/features/knowledge-map";
 
 const timeFormat = new Intl.DateTimeFormat("en", {
@@ -27,12 +27,6 @@ const QUESTION_STYLE_NAMES = {
   mixed: "Mixed",
 } as const;
 
-const PHASE_NAMES = {
-  build: "Build phase",
-  deepen: "Deepen phase",
-  final_week: "Final week",
-} as const;
-
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
 
 function Time({ iso }: { iso: string }) {
@@ -52,15 +46,13 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const None = ({ text = "None" }: { text?: string }) => (
-  <p className="text-sm text-muted-foreground">{text}</p>
-);
+const None = () => <p className="text-sm text-muted-foreground">None</p>;
 
 /**
  * Everything the Brief holds and what follows from it, beside its
  * conversation: the exam facts, the excluded Materials, the notes, the
- * Findings (open first), the study plan and the Memory (a slot, since the
- * study feature that owns it depends on this one).
+ * Findings (open first), the study plan and the Memory (slots, since the
+ * study feature that owns them depends on this one).
  */
 export function BriefPanel({
   brief,
@@ -73,7 +65,7 @@ export function BriefPanel({
     "fields" | "notes" | "notesUpdatedAt" | "excludedMaterials"
   >;
   findings: FindingView[];
-  plan: PanelPlan;
+  plan: ReactNode;
   memory: ReactNode;
 }) {
   return (
@@ -125,9 +117,7 @@ export function BriefPanel({
           </ul>
         )}
       </Section>
-      <Section title="Study plan">
-        <StudyPlanFacts plan={plan} />
-      </Section>
+      <Section title="Study plan">{plan}</Section>
       <Section title="Memory">{memory}</Section>
     </div>
   );
@@ -213,39 +203,5 @@ function FindingItem({ finding }: { finding: FindingView }) {
         </p>
       )}
     </li>
-  );
-}
-
-function StudyPlanFacts({ plan }: { plan: PanelPlan }) {
-  if (plan.phase === null) return <None text="No exam date" />;
-  const count = plan.leftOut.length;
-  return (
-    <div className="flex flex-col gap-1 text-sm">
-      <p>{PHASE_NAMES[plan.phase]}</p>
-      <p>
-        <span className="text-muted-foreground">Weekly hours:</span>{" "}
-        {plan.hoursPerWeek === null ? "Not set" : `${plan.hoursPerWeek} h`}
-      </p>
-      {plan.share !== null && (
-        <p>
-          <span className="text-muted-foreground">
-            KCs that matter and fit before the final week:
-          </span>{" "}
-          {plan.share}%
-        </p>
-      )}
-      {count > 0 && (
-        <div>
-          <p className="text-muted-foreground">Left out:</p>
-          <ul aria-label="Left-out KCs" className="list-disc pl-5">
-            {plan.leftOut.map((kc) => (
-              <li key={kc.id}>
-                <Markdown>{kc.name}</Markdown>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
   );
 }
