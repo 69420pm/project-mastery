@@ -4,10 +4,7 @@ import {
   FileIcon,
   FileTextIcon,
   ImageIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
   RotateCwIcon,
-  Trash2Icon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
@@ -20,15 +17,9 @@ import {
   useState,
   useTransition,
 } from "react";
+import { RowActionsMenu } from "@/components/row-actions-menu";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
 import { DeleteMaterialDialog } from "@/features/courses/components/delete-material-dialog";
 import { MaterialViewer } from "@/features/courses/components/material-viewer";
@@ -368,29 +359,11 @@ function MaterialEntry({
         </span>
         <ParseStateLine courseId={courseId} material={material} />
       </div>
-      {/* Not modal, so focus moves cleanly into a dialog opened from it. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Material actions">
-            <MoreHorizontalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setDialog("rename")}>
-              <PencilIcon />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => setDialog("delete")}
-            >
-              <Trash2Icon />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu
+        label="Material actions"
+        onRename={() => setDialog("rename")}
+        onDelete={() => setDialog("delete")}
+      />
       <CourseNameDialog
         open={dialog === "rename"}
         onOpenChange={(open) => setDialog(open ? "rename" : null)}

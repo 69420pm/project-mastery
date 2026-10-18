@@ -1,22 +1,10 @@
 "use client";
 
-import {
-  BookOpenIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
-  PlusIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { BookOpenIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { RowActionsMenu } from "@/components/row-actions-menu";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { CourseNameDialog } from "@/features/courses/components/course-name-dialog";
 import { DeleteCourseDialog } from "@/features/courses/components/delete-course-dialog";
 import { createCourse, renameCourse } from "@/features/courses/server/actions";
@@ -92,29 +80,11 @@ function CourseListEntry({ course }: { course: CourseWithCounts }) {
       >
         {course.name}
       </Link>
-      {/* Not modal, so focus moves cleanly into a dialog opened from it. */}
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Course actions">
-            <MoreHorizontalIcon />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            <DropdownMenuItem onSelect={() => setDialog("rename")}>
-              <PencilIcon />
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => setDialog("delete")}
-            >
-              <Trash2Icon />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <RowActionsMenu
+        label="Course actions"
+        onRename={() => setDialog("rename")}
+        onDelete={() => setDialog("delete")}
+      />
       <CourseNameDialog
         open={dialog === "rename"}
         onOpenChange={(open) => setDialog(open ? "rename" : null)}
