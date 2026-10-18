@@ -90,6 +90,29 @@ describe("the review queue", () => {
     expect(askedAt(SCOPE)).toBeNull();
   });
 
+  test("opening posts nothing while an asked Finding waits for its answer", async () => {
+    seedBrief({ done: true });
+    const scope = db.tables.findings.find((row) => row.id === SCOPE)!;
+    scope.asked_at = "2026-10-01T00:00:00Z";
+
+    await open();
+
+    expect(stored()).toHaveLength(1);
+    expect(askedAt(MISMATCH)).toBeNull();
+  });
+
+  test("opening while a parallel open already posted the Finding does not throw", async () => {
+    seedBrief({ done: true });
+    await open();
+    // The other open stored the message but has not marked the Finding yet.
+    db.tables.findings[0]!.asked_at = null;
+
+    await expect(open()).resolves.not.toBeNull();
+
+    expect(stored()).toHaveLength(2);
+    expect(askedAt(MISMATCH)).not.toBeNull();
+  });
+
   test("answerFinding stores the answer verbatim and the next Finding is asked", async () => {
     seedBrief({ done: true });
     await open();

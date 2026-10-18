@@ -197,26 +197,42 @@ export function userMessage(text: string, id: string = randomUUID()) {
   return { id, role: "user", parts: [{ type: "text", text }] };
 }
 
-/** Posts a request to the Brief handler and reads the whole response. */
-export async function send(body: unknown) {
+/** Posts a request to the Brief handler, which `signal` can abort. */
+export async function post(body: unknown, signal?: AbortSignal) {
   const { handleBriefRequest } = await import("./handler");
-  const response = await handleBriefRequest(
+  return handleBriefRequest(
     new Request("http://localhost/api/brief", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      signal,
     }),
   );
+}
+
+/**
+ * Posts a request to the Brief handler and reads the whole response: the
+ * streamed text and error, or the refusal text.
+ */
+export async function send(body: unknown): Promise<{
+  status: number;
+  text?: string;
+  error?: string;
+  refusal?: string;
+}> {
+  const response = await post(body);
   const raw = await response.text();
   if (!response.ok) return { status: response.status, refusal: raw };
-  const text = raw
+  const chunks = raw
     .split("\n")
     .filter((line) => line.startsWith("data: {"))
-    .map((line) => JSON.parse(line.slice("data: ".length)))
+    .map((line) => JSON.parse(line.slice("data: ".length)));
+  const text = chunks
     .filter((chunk) => chunk.type === "text-delta")
     .map((chunk) => chunk.delta)
     .join("");
-  return { status: response.status, text };
+  const error = chunks.find((chunk) => chunk.type === "error")?.errorText;
+  return { status: response.status, text, ...(error && { error }) };
 }
 
 /** The stored messages of a Course's Brief as role and text, in order. */
