@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * the root layout loads once. Both `$...$` and `$$...$$` are math, because
  * models write inline LaTeX with single dollars.
  */
-export const markdownPlugins = {
+const markdownPlugins = {
   math: createMathPlugin({ singleDollarTextMath: true }),
 };
 

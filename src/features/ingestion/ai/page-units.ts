@@ -6,7 +6,7 @@ import { CHUNK_LABELS } from "@/features/ingestion/types";
 import { aiTask } from "@/lib/ai/models";
 
 /** One structural unit of a page, in reading order. */
-export const pageUnitSchema = z.object({
+const pageUnitSchema = z.object({
   markdown: z
     .string()
     .describe(
@@ -42,8 +42,6 @@ export const pageUnitSchema = z.object({
 
 /** What one page call returns. */
 export const pageResultSchema = z.object({ units: z.array(pageUnitSchema) });
-
-export type PageUnit = z.infer<typeof pageUnitSchema>;
 
 /** The units of a stored page result: a page call's, with usable boxes. */
 export const storedUnitsSchema = z.array(pageUnitSchema);

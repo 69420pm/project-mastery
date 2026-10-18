@@ -6,7 +6,7 @@ import type { Draft } from "@/features/knowledge-map/domain/draft";
 import type { MapChunk } from "@/features/knowledge-map/types";
 
 /** Chunks per assignment call. */
-export const ASSIGNMENT_BATCH_SIZE = 10;
+const ASSIGNMENT_BATCH_SIZE = 10;
 
 /** The chunk labels that teach KCs; exercises, solutions and admin do not. */
 const TEACHING_LABELS = new Set(["content", "definition", "example", "figure"]);

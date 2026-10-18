@@ -8,7 +8,7 @@ import path from "node:path";
 import ts from "typescript";
 import { isExcluded, listFiles, unitOf, type Unit } from "./units";
 
-export type UnitMetrics = {
+type UnitMetrics = {
   unit: string;
   files: number;
   loc: number;
@@ -22,7 +22,7 @@ export type UnitMetrics = {
   fanOut: string[];
 };
 
-export type FileMetrics = { file: string; unit: string; loc: number };
+type FileMetrics = { file: string; unit: string; loc: number };
 
 export type Metrics = { units: UnitMetrics[]; files: FileMetrics[] };
 

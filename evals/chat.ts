@@ -35,7 +35,7 @@ type Input = z.infer<typeof input>;
  * the instructions as a Chat in a Course with a map gets them. No tools: the
  * items test behaviour, not the course's sources.
  */
-export const SAMPLE_CONTEXT: TutorContext = {
+const SAMPLE_CONTEXT: TutorContext = {
   today: "2026-11-02",
   examDate: "2026-12-03",
   hasMap: true,

@@ -15,7 +15,7 @@ export type LadderAttempt = {
   help: AttemptHelp;
 };
 
-export type AttemptOutcome = "correct" | "with_help" | "wrong";
+type AttemptOutcome = "correct" | "with_help" | "wrong";
 
 /** A taught KC's place on the ladder. */
 export type LadderPosition = {
@@ -26,11 +26,11 @@ export type LadderPosition = {
 };
 
 /** The interval of each level in days: level 1 is index 0. */
-export const LEVEL_INTERVALS = [1, 3, 7, 14, 30] as const;
+const LEVEL_INTERVALS = [1, 3, 7, 14, 30] as const;
 
-export const TOP_LEVEL = LEVEL_INTERVALS.length;
+const TOP_LEVEL = LEVEL_INTERVALS.length;
 
-export function attemptOutcome(attempt: {
+function attemptOutcome(attempt: {
   correct: boolean;
   help: AttemptHelp;
 }): AttemptOutcome {

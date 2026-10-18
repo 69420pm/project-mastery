@@ -8,7 +8,7 @@ import {
 } from "@/features/priorities/workflows/priority-steps";
 
 /** Why a run failed, for the Student. */
-export const runFailedReason = "The priorities could not be computed.";
+const runFailedReason = "The priorities could not be computed.";
 
 /**
  * Computes the Priority of every KC of a Course whose run

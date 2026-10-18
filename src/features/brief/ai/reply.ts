@@ -65,7 +65,7 @@ function describeReview({ findings }: BriefContext): string | null {
 }
 
 /** The AI's instructions in a Brief, with what is stored so far. */
-export function briefInstructions(context: BriefContext): string {
+function briefInstructions(context: BriefContext): string {
   return [
     ROLE,
     FLOW,

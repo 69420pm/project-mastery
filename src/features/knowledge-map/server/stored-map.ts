@@ -30,7 +30,7 @@ export async function loadProcessedChunkIds(
 }
 
 /** A Finding the Student has answered in the Brief. */
-export type AnsweredFinding = {
+type AnsweredFinding = {
   text: string;
   answer: string;
   answeredAt: string;

@@ -57,15 +57,15 @@ export function formatCompileIssue(issue: CompileIssue) {
  * agent-browser marks elements with `data-__ab-*` attributes. When it does so
  * before hydration, React reports a mismatch that the app did not cause.
  */
-export function isToolArtifact(error: RuntimeError) {
+function isToolArtifact(error: RuntimeError) {
   return error.message.includes("data-__ab-");
 }
 
-export function errorKey(url: string, error: RuntimeError) {
+function errorKey(url: string, error: RuntimeError) {
   return `${url}|${error.type}|${error.message.slice(0, 200)}`;
 }
 
-export function formatRuntimeError(url: string, error: RuntimeError) {
+function formatRuntimeError(url: string, error: RuntimeError) {
   const frames = (error.stack ?? [])
     .filter((frame) => frame.file.startsWith("src/"))
     .slice(0, MAX_FRAMES)

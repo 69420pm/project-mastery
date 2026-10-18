@@ -8,4 +8,3 @@ export {
   type BriefForPriorities,
 } from "./server/priority-input";
 export { getBrief, getExamFacts, getIntakeDone } from "./server/queries";
-export type { ExamFacts } from "./types";

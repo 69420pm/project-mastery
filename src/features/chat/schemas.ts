@@ -43,7 +43,7 @@ export const MAX_ATTACHED_MATERIALS = 5;
 export const tooManyMaterialsMessage = `Attach up to ${MAX_ATTACHED_MATERIALS} materials to a message.`;
 
 /** The data part that attaches a Material to a Student's message. */
-export const materialPartSchema = z.object({
+const materialPartSchema = z.object({
   type: z.literal("data-material"),
   data: materialReferenceSchema,
 });
@@ -125,5 +125,3 @@ export const deleteChatSchema = chatIdSchema.extend({
   /** The Student is on the Chat's page, so they land on a new Chat. */
   leave: z.boolean().optional(),
 });
-
-export type ChatRequest = z.infer<typeof chatRequestSchema>;

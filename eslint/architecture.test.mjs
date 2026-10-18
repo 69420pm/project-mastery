@@ -337,16 +337,17 @@ const cases = {
       expected: ["no-restricted-properties"],
     },
     {
-      // src/lib/app-env.ts imports @/lib/env, so env.ts cannot import it back.
+      // src/lib/supabase/env.ts imports @/lib/env, so env.ts cannot import
+      // it back.
       name: "no import cycles",
       file: "src/lib/env.ts",
-      code: 'import { getAppEnv } from "@/lib/app-env";\nexport const env = getAppEnv;',
+      code: 'import { isSupabaseConfigured } from "@/lib/supabase/env";\nexport const env = isSupabaseConfigured;',
       expected: ["import-x/no-cycle"],
     },
     {
       name: "an import in one direction is not a cycle",
       file: "src/lib/example.ts",
-      code: 'import { getAppEnv } from "@/lib/app-env";\nexport const env = getAppEnv;',
+      code: 'import { isSupabaseConfigured } from "@/lib/supabase/env";\nexport const env = isSupabaseConfigured;',
       expected: [],
     },
     {

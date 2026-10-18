@@ -5,7 +5,7 @@ import type { ChunkLabel } from "@/features/ingestion/types";
  * A chunk's figure: where it is in the Material's file, a page and a box on
  * it, or the whole page without a box.
  */
-export type ChunkFigure = {
+type ChunkFigure = {
   description: string;
   page: number;
   box: NormalizedBox | null;

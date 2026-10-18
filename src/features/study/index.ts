@@ -10,12 +10,9 @@ export {
   StudyPlanFacts,
 } from "./components/study-plan";
 export { PHASE_NAMES } from "./domain/plan";
-export { saveMemory } from "./server/actions";
 export type {
   ExerciseView,
   KcReading,
-  KcState,
-  KcStateName,
   RecordedKc,
   StudyPlan,
   TutorContext,

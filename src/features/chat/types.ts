@@ -32,7 +32,7 @@ export type ChatMessageMetadata = {
 };
 
 /** The custom data parts of Chat messages, by name without `data-`. */
-export type ChatDataParts = {
+type ChatDataParts = {
   /** A Material the Student attached to their message. */
   material: MaterialReference;
 };

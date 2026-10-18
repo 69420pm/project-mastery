@@ -8,14 +8,5 @@ export {
   getDailyLimitStatus,
 } from "./server/daily-limit";
 export { meteredEmbed, meteredGenerate } from "./server/metered-call";
-export {
-  loadReplyUsage,
-  recordReplyUsage,
-  type StoredReplyUsage,
-} from "./server/reply-usage";
-export {
-  recordAiUsage,
-  type AdminStudentScope,
-  type AiUsageRecord,
-  type StudentScope,
-} from "./server/usage-store";
+export { loadReplyUsage, recordReplyUsage } from "./server/reply-usage";
+export { recordAiUsage } from "./server/usage-store";

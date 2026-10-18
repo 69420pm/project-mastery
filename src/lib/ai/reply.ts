@@ -25,7 +25,7 @@ export function messageText(
  * The HTTP status of a failed model call, read from the `APICallError`
  * inside a `RetryError` when the call was retried.
  */
-export function statusCode(error: unknown): number | undefined {
+function statusCode(error: unknown): number | undefined {
   if (RetryError.isInstance(error)) return statusCode(error.lastError);
   if (APICallError.isInstance(error)) return error.statusCode;
   return undefined;

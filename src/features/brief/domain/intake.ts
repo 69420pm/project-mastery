@@ -18,7 +18,7 @@ export type BriefFields = {
 export const MAX_BRIEF_NOTES_LENGTH = 20_000;
 
 /** A Course's Material as the AI sees it in the Brief. */
-export type BriefMaterial = { id: string; name: string; excluded: boolean };
+type BriefMaterial = { id: string; name: string; excluded: boolean };
 
 /** Everything the AI is told about a Brief before it replies. */
 export type BriefContext = {

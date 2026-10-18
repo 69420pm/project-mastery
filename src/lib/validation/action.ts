@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Validation messages per top-level input field, for rendering next to it. */
-export type FieldErrors = Partial<Record<string, string[]>>;
+type FieldErrors = Partial<Record<string, string[]>>;
 
 /**
  * The return shape of every Server Action. Expected failures (invalid input,

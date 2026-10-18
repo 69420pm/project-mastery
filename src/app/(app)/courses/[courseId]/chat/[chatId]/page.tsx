@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Chat } from "@/features/chat";
+import { Chat, chatPath } from "@/features/chat";
 import { chatModelOptions, getChat } from "@/features/chat/server";
 import { getMaterialList } from "@/features/courses/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
@@ -15,7 +15,7 @@ export default async function ChatPage({
   params,
 }: PageProps<"/courses/[courseId]/chat/[chatId]">) {
   const { courseId, chatId } = await params;
-  const user = await requireUser(`/courses/${courseId}/chat/${chatId}`);
+  const user = await requireUser(chatPath(courseId, chatId));
   const [chat, dailyLimit, materials] = await Promise.all([
     getChat(courseId, chatId),
     getDailyLimitStatus(),

@@ -11,7 +11,7 @@ import type {
  */
 
 export type Prerequisite = KnowledgeMap["prerequisites"][number];
-export type SemanticLink = KnowledgeMap["semanticLinks"][number];
+type SemanticLink = KnowledgeMap["semanticLinks"][number];
 
 /** What the links call proposes, by the map's KC ids. */
 export type LinksProposal = {

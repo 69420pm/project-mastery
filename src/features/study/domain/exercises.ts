@@ -15,7 +15,7 @@ export type RankableExercise = {
   oldExam: boolean;
 };
 
-export const MAX_EXERCISES = 3;
+const MAX_EXERCISES = 3;
 
 /** How the AI is told where an Exercise's solution comes from. */
 export function solutionLabel(status: string): string {
