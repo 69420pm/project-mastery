@@ -2,7 +2,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
-import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
+import type {
+  AdminSupabase,
+  SessionSupabase,
+  Supabase,
+} from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -11,6 +15,7 @@ const { checkDailyLimit, recordAiUsage } =
 
 const STUDENT_A = "11111111-1111-1111-1111-111111111111";
 const STUDENT_B = "22222222-2222-2222-2222-222222222222";
+const CHAT = "33333333-3333-3333-3333-333333333333";
 
 // The fake stamps rows from 2026-01-01T00:00:00Z on, so "today" is that day.
 const NOW = new Date("2026-01-01T12:00:00.000Z");
@@ -95,6 +100,52 @@ describe("usage recorded for an explicit Student id", () => {
     });
     expect(viaAdmin.level).toBe("reached");
     expect(viaAdmin).toEqual(viaSession);
+  });
+});
+
+describe("usage recorded through the Student's session", () => {
+  test("leaves the owner to the database and links the Chat reply", async () => {
+    const session = fakeSupabase({
+      tables: { ai_usage: rows },
+    }) as unknown as SessionSupabase;
+
+    await recordAiUsage(session, {
+      ...PARSE_CALL,
+      task: "chat",
+      chatId: CHAT,
+      replyId: "reply-1",
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).not.toHaveProperty("owner");
+    expect(rows[0]).toMatchObject({ chat_id: CHAT, reply_id: "reply-1" });
+  });
+
+  test("rejects when the insert fails, so the Daily limit never misses a call", async () => {
+    // Row Level Security refuses the row, as it would another Student's.
+    const session = fakeSupabase({
+      tables: { ai_usage: rows },
+      canAccess: () => false,
+    }) as unknown as SessionSupabase;
+
+    await expect(recordAiUsage(session, PARSE_CALL)).rejects.toThrow(
+      /Recording AI usage failed/,
+    );
+  });
+
+  test("rejects when the spend cannot be read", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+    const failing = {
+      from: () => ({
+        select: () => ({
+          gte: async () => ({ data: null, error: { message: "timeout" } }),
+        }),
+      }),
+    } as unknown as SessionSupabase;
+
+    await expect(checkDailyLimit(failing, { now: NOW })).rejects.toThrow(
+      /Loading AI usage failed/,
+    );
   });
 });
 
