@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BriefHint } from "@/features/brief";
 import { getIntakeDone } from "@/features/brief/server";
+import { countMaterialChats } from "@/features/chat/server";
 import { Materials, materialsPath } from "@/features/courses";
 import { getCourse, getMaterialList } from "@/features/courses/server";
 import { requireUser } from "@/lib/auth/user";
@@ -26,7 +27,12 @@ export default async function MaterialsPage({
   return (
     <>
       {!intakeDone && <BriefHint courseId={course.id} />}
-      <Materials ownerId={user.id} courseId={course.id} materials={materials} />
+      <Materials
+        ownerId={user.id}
+        courseId={course.id}
+        materials={materials}
+        countMaterialChats={countMaterialChats}
+      />
     </>
   );
 }

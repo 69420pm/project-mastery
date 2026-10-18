@@ -6,7 +6,7 @@ import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/user", () => ({ getUser: async () => ({ id: "me" }) }));
 
-const { loadCourseChunks, loadChunkSources, getChunkPlaces } =
+const { loadCourseChunks, loadChunkSources, getChunkPlaces, loadChunkPoints } =
   await import("./course-chunks");
 
 const COURSE = "course-1";
@@ -114,6 +114,33 @@ describe("loadCourseChunks", () => {
       markdown: "text 0",
       exerciseNumber: null,
     });
+  });
+});
+
+describe("loadChunkPoints", () => {
+  test("reads every chunk of the Course with its points and Material", async () => {
+    tables.materials[0]!.is_exam = true;
+    tables.chunks = tables.chunks.map((chunk) => ({
+      ...chunk,
+      course_id: chunk.material_id === "other" ? "course-2" : COURSE,
+      points: chunk.id === "b-0001" ? "2.5" : null,
+    }));
+    const { client } = withRowLimit(tables);
+
+    const chunks = await loadChunkPoints(
+      client as unknown as AdminSupabase,
+      COURSE,
+    );
+
+    expect(chunks).toHaveLength(1505);
+    expect(chunks.find((chunk) => chunk.id === "b-0001")).toEqual({
+      id: "b-0001",
+      materialId: "b",
+      materialName: "Material b",
+      isExam: true,
+      points: 2.5,
+    });
+    expect(chunks.find((chunk) => chunk.id === "a-1499")?.points).toBeNull();
   });
 });
 

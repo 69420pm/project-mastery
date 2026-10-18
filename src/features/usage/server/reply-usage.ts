@@ -2,8 +2,51 @@ import "server-only";
 import type { LanguageModelUsage } from "ai";
 import { estimatedUsage, tokenUsage, type SentFile } from "@/lib/ai/cost";
 import type { AiTask } from "@/lib/ai/models";
-import type { SessionSupabase } from "@/lib/supabase/types";
+import type { Supabase, SessionSupabase } from "@/lib/supabase/types";
 import { recordAiUsage } from "./usage-store";
+
+/** What one reply's model call used, as its `ai_usage` row records it. */
+export type StoredReplyUsage = {
+  /** All input tokens, cached ones included. */
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  /** Whether the tokens were estimated, as for a stopped reply. */
+  estimated: boolean;
+};
+
+/**
+ * The recorded usage of the replies among `replyIds`, by reply id. A reply
+ * without a record is missing, as is one Row Level Security hides.
+ */
+export async function loadReplyUsage(
+  supabase: Supabase,
+  replyIds: string[],
+): Promise<Map<string, StoredReplyUsage>> {
+  const usage = new Map<string, StoredReplyUsage>();
+  if (replyIds.length === 0) return usage;
+  const { data, error } = await supabase
+    .from("ai_usage")
+    .select(
+      "reply_id, input_tokens, cached_input_tokens, output_tokens, cost_usd, estimated",
+    )
+    .in("reply_id", replyIds);
+  if (error) {
+    throw new Error(`Loading the replies' usage failed: ${error.message}`);
+  }
+  for (const row of data) {
+    if (row.reply_id === null) continue;
+    usage.set(row.reply_id, {
+      inputTokens: row.input_tokens,
+      cachedInputTokens: row.cached_input_tokens,
+      outputTokens: row.output_tokens,
+      costUsd: Number(row.cost_usd),
+      estimated: row.estimated,
+    });
+  }
+  return usage;
+}
 
 /**
  * Records the usage of one streamed reply for the signed-in Student, and

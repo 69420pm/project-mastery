@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { CHUNK_LABELS, type ChunkLabel } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 
@@ -198,4 +199,55 @@ export async function loadCourseChunks(
     }
   }
   return chunks;
+}
+
+/** A chunk's printed points and its Material, as Priorities weighs them. */
+export type ChunkPoints = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  /** Whether its Material is an old exam. */
+  isExam: boolean;
+  /** As printed; null when the chunk prints none. */
+  points: number | null;
+};
+
+/**
+ * Every chunk of the Course with its printed points, Material name and
+ * whether the Material is an old exam. For workflows on the admin client,
+ * so it scopes the reads to the Course itself.
+ */
+export async function loadChunkPoints(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<ChunkPoints[]> {
+  const [chunks, materials] = await Promise.all([
+    allRows("Loading the chunks", (from, to) =>
+      supabase
+        .from("chunks")
+        .select("id, material_id, points")
+        .eq("course_id", courseId)
+        .order("id")
+        .range(from, to),
+    ),
+    supabase
+      .from("materials")
+      .select("id, name, is_exam")
+      .eq("course_id", courseId),
+  ]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  const material = new Map(materials.data.map((m) => [m.id, m]));
+  return chunks.flatMap((chunk) => {
+    const of = material.get(chunk.material_id);
+    if (!of) return [];
+    return [
+      {
+        id: chunk.id,
+        materialId: chunk.material_id,
+        materialName: of.name,
+        isExam: of.is_exam === true,
+        points: chunk.points === null ? null : Number(chunk.points),
+      },
+    ];
+  });
 }

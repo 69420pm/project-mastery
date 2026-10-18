@@ -29,6 +29,23 @@ export async function loadProcessedChunkIds(
   return rows.map((row) => row.chunk_id);
 }
 
+/** A Finding the Student has answered in the Brief. */
+export type AnsweredFinding = {
+  text: string;
+  answer: string;
+  answeredAt: string;
+};
+
+/**
+ * A stored map with what Priorities reads besides it: the answered
+ * Findings in map order, and when the last build finished (null before
+ * one finished).
+ */
+export type StoredMap = KnowledgeMap & {
+  answeredFindings: AnsweredFinding[];
+  buildFinishedAt: string | null;
+};
+
 /**
  * The Course's stored map, with its rows' ids; empty before the first. Reads
  * on the admin client or a Student's session client, where Row Level
@@ -37,7 +54,7 @@ export async function loadProcessedChunkIds(
 export async function loadStoredMap(
   supabase: Supabase,
   courseId: string,
-): Promise<KnowledgeMap> {
+): Promise<StoredMap> {
   const [
     bigIdeas,
     kcs,
@@ -48,6 +65,7 @@ export async function loadStoredMap(
     exerciseKcs,
     findings,
     findingSources,
+    build,
   ] = await Promise.all([
     allRows("Loading the big ideas", (from, to) =>
       supabase
@@ -112,7 +130,7 @@ export async function loadStoredMap(
     allRows("Loading the findings", (from, to) =>
       supabase
         .from("findings")
-        .select("id, kind, text")
+        .select("id, kind, text, status, answer, answered_at")
         .eq("course_id", courseId)
         .order("position")
         .range(from, to),
@@ -126,10 +144,31 @@ export async function loadStoredMap(
         .order("chunk_id")
         .range(from, to),
     ),
+    supabase
+      .from("knowledge_map_builds")
+      .select("finished_at")
+      .eq("course_id", courseId)
+      .maybeSingle(),
   ]);
+  if (build.error) {
+    throw new Error(`Loading the map build failed: ${build.error.message}`);
+  }
 
   const kcOrder = new Map(kcs.map((kc, index) => [kc.id, index]));
-  return knowledgeMapSchema.parse({
+  const answeredFindings = findings.flatMap((finding) =>
+    finding.status === "answered" &&
+    finding.answer !== null &&
+    finding.answered_at !== null
+      ? [
+          {
+            text: finding.text,
+            answer: finding.answer,
+            answeredAt: finding.answered_at,
+          },
+        ]
+      : [],
+  );
+  const map = knowledgeMapSchema.parse({
     bigIdeas,
     kcs: kcs.map((kc) => ({
       id: kc.id,
@@ -176,4 +215,9 @@ export async function loadStoredMap(
         .map((source) => source.chunk_id),
     })),
   });
+  return {
+    ...map,
+    answeredFindings,
+    buildFinishedAt: build.data?.finished_at ?? null,
+  };
 }

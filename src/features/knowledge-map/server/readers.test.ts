@@ -399,6 +399,15 @@ describe("loadStoredMap", () => {
     ]);
   });
 
+  test("gives the answered Findings and when the build finished", async () => {
+    const map = await loadStoredMap(client(), COURSE);
+
+    expect(map.answeredFindings).toEqual([
+      { text: "Finding 0", answer: "It is right.", answeredAt: "2026-01-03" },
+    ]);
+    expect(map.buildFinishedAt).toBe("2026-01-02");
+  });
+
   test("gives an empty map for a Course without one", async () => {
     expect(await loadStoredMap(client(), OTHER_COURSE)).toMatchObject({
       bigIdeas: [],

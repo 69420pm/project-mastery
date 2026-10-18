@@ -3,6 +3,7 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Supabase } from "@/lib/supabase/types";
 import type { ChatUIMessage, ReplyUsage } from "@/features/chat/types";
 import type { TutorContext } from "@/features/study";
+import { loadReplyUsage } from "@/features/usage/server";
 
 /**
  * Reads and writes Chats and their messages as the signed-in Student, so Row
@@ -254,29 +255,31 @@ export async function loadMessages(
     .order("created_at", { ascending: true });
   if (error) fail("Loading the messages", error);
 
-  const replyIds = data
-    .filter(({ role }) => role === "assistant")
-    .map((r) => r.id);
-  const usage = new Map<string, ReplyUsage>();
-  if (replyIds.length > 0) {
-    const { data: rows, error: usageError } = await supabase
-      .from("ai_usage")
-      .select(
-        "reply_id, input_tokens, cached_input_tokens, output_tokens, cost_usd, estimated",
-      )
-      .in("reply_id", replyIds);
-    if (usageError) fail("Loading the replies' usage", usageError);
-    for (const row of rows) {
-      usage.set(row.reply_id!, {
-        inputTokens: row.input_tokens,
-        cachedInputTokens: row.cached_input_tokens,
-        outputTokens: row.output_tokens,
-        costUsd: Number(row.cost_usd),
-        estimated: row.estimated,
-      });
-    }
-  }
+  const usage = await loadReplyUsage(
+    supabase,
+    data.filter(({ role }) => role === "assistant").map((r) => r.id),
+  );
   return data.map((row) => toUIMessage(row, usage.get(row.id)));
+}
+
+/**
+ * How many of the Student's Chats have a message that attaches the Material,
+ * as a `data-material` part holding a `MaterialReference`.
+ */
+export async function countChatsAttaching(
+  supabase: Supabase,
+  materialId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("chat_id")
+    // As JSON text: postgrest-js sends arrays as Postgres array literals.
+    .contains(
+      "parts",
+      JSON.stringify([{ type: "data-material", data: { materialId } }]),
+    );
+  if (error) fail("Counting the Chats with the Material", error);
+  return new Set(data.map((row) => row.chat_id)).size;
 }
 
 /** Whether the Chat has a message with this id. */

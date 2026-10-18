@@ -32,13 +32,15 @@ export async function getCourseList(): Promise<CourseWithCounts[]> {
 
 /**
  * The signed-in Student's Materials in a Course, newest first. Empty when
- * signed out or for another Student's Course.
+ * signed out or for another Student's Course. Reads with `client`, a
+ * Student's session client, when given.
  */
 export async function getMaterialList(
   courseId: string,
+  client?: Supabase,
 ): Promise<MaterialListItem[]> {
-  if (!(await getUser())) return [];
-  return listMaterials(await createClient(), courseId);
+  if (!client && !(await getUser())) return [];
+  return listMaterials(client ?? (await createClient()), courseId);
 }
 
 /**

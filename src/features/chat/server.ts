@@ -2,5 +2,6 @@
 import "server-only";
 
 export { chatModelOptions, chatReplySettings } from "./ai/reply";
+export { countMaterialChats } from "./server/actions";
 export { handleChatRequest, respondInChat } from "./server/handler";
 export { getChat, getChatList, newChat } from "./server/queries";

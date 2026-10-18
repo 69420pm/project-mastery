@@ -20,7 +20,6 @@ import {
   updateCourseName,
 } from "@/features/courses/server/course-store";
 import {
-  countChatsAttaching,
   findMaterial,
   findStoredFile,
   insertMaterial,
@@ -208,24 +207,6 @@ export async function deleteMaterial(input: {
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
-}
-
-/**
- * How many of the Student's Chats attach the Material, for the delete
- * confirmation.
- */
-export async function countMaterialChats(input: {
-  materialId: string;
-}): Promise<ActionResult<{ chatCount: number }>> {
-  const parsed = parseActionInput(materialIdSchema, input);
-  if (!parsed.ok) return parsed;
-  if (!(await getUser())) return signedOut;
-
-  const chatCount = await countChatsAttaching(
-    await createClient(),
-    parsed.data.materialId,
-  );
-  return { ok: true, data: { chatCount } };
 }
 
 /** How long a link to open a Material works, in seconds. */

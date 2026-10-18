@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { getMaterialList } from "@/features/courses/server";
 import { getChunkPlaces } from "@/features/ingestion/server";
 import { FINDING_KINDS } from "@/features/knowledge-map/schemas";
 import type { ReviewFinding } from "@/features/knowledge-map/types";
@@ -34,15 +35,11 @@ export async function getOpenFindings(
       .from("finding_sources")
       .select("finding_id, chunk_id")
       .eq("course_id", courseId),
-    supabase
-      .from("materials")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("created_at"),
+    // Newest first; reading order is oldest first.
+    getMaterialList(courseId, supabase).then((list) => list.toReversed()),
   ]);
   if (findings.error) failed("Loading the findings", findings.error);
   if (sources.error) failed("Loading the finding sources", sources.error);
-  if (materials.error) failed("Loading the Materials", materials.error);
   if (findings.data.length === 0) return [];
 
   const open = new Set(findings.data.map(({ id }) => id));
@@ -53,8 +50,8 @@ export async function getOpenFindings(
     ownSources.map(({ chunk_id }) => chunk_id),
     supabase,
   );
-  const materialOrder = new Map(materials.data.map(({ id }, i) => [id, i]));
-  const materialName = new Map(materials.data.map((m) => [m.id, m.name]));
+  const materialOrder = new Map(materials.map(({ id }, i) => [id, i]));
+  const materialName = new Map(materials.map((m) => [m.id, m.name]));
   const pagesOf = (findingId: string) => {
     const chunkIds = new Set(
       ownSources

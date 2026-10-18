@@ -1,5 +1,10 @@
 import "server-only";
-import { loadBriefForPriorities } from "@/features/brief/server";
+import { z } from "zod";
+import {
+  loadBriefForPriorities,
+  type BriefForPriorities,
+} from "@/features/brief/server";
+import { loadChunkPoints, type ChunkPoints } from "@/features/ingestion/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
 import {
   adjustCall,
@@ -23,8 +28,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * the Course itself.
  */
 
-const PAGE = 1000;
-
 function fail(action: string, error: { message: string }): never {
   throw new Error(`${action} failed: ${error.message}`);
 }
@@ -44,6 +47,13 @@ export type RunInput = {
   storedAdjustments: AdjustmentEntry[];
 };
 
+/** A stored adjustment; a malformed one counts as none. */
+const storedAdjustmentsSchema = z
+  .array(
+    z.object({ id: z.string(), multiplier: z.number(), reason: z.string() }),
+  )
+  .catch([]);
+
 /**
  * The stored map, the points and Materials of the Course's chunks, the
  * Brief and the answered Findings of the Course whose run is running. Null
@@ -61,56 +71,30 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
   if (run.error) fail("Loading the priority run", run.error);
   if (!run.data) return null;
 
-  const loadChunks = async () => {
-    const rows: Array<{
-      id: string;
-      material_id: string;
-      points: number | null;
-    }> = [];
-    for (let from = 0; ; from += PAGE) {
-      const page = await supabase
-        .from("chunks")
-        .select("id, material_id, points")
-        .eq("course_id", courseId)
-        .order("id")
-        .range(from, from + PAGE - 1);
-      if (page.error) fail("Loading the chunks", page.error);
-      rows.push(...page.data);
-      if (page.data.length < PAGE) return rows;
-    }
-  };
-  const [map, chunks, materials, brief, findings, build] = await Promise.all([
+  const [map, chunks, brief] = await Promise.all([
     loadStoredMap(supabase, courseId),
-    loadChunks(),
-    supabase
-      .from("materials")
-      .select("id, name, is_exam")
-      .eq("course_id", courseId),
+    loadChunkPoints(supabase, courseId),
     loadBriefForPriorities(supabase, courseId),
-    supabase
-      .from("findings")
-      .select("text, answer, answered_at")
-      .eq("course_id", courseId)
-      .eq("status", "answered")
-      .order("position"),
-    supabase
-      .from("knowledge_map_builds")
-      .select("finished_at")
-      .eq("course_id", courseId)
-      .maybeSingle(),
   ]);
-  if (materials.error) fail("Loading the Materials", materials.error);
-  if (findings.error) fail("Loading the answered Findings", findings.error);
-  if (build.error) fail("Loading the map build", build.error);
+  return runInput({ run: run.data, map, chunks, brief });
+}
 
-  const answered = findings.data.flatMap(({ text, answer, answered_at }) =>
-    answer !== null && answered_at !== null
-      ? [{ text, answer, answeredAt: answered_at }]
-      : [],
-  );
+/** A run's input from what `loadRunInput` read. */
+function runInput({
+  run,
+  map,
+  chunks,
+  brief,
+}: {
+  run: { owner: string; adjusted_at: string | null; adjustments: unknown };
+  map: Awaited<ReturnType<typeof loadStoredMap>>;
+  chunks: ChunkPoints[];
+  brief: BriefForPriorities;
+}): RunInput {
+  const answered = map.answeredFindings;
   const notes = brief.notes?.trim() ? brief.notes : null;
   return {
-    studentId: run.data.owner,
+    studentId: run.owner,
     input: {
       kcs: map.kcs.map((kc) => ({
         id: kc.id,
@@ -125,16 +109,13 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
       chunks: Object.fromEntries(
         chunks.map((chunk) => [
           chunk.id,
-          {
-            materialId: chunk.material_id,
-            points: chunk.points === null ? null : Number(chunk.points),
-          },
+          { materialId: chunk.materialId, points: chunk.points },
         ]),
       ),
       materials: Object.fromEntries(
-        materials.data.map((material) => [
-          material.id,
-          { name: material.name, isExam: material.is_exam === true },
+        chunks.map((chunk) => [
+          chunk.materialId,
+          { name: chunk.materialName, isExam: chunk.isExam },
         ]),
       ),
     },
@@ -158,10 +139,10 @@ export async function loadRunInput(courseId: string): Promise<RunInput | null> {
       hasNotes: notes !== null,
       answeredAt: answered.map(({ answeredAt }) => answeredAt),
       notesUpdatedAt: brief.notesUpdatedAt,
-      mapFinishedAt: build.data?.finished_at ?? null,
-      adjustedAt: run.data.adjusted_at,
+      mapFinishedAt: map.buildFinishedAt,
+      adjustedAt: run.adjusted_at,
     }),
-    storedAdjustments: run.data.adjustments as AdjustmentEntry[],
+    storedAdjustments: storedAdjustmentsSchema.parse(run.adjustments),
   };
 }
 

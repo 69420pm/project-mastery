@@ -46,8 +46,8 @@ const startWorkflow = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock("workflow/api", () => ({ start: startWorkflow }));
 const { parseMaterial } = await import("@/features/ingestion/server");
 
+const { countMaterialChats } = await import("@/features/chat/server");
 const {
-  countMaterialChats,
   createCourse,
   deleteCourse,
   deleteMaterial,

@@ -37,7 +37,11 @@ vi.mock("@/lib/auth/user", () => ({
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 vi.mock("workflow/api", () => ({ start: vi.fn(async () => ({})) }));
 
-const actions = await import("./actions");
+const actions = {
+  ...(await import("./actions")),
+  countMaterialChats: (await import("@/features/chat/server"))
+    .countMaterialChats,
+};
 
 let courseId: string;
 let materialId: string;

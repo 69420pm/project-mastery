@@ -345,6 +345,18 @@ describe("a run that asks the model", () => {
     },
   );
 
+  test("reuses a malformed stored adjustment as none", async () => {
+    seedUnadjusted();
+    (db.tables.priority_runs[0] as FakeRow).adjustments = { k2: 0.5 };
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "0");
+    useMockModels({ priority: mockTextModel(ADJUSTED) });
+
+    await updatePriorities(COURSE);
+
+    expect(db.tables.priority_runs[0]?.status).toBe("done");
+    expect(storedK2()).toMatchObject({ multiplier: 1 });
+  });
+
   test("fails on another model error and keeps the previous priorities", async () => {
     seedUnadjusted();
     db.tables.kc_priorities.push({

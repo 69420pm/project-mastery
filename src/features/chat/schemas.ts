@@ -117,6 +117,9 @@ export const renameChatSchema = z.object({
 /** A Chat addressed by id. */
 export const chatIdSchema = z.object({ chatId: z.uuid() });
 
+/** A Material whose attaching Chats are counted. */
+export const attachedMaterialSchema = z.object({ materialId: z.uuid() });
+
 /** Deleting a Chat from its "…" menu. */
 export const deleteChatSchema = chatIdSchema.extend({
   /** The Student is on the Chat's page, so they land on a new Chat. */

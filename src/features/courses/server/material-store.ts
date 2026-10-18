@@ -222,26 +222,6 @@ export async function downloadStoredFile(
   return new Uint8Array(await data.arrayBuffer());
 }
 
-/**
- * How many of the Student's Chats have a message that attaches the Material,
- * as a `data-material` part holding a `MaterialReference`.
- */
-export async function countChatsAttaching(
-  supabase: Supabase,
-  materialId: string,
-): Promise<number> {
-  const { data, error } = await supabase
-    .from("chat_messages")
-    .select("chat_id")
-    // As JSON text: postgrest-js sends arrays as Postgres array literals.
-    .contains(
-      "parts",
-      JSON.stringify([{ type: "data-material", data: { materialId } }]),
-    );
-  if (error) fail("Counting the Chats with the Material", error);
-  return new Set(data.map((row) => row.chat_id)).size;
-}
-
 /** Renames one of the Student's Materials. False when it is missing or not theirs. */
 export async function updateMaterialName(
   supabase: Supabase,

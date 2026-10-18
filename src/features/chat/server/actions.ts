@@ -5,12 +5,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { newChatPath } from "@/features/chat/domain/chat-paths";
 import {
+  attachedMaterialSchema,
   chatIdSchema,
   chatNotFoundMessage,
   deleteChatSchema,
   renameChatSchema,
 } from "@/features/chat/schemas";
 import {
+  countChatsAttaching,
   deleteChat as deleteStoredChat,
   findChat,
   renameChat as renameStoredChat,
@@ -87,4 +89,22 @@ export async function deleteChat(input: {
   revalidatePath("/", "layout");
   if (parsed.data.leave) redirect(newChatPath(deleted.courseId));
   return { ok: true, data: undefined };
+}
+
+/**
+ * How many of the Student's Chats attach the Material, for the Material's
+ * delete confirmation.
+ */
+export async function countMaterialChats(input: {
+  materialId: string;
+}): Promise<ActionResult<{ chatCount: number }>> {
+  const parsed = parseActionInput(attachedMaterialSchema, input);
+  if (!parsed.ok) return parsed;
+  if (!(await getUser())) return signedOut;
+
+  const chatCount = await countChatsAttaching(
+    await createClient(),
+    parsed.data.materialId,
+  );
+  return { ok: true, data: { chatCount } };
 }
