@@ -187,3 +187,115 @@ test("a note shows its text, and an unknown tool its name with input and output"
     },
   });
 });
+
+test.each([
+  ["readKcs", "Reading KCs"],
+  ["findExercises", "Finding Exercises"],
+  ["recordAttempt", "Recording an attempt"],
+  ["remember", "Making a note"],
+  ["search", "search"],
+])("a running %s call reads %s…", (tool, title) => {
+  expect(
+    summaries([
+      {
+        type: `tool-${tool}`,
+        toolCallId: "1",
+        state: "input-available",
+        input: {},
+      } as Parts[number],
+    ]),
+  ).toEqual([`running: ${title}…`]);
+});
+
+test("a denied call is a failed step saying it was denied", () => {
+  const [denied] = replySegments(
+    [
+      {
+        type: "tool-recordAttempt",
+        toolCallId: "1",
+        state: "output-denied",
+        input: {},
+        approval: { id: "a", approved: false },
+      },
+    ],
+    live,
+  );
+  expect(denied).toMatchObject({
+    step: {
+      state: "error",
+      summary: "Recording an attempt failed",
+      errorText: "The call was denied.",
+      detail: null,
+    },
+  });
+});
+
+test("a note without text input shows as the tool's name", () => {
+  expect(
+    summaries([
+      {
+        type: "tool-remember",
+        toolCallId: "1",
+        state: "output-available",
+        input: {},
+        output: { ok: true },
+      },
+    ]),
+  ).toEqual(["done: remember"]);
+});
+
+test("a recorded attempt names a KC it did not grade, an unseen Exercise by id, and no unknown help", () => {
+  const [recorded] = replySegments(
+    [
+      {
+        type: "tool-recordAttempt",
+        toolCallId: "1",
+        state: "output-available",
+        input: {
+          exerciseId: "e9",
+          help: "lots",
+          kcs: [{ kcId: "a", correct: true }],
+        },
+        output: {
+          kcs: [
+            { id: "a", name: "A", level: 3, nextReview: "2026-10-20" },
+            { id: "b", name: "B", level: 1, nextReview: "2026-10-17" },
+          ],
+        },
+      },
+    ],
+    live,
+  );
+  expect(recorded).toMatchObject({
+    step: {
+      summary: "Recorded: A ✓, B",
+      detail: {
+        tool: "recordAttempt",
+        exercise: "e9",
+        kcs: [
+          { id: "a", correct: true },
+          { id: "b", correct: undefined },
+        ],
+      },
+    },
+  });
+});
+
+test.each([
+  ["none", "Recorded: A ✗ · no help"],
+  ["solution_shown", "Recorded: A ✗ · solution shown"],
+])("a recorded attempt with help %s reads %s", (help, summary) => {
+  expect(
+    summaries([
+      {
+        type: "tool-recordAttempt",
+        toolCallId: "1",
+        state: "output-available",
+        input: { help, kcs: [{ kcId: "a", correct: false }] },
+        output: {
+          kcs: [{ id: "a", name: "A", level: 0, nextReview: "2026-10-17" }],
+        },
+      },
+    ]),
+  ).toEqual([`done: ${summary}`]);
+});
