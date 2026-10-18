@@ -88,29 +88,34 @@ pnpm -s agent check           # compile issues, runtime and server errors
 
 ## Scripts
 
-| Command              | Description                                                                        |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `pnpm dev`           | Start the dev server                                                               |
-| `pnpm build`         | Production build                                                                   |
-| `pnpm start`         | Serve the production build                                                         |
-| `pnpm lint`          | ESLint (zero warnings allowed)                                                     |
-| `pnpm typecheck`     | Generate route types and run `tsc`                                                 |
-| `pnpm format`        | Format with Prettier                                                               |
-| `pnpm test`          | Unit tests in watch mode                                                           |
-| `pnpm test:coverage` | Unit tests with coverage report                                                    |
-| `pnpm test:e2e`      | Playwright E2E tests (run `pnpm db:start` first; rebuilds when the build is stale) |
-| `pnpm check`         | Lint + typecheck + format check + unit tests                                       |
-| `pnpm evals`         | AI evals against real models (not in CI)                                           |
-| `pnpm smoke <name>`  | Run one feature path once against a real model and check it (not in CI)            |
-| `pnpm -s agent`      | Drive the running app from the terminal                                            |
-| `pnpm -s retro`      | Digest recent Claude Code runs of this repo for a retro                            |
-| `pnpm db:start`      | Start local Supabase (Docker)                                                      |
-| `pnpm db:stop`       | Stop local Supabase                                                                |
-| `pnpm db:status`     | Show local Supabase URLs and API keys                                              |
-| `pnpm db:reset`      | Recreate the local database from migrations                                        |
-| `pnpm db:types`      | Generate TypeScript types from the local DB                                        |
-| `pnpm db:lint`       | Lint the local database schema                                                     |
-| `pnpm db:test`       | Run pgTAP database tests (RLS policies)                                            |
+| Command                        | Description                                                                        |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `pnpm dev`                     | Start the dev server                                                               |
+| `pnpm build`                   | Production build                                                                   |
+| `pnpm start`                   | Serve the production build                                                         |
+| `pnpm lint`                    | ESLint (zero warnings allowed)                                                     |
+| `pnpm lint:fix`                | ESLint with autofix                                                                |
+| `pnpm typecheck`               | Generate route types and run `tsc`                                                 |
+| `pnpm format`                  | Format with Prettier                                                               |
+| `pnpm test`                    | Unit tests in watch mode                                                           |
+| `pnpm test:run`                | Unit tests once                                                                    |
+| `pnpm test:coverage`           | Unit tests with coverage report                                                    |
+| `pnpm test:e2e`                | Playwright E2E tests (run `pnpm db:start` first; rebuilds when the build is stale) |
+| `pnpm check`                   | Lint + typecheck + format check + unit tests                                       |
+| `pnpm evals`                   | AI evals against real models (not in CI)                                           |
+| `pnpm smoke <name>`            | Run one feature path once against a real model and check it (not in CI)            |
+| `pnpm langfuse:models`         | Push the model prices in `src/lib/ai/prices.ts` to Langfuse                        |
+| `pnpm -s agent`                | Drive the running app from the terminal                                            |
+| `pnpm -s retro`                | Digest recent Claude Code runs of this repo for a retro                            |
+| `pnpm -s sweep`                | Deterministic checks for `/sweep` (`mutate [unit...]` runs mutation tests)         |
+| `pnpm db:start`                | Start local Supabase (Docker)                                                      |
+| `pnpm db:stop`                 | Stop local Supabase                                                                |
+| `pnpm db:status`               | Show local Supabase URLs and API keys                                              |
+| `pnpm db:reset`                | Recreate the local database from migrations                                        |
+| `pnpm db:migration:new <name>` | Create a new SQL migration file                                                    |
+| `pnpm db:types`                | Generate TypeScript types from the local DB                                        |
+| `pnpm db:lint`                 | Lint the local database schema                                                     |
+| `pnpm db:test`                 | Run pgTAP database tests (RLS policies)                                            |
 
 ## Development workflow
 
@@ -136,8 +141,10 @@ evals/             AI eval datasets and runner (`pnpm evals`), smoke checks (`pn
 tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
 tools/retro/       Transcript digest for agent-run retros (`pnpm -s retro`)
 tools/build/       Worktree setup for `/build`
+tools/sweep/       Deterministic checks and units for `/sweep` (`pnpm -s sweep`)
 supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
-docs/              Architecture; adr/ holds the technical decisions
+docs/              Architecture; adr/ holds the technical decisions, agents/ the
+                   agent harness facts, features/ how features work, retros/ run retros
 e2e/               Playwright end-to-end tests
 public/            Static assets
 .github/           CI workflows, issue/PR templates, Dependabot

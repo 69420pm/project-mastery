@@ -18,7 +18,7 @@ type CallEnd = Parameters<
  *
  * - **Embedding values as input.** `@ai-sdk/otel` writes them only with its
  *   `embedding` option, which Langfuse does not pass, and Langfuse shows the
- *   `ai.values` they would go to as metadata, not as input. The vectors (3072
+ *   `ai.values` they would go to as metadata, not as input. The vectors (2048
  *   numbers per chunk) stay out. The values are set as
  *   `langfuse.observation.input` when the call's span starts, which
  *   `@ai-sdk/otel` does synchronously inside `onEmbedStart`.

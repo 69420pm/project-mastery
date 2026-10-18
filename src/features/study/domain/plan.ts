@@ -9,7 +9,10 @@ import { daysBetween } from "@/features/study/domain/ladder";
 /** Where a Course's study stands before its exam. */
 export type Phase = "build" | "deepen" | "final_week";
 
-/** The days before the exam, the exam day included, that are only Review. */
+/**
+ * The days before the exam that are only Review: the final week is the exam
+ * day plus these 7 days before it.
+ */
 export const FINAL_WEEK_DAYS = 7;
 
 /** The fixed time a KC takes, covering its teaching and later Reviews. */
@@ -44,10 +47,11 @@ export type PlanInput = {
 
 /**
  * The plan from the relevant KCs (Priority above 0, not prior knowledge):
- * the final week in the last 7 days, deepen once every relevant KC is
- * taught, build otherwise, including when no KC is relevant yet (an unbuilt
- * map), since deepen steers away from new KCs. Pacing fits the untaught relevant KCs, highest
- * Priority first and ties by name, into the hours until the final week.
+ * the final week on the exam day and the 7 days before it, deepen once every
+ * relevant KC is taught, build otherwise, including when no KC is relevant
+ * yet (an unbuilt map), since deepen steers away from new KCs. Pacing fits
+ * the untaught relevant KCs, highest Priority first and ties by name, into
+ * the hours until the final week.
  */
 export function planStudy({
   kcs,

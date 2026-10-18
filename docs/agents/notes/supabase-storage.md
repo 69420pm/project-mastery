@@ -1,6 +1,6 @@
 # Supabase Storage with supabase-js
 
-Installed: `@supabase/supabase-js` 2.117.2, `storage-js` 2.117.2. The only docs shipped are TSDoc, so read `node_modules/.pnpm/@supabase+storage-js@2.117.2/node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts`.
+Installed: `@supabase/supabase-js` 2.117.3, `storage-js` 2.117.3. The only docs shipped are TSDoc, so read `node_modules/.pnpm/@supabase+storage-js@2.117.3/node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts`.
 
 - **No upload progress.** `upload`, `update` and `uploadToSignedUrl` all go through the `post`/`put` fetch helpers (StorageFileApi.ts:143). There is no `onUploadProgress`. For a progress bar, call `createSignedUploadUrl(path, { upsert })` (line ~382; token valid 2 hours; needs insert RLS), then send the bytes with XHR and `xhr.upload.onprogress`. storage-js has no TUS or resumable client.
 - **Signed upload with XHR.** An XHR `PUT` to the signed upload URL with the same multipart body `uploadToSignedUrl` builds (`cacheControl` field, then the file under the empty field name, header `x-upsert: false`, no apikey header) stores the object, and the file part's type becomes the object's `contentType`. `src/lib/supabase/upload.ts` does this. A raw-body PUT is still unverified.
