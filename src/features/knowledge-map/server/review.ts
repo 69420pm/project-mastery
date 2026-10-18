@@ -4,6 +4,7 @@ import { getMaterialList } from "@/features/courses/server";
 import { getChunkPlaces } from "@/features/ingestion/server";
 import { FINDING_KINDS } from "@/features/knowledge-map/schemas";
 import type { ReviewFinding } from "@/features/knowledge-map/types";
+import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -11,10 +12,6 @@ import type { Supabase } from "@/lib/supabase/types";
  * Student about one at a time. Every call runs as the Student whose session
  * client `supabase` is, so Row Level Security hides other Students' Findings.
  */
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /**
  * The Course's open Findings in map order, each with its sources as

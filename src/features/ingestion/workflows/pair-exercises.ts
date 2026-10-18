@@ -13,12 +13,12 @@ import {
 } from "@/features/ingestion/domain/exercise-pairing";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  fail,
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
@@ -115,7 +115,7 @@ async function everySubtaskHasPair(
     .from("exercise_solutions")
     .select("exercise_chunk_id")
     .eq("course_id", courseId);
-  if (error) fail("Loading the exercise pairs", error);
+  if (error) failed("Loading the exercise pairs", error);
   const paired = new Set(data.map((row) => row.exercise_chunk_id));
   return exerciseSubtasks(course.exercises).every((exercise) =>
     paired.has(exercise.id),
@@ -134,7 +134,7 @@ async function runPass(
   const requested = await supabase.rpc("request_exercise_pairing", {
     p_course_id: courseId,
   });
-  if (requested.error) fail("Requesting a pairing pass", requested.error);
+  if (requested.error) failed("Requesting a pairing pass", requested.error);
   // The Course is gone.
   if (requested.data === null) return "done";
   const request = requested.data;
@@ -165,7 +165,7 @@ async function runPass(
       solution_chunk_id: solutionOf.get(exercise.id) ?? null,
     })),
   });
-  if (written.error) fail("Storing the exercise pairs", written.error);
+  if (written.error) failed("Storing the exercise pairs", written.error);
   return "done";
 }
 
@@ -179,7 +179,7 @@ async function loadCourseChunks(
     .select("owner")
     .eq("id", courseId)
     .maybeSingle();
-  if (course.error) fail("Loading the Course", course.error);
+  if (course.error) failed("Loading the Course", course.error);
   if (!course.data) return null;
 
   const chunks = await supabase
@@ -189,7 +189,7 @@ async function loadCourseChunks(
     .in("label", ["exercise", "solution"])
     .order("material_id")
     .order("position");
-  if (chunks.error) fail("Loading the Course's exercises", chunks.error);
+  if (chunks.error) failed("Loading the Course's exercises", chunks.error);
   const ofLabel = (label: string) =>
     chunks.data
       .filter((chunk) => chunk.label === label)
@@ -290,6 +290,6 @@ async function isLatest(
     .select("pairing_requested")
     .eq("id", pass.courseId)
     .maybeSingle();
-  if (error) fail("Loading the Course", error);
+  if (error) failed("Loading the Course", error);
   return data?.pairing_requested === pass.request;
 }

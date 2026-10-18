@@ -22,11 +22,8 @@ import type {
 } from "@/features/knowledge-map/types";
 import { getUser } from "@/lib/auth/user";
 import { allRows } from "@/lib/supabase/all-rows";
+import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 const buildStatus = z.enum(["building", "built", "failed"]);
 

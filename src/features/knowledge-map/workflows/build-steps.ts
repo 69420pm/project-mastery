@@ -53,6 +53,7 @@ import type { MapChunk } from "@/features/knowledge-map/types";
 import { meteredEmbed, meteredGenerate } from "@/features/usage/server";
 import type { AiTask } from "@/lib/ai/models";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failed } from "@/lib/supabase/failed";
 
 /**
  * The steps of a Knowledge map update (`build-knowledge-map.ts`). Each runs on
@@ -64,10 +65,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /** A step's result, or why the build stops, for the Student. */
 export type StepOutcome<T> =
   { ok: true; value: T } | { ok: false; reason: string };
-
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /**
  * What an update reads once: whose Course it is, its chunks, the ones an
@@ -98,7 +95,7 @@ export async function loadBuildInput(
     .eq("course_id", courseId)
     .eq("status", "building")
     .maybeSingle();
-  if (error) fail("Loading the build", error);
+  if (error) failed("Loading the build", error);
   if (!data) return null;
   const [chunks, pairs, processedChunkIds, map] = await Promise.all([
     loadCourseChunks(supabase, courseId),
@@ -482,7 +479,7 @@ export async function storeMap(
       p_check_report: report,
     },
   );
-  if (error) fail("Storing the knowledge map", error);
+  if (error) failed("Storing the knowledge map", error);
 }
 
 /** Marks the running build failed with a reason for the Student. */
@@ -496,5 +493,5 @@ export async function failBuild(
     .update({ status: "failed", failure_reason: reason })
     .eq("course_id", courseId)
     .eq("status", "building");
-  if (error) fail("Recording the failed build", error);
+  if (error) failed("Recording the failed build", error);
 }

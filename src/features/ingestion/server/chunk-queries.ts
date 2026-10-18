@@ -8,6 +8,7 @@ import {
 } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
 import { allRows } from "@/lib/supabase/all-rows";
+import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -84,10 +85,6 @@ export async function getMaterialChunks(
       solution: solutions.get(chunk.id) ?? null,
     })),
   };
-}
-
-function failed(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
 }
 
 /** Ids per `in` filter, which keeps the query string short. */

@@ -16,6 +16,7 @@ import { openPdf } from "@/features/ingestion/workflows/page-images";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
+import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
@@ -44,10 +45,6 @@ type ParseMaterialRow = {
   storage_path: string;
 };
 
-export function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
-
 export async function loadMaterial(
   supabase: AdminSupabase,
   materialId: string,
@@ -57,13 +54,13 @@ export async function loadMaterial(
     .select("id, owner, course_id, media_type, storage_path")
     .eq("id", materialId)
     .maybeSingle();
-  if (error) fail("Loading the Material", error);
+  if (error) failed("Loading the Material", error);
   return data;
 }
 
 async function download(supabase: AdminSupabase, path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).download(path);
-  if (error) fail(`Reading ${path}`, error);
+  if (error) failed(`Reading ${path}`, error);
   return new Uint8Array(await data.arrayBuffer());
 }
 
@@ -76,7 +73,7 @@ async function openMaterialPdf(supabase: AdminSupabase, path: string) {
   if (error?.message === "Object not found") {
     throw parseFailureError(fileUnreadableReason);
   }
-  if (error) fail(`Reading ${path}`, error);
+  if (error) failed(`Reading ${path}`, error);
   const bytes = new Uint8Array(await data.arrayBuffer());
   try {
     return await openPdf(bytes);
@@ -114,7 +111,7 @@ async function storedPageNumbers(
     .from("material_pages")
     .select("page_number")
     .eq("material_id", materialId);
-  if (error) fail("Loading the page results", error);
+  if (error) failed("Loading the page results", error);
   return data.map((page) => page.page_number);
 }
 
@@ -135,7 +132,7 @@ export async function preparePages(
     .from("materials")
     .update({ parse_status: "parsing", parse_failure: null })
     .eq("id", materialId);
-  if (started.error) fail("Starting the parse", started.error);
+  if (started.error) failed("Starting the parse", started.error);
   const stored = await storedPageNumbers(supabase, materialId);
 
   // An image is its own one page.
@@ -157,7 +154,7 @@ export async function preparePages(
     })
     .eq("id", materialId)
     .select("id");
-  if (error) fail("Starting the parse", error);
+  if (error) failed("Starting the parse", error);
   return data.length === 0 ? null : pages;
 }
 
@@ -207,7 +204,7 @@ export async function readPage(
   });
   // 23503: the Material was deleted during the call, so stop quietly.
   if (stored.error?.code === FOREIGN_KEY_VIOLATION) return { ok: true };
-  if (stored.error) fail(`Storing page ${page.pageNumber}`, stored.error);
+  if (stored.error) failed(`Storing page ${page.pageNumber}`, stored.error);
   return recordProgress(supabase, materialId);
 }
 
@@ -240,7 +237,7 @@ async function recordProgress(
     .from("materials")
     .update({ pages_done: done.length })
     .eq("id", materialId);
-  if (progress.error) fail("Recording the progress", progress.error);
+  if (progress.error) failed("Recording the progress", progress.error);
   return { ok: true };
 }
 
@@ -251,7 +248,7 @@ export async function markParsed(materialId: string): Promise<void> {
     .from("materials")
     .update({ parse_status: "parsed", parse_failure: null })
     .eq("id", materialId);
-  if (error) fail("Finishing the parse", error);
+  if (error) failed("Finishing the parse", error);
 }
 
 /** Marks the parse failed with a reason for the Student. */
@@ -264,5 +261,5 @@ export async function failParse(
     .from("materials")
     .update({ parse_status: "failed", parse_failure: reason })
     .eq("id", materialId);
-  if (error) fail("Recording the failed parse", error);
+  if (error) failed("Recording the failed parse", error);
 }

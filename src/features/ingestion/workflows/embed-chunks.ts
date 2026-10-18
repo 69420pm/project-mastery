@@ -4,12 +4,12 @@ import { FatalError, RetryableError } from "workflow";
 import { retryDelayMs } from "@/features/ingestion/ai/retry-delay";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import {
-  fail,
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
 import { meteredEmbed } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failed } from "@/lib/supabase/failed";
 
 /**
  * Chunks embedded and stored per model call. Small batches store more of a
@@ -55,7 +55,7 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
     .eq("material_id", materialId)
     .is("embedding", null)
     .order("position");
-  if (missing.error) fail("Loading the chunks to embed", missing.error);
+  if (missing.error) failed("Loading the chunks to embed", missing.error);
 
   for (let start = 0; start < missing.data.length; start += BATCH_SIZE) {
     const batch = missing.data.slice(start, start + BATCH_SIZE);
@@ -73,7 +73,7 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
             embedding: JSON.stringify(vectors[index]),
           })),
         });
-        if (error) fail("Storing the chunk embeddings", error);
+        if (error) failed("Storing the chunk embeddings", error);
       },
     );
     if (!embeddings) return { ok: false, reason: dailyLimitReason };

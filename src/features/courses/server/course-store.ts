@@ -1,4 +1,5 @@
 import "server-only";
+import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import type {
   CourseListItem,
@@ -9,10 +10,6 @@ import type {
  * Reads and writes Courses as the signed-in Student, so Row Level Security
  * applies: another Student's Course reads as missing.
  */
-
-function fail(action: string, error: { message: string }): never {
-  throw new Error(`${action} failed: ${error.message}`);
-}
 
 /**
  * The Student's Courses, most recently updated first, with how many Chats
@@ -25,7 +22,7 @@ export async function listCourses(
     .from("courses")
     .select("id, name, chats(count), materials(count)")
     .order("updated_at", { ascending: false });
-  if (error) fail("Loading the Courses", error);
+  if (error) failed("Loading the Courses", error);
   return data.map(({ id, name, chats, materials }) => ({
     id,
     name,
@@ -44,7 +41,7 @@ export async function findCourse(
     .select("id, name")
     .eq("id", courseId)
     .maybeSingle();
-  if (error) fail("Loading the Course", error);
+  if (error) failed("Loading the Course", error);
   return data;
 }
 
@@ -58,7 +55,7 @@ export async function insertCourse(
     .insert({ name })
     .select("id")
     .single();
-  if (error) fail("Creating the Course", error);
+  if (error) failed("Creating the Course", error);
   return data.id;
 }
 
@@ -73,7 +70,7 @@ export async function updateCourseName(
     .update({ name })
     .eq("id", courseId)
     .select("id");
-  if (error) fail("Renaming the Course", error);
+  if (error) failed("Renaming the Course", error);
   return data.length > 0;
 }
 
@@ -90,6 +87,6 @@ export async function removeCourse(
     .delete()
     .eq("id", courseId)
     .select("id");
-  if (error) fail("Deleting the Course", error);
+  if (error) failed("Deleting the Course", error);
   return data.length > 0;
 }
