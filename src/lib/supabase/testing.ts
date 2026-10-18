@@ -141,7 +141,12 @@ export function fakeSupabase<Table extends string>(
     // their `referencedTable` order and limit.
     const embeds = new Map<
       Table,
-      { orders: Array<{ column: string; ascending: boolean }>; limit: number }
+      {
+        orders: Array<{ column: string; ascending: boolean }>;
+        limit: number;
+        /** `chats(count)`: one `{ count }` row, as PostgREST aggregates it. */
+        count: boolean;
+      }
     >();
 
     const matching = () =>
@@ -155,7 +160,7 @@ export function fakeSupabase<Table extends string>(
      */
     function withEmbeds(row: FakeRow): FakeRow {
       const embedded: FakeRow = { ...row };
-      for (const [child, { orders: childOrders, limit }] of embeds) {
+      for (const [child, { orders: childOrders, limit, count }] of embeds) {
         const [column] =
           Object.entries(options.foreignKeys?.[child] ?? {}).find(
             ([, referenced]) => referenced === table,
@@ -163,7 +168,9 @@ export function fakeSupabase<Table extends string>(
         const children = rowsOf(child).filter(
           (other) => visible(child, other) && other[column!] === row.id,
         );
-        embedded[child] = sorted(children, childOrders).slice(0, limit);
+        embedded[child] = count
+          ? [{ count: children.length }]
+          : sorted(children, childOrders).slice(0, limit);
       }
       return embedded;
     }
@@ -271,10 +278,14 @@ export function fakeSupabase<Table extends string>(
       select(columns = "*") {
         if (action.kind !== "select") returning = true;
         // Embeds a table only when the test declares its foreign key here.
-        for (const [, child] of columns.matchAll(/(\w+)\(/g)) {
+        for (const [, child, inner] of columns.matchAll(/(\w+)\(([^)]*)\)/g)) {
           const fks = options.foreignKeys?.[child as Table] ?? {};
           if (Object.values(fks).includes(table)) {
-            embeds.set(child as Table, { orders: [], limit: Infinity });
+            embeds.set(child as Table, {
+              orders: [],
+              limit: Infinity,
+              count: inner?.trim() === "count",
+            });
           }
         }
         return builder;

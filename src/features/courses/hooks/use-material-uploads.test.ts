@@ -67,6 +67,26 @@ describe("useMaterialUploads", () => {
     },
   );
 
+  test("refuses a file over 20 MB before uploading it", async () => {
+    const big = pdf();
+    Object.defineProperty(big, "size", { value: 20 * 1024 * 1024 + 1 });
+    const { result } = renderUploads();
+
+    act(() => result.current.add([big]));
+
+    await waitFor(() =>
+      expect(result.current.uploads).toEqual([
+        expect.objectContaining({
+          status: "failed",
+          message: "Keep each file to 20 MB or smaller.",
+          canRetry: false,
+        }),
+      ]),
+    );
+    expect(storage.uploaded).toEqual([]);
+    expect(registered.calls).toBe(0);
+  });
+
   test("keeps the file of a registered upload", async () => {
     const { result } = renderUploads();
 

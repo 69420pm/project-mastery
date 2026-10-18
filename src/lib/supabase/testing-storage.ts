@@ -194,7 +194,8 @@ export function fakeStorage(userId: string | undefined) {
           return removed.map((name) => ({ name, bucket_id: bucketName }));
         });
       },
-      list(folder = "") {
+      /** At most `limit` entries (the API's default is 100), by name. */
+      list(folder = "", { limit = 100 }: { limit?: number } = {}) {
         return guarded("list", () => {
           const prefix = folder ? `${folder.replace(/\/$/, "")}/` : "";
           const inFolder = [...bucket].filter(
@@ -225,7 +226,9 @@ export function fakeStorage(userId: string | undefined) {
             created_at: null,
             metadata: null,
           }));
-          return [...objects, ...folders];
+          return [...objects, ...folders]
+            .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+            .slice(0, limit);
         });
       },
     };
