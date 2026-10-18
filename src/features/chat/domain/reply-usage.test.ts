@@ -2,8 +2,32 @@ import { describe, expect, test } from "vitest";
 import {
   costText,
   replyUsage,
+  tokenCount,
   tokensText,
 } from "@/features/chat/domain/reply-usage";
+
+test.each([
+  [0, "0"],
+  [999, "999"],
+  [1_000, "1k"],
+  [1_050, "1.1k"],
+  [999_000, "999k"],
+  [1_000_000, "1M"],
+  [1_050_000, "1.1M"],
+])("tokenCount(%i) is %s", (count, text) => {
+  expect(tokenCount(count)).toBe(text);
+});
+
+test.each([
+  [0.00009, "<$0.0001"],
+  [0.0001, "$0.0001"],
+  [0.00994, "$0.0099"],
+  [0.01, "$0.01"],
+  [0.015, "$0.01"],
+  [12.3, "$12.30"],
+])("costText(%f) is %s", (cost, text) => {
+  expect(costText(cost)).toBe(text);
+});
 
 describe("reply usage text", () => {
   test("shows tokens with the cached part", () => {

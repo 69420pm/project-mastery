@@ -20,6 +20,24 @@ test("names the tool the AI is using", () => {
   ).toBe("Reading your knowledge map…");
 });
 
+test.each([
+  ["readKcs", "Reading your knowledge map…"],
+  ["findExercises", "Looking for exercises…"],
+  ["recordAttempt", "Recording your progress…"],
+  ["remember", "Making a note…"],
+])("while %s runs, says %s", (tool, text) => {
+  expect(
+    replyActivity([
+      {
+        type: `tool-${tool}`,
+        toolCallId: "1",
+        state: "input-available",
+        input: {},
+      } as Parameters<typeof replyActivity>[0][number],
+    ]),
+  ).toBe(text);
+});
+
 test("falls back to thinking for a tool it does not know", () => {
   expect(
     replyActivity([

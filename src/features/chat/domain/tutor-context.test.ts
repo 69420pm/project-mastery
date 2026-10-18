@@ -1,5 +1,38 @@
 import { describe, expect, test } from "vitest";
-import { overdueText, pacingText } from "./tutor-context";
+import {
+  goalLabel,
+  overdueText,
+  pacingText,
+  phaseLabel,
+} from "./tutor-context";
+
+test.each([
+  ["build", "Build"],
+  ["deepen", "Deepen"],
+  ["final_week", "Final week"],
+  [null, "None"],
+] as const)("phaseLabel(%s) is %s", (phase, label) => {
+  expect(phaseLabel(phase)).toBe(label);
+});
+
+test.each([
+  ["pass", "Pass"],
+  ["good_grade", "A good grade"],
+  ["master_everything", "Master everything"],
+  [null, "Not answered"],
+] as const)("goalLabel(%s) is %s", (goal, label) => {
+  expect(goalLabel(goal)).toBe(label);
+});
+
+test.each([
+  [80, null],
+  [null, 4],
+])(
+  "pacingText says no pacing when share is %s and left out is %s",
+  (share, leftOutCount) => {
+    expect(pacingText({ share, leftOutCount })).toBe("No pacing");
+  },
+);
 
 describe("pacingText", () => {
   test("shows the share with the left-out count", () => {

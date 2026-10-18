@@ -25,7 +25,10 @@ export type FakeSupabaseOptions<Table extends string> = {
   defaults?: Partial<Record<Table, () => FakeRow>>;
   /**
    * Foreign keys per table, as `{ column: referenced table }` on its `id`:
-   * inserting a row whose referenced row is missing fails with `23503`.
+   * inserting a row whose referenced row is missing fails with `23503`. A
+   * select of the referenced table can embed this one, as
+   * `select("id, chat_messages(parts)")` with `referencedTable` order and
+   * limit.
    */
   foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
   /**
@@ -89,6 +92,25 @@ function jsonContains(stored: unknown, value: unknown): boolean {
   return stored === value;
 }
 
+/** Rows in the given column order, as `order` calls request it. */
+function sorted(
+  rows: FakeRow[],
+  orders: Array<{ column: string; ascending: boolean }>,
+): FakeRow[] {
+  return rows.sort((a, b) => {
+    for (const { column, ascending } of orders) {
+      const [x, y] = [a[column], b[column]];
+      // Numbers in numeric order, as Postgres sorts integer columns.
+      const order =
+        typeof x === "number" && typeof y === "number"
+          ? x - y
+          : String(x).localeCompare(String(y));
+      if (order !== 0) return ascending ? order : -order;
+    }
+    return 0;
+  });
+}
+
 export function fakeSupabase<Table extends string>(
   options: FakeSupabaseOptions<Table>,
 ) {
@@ -115,10 +137,36 @@ export function fakeSupabase<Table extends string>(
     let limitTo = Infinity;
     let offset = 0;
 
+    // Embedded one-to-many resources, such as `chat_messages(parts)`, with
+    // their `referencedTable` order and limit.
+    const embeds = new Map<
+      Table,
+      { orders: Array<{ column: string; ascending: boolean }>; limit: number }
+    >();
+
     const matching = () =>
       rowsOf(table).filter(
         (row) => visible(table, row) && filters.every((f) => f(row)),
       );
+
+    /**
+     * A row with its embedded rows: the visible rows of each embedded table
+     * whose foreign key (declared in `foreignKeys`) points at it.
+     */
+    function withEmbeds(row: FakeRow): FakeRow {
+      const embedded: FakeRow = { ...row };
+      for (const [child, { orders: childOrders, limit }] of embeds) {
+        const [column] =
+          Object.entries(options.foreignKeys?.[child] ?? {}).find(
+            ([, referenced]) => referenced === table,
+          ) ?? [];
+        const children = rowsOf(child).filter(
+          (other) => visible(child, other) && other[column!] === row.id,
+        );
+        embedded[child] = sorted(children, childOrders).slice(0, limit);
+      }
+      return embedded;
+    }
 
     function insert(rows: FakeRow[]): Result {
       const prepared = rows.map((row): FakeRow => ({
@@ -193,22 +241,8 @@ export function fakeSupabase<Table extends string>(
         for (const row of rows) stored.splice(stored.indexOf(row), 1);
         result = { data: rows, error: null };
       } else {
-        const rows = matching().sort((a, b) => {
-          for (const { column, ascending } of orders) {
-            const [x, y] = [a[column], b[column]];
-            // Numbers in numeric order, as Postgres sorts integer columns.
-            const order =
-              typeof x === "number" && typeof y === "number"
-                ? x - y
-                : String(x).localeCompare(String(y));
-            if (order !== 0) return ascending ? order : -order;
-          }
-          return 0;
-        });
-        result = {
-          data: rows.slice(offset, offset + limitTo),
-          error: null,
-        };
+        const rows = sorted(matching(), orders).slice(offset, offset + limitTo);
+        result = { data: rows.map(withEmbeds), error: null };
       }
       if (result.error) return result;
       const rows = result.data as FakeRow[];
@@ -234,8 +268,15 @@ export function fakeSupabase<Table extends string>(
     }
 
     const builder = {
-      select() {
+      select(columns = "*") {
         if (action.kind !== "select") returning = true;
+        // Embeds a table only when the test declares its foreign key here.
+        for (const [, child] of columns.matchAll(/(\w+)\(/g)) {
+          const fks = options.foreignKeys?.[child as Table] ?? {};
+          if (Object.values(fks).includes(table)) {
+            embeds.set(child as Table, { orders: [], limit: Infinity });
+          }
+        }
         return builder;
       },
       insert(values: FakeRow | FakeRow[]) {
@@ -297,12 +338,29 @@ export function fakeSupabase<Table extends string>(
         filters.push((row) => String(row[column]) >= String(value));
         return builder;
       },
-      order(column: string, { ascending = true } = {}) {
-        orders.push({ column, ascending });
+      order(
+        column: string,
+        {
+          ascending = true,
+          referencedTable,
+        }: { ascending?: boolean; referencedTable?: string } = {},
+      ) {
+        if (referencedTable === undefined) orders.push({ column, ascending });
+        else
+          embeds
+            .get(referencedTable as Table)
+            ?.orders.push({ column, ascending });
         return builder;
       },
-      limit(count: number) {
-        limitTo = count;
+      limit(
+        count: number,
+        { referencedTable }: { referencedTable?: string } = {},
+      ) {
+        if (referencedTable === undefined) limitTo = count;
+        else {
+          const embed = embeds.get(referencedTable as Table);
+          if (embed) embed.limit = count;
+        }
         return builder;
       },
       /** Rows `from` to `to`, both included, as PostgREST pages them. */
