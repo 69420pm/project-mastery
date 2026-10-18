@@ -4,10 +4,15 @@ import type {
   KcView,
   KnowledgeMapView,
   MapKcLearning,
-  MapPlan,
 } from "@/features/knowledge-map/types";
+import { LeftOutBadge, PlanLine, type StudyPlan } from "@/features/study";
+
+/** The study plan with left-out KCs by id, as the map takes them. */
+type MapPlan = Omit<StudyPlan, "leftOut"> & { leftOut: string[] };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
+// The study feature's index also exports its Memory card's server action.
+vi.mock("server-only", () => ({}));
 vi.mock("@/features/knowledge-map/server/actions", () => ({
   startKnowledgeMapBuild: vi.fn(),
 }));
@@ -96,11 +101,25 @@ const plan = (overrides: Partial<MapPlan>): MapPlan => ({
   ...overrides,
 });
 
+/** The plan slots the map page passes in. */
+const planSlots = (mapPlan: MapPlan) => ({
+  planLine: (
+    <PlanLine
+      plan={{
+        ...mapPlan,
+        leftOut: mapPlan.leftOut.map((id) => ({ id, name: id })),
+      }}
+      briefHref="/brief"
+    />
+  ),
+  leftOut: mapPlan.leftOut,
+  leftOutBadge: <LeftOutBadge />,
+});
+
 const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
   render(
     <KnowledgeMap
       map={map}
-      briefHref="/brief"
       priorities={{
         running: false,
         failureReason: null,
@@ -109,7 +128,7 @@ const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
         },
       }}
       learning={learning}
-      plan={plan(overrides)}
+      {...planSlots(plan(overrides))}
     />,
   );
 
@@ -281,10 +300,9 @@ const renderWith = (view: KnowledgeMapView) =>
   render(
     <KnowledgeMap
       map={view}
-      briefHref="/brief"
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
-      plan={plan({})}
+      {...planSlots(plan({}))}
     />,
   );
 

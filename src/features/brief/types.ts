@@ -26,13 +26,3 @@ export type BriefWithMessages = {
   /** The Materials the exam excludes, oldest first, with their chunk page. */
   excludedMaterials: Array<{ id: string; name: string; href: string }>;
 };
-
-/** A Course's study plan as the Brief's panel shows it. */
-export type PanelPlan = {
-  /** Null without a running exam date. */
-  phase: "build" | "deepen" | "final_week" | null;
-  /** The whole percent of relevant KCs that fit; null without pacing. */
-  share: number | null;
-  hoursPerWeek: number | null;
-  leftOut: Array<{ id: string; name: string }>;
-};

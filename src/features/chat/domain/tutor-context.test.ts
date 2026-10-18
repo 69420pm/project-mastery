@@ -1,10 +1,13 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   goalLabel,
   overdueText,
   pacingText,
   phaseLabel,
 } from "./tutor-context";
+
+// The study feature's index also exports its Memory card's server action.
+vi.mock("server-only", () => ({}));
 
 test.each([
   ["build", "Build"],

@@ -5,6 +5,7 @@ import { getCourse } from "@/features/courses/server";
 import { KnowledgeMap, knowledgeMapPath } from "@/features/knowledge-map";
 import { getKnowledgeMap } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
+import { LeftOutBadge, PlanLine } from "@/features/study";
 import { getKcLearning, getPlan } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -34,10 +35,11 @@ export default async function KnowledgeMapPage({
   return (
     <KnowledgeMap
       map={map}
-      briefHref={briefPath(courseId)}
       priorities={priorities}
       learning={learning}
-      plan={{ ...plan, leftOut: plan.leftOut.map((kc) => kc.id) }}
+      planLine={<PlanLine plan={plan} briefHref={briefPath(courseId)} />}
+      leftOut={plan.leftOut.map((kc) => kc.id)}
+      leftOutBadge={<LeftOutBadge />}
     />
   );
 }

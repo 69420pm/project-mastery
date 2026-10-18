@@ -9,6 +9,13 @@ import { daysBetween } from "@/features/study/domain/ladder";
 /** Where a Course's study stands before its exam. */
 export type Phase = "build" | "deepen" | "final_week";
 
+/** Each Phase's name wherever the app shows it. */
+export const PHASE_NAMES = {
+  build: "Build",
+  deepen: "Deepen",
+  final_week: "Final week",
+} as const satisfies Record<Phase, string>;
+
 /**
  * The days before the exam that are only Review: the final week is the exam
  * day plus these 7 days before it.

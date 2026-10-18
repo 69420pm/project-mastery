@@ -6,4 +6,4 @@ export { BriefLayout } from "./components/brief-layout";
 export { BriefLink } from "./components/brief-link";
 export { BriefPanel } from "./components/brief-panel";
 export { briefPath } from "./domain/brief-paths";
-export type { BriefUIMessage, BriefWithMessages, PanelPlan } from "./types";
+export type { BriefUIMessage, BriefWithMessages } from "./types";

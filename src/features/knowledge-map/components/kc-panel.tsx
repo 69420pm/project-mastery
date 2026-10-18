@@ -25,7 +25,6 @@ import type {
 } from "@/features/knowledge-map/types";
 import { PriorityBadge, PriorityReasons, StateBadge } from "./kc-priority";
 import { Fact, formatDate, NodeButton, None, Section } from "./panel-parts";
-import { LeftOutBadge } from "./study-plan";
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
@@ -52,6 +51,7 @@ export function KcPanel({
   learning,
   priorities,
   leftOut,
+  leftOutBadge,
   onSelect,
 }: {
   kc: KcView;
@@ -59,6 +59,8 @@ export function KcPanel({
   learning: MapKcLearning;
   priorities: MapPriorities;
   leftOut: boolean;
+  /** Shown beside the Priority when the KC is left out of the study plan. */
+  leftOutBadge: ReactNode;
   onSelect: (kcId: string) => void;
 }) {
   const kcs = new Map(
@@ -143,7 +145,7 @@ export function KcPanel({
           <>
             <div className="flex flex-wrap gap-1.5">
               <PriorityBadge priority={priority} />
-              <LeftOutBadge leftOut={leftOut} />
+              {leftOut && leftOutBadge}
             </div>
             <dl className="flex flex-col gap-1">
               <Fact label="Value">{priority.value.toFixed(2)}</Fact>

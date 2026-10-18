@@ -1,8 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import type { FindingView } from "@/features/knowledge-map";
+import { type StudyPlan, StudyPlanFacts } from "@/features/study";
 import { BriefPanel } from "./brief-panel";
+
+// The study feature's index also exports its Memory card's server action.
+vi.mock("server-only", () => ({}));
 
 type Props = ComponentProps<typeof BriefPanel>;
 
@@ -22,7 +26,7 @@ const brief: Props["brief"] = {
   excludedMaterials: [],
 };
 
-const plan: Props["plan"] = {
+const plan: StudyPlan = {
   phase: null,
   share: null,
   hoursPerWeek: null,
@@ -33,14 +37,14 @@ const renderPanel = (
   overrides: {
     brief?: Partial<Props["brief"]>;
     findings?: FindingView[];
-    plan?: Partial<Props["plan"]>;
+    plan?: Partial<StudyPlan>;
   } = {},
 ) =>
   render(
     <BriefPanel
       brief={{ ...brief, ...overrides.brief }}
       findings={overrides.findings ?? []}
-      plan={{ ...plan, ...overrides.plan }}
+      plan={<StudyPlanFacts plan={{ ...plan, ...overrides.plan }} />}
       memory={<p>Memory slot</p>}
     />,
   );

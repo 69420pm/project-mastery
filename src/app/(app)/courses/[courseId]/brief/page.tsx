@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Brief, BriefLayout, BriefPanel, briefPath } from "@/features/brief";
 import { getBrief } from "@/features/brief/server";
 import { getFindings } from "@/features/knowledge-map/server";
-import { MemoryCard } from "@/features/study";
+import { MemoryCard, StudyPlanFacts } from "@/features/study";
 import { getMemory, getPlan } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
@@ -37,7 +37,7 @@ export default async function BriefPage({
         <BriefPanel
           brief={brief}
           findings={findings}
-          plan={plan}
+          plan={<StudyPlanFacts plan={plan} />}
           memory={<MemoryCard courseId={courseId} text={memory} />}
         />
       }

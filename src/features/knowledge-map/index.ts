@@ -9,7 +9,6 @@ export type {
   FindingView,
   KnowledgeMapView,
   MapKcLearning,
-  MapPlan,
   MapPriorities,
   ReviewFinding,
 } from "./types";
