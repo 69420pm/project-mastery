@@ -12,25 +12,37 @@ function getElk() {
   return elk;
 }
 
+export interface GraphLayout {
+  /** The last finished layout; null until the first one is done. */
+  laidOut: ElkNode | null;
+  /** Whether the latest layout failed, so none is coming. */
+  failed: boolean;
+}
+
 /**
- * `graph` laid out by ELK in a web worker; null until the first layout is
- * done. It lays out again only when `graph`'s value changes, and keeps the
- * last layout while the next one runs.
+ * `graph` laid out by ELK in a web worker. It lays out again only when
+ * `graph`'s value changes, and keeps the last layout while the next one runs.
  */
-export function useGraphLayout(graph: ElkNode): ElkNode | null {
+export function useGraphLayout(graph: ElkNode): GraphLayout {
   const key = JSON.stringify(graph);
-  const [laidOut, setLaidOut] = useState<ElkNode | null>(null);
+  const [layout, setLayout] = useState<GraphLayout>({
+    laidOut: null,
+    failed: false,
+  });
   useEffect(() => {
     let current = true;
     getElk()
       .layout(JSON.parse(key) as ElkNode)
       .then((result) => {
-        if (current) setLaidOut(result);
+        if (current) setLayout({ laidOut: result, failed: false });
       })
-      .catch((error: unknown) => console.error("Map layout failed", error));
+      .catch((error: unknown) => {
+        console.error("Map layout failed", error);
+        if (current) setLayout((last) => ({ ...last, failed: true }));
+      });
     return () => {
       current = false;
     };
   }, [key]);
-  return laidOut;
+  return layout;
 }

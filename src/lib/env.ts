@@ -1,6 +1,16 @@
 import { z } from "zod";
 
 /**
+ * An optional variable where an empty value (as copied from .env.example)
+ * counts as unset.
+ */
+export const optional = <T extends z.ZodType>(schema: T) =>
+  z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    schema.optional(),
+  );
+
+/**
  * Parses environment variables against a Zod schema and throws one readable
  * error that lists every missing or invalid variable.
  */

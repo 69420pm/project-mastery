@@ -1,13 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { parseEnv } from "@/lib/env";
-
-// Empty values (as copied from .env.example) count as unset.
-const optional = <T extends z.ZodType>(schema: T) =>
-  z.preprocess(
-    (value) => (value === "" ? undefined : value),
-    schema.optional(),
-  );
+import { optional, parseEnv } from "@/lib/env";
 
 const modelId = optional(
   z

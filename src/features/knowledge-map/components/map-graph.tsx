@@ -356,7 +356,7 @@ export function MapGraph({
 }) {
   const graph = useMemo(() => buildMapGraph(map, layers), [map, layers]);
   const elkGraph = useMemo(() => toElkGraph(graph), [graph]);
-  const laidOut = useGraphLayout(elkGraph);
+  const { laidOut, failed } = useGraphLayout(elkGraph);
 
   const { nodes, edges } = useMemo(() => {
     const layouts = laidOut ? nodeLayouts(laidOut) : new Map<string, never>();
@@ -487,6 +487,16 @@ export function MapGraph({
     depth,
   ]);
 
+  if (failed) {
+    return (
+      <p
+        role="alert"
+        className="flex size-full min-h-96 items-center justify-center rounded-xl border p-4 text-center text-sm text-muted-foreground"
+      >
+        The map could not be laid out. Reload the page to try again.
+      </p>
+    );
+  }
   if (!laidOut) {
     return (
       <Skeleton

@@ -54,6 +54,15 @@ describe("isTracingEnabled", () => {
 
     expect(isTracingEnabled()).toBe(false);
   });
+
+  test("treats an empty LANGFUSE_BASE_URL as unset", () => {
+    vi.stubEnv("LANGFUSE_PUBLIC_KEY", "pk-lf-test");
+    vi.stubEnv("LANGFUSE_SECRET_KEY", "sk-lf-test");
+    vi.stubEnv("LANGFUSE_BASE_URL", "");
+    vi.stubEnv("AI_PROVIDER", "gateway");
+
+    expect(isTracingEnabled()).toBe(true);
+  });
 });
 
 describe("without a registered tracer", () => {
