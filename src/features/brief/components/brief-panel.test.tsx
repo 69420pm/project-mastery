@@ -165,7 +165,9 @@ describe("BriefPanel", () => {
       screen.getByRole("region", { name: "Findings" }),
     ).getAllByRole("listitem");
     expect(
-      items.map((item) => within(item).getByText(/Open|Answered$/).textContent),
+      items.map(
+        (item) => within(item).getByText(/^(Open|Answered)$/).textContent,
+      ),
     ).toEqual(["Open", "Open", "Answered"]);
     expect(items[0]).toHaveTextContent("First open.");
   });
