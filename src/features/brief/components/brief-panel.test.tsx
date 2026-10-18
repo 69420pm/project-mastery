@@ -97,6 +97,81 @@ describe("BriefPanel", () => {
     ).toHaveAttribute("href", "/m/1#chunk-a");
   });
 
+  test("shows the values that are set, with false as No", () => {
+    renderPanel({
+      brief: {
+        fields: {
+          examDate: "2026-12-03",
+          goal: "good_grade",
+          hoursPerWeek: 5.5,
+          questionStyle: "multiple_choice",
+          openBook: false,
+          formulaSheet: true,
+          calculator: false,
+          scopeConfirmed: true,
+        },
+      },
+    });
+
+    const exam = screen.getByRole("region", { name: "Exam" });
+    const value = (label: string) =>
+      within(exam).getByText(label).nextElementSibling?.textContent;
+    expect(value("Date")).toBe("Dec 3, 2026");
+    expect(value("Goal")).toBe("A good grade");
+    expect(value("Weekly hours")).toBe("5.5 h");
+    expect(value("Question style")).toBe("Multiple choice");
+    expect(value("Open book")).toBe("No");
+    expect(value("Formula sheet")).toBe("Yes");
+    expect(value("Calculator")).toBe("No");
+    expect(value("Scope confirmed")).toBe("Yes");
+    expect(within(exam).queryByText("Not set")).toBeNull();
+  });
+
+  test("links an excluded Material and shows notes with their Updated time", () => {
+    renderPanel({
+      brief: {
+        notes: "Skip chapter 4.",
+        notesUpdatedAt: "2026-10-05T12:00:00Z",
+        excludedMaterials: [
+          { id: "m1", name: "Old exam 2024", href: "/courses/c/materials/m1" },
+        ],
+      },
+    });
+
+    expect(
+      within(
+        screen.getByRole("region", { name: "Excluded Materials" }),
+      ).getByRole("link", { name: "Old exam 2024" }),
+    ).toHaveAttribute("href", "/courses/c/materials/m1");
+    const notes = screen.getByRole("region", { name: "Notes" });
+    expect(within(notes).getByText("Skip chapter 4.")).toBeVisible();
+    expect(within(notes).getByText(/^Updated/)).toBeVisible();
+    expect(notes.querySelector("time")).toHaveAttribute(
+      "datetime",
+      "2026-10-05T12:00:00Z",
+    );
+  });
+
+  test("keeps the Findings in the order given, open ones first", () => {
+    renderPanel({
+      findings: [
+        finding({ id: "f1", text: "First open." }),
+        finding({ id: "f2", text: "Second open." }),
+        finding({ id: "f3", text: "Answered.", status: "answered" }),
+      ],
+    });
+
+    const items = within(
+      screen.getByRole("region", { name: "Findings" }),
+    ).getAllByRole("listitem");
+    expect(
+      items.map(
+        (item) => within(item).getByText(/^(Open|Answered)$/).textContent,
+      ),
+    ).toEqual(["Open", "Open", "Answered"]);
+    expect(items[0]).toHaveTextContent("First open.");
+  });
+
   test("shows the study plan with the left-out KC names", () => {
     renderPanel({
       plan: {
