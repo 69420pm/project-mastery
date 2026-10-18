@@ -202,6 +202,42 @@ describe("readKcs", () => {
     ]);
   });
 
+  test("gives at most 3 sources per KC, in reading order", async () => {
+    const model = mockToolModel(
+      [[{ toolName: "readKcs", input: { kcIds: [MAP.thrust] } }]],
+      "Let's start.",
+    );
+    useMockModels({ chat: model });
+    seedMap();
+    for (const position of [3, 2]) {
+      const id = `aaaaaaaa-c400-4000-8000-00000000000${position + 1}`;
+      db.tables.chunks.push({
+        owner: STUDENT,
+        course_id: COURSE,
+        id,
+        material_id: MAP.material,
+        position,
+        page_from: 9,
+        page_to: 9,
+        markdown: `Chunk ${position}`,
+      });
+      db.tables.kc_sources.push({
+        owner: STUDENT,
+        course_id: COURSE,
+        kc_id: MAP.thrust,
+        chunk_id: id,
+      });
+    }
+
+    await send(firstMessage());
+
+    const result = promptOf(model, 1);
+    expect(result).toContain('"pages":"p. 3"');
+    expect(result).toContain('"pages":"pp. 4–5"');
+    expect(result).toContain("Chunk 2");
+    expect(result).not.toContain("Chunk 3");
+  });
+
   test("refuses ids of no KC of the Course, and the reply continues", async () => {
     const model = mockToolModel(
       [[{ toolName: "readKcs", input: { kcIds: [MAP.thrust, "made-up"] } }]],
@@ -334,6 +370,21 @@ describe("findExercises", () => {
     expect(promptOf(first, 1)).not.toContain("Ex. 1");
     expect(promptOf(second, 1)).toContain(
       "The Student has tried every Exercise of this Course for these KCs",
+    );
+  });
+
+  test("says when the Course has no Exercises for the KCs", async () => {
+    const model = mockToolModel(
+      [[{ toolName: "findExercises", input: { kcIds: [MAP.efficiency] } }]],
+      "Here is a problem of my own.",
+    );
+    useMockModels({ chat: model });
+    seedExercises();
+
+    await send(firstMessage());
+
+    expect(promptOf(model, 1)).toContain(
+      "This Course has no Exercises for these KCs",
     );
   });
 

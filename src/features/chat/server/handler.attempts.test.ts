@@ -128,4 +128,54 @@ describe("recordAttempt", () => {
     );
     expect(db.tables.attempts).toEqual([]);
   });
+
+  test("refuses a KC listed twice, storing nothing", async () => {
+    seedMap();
+    const model = recording({
+      help: "none",
+      kcs: [
+        { kcId: MAP.thrust, correct: true },
+        { kcId: MAP.thrust, correct: false },
+      ],
+    });
+    useMockModels({ chat: model });
+
+    const { result } = await answer(model);
+
+    expect(result).toContain("List each KC once.");
+    expect(db.tables.attempts).toEqual([]);
+  });
+
+  test("stores the Exercise's id when the problem was one", async () => {
+    seedMap();
+    const owned = { owner: STUDENT, course_id: COURSE };
+    db.tables.exercises.push({
+      ...owned,
+      id: "ex-1",
+      question_chunk_id: MAP.chunks[0],
+      name: "Ex. 1",
+      task_type: "compute thrust",
+      solution_status: "given",
+      solution: null,
+      difficulty: 2,
+      position: 0,
+    });
+    db.tables.exercise_kcs.push({
+      ...owned,
+      exercise_id: "ex-1",
+      kc_id: MAP.thrust,
+    });
+    const model = recording({
+      exerciseId: "ex-1",
+      help: "none",
+      kcs: [{ kcId: MAP.thrust, correct: true }],
+    });
+    useMockModels({ chat: model });
+
+    await answer(model);
+
+    expect(db.tables.attempts).toEqual([
+      expect.objectContaining({ kc_id: MAP.thrust, exercise_id: "ex-1" }),
+    ]);
+  });
 });
