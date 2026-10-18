@@ -79,4 +79,28 @@ describe("removeCourseFiles", () => {
     expect(removed).toBe(true);
     expect(db.files.paths(BUCKET)).toEqual([`${STUDENT}/course-2/material-3`]);
   });
+
+  test("removes more files than one listing returns, and nested folders", async () => {
+    // Over a thousand stray uploads (one page of `list`) beside a Material
+    // whose page images sit two folders down.
+    const strays = Array.from(
+      { length: 1001 },
+      (_, index) => `${COURSE}/upload-${index}`,
+    );
+    const db = seededStorage([
+      ...strays,
+      LECTURE,
+      `${LECTURE}/pages/1.png`,
+      `${LECTURE}/figures/1/0.png`,
+    ]);
+
+    const removed = await removeCourseFiles(
+      db as unknown as Supabase,
+      STUDENT,
+      "course-1",
+    );
+
+    expect(removed).toBe(true);
+    expect(db.files.paths(BUCKET)).toEqual([]);
+  });
 });
