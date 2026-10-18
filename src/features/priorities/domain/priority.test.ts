@@ -76,6 +76,66 @@ describe("base factors", () => {
     expect(factor(input, "dependents")).toEqual({ a: 1, b: 0.5, c: 0, d: 0 });
   });
 
+  test.each<[string, Partial<PriorityInput>, Record<string, number>]>([
+    [
+      "a cycle counts each other KC once, never the KC itself",
+      {
+        prerequisites: [
+          { from: "a", to: "b" },
+          { from: "b", to: "c" },
+          { from: "c", to: "a" },
+        ],
+      },
+      { a: 2, b: 2, c: 2, d: 0 },
+    ],
+    [
+      "a Prerequisite naming an unknown KC adds only known ones",
+      {
+        prerequisites: [
+          { from: "a", to: "x" },
+          { from: "x", to: "b" },
+        ],
+      },
+      { a: 2, b: 0, c: 0, d: 0 },
+    ],
+  ])("dependents: %s", (_, overrides, expected) => {
+    const counts = Object.fromEntries(
+      [...baseFactors(course(overrides))].map(([id, f]) => [
+        id,
+        f.dependentCount,
+      ]),
+    );
+    expect(counts).toEqual(expected);
+  });
+
+  test.each([
+    ["a duplicate KC id counts once", ["a", "a"]],
+    ["an unknown KC id counts nothing and takes no share", ["a", "zz"]],
+  ])("an exam Exercise: %s", (_, kcs) => {
+    const factors = baseFactors(
+      course({ exercises: [{ questionChunk: "e1", kcs }] }),
+    );
+    expect(
+      [...factors].map(([id, f]) => [id, f.exerciseCount, f.examPoints]),
+    ).toEqual([
+      ["a", 1, 6],
+      ["b", 0, 0],
+      ["c", 0, 0],
+      ["d", 0, 0],
+    ]);
+  });
+
+  test.each([
+    ["a non-exam Material", "l3"],
+    ["a chunk without points", "l1"],
+    ["an unknown chunk", "nope"],
+  ])("points of %s count nothing", (_, questionChunk) => {
+    const factors = baseFactors(
+      course({ exercises: [{ questionChunk, kcs: ["a"] }] }),
+    );
+    expect(factors.get("a")?.examPoints).toBe(0);
+  });
+
   test("a largest value of 0 makes the factor 0 for every KC", () => {
     expect(factor(course(), "exam")).toEqual({ a: 0, b: 0, c: 0, d: 0 });
   });
@@ -160,6 +220,15 @@ describe("priority levels", () => {
       "low",
       "excluded",
     ]);
+  });
+
+  test.each([
+    ["priority 0 with multiplier 1", "low", 0, 1],
+    ["a lone positive priority", "high", 0.3, 1],
+    ["multiplier 0 with a priority", "excluded", 0.3, 0],
+  ])("give %s the level %s", (_, level, priority, multiplier) => {
+    const levels = priorityLevels([{ kcId: "a", priority, multiplier }]);
+    expect(levels.get("a")).toBe(level);
   });
 
   test("give equal priorities one level", () => {

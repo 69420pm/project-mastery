@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(15);
 
 insert into auth.users (id, email)
 values
@@ -106,6 +106,19 @@ select results_eq(
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('done', '2026-10-01T00:00:00Z'::timestamptz, 'Stressed')$$,
   'the adjustment and its adjusted_at are stored, and a reusing run keeps them');
+
+-- A run stopped by the Daily limit stores no adjustment: a never-adjusted
+-- run stays unadjusted, so the next run asks the model again.
+update public.priority_runs
+set status = 'running', adjusted_at = null, adjustments = '[]', computed_at = '2026-10-03T00:00:00Z';
+set local role service_role;
+select public.replace_kc_priorities('aaaaaaaa-0000-0000-0000-000000000001', '[]', null);
+reset role;
+select results_eq(
+  $$select status, adjusted_at, adjustments from public.priority_runs
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  $$values ('done', null::timestamptz, '[]'::jsonb)$$,
+  'null adjustments leave adjusted_at null and the adjustments as they were');
 
 select * from finish();
 rollback;
