@@ -129,3 +129,38 @@ test("the sidebar's logo leads to the Course list, and it holds the account menu
     page.getByRole("heading", { level: 1, name: "Courses" }),
   ).toBeVisible();
 });
+
+test("on a phone, the logo closes the slide-over even on the page it leads to", async ({
+  page,
+  course,
+}) => {
+  test.skip(test.info().project.name !== "mobile", "A phone-only slide-over.");
+  await page.goto("/courses");
+  const courses = await openSidebar(page, "Courses");
+  await expect(courses.getByRole("link", { name: course.name })).toBeVisible();
+
+  await page.getByRole("link", { name: "Project Mastery" }).click();
+
+  await expect(courses).toBeHidden();
+  await expect(page).toHaveURL(/\/courses$/);
+});
+
+test("a collapsed sidebar stays collapsed after a reload", async ({
+  page,
+  course,
+}) => {
+  test.skip(
+    test.info().project.name === "mobile",
+    "On a phone the sidebar is a slide-over that starts closed.",
+  );
+  await page.goto(course.chatPath);
+  const logo = page.getByRole("link", { name: "Project Mastery" });
+  await expect(logo).toBeInViewport();
+
+  await page.locator('[data-sidebar="trigger"]').click();
+  await expect(logo).not.toBeInViewport();
+
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+  await expect(logo).not.toBeInViewport();
+});
