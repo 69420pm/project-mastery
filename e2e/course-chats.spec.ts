@@ -35,13 +35,11 @@ test("opening a Course starts a Chat in it, the sidebar shows only its Chats, an
     at: new Date(Date.now() - HOUR),
   });
 
-  // Biology was used last, so it leads both Course lists.
+  // Biology was used last, so it leads the Course list.
   await page.goto("/courses");
   await expect(
-    (await openSidebar(page, "Courses")).getByRole("link"),
+    page.getByRole("list", { name: "Courses" }).getByRole("link"),
   ).toHaveText(["Biology", "Calculus"]);
-  if (test.info().project.name === "mobile")
-    await page.keyboard.press("Escape");
   await page
     .getByRole("list", { name: "Courses" })
     .getByRole("link", { name: "Calculus" })

@@ -19,8 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Project Mastery",
-  description: "Project Mastery",
+  title: { default: "Project Mastery", template: "%s · Project Mastery" },
+  description:
+    "An AI tutor that helps university students master their course material and prepare for exams.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

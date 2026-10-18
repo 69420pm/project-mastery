@@ -17,6 +17,8 @@ import {
   useState,
   useTransition,
 } from "react";
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
 import { RowActionsMenu } from "@/components/row-actions-menu";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -89,7 +91,7 @@ export function Materials({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-4 pb-10 sm:px-6",
+        "mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6",
         dragging && "rounded-xl bg-muted/50 ring-2 ring-primary ring-inset",
       )}
       onDragOver={(event) => {
@@ -104,25 +106,30 @@ export function Materials({
       }}
       onDrop={handleDrop}
     >
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Materials</h1>
-        <Button onClick={() => input.current?.click()}>
-          <UploadIcon data-icon="inline-start" />
-          Upload files
-        </Button>
-        <input
-          ref={input}
-          type="file"
-          multiple
-          accept={MATERIAL_MEDIA_TYPES.join(",")}
-          // Opened by the button above.
-          hidden
-          onChange={(event) => {
-            if (event.target.files) add(event.target.files);
-            event.target.value = "";
-          }}
-        />
-      </div>
+      <PageHeader
+        title="Materials"
+        description="Slides, scripts, exercise sheets and old exams the AI teaches you from."
+        actions={
+          <>
+            <Button onClick={() => input.current?.click()}>
+              <UploadIcon data-icon="inline-start" />
+              Upload files
+            </Button>
+            <input
+              ref={input}
+              type="file"
+              multiple
+              accept={MATERIAL_MEDIA_TYPES.join(",")}
+              // Opened by the buttons on this page.
+              hidden
+              onChange={(event) => {
+                if (event.target.files) add(event.target.files);
+                event.target.value = "";
+              }}
+            />
+          </>
+        }
+      />
 
       {uploads.length > 0 && (
         <ul aria-label="Uploads" className="flex flex-col gap-2">
@@ -138,18 +145,20 @@ export function Materials({
       )}
 
       {materials.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-12 text-center">
-          <UploadIcon className="size-8 text-muted-foreground" />
-          <h2 className="text-lg font-medium">No materials yet</h2>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Drop slides, scripts, exercise sheets or old exams here, as PDFs or
-            images up to 20 MB each.
-          </p>
-        </div>
+        <EmptyState
+          icon={<UploadIcon />}
+          title="No materials yet"
+          description="Drop slides, scripts, exercise sheets or old exams here, as PDFs or images up to 20 MB each."
+          action={
+            <Button variant="outline" onClick={() => input.current?.click()}>
+              Choose files
+            </Button>
+          }
+        />
       ) : (
         <ul
           aria-label="Materials"
-          className="flex flex-col divide-y rounded-xl border"
+          className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card"
         >
           {materials.map((material) => (
             <MaterialEntry
@@ -230,12 +239,20 @@ function UploadEntry({
 const dateFormat = new Intl.DateTimeFormat("en", { dateStyle: "medium" });
 
 function MaterialIcon({ mediaType }: { mediaType: string }) {
-  const className = "size-4 shrink-0 text-muted-foreground";
-  if (mediaType === "application/pdf")
-    return <FileTextIcon className={className} />;
-  if (mediaType.startsWith("image/"))
-    return <ImageIcon className={className} />;
-  return <FileIcon className={className} />;
+  const Icon =
+    mediaType === "application/pdf"
+      ? FileTextIcon
+      : mediaType.startsWith("image/")
+        ? ImageIcon
+        : FileIcon;
+  return (
+    <div
+      aria-hidden
+      className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground"
+    >
+      <Icon className="size-4" />
+    </div>
+  );
 }
 
 /** A Material's parse state, linking to its chunks once parsed. */
@@ -352,9 +369,9 @@ function MaterialEntry({
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
 
   return (
-    <li className="flex items-center gap-3 py-2 pr-2 pl-4">
+    <li className="flex items-center gap-3 py-3 pr-2 pl-4 transition-colors hover:bg-muted/40">
       <MaterialIcon mediaType={material.mediaType} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <button
           type="button"
           onClick={onOpen}

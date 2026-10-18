@@ -290,17 +290,13 @@ export const test = base.extend<{
 });
 
 /**
- * The sidebar's Chat list inside a Course, or its Course list on `/courses`
- * (`list: "Courses"`). On a phone the sidebar is a slide-over that opens
- * from the menu button first.
+ * The sidebar's Chat list inside a Course. On a phone the sidebar is a
+ * slide-over that opens from the menu button first.
  */
-export async function openSidebar(
-  page: Page,
-  list: "Chats" | "Courses" = "Chats",
-) {
+export async function openSidebar(page: Page) {
   const toggle = page.getByRole("button", { name: "Toggle Sidebar" });
   if (test.info().project.name === "mobile") await toggle.click();
-  return page.getByRole("navigation", { name: list });
+  return page.getByRole("navigation", { name: "Chats" });
 }
 
 /**

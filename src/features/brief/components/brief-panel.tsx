@@ -39,7 +39,10 @@ function Time({ iso }: { iso: string }) {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-2">
+    <section
+      aria-label={title}
+      className="flex flex-col gap-3 py-5 first-of-type:border-t-0"
+    >
       <h2 className="text-sm font-semibold">{title}</h2>
       {children}
     </section>
@@ -69,7 +72,7 @@ export function BriefPanel({
   memory: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col divide-y px-5">
       <h1 className="sr-only">Brief data</h1>
       <Section title="Exam">
         <ExamFacts fields={brief.fields} />

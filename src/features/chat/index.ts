@@ -3,5 +3,6 @@
 export { Chat } from "./components/chat";
 export { ChatList } from "./components/chat-list";
 export { ChatListProvider } from "./components/chat-list-provider";
+export { ChatTitle } from "./components/chat-title";
 export { NewChatLink } from "./components/new-chat-link";
 export { chatPath, newChatPath } from "./domain/chat-paths";

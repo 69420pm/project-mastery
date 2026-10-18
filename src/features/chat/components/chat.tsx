@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import {
   CircleAlertIcon,
   FolderOpenIcon,
+  GraduationCapIcon,
   PaperclipIcon,
   RotateCcwIcon,
   UploadIcon,
@@ -47,6 +48,7 @@ import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/lib/ai/reply";
+import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
@@ -252,12 +254,31 @@ export function Chat({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
       <Conversation className="min-h-0">
-        <ConversationContent className="mx-auto w-full max-w-3xl px-0">
+        <ConversationContent
+          className={cn(
+            "mx-auto w-full max-w-3xl px-0",
+            messages.length === 0 && "h-full",
+          )}
+        >
           {messages.length === 0 ? (
-            <ConversationEmptyState
-              title="Ready to study?"
-              description={emptyDescription}
-            />
+            <ConversationEmptyState>
+              <div
+                aria-hidden
+                className="flex size-11 items-center justify-center rounded-lg border bg-muted/50 text-muted-foreground"
+              >
+                <GraduationCapIcon className="size-5" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <h2 className="text-xl font-semibold tracking-tight">
+                  Ready to study?
+                </h2>
+                {emptyDescription && (
+                  <p className="max-w-md text-sm text-balance text-muted-foreground">
+                    {emptyDescription}
+                  </p>
+                )}
+              </div>
+            </ConversationEmptyState>
           ) : (
             messages.map((message) => {
               const isLast = message === lastMessage;

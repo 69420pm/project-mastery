@@ -136,12 +136,16 @@ test("on a phone, the logo closes the slide-over even on the page it leads to", 
 }) => {
   test.skip(test.info().project.name !== "mobile", "A phone-only slide-over.");
   await page.goto("/courses");
-  const courses = await openSidebar(page, "Courses");
-  await expect(courses.getByRole("link", { name: course.name })).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Courses" }).getByRole("link"),
+  ).toHaveText([course.name]);
+  await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+  const sidebar = page.getByRole("dialog", { name: "Sidebar" });
+  await expect(sidebar.getByRole("link", { name: "Courses" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Project Mastery" }).click();
+  await sidebar.getByRole("link", { name: "Project Mastery" }).click();
 
-  await expect(courses).toBeHidden();
+  await expect(sidebar).toBeHidden();
   await expect(page).toHaveURL(/\/courses$/);
 });
 

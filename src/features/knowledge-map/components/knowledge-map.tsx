@@ -9,6 +9,8 @@ import {
   useState,
   useTransition,
 } from "react";
+import { EmptyState } from "@/components/empty-state";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -102,28 +104,31 @@ export function KnowledgeMap({
   const panelLabel = selected?.label ?? "KC details";
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-4 px-4 pt-2 pb-4 sm:px-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Knowledge map
-          </h1>
-          <BuildButton
-            courseId={map.courseId}
-            hasMap={map.build?.finishedAt != null}
-            disabled={!map.canBuild}
-          />
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-6 px-4 pt-8 pb-4 sm:px-6">
+      <div className="flex flex-col gap-3">
+        <PageHeader
+          title="Knowledge map"
+          description="What your materials teach, and where you stand on each part."
+          actions={
+            <BuildButton
+              courseId={map.courseId}
+              hasMap={map.build?.finishedAt != null}
+              disabled={!map.canBuild}
+            />
+          }
+        />
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-muted-foreground">
+          <BuildStatus build={map.build} />
+          <PriorityStatus priorities={priorities} />
+          {map.bigIdeas.length > 0 && (
+            <>
+              <p>
+                {dueCount} {dueCount === 1 ? "review" : "reviews"} due
+              </p>
+              {planLine}
+            </>
+          )}
         </div>
-        <BuildStatus build={map.build} />
-        <PriorityStatus priorities={priorities} />
-        {map.bigIdeas.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <p className="text-sm text-muted-foreground">
-              {dueCount} {dueCount === 1 ? "review" : "reviews"} due
-            </p>
-            {planLine}
-          </div>
-        )}
       </div>
 
       {map.bigIdeas.length === 0 ? (
@@ -287,14 +292,15 @@ function selectedPanel({
 
 function EmptyMap({ building }: { building: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-12 text-center">
-      <WaypointsIcon className="size-8 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">
-        {building
+    <EmptyState
+      icon={<WaypointsIcon />}
+      title={building ? "Building your map" : "No map yet"}
+      description={
+        building
           ? "The first map appears here when the build is done."
-          : "Parse your materials, then build the map of what they teach."}
-      </p>
-    </div>
+          : "Parse your materials, then build the map of what they teach."
+      }
+    />
   );
 }
 

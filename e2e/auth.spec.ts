@@ -17,7 +17,7 @@ test("a Student signs in, signs out and returns to the page they asked for", asy
   await signInAs();
   await expect(page).toHaveURL(/\/courses$/);
 
-  await openSidebar(page, "Courses");
+  await openSidebar(page);
   const accountMenu = page.getByRole("button", { name: "Account menu" });
   await expect(accountMenu).toContainText(student.email);
   await accountMenu.click();

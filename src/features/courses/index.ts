@@ -1,7 +1,7 @@
 // Public API of the courses feature for any code, client or server.
 // Server-only exports live in `server.ts`. It never imports the chat feature.
 export { CourseList } from "./components/course-list";
-export { CourseNav } from "./components/course-nav";
+export { CourseListLink } from "./components/course-list-link";
 export { CourseSwitcher } from "./components/course-switcher";
 export { useMaterialUploads } from "./hooks/use-material-uploads";
 export { MaterialChip } from "./components/material-chip";

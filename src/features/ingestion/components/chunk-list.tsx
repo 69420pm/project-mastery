@@ -1,6 +1,7 @@
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Markdown } from "@/components/markdown";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { chunkAnchor } from "@/features/ingestion/domain/chunk-anchor";
@@ -59,26 +60,28 @@ export function ChunkList({
   const { exam } = material;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 pt-4 pb-10 sm:px-6">
-      <div className="flex flex-col gap-2">
-        <Button variant="ghost" size="sm" className="w-fit" asChild>
-          <Link href={backHref}>
-            <ArrowLeftIcon data-icon="inline-start" />
-            Materials
-          </Link>
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight break-words">
-          {material.name}
-        </h1>
-        {exam && (
-          <p className="text-sm text-muted-foreground">
-            Old exam
-            {exam.year !== null && ` · ${exam.year}`}
-            {exam.totalPoints !== null &&
-              ` · ${formatPoints(exam.totalPoints)} in total`}
-          </p>
-        )}
-      </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
+      <PageHeader
+        eyebrow={
+          <Button variant="ghost" size="sm" className="-ml-2.5 w-fit" asChild>
+            <Link href={backHref}>
+              <ArrowLeftIcon data-icon="inline-start" />
+              Materials
+            </Link>
+          </Button>
+        }
+        title={material.name}
+        description={
+          exam && (
+            <>
+              Old exam
+              {exam.year !== null && ` · ${exam.year}`}
+              {exam.totalPoints !== null &&
+                ` · ${formatPoints(exam.totalPoints)} in total`}
+            </>
+          )
+        }
+      />
 
       {material.chunks.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -119,7 +122,7 @@ function ChunkCard({
     <article
       id={chunkAnchor(chunk.id)}
       aria-label={`${LABEL_NAMES[chunk.label]}, ${pageRange(chunk)}`}
-      className="flex scroll-mt-4 flex-col gap-3 rounded-xl border px-4 py-3 target:ring-2 target:ring-ring"
+      className="flex scroll-mt-4 flex-col gap-3 rounded-xl border bg-card px-5 py-4 text-sm target:ring-2 target:ring-ring"
     >
       <header className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Badge variant="secondary">{LABEL_NAMES[chunk.label]}</Badge>
@@ -129,7 +132,10 @@ function ChunkCard({
         )}
         {chunk.points !== null && <span>{formatPoints(chunk.points)}</span>}
       </header>
-      <Markdown className="min-w-0">{chunk.markdown}</Markdown>
+      {/* The chunk's own headings, scaled to the card. */}
+      <Markdown className="min-w-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base">
+        {chunk.markdown}
+      </Markdown>
       {chunk.figure && (
         <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
           <figcaption className="font-medium">Figure</figcaption>
