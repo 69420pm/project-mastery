@@ -41,7 +41,7 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.95",
     "@ai-sdk/react": "^4.0.140",
-    "@langfuse/client": "^5.13.1",
+    "@langfuse/client": "^6.0.1",
     "@langfuse/otel": "^5.13.1",
     "@langfuse/tracing": "^5.13.1",
     "@langfuse/vercel-ai-sdk": "^5.13.1",
