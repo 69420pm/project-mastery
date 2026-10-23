@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { expect, test, vi } from "vitest";
 import type { SessionScore } from "./langfuse";
-import { chatMetrics, scoreSessions, type MetricsChat } from "./metrics";
+import { chatMetrics, scoreChats, type MetricsChat } from "./metrics";
 
 vi.mock("server-only", () => ({}));
 
@@ -91,7 +91,7 @@ test("upserts scores on the Chat's session and skips mock-provider Chats", async
     ],
   };
 
-  const result = await scoreSessions(
+  const result = await scoreChats(
     { writeSessionScores: async (scores) => void written.push(...scores) },
     [chat, mock],
   );

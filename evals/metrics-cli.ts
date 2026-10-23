@@ -1,6 +1,6 @@
 /**
- * Computes session metrics per Chat and upserts them as Langfuse scores on
- * the session whose id is the Chat's id:
+ * Computes metrics per Chat and upserts them as Langfuse scores on the
+ * session whose id is the Chat's id:
  *
  *   pnpm -s metrics [--since YYYY-MM-DD]   # default: 7 days ago
  *
@@ -18,7 +18,7 @@ import { isLangfuseConfigured } from "@/lib/tracing/env";
 import { createMetricsLangfuse } from "./langfuse";
 import {
   chatMetrics,
-  scoreSessions,
+  scoreChats,
   type MetricsChat,
   type MetricsMessage,
 } from "./metrics";
@@ -154,10 +154,7 @@ async function main() {
   }
 
   const chats = await loadChats(createAdminClient(), since);
-  const { scored, skipped } = await scoreSessions(
-    createMetricsLangfuse(),
-    chats,
-  );
+  const { scored, skipped } = await scoreChats(createMetricsLangfuse(), chats);
 
   console.info(
     `Scored ${scored.length} Chats with messages since ${since.toISOString().slice(0, 10)}; skipped ${skipped} mock-provider Chats.`,

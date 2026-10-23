@@ -227,7 +227,7 @@ export const architecture = [
                 },
               },
               message:
-                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/), smoke checks (evals/smoke/) and the session metrics (evals/metrics-cli.ts) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
+                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/), smoke checks (evals/smoke/) and the Chat metrics (evals/metrics-cli.ts) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
             },
             ...RESTRICTED_PACKAGES.map(({ source, allowedIn, message }) => ({
               from: { file: { path: notIn(allowedIn) } },

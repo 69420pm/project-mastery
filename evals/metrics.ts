@@ -1,7 +1,7 @@
 /**
- * Session metrics of Chats, until M1 adds Study sessions: a Chat is the
- * session. Pure, apart from `scoreSessions`, which writes through the
- * `MetricsLangfuse` that tests replace.
+ * Metrics of Chats, scored in Langfuse on the session whose id is the Chat's
+ * id (until M1 adds Study sessions). Pure, apart from `scoreChats`, which
+ * writes through the `MetricsLangfuse` that tests replace.
  */
 import { isMockReply } from "@/lib/ai/mock-provider";
 import type { MetricsLangfuse, SessionScore } from "./langfuse";
@@ -105,8 +105,8 @@ export function chatMetrics(chat: MetricsChat): ChatMetrics {
   };
 }
 
-/** The Langfuse scores of one Chat's session; a metric without a value has none. */
-export function sessionScores(chat: MetricsChat): SessionScore[] {
+/** The Langfuse scores of one Chat; a metric without a value has none. */
+export function chatScores(chat: MetricsChat): SessionScore[] {
   return Object.entries(chatMetrics(chat)).flatMap(([name, value]) =>
     value === undefined
       ? []
@@ -118,11 +118,11 @@ export function sessionScores(chat: MetricsChat): SessionScore[] {
  * Scores every Chat with real-model replies; mock-provider Chats are
  * skipped, since they aren't traced.
  */
-export async function scoreSessions(
+export async function scoreChats(
   langfuse: MetricsLangfuse,
   chats: MetricsChat[],
 ): Promise<{ scored: MetricsChat[]; skipped: number }> {
   const scored = chats.filter(hasRealReplies);
-  await langfuse.writeSessionScores(scored.flatMap(sessionScores));
+  await langfuse.writeSessionScores(scored.flatMap(chatScores));
   return { scored, skipped: chats.length - scored.length };
 }
