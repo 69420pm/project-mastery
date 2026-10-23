@@ -12,6 +12,7 @@ import {
 import {
   AI_TASKS,
   aiTask,
+  aiTaskCandidate,
   answeringModel,
   defaultModelChoice,
   modelChoices,
@@ -182,6 +183,24 @@ describe("gateway routing", () => {
     expect(aiTask("chat", "fast").providerOptions.gateway).toEqual({
       tags: ["task:chat"],
     });
+  });
+
+  test("runs a judge candidate with its own routing, and refuses other models", () => {
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+    vi.stubEnv("AI_MODEL_JUDGE", "alibaba/qwen3.7-flash");
+
+    const mimo = aiTaskCandidate("judge", "xiaomi/mimo-v2.6-flash");
+    expect(mimo.model).toBe("xiaomi/mimo-v2.6-flash");
+    expect(mimo.providerOptions.gateway).toEqual({
+      tags: ["task:judge"],
+      only: ["deepinfra"],
+    });
+    expect(aiTaskCandidate("judge", "alibaba/qwen3.7-flash").model).toBe(
+      "alibaba/qwen3.7-flash",
+    );
+    expect(() => aiTaskCandidate("judge", "openai/gpt-5-nano")).toThrow(
+      /no candidate/,
+    );
   });
 
   test("tasks that share a model reach their own mock", async () => {

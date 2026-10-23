@@ -206,13 +206,15 @@ export const architecture = [
               message: `Routes read and write data through a feature's server code (the Data Access Layer), not through Supabase clients directly. ${DOCS}`,
             },
             // The service role bypasses Row Level Security (ADR 0003). Smoke
-            // checks use it to set up and inspect a throwaway Student locally.
+            // checks use it to set up and inspect a throwaway Student locally,
+            // and `pnpm -s metrics` to read every Student's Chats.
             {
               from: {
                 file: {
                   path: notIn([
                     "src/features/*/workflows/**",
                     "evals/smoke{.ts,/**}",
+                    "evals/metrics-cli.ts",
                   ]),
                 },
               },
@@ -225,7 +227,7 @@ export const architecture = [
                 },
               },
               message:
-                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/) and smoke checks (evals/smoke/) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
+                "createAdminClient bypasses Row Level Security, so only background workflows (src/features/<feature>/workflows/), smoke checks (evals/smoke/) and the Chat metrics (evals/metrics-cli.ts) may use it (docs/adr/0003-supabase-js-with-rls.md). Handle user requests with createClient from @/lib/supabase/server.",
             },
             ...RESTRICTED_PACKAGES.map(({ source, allowedIn, message }) => ({
               from: { file: { path: notIn(allowedIn) } },

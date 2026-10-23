@@ -1,6 +1,19 @@
 // @vitest-environment node
 import { describe, expect, test } from "vitest";
-import { costUsd, estimatedUsage, tokenUsage } from "./cost";
+import { costText, costUsd, estimatedUsage, tokenUsage } from "./cost";
+
+test.each([
+  [0, "$0"],
+  [0.00009, "<$0.0001"],
+  [0.0001, "$0.0001"],
+  [0.00994, "$0.0099"],
+  [0.01, "$0.01"],
+  [0.015, "$0.01"],
+  [0.5, "$0.50"],
+  [12.3, "$12.30"],
+])("costText(%f) is %s", (cost, text) => {
+  expect(costText(cost)).toBe(text);
+});
 
 describe("costUsd", () => {
   test("prices input, cached input and output tokens per million", () => {

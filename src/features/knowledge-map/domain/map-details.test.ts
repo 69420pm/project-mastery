@@ -48,6 +48,6 @@ test("counts KCs per state, a KC without learning as new", () => {
     new: 1,
     learning: 1,
     due: 1,
-    mastered: 0,
+    known: 0,
   });
 });

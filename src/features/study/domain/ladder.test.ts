@@ -97,13 +97,13 @@ describe("replayLadder", () => {
 });
 
 describe("kcState", () => {
-  test("is new, due, mastered or learning", () => {
+  test("is new, due, known or learning", () => {
     expect(kcState(null, "2026-10-10")).toBe("new");
     expect(kcState({ level: 3, nextReview: "2026-10-10" }, "2026-10-10")).toBe(
       "due",
     );
     expect(kcState({ level: 2, nextReview: "2026-10-11" }, "2026-10-10")).toBe(
-      "mastered",
+      "known",
     );
     expect(kcState({ level: 1, nextReview: "2026-10-11" }, "2026-10-10")).toBe(
       "learning",

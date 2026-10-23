@@ -25,10 +25,3 @@ export function tokensText(usage: ReplyUsage): string {
       : "";
   return `in ${tokenCount(usage.inputTokens)}${cached} · out ${tokenCount(usage.outputTokens)}`;
 }
-
-/** "$0.0012", or "<$0.0001" for a tiny cost. */
-export function costText(costUsd: number): string {
-  if (costUsd === 0) return "$0";
-  if (costUsd < 0.0001) return "<$0.0001";
-  return `$${costUsd.toFixed(costUsd < 0.01 ? 4 : 2)}`;
-}

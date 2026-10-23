@@ -97,7 +97,7 @@ export function replayLadder(
 }
 
 /** A KC's state, as the map page and the Chat show it. */
-export type KcStateName = "new" | "learning" | "due" | "mastered";
+export type KcStateName = "new" | "learning" | "due" | "known";
 
 /** A KC's state on `today` (YYYY-MM-DD), from its place on the ladder. */
 export function kcState(
@@ -106,5 +106,5 @@ export function kcState(
 ): KcStateName {
   if (position === null) return "new";
   if (position.nextReview <= today) return "due";
-  return position.level >= 2 ? "mastered" : "learning";
+  return position.level >= 2 ? "known" : "learning";
 }

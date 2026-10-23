@@ -321,7 +321,7 @@ describe("saved settings", () => {
     localStorage.clear();
     const first = renderWith(withOrphan);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Mastered");
+    expect(legend()).toHaveTextContent("Known");
     first.unmount();
 
     localStorage.setItem(
@@ -338,7 +338,7 @@ describe("saved settings", () => {
     localStorage.setItem("knowledge-map-settings", "{broken");
     renderWith(withOrphan);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Mastered");
+    expect(legend()).toHaveTextContent("Known");
     expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();
     localStorage.clear();
   });
