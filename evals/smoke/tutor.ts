@@ -22,9 +22,16 @@ const THRUST_EXERCISE = {
   markdown:
     "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
   finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
+  /**
+   * Every KC of the gold map's thrust big idea, not only its two, so
+   * `findExercises` finds it whichever of them the AI looks up: the AI knows
+   * only the ids of the candidates and their anchors, which may leave out
+   * the Exercise's own KCs.
+   */
+  kcs: ["KC01", "KC02", "KC03", "KC04", "KC05", "KC06", "KC07", "KC08"],
 };
 
-const EXERCISE_REQUEST = `Can you give me ${THRUST_EXERCISE.name} from the exercise sheet? I want to practise thrust.`;
+const EXERCISE_REQUEST = `Can you give me ${THRUST_EXERCISE.name} from the exercise sheet? I want to practise computing net thrust.`;
 
 /** The right answer to `THRUST_EXERCISE`, in another unit than its key. */
 const EXERCISE_ANSWER =
@@ -113,6 +120,17 @@ async function sendMessage(
     ) {
       questionIds.push(part.output.questionId);
     }
+    if (
+      part.type === "tool-output-available" &&
+      Array.isArray(part.output?.exercises)
+    ) {
+      const names = part.output.exercises.map(
+        (exercise: { name?: string }) => exercise.name,
+      );
+      console.info(
+        `  found ${JSON.stringify(names)} ${part.output.note ?? ""}`,
+      );
+    }
     if (part.type === "tool-input-available") {
       console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
       const kcIds =
@@ -137,17 +155,18 @@ async function sendMessage(
  * Sets up a Course with the jet-engines gold map, a stand-in source chunk
  * for every KC, the gold Exercises with stand-in question chunks (Ex. 7.2a
  * with real data and a numeric key) and two KCs taught a few days ago, so
- * both are due. Then sends "Let's start studying.", a plausible answer, a
- * learning preference, a request for Ex. 7.2a and its right answer in a new
- * Chat, through the real Chat handler, and checks what the AI did, said,
- * remembered and graded, numeric check included.
+ * both are due. Then sends "Let's start studying.", a plausible answer and a
+ * learning preference in a new Chat, and a request for Ex. 7.2a and its
+ * right answer in a second one, through the real Chat handler, and checks
+ * what the AI did, said, remembered and graded, numeric check included.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer, a preference, a request for Ex. 7.2a and its answer in a Chat)",
+    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer, a preference, a request for Ex. 7.2a and its answer in a second Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
-  // are recorded as one row (task `chat`), with the title the only other.
+  // are recorded as one row (task `chat`), with a title per Chat the only
+  // others.
   maxCalls: 12,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
@@ -238,7 +257,10 @@ export const tutorSmoke: SmokeCheck = {
       supabase,
       "exercise_kcs",
       gold.exercises.flatMap((exercise, position) =>
-        exercise.kcs.map((kc) => ({
+        (exercise.name === THRUST_EXERCISE.name
+          ? THRUST_EXERCISE.kcs
+          : exercise.kcs
+        ).map((kc) => ({
           ...owned,
           exercise_id: exerciseIds[position],
           kc_id: id(kc),
@@ -328,13 +350,20 @@ export const tutorSmoke: SmokeCheck = {
       .split("\n")
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
-    // The Student asks for the numeric Exercise and answers it on its card.
-    const fourth = await sendMessage(client, studentId, chat, EXERCISE_REQUEST);
+    // In a second Chat, without open cards, the Student asks for the numeric
+    // Exercise and answers it on its card.
+    const exerciseChat = { chatId: randomUUID(), courseId: course.id };
+    const fourth = await sendMessage(
+      client,
+      studentId,
+      exerciseChat,
+      EXERCISE_REQUEST,
+    );
     const exerciseAsked = fourth.questionIds.at(-1);
     const fifth = await sendMessage(
       client,
       studentId,
-      chat,
+      exerciseChat,
       EXERCISE_ANSWER,
       exerciseAsked,
     );

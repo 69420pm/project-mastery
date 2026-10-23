@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { finalAnswerSchema } from "@/features/knowledge-map";
+import { finalAnswerSchema } from "@/features/knowledge-map/server";
 import type {
   FinalValueCheck,
   QuestionToGrade,
