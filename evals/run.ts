@@ -18,7 +18,6 @@ import { LangfuseClient, type Evaluation } from "@langfuse/client";
 import { AI_TASKS, aiTask, aiTaskCandidate } from "@/lib/ai/models";
 import { isLangfuseConfigured } from "@/lib/tracing/env";
 import { startTracing } from "@/lib/tracing/node";
-import { chatEval } from "./chat";
 import {
   experimentTask,
   guardQuota,
@@ -37,10 +36,7 @@ import {
   type JudgeCommandDeps,
 } from "./judge-commands";
 import { createEvalLangfuse } from "./langfuse";
-
-// Register each eval here; its fixture is `evals/datasets/<name>.json`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous registry
-const EVALS: EvalDefinition<any, any>[] = [chatEval];
+import { EVALS } from "./registry";
 
 // A few items at once: AI Gateway rate limits are generous, but one model
 // should not get a burst.

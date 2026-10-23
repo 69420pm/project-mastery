@@ -229,3 +229,109 @@ export function createEvalLangfuse(
     },
   };
 }
+
+/** One finished run of an eval: when it ran, its items' scores and its cost. */
+export type EvalRun = {
+  date: string;
+  /** Each item's scores by name; items the run skipped are absent. */
+  items: Record<string, number>[];
+  /** Model spend of the run in USD, undefined when Langfuse has no cost. */
+  costUsd: number | undefined;
+};
+
+/** What `pnpm evals:report` reads; tests replace it. */
+export type ReportLangfuse = {
+  /** The latest run of the dataset `evalName`, or undefined when none. */
+  latestRun(evalName: string): Promise<EvalRun | undefined>;
+};
+
+const RUN_LOOKBACK_MS = 365 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function isNotFound(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    error.statusCode === 404
+  );
+}
+
+export function createReportLangfuse(
+  client: LangfuseClient = new LangfuseClient(),
+): ReportLangfuse {
+  const { api } = client;
+
+  async function runCost(traceIds: string[], from: string) {
+    if (traceIds.length === 0) return undefined;
+    const { data } = await api.metrics.metrics({
+      query: JSON.stringify({
+        view: "observations",
+        metrics: [{ measure: "totalCost", aggregation: "sum" }],
+        filters: [
+          {
+            column: "traceId",
+            operator: "any of",
+            value: traceIds,
+            type: "stringOptions",
+          },
+        ],
+        fromTimestamp: new Date(Date.parse(from) - DAY_MS).toISOString(),
+        toTimestamp: new Date(Date.now() + DAY_MS).toISOString(),
+      }),
+    });
+    const cost = Object.values(data[0] ?? {}).find(
+      (value) => typeof value === "number" || typeof value === "string",
+    );
+    return cost === undefined ? undefined : Number(cost);
+  }
+
+  return {
+    async latestRun(evalName) {
+      const dataset = await api.datasets.get(evalName).catch((error) => {
+        if (isNotFound(error)) return undefined;
+        throw error;
+      });
+      if (!dataset) return undefined;
+
+      // Newest activity first.
+      const { data: runs } = await api.experiments.list({
+        fromStartTime: new Date(Date.now() - RUN_LOOKBACK_MS).toISOString(),
+        datasetId: dataset.id,
+        limit: 1,
+      });
+      const [run] = runs;
+      if (!run) return undefined;
+
+      const items: Record<string, number>[] = [];
+      const traceIds: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const { data, meta } = await api.experiments.listItems({
+          fromStartTime: run.startTime,
+          experimentId: run.id,
+          fields: "core,scores",
+          limit: 100,
+          cursor,
+        });
+        for (const item of data) {
+          traceIds.push(item.traceId);
+          const scores: Record<string, number> = {};
+          for (const score of item.scores ?? []) {
+            if (score.dataType === "BOOLEAN" || score.dataType === "NUMERIC") {
+              scores[score.name] = Number(score.value);
+            }
+          }
+          items.push(scores);
+        }
+        cursor = meta.cursor;
+      } while (cursor);
+
+      return {
+        date: run.startTime,
+        items,
+        costUsd: await runCost(traceIds, run.startTime),
+      };
+    },
+  };
+}
