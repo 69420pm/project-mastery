@@ -231,6 +231,7 @@ describe("building a Knowledge map", () => {
         newKcs: [proposedKc("Bypass ratio")],
         taskType: "compute thrust",
         finalResult: "20 kN",
+        finalAnswers: [{ label: "Thrust", value: 20, unit: "kN" }],
         givenFinalResult: "20 kN",
         matchesGiven: true,
       },
@@ -266,6 +267,7 @@ describe("building a Knowledge map", () => {
       exercise: (input) => ({
         newKcs: [],
         solution: "Worked solution.",
+        finalAnswers: [],
         steps: 2,
         ...answers[input.exercise as string],
       }),
@@ -286,12 +288,18 @@ describe("building a Knowledge map", () => {
         solution: null,
         difficulty: 1,
       },
-      { name: "Ex. 7.2a", solution_status: "verified", solution: null },
+      {
+        name: "Ex. 7.2a",
+        solution_status: "verified",
+        solution: null,
+        final_answers: [{ label: "Thrust", value: 20, unit: "kN" }],
+      },
       {
         name: "Ex. 7.2b",
         solution_status: "generated",
         solution: "Worked solution.",
         difficulty: 3,
+        final_answers: null,
       },
     ]);
     // The KC two subtasks propose joins from their exercises, with a link

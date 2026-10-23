@@ -54,7 +54,8 @@ select is(
           "taskType": "compute", "solutionStatus": "generated", "solution": "x", "difficulty": 1, "kcs": ["k1"]},
         {"id": "e2", "name": "Ex. 7.1", "questionChunk": "cccccccc-0000-0000-0000-000000000001",
           "taskType": "compute thermal efficiency", "solutionStatus": "disputed", "solution": null,
-          "difficulty": 3, "kcs": ["k1", "k2"]}],
+          "difficulty": 3, "kcs": ["k1", "k2"],
+          "finalAnswers": [{"label": "Thermal efficiency", "value": 0.508, "unit": null}]}],
       "findings": [{"kind": "solution_mismatch", "text": "Ex. 7.1: 46.5% vs 50.8%.",
         "sources": ["cccccccc-0000-0000-0000-000000000001", "cccccccc-0000-0000-0000-000000000002",
           "cccccccc-0000-0000-0000-000000000003"]}]}',
@@ -63,10 +64,11 @@ select is(
 reset role;
 
 select results_eq(
-  $$select name, position, task_type, solution_status, solution, difficulty::int
+  $$select name, position, task_type, solution_status, solution, difficulty::int, final_answers
     from public.exercises where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by position$$,
-  $$values ('Ex. 7.1', 0, 'compute thermal efficiency', 'disputed', null::text, 3)$$,
-  'exercises are stored in order, without one whose chunk is gone');
+  $$values ('Ex. 7.1', 0, 'compute thermal efficiency', 'disputed', null::text, 3,
+    '[{"label": "Thermal efficiency", "value": 0.508, "unit": null}]'::jsonb)$$,
+  'exercises are stored in order with their final answers, without one whose chunk is gone');
 select results_eq(
   $$select k.name from public.exercise_kcs x join public.kcs k on k.id = x.kc_id
     where x.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by k.position$$,

@@ -4,6 +4,7 @@
 export { KnowledgeMap } from "./components/knowledge-map";
 export { KnowledgeMapLink } from "./components/knowledge-map-link";
 export { knowledgeMapPath } from "./domain/map-paths";
+export { finalAnswerSchema, type FinalAnswer } from "./schemas";
 export type {
   FindingView,
   MapKcLearning,

@@ -136,6 +136,7 @@ export function createMapDb(courseId: string) {
             solution_status: exercise.solutionStatus,
             solution: exercise.solution,
             difficulty: exercise.difficulty,
+            final_answers: exercise.finalAnswers ?? null,
             position,
           })),
         );
@@ -330,6 +331,7 @@ export function mapModel(answers: {
           taskType: "compute",
           solution: "Solved.",
           finalResult: "1",
+          finalAnswers: [],
           steps: 1,
         };
       } else if ("definitions" in input) {

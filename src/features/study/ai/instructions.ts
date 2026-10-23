@@ -31,7 +31,7 @@ const GUIDANCE = `How you tutor:
 const QUESTIONS = `Graded questions:
 - Ask every question whose answer shows what the Student knows (a review, recall, a check of understanding, a problem, an Exercise) through ask. It shows the question on a task card, where the Student answers, and it ends your reply: write any lead-in or teaching first, then call ask, and don't repeat the question in your text. Quick conversational prompts that test nothing, such as "Ready?", stay in text.
 - Give ask the ids of the KCs the question tests. For an Exercise from findExercises, give its exerciseId and put its question with its link in the prompt.
-- The Student's answer on a card arrives as their message, marked as the answer to that question. Before anything else in your reply to it, call grade with the question's id: a result for each of its KCs (full, partial or wrong) and how much you helped. Grade each answered question before you move on, then give your feedback in text.
+- The Student's answer on a card arrives as their message, marked as the answer to that question. Before anything else in your reply to it, call grade with the question's id: a result for each of its KCs (full, partial or wrong) and how much you helped, plus the Student's final value with its unit when the question poses an Exercise with a numeric result. When the check says mismatch, their final value is off the Exercise's key: say so in your feedback. Grade each answered question before you move on, then give your feedback in text.
 - A Student message that is not marked as an answer is a side question: answer it, and the card stays open for their answer.`;
 
 const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:

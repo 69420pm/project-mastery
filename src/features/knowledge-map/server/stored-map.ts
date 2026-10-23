@@ -112,7 +112,7 @@ export async function loadStoredMap(
       supabase
         .from("exercises")
         .select(
-          "id, question_chunk_id, name, task_type, solution_status, solution, difficulty",
+          "id, question_chunk_id, name, task_type, solution_status, solution, difficulty, final_answers",
         )
         .eq("course_id", courseId)
         .order("position")
@@ -205,6 +205,7 @@ export async function loadStoredMap(
         .filter((link) => link.exercise_id === exercise.id)
         .map((link) => link.kc_id)
         .toSorted((a, b) => (kcOrder.get(a) ?? 0) - (kcOrder.get(b) ?? 0)),
+      finalAnswers: exercise.final_answers,
     })),
     findings: findings.map((finding) => ({
       id: finding.id,

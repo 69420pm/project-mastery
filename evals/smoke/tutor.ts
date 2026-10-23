@@ -16,6 +16,20 @@ const GREETING = "Let's start studying.";
 const ANSWER =
   "I think the air goes through the intake, the compressor, the combustion chamber, the turbine and then the nozzle. Thermal efficiency is the useful power you get out, the gain in the jet's kinetic energy, divided by the heat the fuel puts in.";
 
+/** The gold Exercise the Student asks for, with real data and a key. */
+const THRUST_EXERCISE = {
+  name: "Ex. 7.2a",
+  markdown:
+    "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
+  finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
+};
+
+const EXERCISE_REQUEST = `Can you give me ${THRUST_EXERCISE.name} from the exercise sheet? I want to practise thrust.`;
+
+/** The right answer to `THRUST_EXERCISE`, in another unit than its key. */
+const EXERCISE_ANSWER =
+  "F = mdot (v_e - v_0) = 50 kg/s × (600 - 250) m/s = 17500 N.";
+
 /** How long ago the due KCs were taught. */
 const TAUGHT_DAYS_AGO = 3;
 
@@ -121,16 +135,17 @@ async function sendMessage(
 
 /**
  * Sets up a Course with the jet-engines gold map, a stand-in source chunk
- * for every KC, the gold Exercises with stand-in question chunks and two
- * KCs taught a few days ago, so both are due. Then sends "Let's start
- * studying.", a plausible answer and a learning preference in a new Chat,
- * through the real Chat handler, and checks what the AI did, said and
- * remembered.
+ * for every KC, the gold Exercises with stand-in question chunks (Ex. 7.2a
+ * with real data and a numeric key) and two KCs taught a few days ago, so
+ * both are due. Then sends "Let's start studying.", a plausible answer, a
+ * learning preference, a request for Ex. 7.2a and its right answer in a new
+ * Chat, through the real Chat handler, and checks what the AI did, said,
+ * remembered and graded, numeric check included.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer and a preference in a Chat)",
+    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer, a preference, a request for Ex. 7.2a and its answer in a Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with the title the only other.
   maxCalls: 12,
@@ -174,7 +189,9 @@ export const tutorSmoke: SmokeCheck = {
       chunk(
         index + 1,
         "exercise",
-        `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
+        exercise.name === THRUST_EXERCISE.name
+          ? THRUST_EXERCISE.markdown
+          : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
       ),
     );
     await insertRows(supabase, "chunks", [source, ...questions]);
@@ -206,9 +223,17 @@ export const tutorSmoke: SmokeCheck = {
         solution_status: exercise.solutionStatus,
         solution: null,
         question_chunk_id: questions[position]!.id,
+        final_answers:
+          exercise.name === THRUST_EXERCISE.name
+            ? THRUST_EXERCISE.finalAnswers
+            : null,
         position,
       })),
     );
+    const thrustExerciseId =
+      exerciseIds[
+        gold.exercises.findIndex(({ name }) => name === THRUST_EXERCISE.name)
+      ];
     await insertRows(
       supabase,
       "exercise_kcs",
@@ -303,18 +328,34 @@ export const tutorSmoke: SmokeCheck = {
       .split("\n")
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
+    // The Student asks for the numeric Exercise and answers it on its card.
+    const fourth = await sendMessage(client, studentId, chat, EXERCISE_REQUEST);
+    const exerciseAsked = fourth.questionIds.at(-1);
+    const fifth = await sendMessage(
+      client,
+      studentId,
+      chat,
+      EXERCISE_ANSWER,
+      exerciseAsked,
+    );
 
-    // The asked question with its answer and the attempts its grade stored.
-    const { data: graded, error: questionError } = asked
-      ? await supabase
-          .from("questions")
-          .select(
-            'answer_text, graded_at, question_kcs(kc_id), attempts(kc_id, result, help, "check")',
-          )
-          .eq("id", asked)
-          .single()
-      : { data: null, error: null };
-    if (questionError) throw new Error(questionError.message);
+    // An asked question with its answer and the attempts its grade stored.
+    const loadQuestion = async (questionId: string | undefined) => {
+      if (!questionId) return null;
+      const { data, error } = await supabase
+        .from("questions")
+        .select(
+          'exercise_id, answer_text, graded_at, question_kcs(kc_id), attempts(kc_id, result, help, "check")',
+        )
+        .eq("id", questionId)
+        .single();
+      if (error) throw new Error(error.message);
+      return data;
+    };
+    const graded = await loadQuestion(asked);
+    const exercise = await loadQuestion(exerciseAsked);
+    const checks = exercise?.attempts.map((attempt) => attempt.check) ?? [];
+    console.info(`Exercise graded: ${JSON.stringify(exercise?.attempts)}`);
     const recorded = graded?.attempts ?? [];
     console.info(`Graded: ${JSON.stringify(recorded)}`);
     const askedKcs = graded?.question_kcs.map(({ kc_id }) => kc_id) ?? [];
@@ -324,7 +365,7 @@ export const tutorSmoke: SmokeCheck = {
         toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = [first.text, second.text, third.text]
+    const shown = [first.text, second.text, third.text, fourth.text, fifth.text]
       .join("\n")
       .replace(/\]\([^)]*\)/g, "]");
     const named = [
@@ -364,6 +405,16 @@ export const tutorSmoke: SmokeCheck = {
             turnDays.some((day) => line.startsWith(`${day}: `)),
           ),
         `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
+      ),
+      result(
+        `the request asked ${THRUST_EXERCISE.name} as a question`,
+        exercise?.exercise_id === thrustExerciseId,
+        `${describe(fourth.calls)}; exercise ${exercise?.exercise_id ?? "none"}`,
+      ),
+      result(
+        "its right final value was checked as a match on every attempt",
+        checks.length > 0 && checks.every((check) => check === "match"),
+        `checks ${JSON.stringify(checks)}; ${describe(fifth.calls)}`,
       ),
       result(
         "no ids or tool names in the text",

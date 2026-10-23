@@ -61,7 +61,7 @@ const SCOPE_CHUNK: Omit<Fixture[number], "position"> = {
  */
 export const mapSmoke: SmokeCheck = {
   name: "map",
-  usage: `pnpm smoke map (builds the map of the first half of ${CHUNKS_FILE}, updates it with the second; prints merges, KCs per big idea, prior KCs, Exercises, Findings and the check report)`,
+  usage: `pnpm smoke map (builds the map of the first half of ${CHUNKS_FILE}, updates it with the second; prints merges, KCs per big idea, prior KCs, Exercises with their final answers, Findings and the check report)`,
   // Per run: a skeleton, an assignment per 10 chunks, a fill per big idea,
   // links, an embedding, a merge call and a scope call (both halves have
   // `admin` chunks); the update adds 4 exercise subtasks and the links call
@@ -309,7 +309,7 @@ async function checkBuiltMap(
     supabase
       .from("exercises")
       .select(
-        "id, name, question_chunk_id, task_type, solution_status, solution, difficulty",
+        "id, name, question_chunk_id, task_type, solution_status, solution, difficulty, final_answers",
       )
       .eq("course_id", courseId)
       .order("position"),
@@ -383,9 +383,10 @@ async function checkBuiltMap(
   console.info("\nExercises:");
   for (const exercise of allExercises) {
     console.info(
-      `  ${exercise.name} [${exercise.task_type}] ${exercise.solution_status}, difficulty ${exercise.difficulty}: ${kcsOf(exercise.id).join("; ")}`,
+      `  ${exercise.name} [${exercise.task_type}] ${exercise.solution_status}, difficulty ${exercise.difficulty}: ${kcsOf(exercise.id).join("; ")}\n    final answers: ${JSON.stringify(exercise.final_answers)}`,
     );
   }
+  const keyed = allExercises.filter((exercise) => exercise.final_answers);
   console.info(
     `Findings: ${findings.data!.map((finding) => finding.text).join("\n  ") || "none"}`,
   );
@@ -448,6 +449,11 @@ async function checkBuiltMap(
       "every generated Exercise has a solution",
       unsolved.length === 0,
       unsolved.map((exercise) => exercise.name).join("; "),
+    ),
+    result(
+      "some Exercise has numeric final answers",
+      keyed.length > 0,
+      `${keyed.length} of ${allExercises.length} keyed`,
     ),
     result(
       "every KC from an exercise has a source",

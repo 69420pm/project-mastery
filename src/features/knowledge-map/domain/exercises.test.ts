@@ -101,6 +101,7 @@ describe("exerciseFromAnswer", () => {
     taskType: " compute efficiency ",
     solution: "η = 1 − 12^−0.2857",
     finalResult: "50.8%",
+    finalAnswers: [{ label: "Thermal efficiency", value: 0.508, unit: null }],
     steps: 2,
     given: { finalResult: "46.5%", matches: false },
   };
@@ -130,6 +131,9 @@ describe("exerciseFromAnswer", () => {
         solution: null,
         difficulty: 1,
         kcs: ["k1"],
+        finalAnswers: [
+          { label: "Thermal efficiency", value: 0.508, unit: null },
+        ],
       },
       finding: {
         kind: "solution_mismatch",
@@ -150,5 +154,14 @@ describe("exerciseFromAnswer", () => {
       solution: "η = 1 − 12^−0.2857",
     });
     expect(finding).toBeNull();
+  });
+
+  it("stores no final answers for a subtask without a number", () => {
+    const { exercise } = exerciseFromAnswer(
+      subtask,
+      { ...answer, finalAnswers: [] },
+      map,
+    );
+    expect(exercise.finalAnswers).toBeNull();
   });
 });

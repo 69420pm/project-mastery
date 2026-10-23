@@ -70,6 +70,7 @@ const model = () =>
       taskType: "compute thrust",
       solution: "Solved.",
       finalResult: "1",
+      finalAnswers: [],
       steps: 1,
     }),
     alike: [["Thrust", "Thrust force"]],

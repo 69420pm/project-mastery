@@ -212,13 +212,14 @@ function tutorToolActions(
     async findQuestion(questionId) {
       return findSessionQuestion(supabase, await session(), questionId);
     },
-    async saveGrade({ questionId, kind, help, results }) {
+    async saveGrade({ questionId, kind, help, results, check }) {
       const saved = await saveAttempts(supabase, {
         questionId,
         sessionId: await session(),
         kind,
         help,
         results,
+        check,
       });
       if (!saved) return null;
       const kcIds = results.map(({ kcId }) => kcId);

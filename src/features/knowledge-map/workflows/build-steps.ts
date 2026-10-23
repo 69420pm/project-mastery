@@ -349,6 +349,7 @@ export async function analyseExercise(
       taskType: answer.taskType,
       solution: answer.solution,
       finalResult: answer.finalResult,
+      finalAnswers: answer.finalAnswers,
       steps: answer.steps,
       given: given && {
         finalResult: given.givenFinalResult,

@@ -1,6 +1,10 @@
 import "server-only";
 import { z } from "zod";
-import type { QuestionToGrade } from "@/features/study/ai/tools";
+import { finalAnswerSchema } from "@/features/knowledge-map";
+import type {
+  FinalValueCheck,
+  QuestionToGrade,
+} from "@/features/study/ai/tools";
 import type {
   AttemptHelp,
   AttemptResult,
@@ -71,17 +75,24 @@ export async function findSessionQuestion(
   if (!isUuid(questionId)) return null;
   const { data, error } = await supabase
     .from("questions")
-    .select("kind, answered_at, graded_at, question_kcs(kc_id)")
+    .select(
+      "kind, answered_at, graded_at, question_kcs(kc_id), exercises(final_answers)",
+    )
     .eq("id", questionId)
     .eq("session_id", sessionId)
     .maybeSingle();
   if (error) failed("Loading the question", error);
   if (!data) return null;
+  // A key that no longer parses is no key: the check then doesn't apply.
+  const finalAnswers = z
+    .array(finalAnswerSchema)
+    .safeParse(data.exercises?.final_answers);
   return {
     kind: data.kind as QuestionKind,
     kcIds: data.question_kcs.map(({ kc_id }) => kc_id),
     answered: data.answered_at !== null,
     graded: data.graded_at !== null,
+    finalAnswers: finalAnswers.success ? finalAnswers.data : null,
   };
 }
 
@@ -97,6 +108,8 @@ export async function saveAttempts(
     kind: "pre" | "learn";
     help: AttemptHelp;
     results: Array<{ kcId: string; result: AttemptResult }>;
+    /** The numeric check, stored on every attempt; null when it didn't apply. */
+    check: FinalValueCheck;
   },
 ): Promise<boolean> {
   // Claimed first, so a concurrent grade of the same question stores nothing.
@@ -118,6 +131,7 @@ export async function saveAttempts(
       kind: grade.kind,
       result,
       help: grade.help,
+      check: grade.check,
     })),
   );
   if (attemptsError) {
