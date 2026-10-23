@@ -97,7 +97,7 @@ describe("recordAttempt", () => {
 
     expect(result).toContain(`"level":2,"nextReview":"${day(3)}"`);
     expect((await kcStates())[MAP.thrust]).toEqual({
-      state: "mastered",
+      state: "known",
       level: 2,
       nextReview: day(3),
     });

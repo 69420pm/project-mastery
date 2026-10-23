@@ -65,7 +65,7 @@ The guidance is prompt text, not code. The AI starts with due reviews, then pick
 - Before the due day, a wrong attempt drops it to level 1 and correct ones change nothing. Cramming earns no levels.
 - The intervals for levels 1 to 5 are 1, 3, 7, 14 and 30 days. With an exam after the day, an interval is at most a quarter of the days left, rounded down, and at least 1 day. It is computed on read, so a changed exam date applies at once.
 
-`kcState` gives each KC's state: _new_ (no attempts), _due_ (next review today or earlier), _mastered_ (level 2 or more, not due) or _learning_ (level 1, not due). The map page shows each KC's state and the number of reviews due.
+`kcState` gives each KC's state: _new_ (no attempts), _due_ (next review today or earlier), _known_ (level 2 or more, not due) or _learning_ (level 1, not due). The map page shows each KC's state and the number of reviews due.
 
 `openingLine` (`src/features/study/domain/opening.ts`) writes a new Chat's empty state from code, with no model call. Without a map it asks the Student to build one. With no review due it says nothing is due. Otherwise it says how many reviews are due, then something new.
 

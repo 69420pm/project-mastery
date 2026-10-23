@@ -160,7 +160,7 @@ export type MapAttempt = {
 export type MapKcLearning = Record<
   string,
   {
-    state: "new" | "learning" | "due" | "mastered";
+    state: "new" | "learning" | "due" | "known";
     /** 1 to 5; null for a new KC. */
     level: number | null;
     /** As YYYY-MM-DD; null for a new KC. */

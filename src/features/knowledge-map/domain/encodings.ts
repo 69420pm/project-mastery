@@ -45,7 +45,7 @@ const STATE_COLORS: Record<KcState, string> = {
   new: NEUTRAL,
   learning: "var(--brand)",
   due: "var(--warning)",
-  mastered: "var(--success)",
+  known: "var(--success)",
 };
 
 /** Lowest to highest Priority; the theme's chart ramp, light to dark. */

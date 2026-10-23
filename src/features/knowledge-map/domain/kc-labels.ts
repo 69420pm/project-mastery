@@ -46,7 +46,7 @@ export const STATE_NAMES: Record<MapKcLearning[string]["state"], string> = {
   new: "New",
   learning: "Learning",
   due: "Due",
-  mastered: "Mastered",
+  known: "Known",
 };
 
 export const SEMANTIC_LINK_NAMES: Record<SemanticLinkType, string> = {

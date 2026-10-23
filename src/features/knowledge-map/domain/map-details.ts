@@ -4,7 +4,7 @@ import type { MapAttempt, MapKcLearning } from "@/features/knowledge-map/types";
 
 export type KcState = MapKcLearning[string]["state"];
 
-export const KC_STATES: KcState[] = ["new", "learning", "due", "mastered"];
+export const KC_STATES: KcState[] = ["new", "learning", "due", "known"];
 
 /** The ids of the Exercises the Student has attempted. */
 export function attemptedExercises(learning: MapKcLearning): Set<string> {
@@ -41,7 +41,7 @@ export function stateCounts(
     new: 0,
     learning: 0,
     due: 0,
-    mastered: 0,
+    known: 0,
   };
   for (const id of kcIds) counts[learning[id]?.state ?? "new"] += 1;
   return counts;

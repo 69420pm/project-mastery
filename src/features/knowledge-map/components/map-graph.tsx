@@ -94,7 +94,7 @@ const STATE_MARKERS: Record<KcState, { name: string; className: string }> = {
   },
   learning: { name: "Learning", className: "bg-brand" },
   due: { name: "Due", className: "bg-warning" },
-  mastered: { name: "Mastered", className: "bg-success" },
+  known: { name: "Known", className: "bg-success" },
 };
 
 /**
