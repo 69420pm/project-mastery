@@ -1,4 +1,5 @@
-import { costText, tokensText } from "@/features/chat/domain/reply-usage";
+import { tokensText } from "@/features/chat/domain/reply-usage";
+import { costText } from "@/lib/ai/cost";
 import type { ChatMessageMetadata } from "@/features/chat/types";
 
 /**

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import {
-  costText,
   replyUsage,
   tokenCount,
   tokensText,
@@ -18,17 +17,6 @@ test.each([
   expect(tokenCount(count)).toBe(text);
 });
 
-test.each([
-  [0.00009, "<$0.0001"],
-  [0.0001, "$0.0001"],
-  [0.00994, "$0.0099"],
-  [0.01, "$0.01"],
-  [0.015, "$0.01"],
-  [12.3, "$12.30"],
-])("costText(%f) is %s", (cost, text) => {
-  expect(costText(cost)).toBe(text);
-});
-
 describe("reply usage text", () => {
   test("shows tokens with the cached part", () => {
     const usage = {
@@ -42,13 +30,6 @@ describe("reply usage text", () => {
     expect(tokensText({ ...usage, cachedInputTokens: 0 })).toBe(
       "in 12.3k · out 640",
     );
-  });
-
-  test("shows cost to four decimals while it is small", () => {
-    expect(costText(0.0012)).toBe("$0.0012");
-    expect(costText(0.5)).toBe("$0.50");
-    expect(costText(0)).toBe("$0");
-    expect(costText(0.00001)).toBe("<$0.0001");
   });
 
   test("prices usage with the model", () => {
