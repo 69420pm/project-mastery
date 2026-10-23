@@ -113,22 +113,6 @@ function StepDetails({ detail }: { detail: StepDetail }) {
           ))}
         </Items>
       );
-    case "recordAttempt":
-      return (
-        <Items>
-          {detail.exercise && <li>Exercise: {detail.exercise}</li>}
-          {detail.kcs.map((kc) => (
-            <li key={kc.id}>
-              <span className="font-medium">{kc.name}</span>
-              {kc.correct !== undefined && (kc.correct ? " ✓" : " ✗")}
-              <span className="text-muted-foreground">
-                {" "}
-                · level {kc.level} · next review {kc.nextReview}
-              </span>
-            </li>
-          ))}
-        </Items>
-      );
     case "remember":
       return <p>{detail.text}</p>;
     case "other":

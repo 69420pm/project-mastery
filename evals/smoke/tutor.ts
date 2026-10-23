@@ -20,7 +20,7 @@ const ANSWER =
 const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises", "recordAttempt", "remember"];
+const TOOL_NAMES = ["readKcs", "findExercises", "remember"];
 
 /** A preference worth keeping in the Memory (#107). */
 const PREFERENCE = "I learn best with examples before formulas.";
@@ -211,8 +211,9 @@ export const tutorSmoke: SmokeCheck = {
       ),
     );
 
-    // Two content KCs without Prerequisites, taught a few days ago. Only
-    // the admin client can backdate an attempt.
+    // Two content KCs without Prerequisites, taught a few days ago by a
+    // question graded full in an earlier session. Only the admin client can
+    // backdate an attempt.
     const hasPrerequisite = new Set(gold.prerequisites.map((link) => link.to));
     const taught = gold.kcs
       .filter((kc) => kc.bigIdea !== null && !hasPrerequisite.has(kc.id))
@@ -221,13 +222,39 @@ export const tutorSmoke: SmokeCheck = {
     const taughtAt = new Date(
       Date.now() - TAUGHT_DAYS_AGO * 24 * 60 * 60 * 1000,
     ).toISOString();
+    const session = { id: randomUUID(), owner: studentId };
+    await insertRows(supabase, "study_sessions", [
+      { ...owned, ...session, mode: "learn", started_at: taughtAt },
+    ]);
+    const question = { id: randomUUID(), owner: studentId };
+    await insertRows(supabase, "questions", [
+      {
+        ...question,
+        session_id: session.id,
+        kind: "question",
+        prompt:
+          "Name the sections of a turbojet and define thermal efficiency.",
+        asked_at: taughtAt,
+        answer_text: ANSWER,
+        answered_at: taughtAt,
+        graded_at: taughtAt,
+      },
+    ]);
+    await insertRows(
+      supabase,
+      "question_kcs",
+      taught.map((kcId) => ({ question_id: question.id, kc_id: kcId })),
+    );
     await insertRows(
       supabase,
       "attempts",
       taught.map((kcId) => ({
-        ...owned,
+        owner: studentId,
+        question_id: question.id,
+        session_id: session.id,
         kc_id: kcId,
-        correct: true,
+        kind: "learn",
+        result: "full",
         help: "none",
         created_at: taughtAt,
       })),
@@ -268,8 +295,8 @@ export const tutorSmoke: SmokeCheck = {
 
     const { data: recorded, error: attemptsError } = await supabase
       .from("attempts")
-      .select("kc_id")
-      .eq("course_id", course.id)
+      .select("kc_id, study_sessions!inner(course_id)")
+      .eq("study_sessions.course_id", course.id)
       .gte("created_at", answeredAt);
     if (attemptsError) throw new Error(attemptsError.message);
     const courseKcs = new Set(gold.kcs.map((kc) => id(kc.id)));

@@ -36,6 +36,12 @@ export const ORIGIN_NAMES: Record<KcView["origin"], string> = {
   prior: "Assumed by the materials",
 };
 
+export const RESULT_NAMES: Record<MapAttempt["result"], string> = {
+  full: "Full",
+  partial: "Partial",
+  wrong: "Wrong",
+};
+
 export const HELP_NAMES: Record<MapAttempt["help"], string> = {
   none: "no help",
   some: "some help",

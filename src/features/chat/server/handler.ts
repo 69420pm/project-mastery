@@ -11,12 +11,7 @@ import {
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
-import {
-  DEFAULT_MODEL_CHOICE,
-  chatReplySettings,
-  modelChoiceRefusal,
-  offeredModelChoice,
-} from "@/features/chat/ai/reply";
+import { chatReplySettings } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
 import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
@@ -116,10 +111,7 @@ export async function respondInChat({
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, courseId, modelChoice, message } = parsed.data;
-
-  const choiceRefusal = modelChoiceRefusal(modelChoice);
-  if (choiceRefusal) return refuse(400, choiceRefusal);
+  const { chatId, courseId, message } = parsed.data;
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -155,20 +147,12 @@ export async function respondInChat({
   const replyId = randomUUID();
   const chat =
     existing ??
-    (await createChat(supabase, chatId, {
-      courseId: courseId!,
-      modelChoice: modelChoice ?? DEFAULT_MODEL_CHOICE,
-      replyId,
-    }));
+    (await createChat(supabase, chatId, { courseId: courseId!, replyId }));
   if (chat === "taken") return refuse(404, chatNotFoundMessage);
   // The Course was deleted since it was checked.
   if (chat === "no course") return refuse(404, courseNotFoundMessage);
 
-  // The choice applies from this message on.
-  const choice = modelChoice ?? offeredModelChoice(chat.modelChoice);
-  if (existing) {
-    await startReply(supabase, chat.id, { modelChoice: choice, replyId });
-  }
+  if (existing) await startReply(supabase, chat.id, replyId);
 
   const history =
     resent ??
@@ -194,7 +178,7 @@ export async function respondInChat({
   return streamReply({
     request,
     supabase,
-    chat: { ...chat, modelChoice: choice },
+    chat,
     userId,
     history,
     materials,
@@ -275,7 +259,7 @@ async function streamReply({
   });
   // Read on every reply, so the candidates and dates are always current.
   const tutoring = await startTutoring(supabase, chat.courseId);
-  const settings = chatReplySettings(chat.modelChoice, tutoring.context);
+  const settings = chatReplySettings(tutoring.context);
   // What the provider reports when the call completes: its usage over all
   // steps and the model that answered, a gateway fallback when the primary
   // failed. A stopped or failed call reports neither.

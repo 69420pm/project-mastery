@@ -163,9 +163,19 @@ select is((select count(*)::int from public.prerequisite_links
 insert into kept (kc)
   select k.id from public.kcs k
   where k.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' and k.name = 'Specific thrust';
-insert into public.attempts (owner, course_id, kc_id, correct, help)
-  select '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', kc, true, 'none'
-  from kept where big_idea is not null;
+with session as (
+  insert into public.study_sessions (owner, course_id, mode)
+  values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'learn')
+  returning id
+), question as (
+  insert into public.questions (owner, session_id, kind, prompt)
+  select '11111111-1111-1111-1111-111111111111', id, 'question', 'Why?' from session
+  returning id, session_id
+)
+insert into public.attempts (owner, question_id, session_id, kc_id, kind, result, help)
+  select '11111111-1111-1111-1111-111111111111', question.id, question.session_id, kc,
+    'learn', 'full', 'none'
+  from kept, question where big_idea is not null;
 update public.knowledge_map_builds set status = 'building'
 where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 set local role service_role;

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Chat, newChatPath } from "@/features/chat";
-import { chatModelOptions, newChat } from "@/features/chat/server";
+import { newChat } from "@/features/chat/server";
 import { getCourse, getMaterialList } from "@/features/courses/server";
 import { getOpeningLine } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
@@ -31,7 +31,6 @@ export default async function NewChatPage({
       key={chat.id}
       chat={chat}
       isNew
-      modelOptions={chatModelOptions()}
       materials={materials}
       ownerId={user.id}
       emptyDescription={emptyDescription}

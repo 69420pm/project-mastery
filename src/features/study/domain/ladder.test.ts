@@ -3,11 +3,21 @@ import {
   kcState,
   replayLadder,
   type AttemptHelp,
+  type AttemptResult,
 } from "@/features/study/domain/ladder";
 
-const at = (day: string, correct: boolean, help: AttemptHelp = "none") => ({
+const at = (
+  day: string,
+  correct: boolean | AttemptResult,
+  help: AttemptHelp = "none",
+) => ({
   createdAt: `${day}T12:00:00.000Z`,
-  correct,
+  result:
+    typeof correct === "string"
+      ? correct
+      : correct
+        ? "full"
+        : ("wrong" as const),
   help,
 });
 
@@ -59,6 +69,13 @@ describe("replayLadder", () => {
     ).toEqual({ level: 2, nextReview: "2026-10-08" });
     expect(
       replayLadder([...level2, at("2026-10-05", true, "solution_shown")], null),
+    ).toEqual({ level: 1, nextReview: "2026-10-06" });
+  });
+
+  test("a partial answer counts as wrong", () => {
+    const level2 = [at("2026-10-01", true), at("2026-10-02", true)];
+    expect(
+      replayLadder([...level2, at("2026-10-05", "partial")], null),
     ).toEqual({ level: 1, nextReview: "2026-10-06" });
   });
 

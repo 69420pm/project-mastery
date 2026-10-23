@@ -8,7 +8,7 @@ import {
 
 const attempt = (createdAt: string, exerciseId: string | null): MapAttempt => ({
   createdAt,
-  correct: true,
+  result: "full",
   help: "none",
   exerciseId,
 });

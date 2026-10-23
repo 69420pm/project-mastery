@@ -89,12 +89,6 @@ const studentMessageSchema = z.object({
 export const chatRequestSchema = z.object({
   chatId: z.uuid(),
   courseId: z.uuid().optional(),
-  /**
-   * The key of the Student's model choice for this message, never a model
-   * id. The server checks it against the offered choices. Without one, the
-   * Chat's last choice is used.
-   */
-  modelChoice: z.string().max(100).optional(),
   message: studentMessageSchema,
 });
 

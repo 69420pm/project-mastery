@@ -1,6 +1,6 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type { ExerciseView, KcReading, RecordedKc } from "@/features/study";
+import type { ExerciseView, KcReading } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
@@ -14,12 +14,6 @@ type StepState = "running" | "done" | "error" | "stopped";
 export type StepDetail =
   | { tool: "readKcs"; kcs: KcReading[] }
   | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
-  | {
-      tool: "recordAttempt";
-      /** The Exercise's name, or its id when the reply never showed it. */
-      exercise?: string;
-      kcs: Array<RecordedKc & { correct?: boolean }>;
-    }
   | { tool: "remember"; text: string }
   | { tool: "other"; input: unknown; output: unknown };
 
@@ -45,14 +39,7 @@ export type ReplySegment =
 const TOOL_TITLES: Record<string, string> = {
   readKcs: "Reading KCs",
   findExercises: "Finding Exercises",
-  recordAttempt: "Recording an attempt",
   remember: "Making a note",
-};
-
-const HELP_LABELS: Record<string, string> = {
-  none: "no help",
-  some: "some help",
-  solution_shown: "solution shown",
 };
 
 /**
@@ -66,8 +53,6 @@ export function replySegments(
   { inProgress }: { inProgress: boolean },
 ): ReplySegment[] {
   const segments: ReplySegment[] = [];
-  // Exercise names from earlier findExercises calls, for recordAttempt.
-  const exerciseNames = new Map<string, string>();
   for (const part of parts) {
     if (part.type === "text") {
       const last = segments.at(-1);
@@ -75,13 +60,7 @@ export function replySegments(
       else if (part.text !== "")
         segments.push({ kind: "text", text: part.text });
     } else if (isToolUIPart(part)) {
-      const step = replyStep(part, exerciseNames, inProgress);
-      if (step.detail?.tool === "findExercises") {
-        for (const { id, name } of step.detail.exercises) {
-          exerciseNames.set(id, name);
-        }
-      }
-      segments.push({ kind: "step", step });
+      segments.push({ kind: "step", step: replyStep(part, inProgress) });
     }
   }
   return segments;
@@ -90,11 +69,7 @@ export function replySegments(
 type ToolPart = Extract<Part, { toolCallId: string }>;
 
 /** One tool call as its card shows it. */
-function replyStep(
-  part: ToolPart,
-  exerciseNames: ReadonlyMap<string, string> = new Map(),
-  inProgress = true,
-): ReplyStep {
+function replyStep(part: ToolPart, inProgress = true): ReplyStep {
   const name = getToolName(part);
   const base = { id: part.toolCallId, name };
   const title = TOOL_TITLES[name] ?? name;
@@ -118,12 +93,7 @@ function replyStep(
           detail: null,
         };
   }
-  const { summary, detail } = describeOutput(
-    name,
-    part.input,
-    part.output,
-    exerciseNames,
-  );
+  const { summary, detail } = describeOutput(name, part.input, part.output);
   return { ...base, state: "done", summary, detail };
 }
 
@@ -131,7 +101,6 @@ function describeOutput(
   name: string,
   input: unknown,
   output: unknown,
-  exerciseNames: ReadonlyMap<string, string>,
 ): { summary: string; detail: StepDetail } {
   const out = asRecord(output);
   const args = asRecord(input);
@@ -151,31 +120,6 @@ function describeOutput(
           ? note
           : `Found ${count(exercises.length, "Exercise")}`,
       detail: { tool: "findExercises", exercises, note },
-    };
-  }
-  if (name === "recordAttempt" && Array.isArray(out.kcs)) {
-    const attempted = Array.isArray(args.kcs)
-      ? (args.kcs as Array<{ kcId: string; correct: boolean }>)
-      : [];
-    const kcs = (out.kcs as RecordedKc[]).map((kc) => ({
-      ...kc,
-      correct: attempted.find(({ kcId }) => kcId === kc.id)?.correct,
-    }));
-    const results = kcs
-      .map(({ name, correct }) =>
-        correct === undefined ? name : `${name} ${correct ? "✓" : "✗"}`,
-      )
-      .join(", ");
-    const help = HELP_LABELS[String(args.help)];
-    const exerciseId =
-      typeof args.exerciseId === "string" ? args.exerciseId : undefined;
-    return {
-      summary: `Recorded: ${results}${help ? ` · ${help}` : ""}`,
-      detail: {
-        tool: "recordAttempt",
-        exercise: exerciseId && (exerciseNames.get(exerciseId) ?? exerciseId),
-        kcs,
-      },
     };
   }
   if (name === "remember" && typeof args.text === "string") {

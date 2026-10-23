@@ -24,18 +24,33 @@ const firstMessage = (text = "Let's start studying.") => ({
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A stored correct attempt on a KC, at `createdAt`. */
-const attempt = (kcId: string, createdAt: string, exerciseId?: string) =>
+/**
+ * A stored full attempt on a KC at `createdAt`, from a question of an
+ * earlier session in the Course, on `exerciseId` when given.
+ */
+function attempt(kcId: string, createdAt: string, exerciseId?: string) {
+  const session = { id: randomUUID(), owner: STUDENT, course_id: COURSE };
+  const question = {
+    id: randomUUID(),
+    owner: STUDENT,
+    session_id: session.id,
+    exercise_id: exerciseId ?? null,
+  };
+  db.tables.study_sessions.push(session);
+  db.tables.questions.push(question);
   db.tables.attempts.push({
     id: randomUUID(),
     owner: STUDENT,
-    course_id: COURSE,
+    question_id: question.id,
+    session_id: session.id,
     kc_id: kcId,
-    exercise_id: exerciseId ?? null,
-    correct: true,
+    kind: "learn",
+    result: "full",
     help: "none",
+    check: null,
     created_at: createdAt,
   });
+}
 
 /** The exam date `days` from today, as YYYY-MM-DD. */
 const examIn = (days: number) =>

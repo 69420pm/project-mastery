@@ -10,6 +10,7 @@ import {
 import {
   DIFFICULTY_NAMES,
   HELP_NAMES,
+  RESULT_NAMES,
   SOLUTION_STATUS_NOTES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import { exerciseAttempts } from "@/features/knowledge-map/domain/map-details";
@@ -112,7 +113,7 @@ export function ExercisePanel({
                 <span className="text-muted-foreground">
                   {formatDate(attempt.createdAt)}
                 </span>
-                <span>{attempt.correct ? "Correct" : "Wrong"}</span>
+                <span>{RESULT_NAMES[attempt.result]}</span>
                 <span className="text-muted-foreground">
                   {HELP_NAMES[attempt.help]}
                 </span>

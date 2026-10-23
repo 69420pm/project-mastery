@@ -19,7 +19,6 @@ import {
 } from "@/features/study/ai/tools";
 import { selectCandidates } from "@/features/study/domain/candidates";
 import {
-  insertAttempts,
   loadAttemptedExercises,
   loadLadder,
 } from "@/features/study/server/attempts";
@@ -83,7 +82,7 @@ export async function startTutoring(
         ? selectCandidates(map, priorities, new Set(ladder.keys()))
         : [],
     },
-    tools: tutorTools(tutorToolActions(supabase, courseId, map, examDate)),
+    tools: tutorTools(tutorToolActions(supabase, courseId, map)),
   };
 }
 
@@ -94,10 +93,8 @@ function tutorToolActions(
   supabase: Supabase,
   courseId: string,
   map: KnowledgeMap,
-  examDate: string | null,
 ): TutorToolActions {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
-  const exerciseIds = new Set(map.exercises.map((exercise) => exercise.id));
   const requireKnown = (kcIds: string[]) => {
     const unknown = kcIds.filter((id) => !kcById.has(id));
     if (unknown.length > 0) {
@@ -165,26 +162,6 @@ function tutorToolActions(
         };
       });
       return { exercises };
-    },
-    async recordAttempt(attempt) {
-      const kcIds = attempt.kcs.map(({ kcId }) => kcId);
-      requireKnown(kcIds);
-      if (new Set(kcIds).size < kcIds.length) {
-        throw new TutorToolError("List each KC once.");
-      }
-      const { exerciseId } = attempt;
-      if (exerciseId !== undefined && !exerciseIds.has(exerciseId)) {
-        throw new TutorToolError(
-          `${exerciseId} is no Exercise id of this Course: use an id from findExercises, or omit it.`,
-        );
-      }
-      await insertAttempts(supabase, courseId, attempt);
-      const ladder = await loadLadder(supabase, courseId, examDate, kcIds);
-      return kcIds.map((id) => ({
-        id,
-        name: kcById.get(id)!.name,
-        ...ladder.get(id)!,
-      }));
     },
     async remember(text) {
       if (!(await appendMemory(supabase, courseId, text))) {

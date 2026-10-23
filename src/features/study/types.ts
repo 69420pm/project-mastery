@@ -61,16 +61,6 @@ export type KcState = {
   nextReview: string | null;
 };
 
-/** What `recordAttempt` returns for each KC it recorded. */
-export type RecordedKc = {
-  id: string;
-  name: string;
-  /** 1 to 5. */
-  level: number;
-  /** As YYYY-MM-DD. */
-  nextReview: string;
-};
-
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {
   material: string;
@@ -83,7 +73,7 @@ type KcSourceView = {
 
 /** An Exercise as `findExercises` returns it. */
 export type ExerciseView = {
-  /** What `recordAttempt` takes as `exerciseId`. */
+  /** The Exercise's id, which a question on it names. */
   id: string;
   name: string;
   taskType: string;

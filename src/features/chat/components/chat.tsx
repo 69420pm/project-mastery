@@ -28,11 +28,6 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   PromptInputProvider,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -58,11 +53,7 @@ import {
   messageTooLongMessage,
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
-import type {
-  ChatUIMessage,
-  ChatWithMessages,
-  ModelOption,
-} from "@/features/chat/types";
+import type { ChatUIMessage, ChatWithMessages } from "@/features/chat/types";
 import {
   MATERIAL_MEDIA_TYPES,
   MaterialChip,
@@ -87,8 +78,6 @@ type ChatProps = {
    * with its id, in its Course.
    */
   isNew: boolean;
-  /** The model choices to offer, in display order. */
-  modelOptions: ModelOption[];
   /**
    * The Course's Materials, to attach to messages and to show attached ones
    * under their current names.
@@ -112,7 +101,6 @@ const DEFAULT_EMPTY_DESCRIPTION =
 export function Chat({
   chat,
   isNew,
-  modelOptions,
   materials: courseMaterials,
   ownerId,
   emptyDescription = DEFAULT_EMPTY_DESCRIPTION,
@@ -120,7 +108,6 @@ export function Chat({
 }: ChatProps) {
   const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
-  const [modelChoice, setModelChoice] = useState(chat.modelChoice);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const [opened, setOpened] = useState<MaterialListItem | null>(null);
   const limitReached = dailyLimit.level === "reached";
@@ -202,7 +189,6 @@ export function Chat({
       }),
     }),
   });
-  const selectedOption = modelOptions.find(({ key }) => key === modelChoice);
 
   // Once the reply streams, the message is stored: a new Chat gets its own
   // address without remounting, so reloading or bookmarking it works, and the
@@ -239,15 +225,12 @@ export function Chat({
     }
     setInputError(null);
     clearError();
-    void sendMessage(
-      {
-        parts: [
-          ...(text.trim() === "" ? [] : [{ type: "text" as const, text }]),
-          ...attached.map((data) => ({ type: "data-material" as const, data })),
-        ],
-      },
-      { body: { modelChoice } },
-    );
+    void sendMessage({
+      parts: [
+        ...(text.trim() === "" ? [] : [{ type: "text" as const, text }]),
+        ...attached.map((data) => ({ type: "data-material" as const, data })),
+      ],
+    });
     clearAttached();
   }
 
@@ -327,7 +310,7 @@ export function Chat({
                       message.role === "assistant" && isLast && !limitReached
                         ? () => {
                             clearError();
-                            void regenerate({ body: { modelChoice } });
+                            void regenerate();
                           }
                         : undefined
                     }
@@ -363,7 +346,7 @@ export function Chat({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => void regenerate({ body: { modelChoice } })}
+                  onClick={() => void regenerate()}
                 >
                   <RotateCcwIcon />
                   Retry
@@ -469,35 +452,6 @@ export function Chat({
                     </PromptInputActionMenuItem>
                   </PromptInputActionMenuContent>
                 </PromptInputActionMenu>
-                {/* Applies from the next message on. */}
-                <PromptInputSelect
-                  value={modelChoice}
-                  onValueChange={setModelChoice}
-                >
-                  <PromptInputSelectTrigger aria-label="Model" size="sm">
-                    <PromptInputSelectValue>
-                      {selectedOption?.label}
-                    </PromptInputSelectValue>
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent position="popper" align="start">
-                    {modelOptions.map((option) => (
-                      <PromptInputSelectItem
-                        key={option.key}
-                        value={option.key}
-                      >
-                        <span className="flex flex-col items-start! gap-0!">
-                          <span>{option.label}</span>
-                          <span
-                            data-testid="model-name"
-                            className="text-xs text-muted-foreground"
-                          >
-                            {option.modelName}
-                          </span>
-                        </span>
-                      </PromptInputSelectItem>
-                    ))}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
               </PromptInputTools>
               {/* While a reply is on its way, the button is Stop. */}
               <PromptInputSubmit

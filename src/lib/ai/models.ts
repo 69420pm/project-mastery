@@ -17,12 +17,6 @@ export type TaskConfig = {
   /** Environment variable that overrides `model` without a code change. */
   override: keyof AiEnv;
   /**
-   * Models a Student can choose from for this task, addressed by key, in
-   * display order (ADR 0005). The choice whose model equals `model` is the
-   * default, and `override` replaces its model.
-   */
-  choices?: Record<string, ModelChoiceConfig>;
-  /**
    * Models a calibration compares for this task, in tie-break order: on equal
    * agreement the first wins. Calibration only reports the winner; a change
    * to `model` sets it.
@@ -30,39 +24,22 @@ export type TaskConfig = {
   candidates?: readonly string[];
 };
 
-type ModelChoiceConfig = {
-  /** Shown to the Student. */
-  label: string;
-  /** Gateway model id (`provider/model`). */
-  model: string;
-};
-
-/** A model choice as offered to the Student. */
-export type ModelChoice = ModelChoiceConfig & { key: string };
-
 /**
  * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
  * These are placeholders: MiMo V2.6 Flash does the text work for its price
- * (ADR 0006), and the other choices are models the Gateway's free credit
- * serves (verified live on 2026-10-14: no Google model, no MiMo Pro). The
- * real model per task is chosen by testing on real course materials (open
+ * (ADR 0006), and the Gateway's free credit serves it (verified live on
+ * 2026-10-14: no Google model, no MiMo Pro). The real model per task is chosen by testing on real course materials (open
  * question in docs/ARCHITECTURE.md). Local development can point a text task
  * at `google/gemini-3.5-flash-lite` through its override (ADR 0016).
  */
 export const AI_TASKS = {
-  /** The AI's replies in a Chat. The Student picks one of the choices. */
+  /** The AI's replies in a Chat. */
   chat: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_CHAT",
-    // The other two take PDFs, which Chats attach raw and MiMo does not.
-    choices: {
-      fast: { label: "Fast", model: "openai/gpt-4.1-nano" },
-      balanced: { label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
-      thorough: { label: "Thorough", model: "openai/gpt-5-nano" },
-    },
   },
   /** The AI's replies in a Course's Brief, where it asks about the exam. */
   brief: {
@@ -131,12 +108,6 @@ export const AI_TASKS = {
 
 export type AiTask = keyof typeof AI_TASKS;
 
-/** The keys of a task's model choices, such as "fast" for the Chat. */
-export type ModelChoiceKey<Task extends AiTask> =
-  (typeof AI_TASKS)[Task] extends { choices: infer Choices }
-    ? keyof Choices & string
-    : never;
-
 /**
  * Retries per call for retryable errors such as `429` from rate limits. The
  * AI SDK backs off exponentially and honors `retry-after`.
@@ -173,53 +144,8 @@ function overrideFor(task: AiTask): string | undefined {
   return override;
 }
 
-/** All choices of a task, the default one resolved with the env override. */
-function allChoices(task: AiTask): ModelChoice[] {
-  const config = taskConfig(task);
-  const override = overrideFor(task);
-  return Object.entries(config.choices ?? {}).map(([key, choice]) => ({
-    key,
-    label: choice.label,
-    model:
-      choice.model === config.model ? (override ?? choice.model) : choice.model,
-  }));
-}
-
-/**
- * The key of a task's default model choice: the one whose model is the
- * task's configured model.
- */
-export function defaultModelChoice<Task extends AiTask>(
-  task: Task,
-): ModelChoiceKey<Task> {
-  const config = taskConfig(task);
-  const entry = Object.entries(config.choices ?? {}).find(
-    ([, choice]) => choice.model === config.model,
-  );
-  if (!entry) throw new Error(`Task "${task}" has no default model choice.`);
-  return entry[0] as ModelChoiceKey<Task>;
-}
-
-/**
- * The model choices a Student is offered for a task, in display order. Tasks
- * without choices offer none.
- */
-export function modelChoices(task: AiTask): ModelChoice[] {
-  return allChoices(task);
-}
-
-/**
- * Resolves the gateway model id for a task, honoring env overrides. With a
- * choice key, resolves that choice instead of the task's default model.
- */
-export function modelIdFor(task: AiTask, choice?: string): string {
-  if (choice !== undefined) {
-    const chosen = allChoices(task).find(({ key }) => key === choice);
-    if (!chosen) {
-      throw new Error(`Task "${task}" has no model choice "${choice}".`);
-    }
-    return chosen.model;
-  }
+/** Resolves the gateway model id for a task, honoring env overrides. */
+export function modelIdFor(task: AiTask): string {
   return overrideFor(task) ?? taskConfig(task).model;
 }
 
@@ -290,14 +216,13 @@ function routeModels(env: AiEnv) {
 /**
  * Call settings for one AI task: model, retries, gateway fallbacks and
  * telemetry. Spread it into every AI SDK call so each call is configured and
- * traced the same way. For a task with model choices, pass the Student's
- * choice key (never a raw model id); without one, the default is used:
+ * traced the same way:
  *
- *   streamText({ ...aiTask("chat", choice), instructions, messages })
+ *   streamText({ ...aiTask("chat"), instructions, messages })
  *   embed({ ...aiTask("embed"), value })
  */
-export function aiTask(task: AiTask, choice?: string) {
-  return taskSettings(task, modelIdFor(task, choice));
+export function aiTask(task: AiTask) {
+  return taskSettings(task, modelIdFor(task));
 }
 
 /**

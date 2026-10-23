@@ -5,14 +5,9 @@ import type { MapKcLearning } from "@/features/knowledge-map";
 import { loadStoredMap } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import { selectCandidates } from "@/features/study/domain/candidates";
-import {
-  kcState,
-  replayLadder,
-  utcDay,
-  type AttemptHelp,
-} from "@/features/study/domain/ladder";
+import { kcState, replayLadder, utcDay } from "@/features/study/domain/ladder";
+import { loadCourseAttempts } from "@/features/study/server/attempts";
 import { getUser } from "@/lib/auth/user";
-import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -29,35 +24,20 @@ export async function getKcLearning(courseId: string): Promise<MapKcLearning> {
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
     getExamFacts(supabase, courseId),
-    allRows("Loading the attempts", (from, to) =>
-      supabase
-        .from("attempts")
-        .select("kc_id, exercise_id, correct, help, created_at")
-        .eq("course_id", courseId)
-        .order("created_at")
-        .order("id")
-        .range(from, to),
-    ),
+    loadCourseAttempts(supabase, courseId),
   ]);
   const today = utcDay(new Date());
   const learning: MapKcLearning = {};
-  for (const [kcId, attempts] of Map.groupBy(rows, (row) => row.kc_id)) {
-    const position = replayLadder(
-      attempts.map((row) => ({
-        createdAt: row.created_at,
-        correct: row.correct,
-        help: row.help as AttemptHelp,
-      })),
-      exam.examDate,
-    )!;
+  for (const [kcId, attempts] of Map.groupBy(rows, (row) => row.kcId)) {
+    const position = replayLadder(attempts, exam.examDate)!;
     learning[kcId] = {
       state: kcState(position, today),
       ...position,
-      attempts: attempts.toReversed().map((row) => ({
-        createdAt: row.created_at,
-        correct: row.correct,
-        help: row.help as AttemptHelp,
-        exerciseId: row.exercise_id,
+      attempts: attempts.toReversed().map((attempt) => ({
+        createdAt: attempt.createdAt,
+        result: attempt.result,
+        help: attempt.help,
+        exerciseId: attempt.exerciseId,
       })),
       candidate: false,
       anchors: [],

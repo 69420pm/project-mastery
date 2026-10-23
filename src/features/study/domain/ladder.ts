@@ -7,11 +7,14 @@
 /** How much the AI helped on an attempt. */
 export type AttemptHelp = "none" | "some" | "solution_shown";
 
+/** How the AI graded the Student's answer on a KC. */
+export type AttemptResult = "full" | "partial" | "wrong";
+
 /** What the replay reads of an attempt. */
 export type LadderAttempt = {
   /** An ISO timestamp. */
   createdAt: string;
-  correct: boolean;
+  result: AttemptResult;
   help: AttemptHelp;
 };
 
@@ -30,11 +33,17 @@ const LEVEL_INTERVALS = [1, 3, 7, 14, 30] as const;
 
 const TOP_LEVEL = LEVEL_INTERVALS.length;
 
+/**
+ * Until FSRS replaces the ladder (M2), only a full answer counts as correct:
+ * partial and wrong are both incorrect.
+ */
 function attemptOutcome(attempt: {
-  correct: boolean;
+  result: AttemptResult;
   help: AttemptHelp;
 }): AttemptOutcome {
-  if (!attempt.correct || attempt.help === "solution_shown") return "wrong";
+  if (attempt.result !== "full" || attempt.help === "solution_shown") {
+    return "wrong";
+  }
   return attempt.help === "none" ? "correct" : "with_help";
 }
 

@@ -14,8 +14,6 @@ import {
   aiTask,
   aiTaskCandidate,
   answeringModel,
-  defaultModelChoice,
-  modelChoices,
   modelIdFor,
 } from "./models";
 import { mockEmbeddingModel, mockTextModel, useMockModels } from "./testing";
@@ -180,9 +178,6 @@ describe("gateway routing", () => {
       tags: ["task:chat"],
       only: ["deepinfra"],
     });
-    expect(aiTask("chat", "fast").providerOptions.gateway).toEqual({
-      tags: ["task:chat"],
-    });
   });
 
   test("runs a judge candidate with its own routing, and refuses other models", () => {
@@ -217,56 +212,6 @@ describe("gateway routing", () => {
     await expect(
       generateText({ ...aiTask("judge"), prompt: "Hi" }),
     ).rejects.toThrow(/No mock model for task "judge"/);
-  });
-});
-
-describe("model choices", () => {
-  test("offers Fast, Balanced and Thorough for the Chat, Balanced by default", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-    vi.stubEnv("AI_MODEL_CHAT", undefined);
-
-    expect(modelChoices("chat")).toEqual([
-      { key: "fast", label: "Fast", model: "openai/gpt-4.1-nano" },
-      { key: "balanced", label: "Balanced", model: "xiaomi/mimo-v2.6-flash" },
-      {
-        key: "thorough",
-        label: "Thorough",
-        model: "openai/gpt-5-nano",
-      },
-    ]);
-    expect(aiTask("chat").model).toBe("xiaomi/mimo-v2.6-flash");
-    expect(defaultModelChoice("chat")).toBe("balanced");
-  });
-
-  test("resolves a choice by its key", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-
-    expect(aiTask("chat", "thorough").model).toBe("openai/gpt-5-nano");
-    expect(aiTask("chat", "fast").model).toBe("openai/gpt-4.1-nano");
-  });
-
-  test("refuses an unknown choice key, including a raw model id", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-
-    expect(() => aiTask("chat", "openai/gpt-5-nano")).toThrow(/choice/);
-    expect(() => aiTask("judge", "fast")).toThrow(/choice/);
-  });
-
-  test("lets the environment override the default choice's model", () => {
-    stubGoogleKey("test-google-key");
-    vi.stubEnv("AI_MODEL_CHAT", "google/gemini-3.5-flash-lite");
-
-    expect(aiTask("chat").model).toBe("google/gemini-3.5-flash-lite");
-    expect(aiTask("chat", "balanced").model).toBe(
-      "google/gemini-3.5-flash-lite",
-    );
-    expect(aiTask("chat", "fast").model).toBe("openai/gpt-4.1-nano");
-  });
-
-  test("tasks without choices offer none", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-
-    expect(modelChoices("judge")).toEqual([]);
   });
 });
 
@@ -327,18 +272,6 @@ describe("AI_PROVIDER=mock", () => {
     expect(text).toMatch(/^Mock reply to "Second question"\./);
     expect(embedding.length).toBeGreaterThan(0);
   });
-
-  test("answers every Chat model choice", async () => {
-    stubMockProvider();
-
-    for (const choice of modelChoices("chat")) {
-      const settings = aiTask("chat", choice.key);
-      const { text } = await generateText({ ...settings, prompt: "Hi" });
-
-      expect(settings.model).toBe(choice.model);
-      expect(text).toMatch(/^Mock reply to "Hi"\./);
-    }
-  });
 });
 
 describe("aiTask", () => {
@@ -373,17 +306,6 @@ describe("aiTask", () => {
 
     expect(text).toBe("PASS");
     expect(embedding).toHaveLength(4);
-  });
-
-  test("routes every model choice of a task to its mock", async () => {
-    useMockModels({ chat: mockTextModel("Try it yourself first.") });
-
-    const { text } = await generateText({
-      ...aiTask("chat", "thorough"),
-      prompt: "Solve this.",
-    });
-
-    expect(text).toBe("Try it yourself first.");
   });
 });
 

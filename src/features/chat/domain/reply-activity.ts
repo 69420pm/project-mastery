@@ -5,7 +5,6 @@ import type { ChatUIMessage } from "@/features/chat/types";
 const TOOL_ACTIVITY: Record<string, string> = {
   readKcs: "Reading your knowledge map…",
   findExercises: "Looking for exercises…",
-  recordAttempt: "Recording your progress…",
   remember: "Making a note…",
 };
 

@@ -46,21 +46,7 @@ export type ChatWithMessages = {
   /** The Course the Chat belongs to. */
   courseId: string;
   title: string | null;
-  /**
-   * The key of the model choice the Chat answers with: its last choice, or
-   * the default when that is no longer offered.
-   */
-  modelChoice: string;
   messages: ChatUIMessage[];
-};
-
-/** A model choice as the picker shows it. The client knows only the key. */
-export type ModelOption = {
-  key: string;
-  /** Fast, Balanced or Thorough. */
-  label: string;
-  /** The model's name, shown under the label. */
-  modelName: string;
 };
 
 /** A Chat as the sidebar lists it. */

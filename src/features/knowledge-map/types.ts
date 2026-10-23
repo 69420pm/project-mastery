@@ -146,7 +146,7 @@ export type MapPriorities = {
 export type MapAttempt = {
   /** An ISO timestamp. */
   createdAt: string;
-  correct: boolean;
+  result: "full" | "partial" | "wrong";
   help: "none" | "some" | "solution_shown";
   exerciseId: string | null;
 };

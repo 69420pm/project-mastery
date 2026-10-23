@@ -7,7 +7,6 @@ import { tutorTools } from "@/features/study/ai/tools";
 const tools = tutorTools({
   readKcs: async () => [],
   findExercises: async () => ({ exercises: [] }),
-  recordAttempt: async () => [],
   remember: async () => {},
 });
 
@@ -15,7 +14,6 @@ const accepts = (name: keyof typeof tools, input: unknown) =>
   (tools[name].inputSchema as z.ZodType).safeParse(input).success;
 
 const kcIds = (n: number) => Array.from({ length: n }, (_, i) => `kc-${i}`);
-const tested = (n: number) => kcIds(n).map((kcId) => ({ kcId, correct: true }));
 
 describe.each(["readKcs", "findExercises"] as const)("%s", (name) => {
   test("takes 1 to 8 KCs", () => {
@@ -24,13 +22,6 @@ describe.each(["readKcs", "findExercises"] as const)("%s", (name) => {
     expect(accepts(name, { kcIds: [] })).toBe(false);
     expect(accepts(name, { kcIds: kcIds(9) })).toBe(false);
   });
-});
-
-test("recordAttempt takes 1 to 8 KCs", () => {
-  const input = (n: number) => ({ help: "none", kcs: tested(n) });
-  expect(accepts("recordAttempt", input(8))).toBe(true);
-  expect(accepts("recordAttempt", input(0))).toBe(false);
-  expect(accepts("recordAttempt", input(9))).toBe(false);
 });
 
 test("remember takes one line of at most 300 characters", () => {
