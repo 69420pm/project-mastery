@@ -185,8 +185,8 @@ importers:
         specifier: ^5.13.1
         version: 5.14.0(@opentelemetry/api@1.9.1)
       '@langfuse/vercel-ai-sdk':
-        specifier: ^5.13.1
-        version: 5.14.0(@opentelemetry/api@1.9.1)(ai@7.0.140(zod@4.6.7))(zod@4.6.7)
+        specifier: ^6.0.1
+        version: 6.0.1(@opentelemetry/api@1.9.1)(ai@7.0.140(zod@4.6.7))(zod@4.6.7)
       '@napi-rs/canvas':
         specifier: 1.0.11
         version: 1.0.11
@@ -1553,8 +1553,8 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
 
-  '@langfuse/vercel-ai-sdk@5.14.0':
-    resolution: {integrity: sha512-NE9NW7xlbrRPJJnDfbOg7j7dVxmj1NrDI9te2mLRduZO+yOdobH337rFQ13vPWAc3h3ZwZi+gKTEk450m93JKg==}
+  '@langfuse/vercel-ai-sdk@6.0.1':
+    resolution: {integrity: sha512-C4oMX0XD1a7Sli0ywMCEQlVS9mUr9uG76XvfQXy4Q/eW5nHIH9lwVRmu9WJMcrPVllLsInolRXugcHrOpD3i+w==}
     engines: {node: '>=22'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -9774,10 +9774,10 @@ snapshots:
       '@langfuse/core': 6.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
 
-  '@langfuse/vercel-ai-sdk@5.14.0(@opentelemetry/api@1.9.1)(ai@7.0.140(zod@4.6.7))(zod@4.6.7)':
+  '@langfuse/vercel-ai-sdk@6.0.1(@opentelemetry/api@1.9.1)(ai@7.0.140(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@ai-sdk/otel': 1.0.127(zod@4.6.7)
-      '@langfuse/core': 5.14.0(@opentelemetry/api@1.9.1)
+      '@langfuse/core': 6.0.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
       ai: 7.0.140(zod@4.6.7)
     transitivePeerDependencies:
