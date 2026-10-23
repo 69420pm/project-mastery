@@ -5,8 +5,10 @@
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, test, vi } from "vitest";
-import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
+  MAP,
+  seedMap,
   STUDENT,
   CLASSMATE,
   COURSE,
@@ -403,5 +405,93 @@ describe("the Chat title", () => {
       "Hi",
       "Kept.",
     ]);
+  });
+});
+
+describe("a question on a task card", () => {
+  test("is asked, answered by a message that links to it, and graded into attempts", async () => {
+    seedMap();
+    const chatId = randomUUID();
+    useMockModels({
+      chat: mockToolModel(
+        [
+          [
+            {
+              toolName: "ask",
+              input: {
+                kind: "question",
+                prompt: "State the thrust equation.",
+                kcIds: [MAP.thrust],
+              },
+            },
+          ],
+        ],
+        "Never reached: ask ends the reply.",
+      ),
+    });
+
+    const asked = await send({
+      chatId,
+      courseId: COURSE,
+      message: userMessage("Quiz me"),
+    });
+
+    expect(asked.text).toBe("");
+    const [question] = db.tables.questions;
+    expect(question).toMatchObject({
+      prompt: "State the thrust equation.",
+      session_id: db.tables.study_sessions[0]!.id,
+    });
+    expect(db.tables.question_kcs).toEqual([
+      expect.objectContaining({ question_id: question!.id, kc_id: MAP.thrust }),
+    ]);
+
+    const model = mockToolModel(
+      [
+        [
+          {
+            toolName: "grade",
+            input: {
+              questionId: question!.id,
+              results: [{ kcId: MAP.thrust, result: "partial" }],
+              help: "none",
+            },
+          },
+        ],
+      ],
+      "Close: mind the sign.",
+    );
+    useMockModels({ chat: model });
+    const answer = {
+      ...userMessage("$F = \\dot m (v_0 - v_e)$"),
+      metadata: { questionId: question!.id },
+    };
+
+    const graded = await send({ chatId, message: answer });
+
+    expect(graded.text).toBe("Close: mind the sign.");
+    expect(question).toMatchObject({
+      answer_text: "$F = \\dot m (v_0 - v_e)$",
+      answer_message_id: answer.id,
+      graded_at: expect.any(String),
+    });
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
+      `card of question ${question!.id}`,
+    );
+    expect(db.tables.attempts).toEqual([
+      expect.objectContaining({
+        question_id: question!.id,
+        kc_id: MAP.thrust,
+        kind: "learn",
+        result: "partial",
+      }),
+    ]);
+
+    // Graded, the card takes no more answers.
+    const late = await send({
+      chatId,
+      message: { ...userMessage("Again"), metadata: answer.metadata },
+    });
+    expect(late).toMatchObject({ status: 409 });
   });
 });

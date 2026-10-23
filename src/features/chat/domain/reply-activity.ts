@@ -6,6 +6,8 @@ const TOOL_ACTIVITY: Record<string, string> = {
   readKcs: "Reading your knowledge map…",
   findExercises: "Looking for exercises…",
   remember: "Making a note…",
+  ask: "Writing a question…",
+  grade: "Grading your answer…",
 };
 
 /** What the AI is doing when it has not said a word yet. */

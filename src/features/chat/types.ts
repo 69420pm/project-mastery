@@ -13,8 +13,14 @@ export type ReplyUsage = {
   estimated: boolean;
 };
 
-/** What the server attaches to an AI message. */
+/**
+ * What a message carries besides its parts: on a Student's message, the
+ * question it answers on a task card; the rest the server attaches to an AI
+ * message.
+ */
 export type ChatMessageMetadata = {
+  /** The question a Student's message answers, sent from its task card. */
+  questionId?: string;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */

@@ -10,4 +10,11 @@ export {
   StudyPlanFacts,
 } from "./components/study-plan";
 export { PHASE_NAMES } from "./domain/plan";
-export type { ExerciseView, KcReading, StudyPlan, TutorContext } from "./types";
+export type {
+  ExerciseView,
+  GradedKc,
+  KcReading,
+  QuestionKind,
+  StudyPlan,
+  TutorContext,
+} from "./types";

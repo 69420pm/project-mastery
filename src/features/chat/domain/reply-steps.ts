@@ -1,6 +1,11 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type { ExerciseView, KcReading } from "@/features/study";
+import type {
+  ExerciseView,
+  GradedKc,
+  KcReading,
+  QuestionKind,
+} from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
@@ -15,6 +20,7 @@ export type StepDetail =
   | { tool: "readKcs"; kcs: KcReading[] }
   | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
   | { tool: "remember"; text: string }
+  | { tool: "grade"; kcs: GradedKc[] }
   | { tool: "other"; input: unknown; output: unknown };
 
 /** One tool call of an AI reply, as its step card shows it. */
@@ -31,15 +37,30 @@ export type ReplyStep = {
   detail: StepDetail | null;
 };
 
-/** A run of an AI reply's text, or one of its tool calls, in reply order. */
+/** A question the AI asked, as its task card shows it. */
+export type AskedQuestion = {
+  id: string;
+  kind: QuestionKind;
+  /** Markdown with LaTeX. */
+  prompt: string;
+};
+
+/**
+ * A run of an AI reply's text, one of its tool calls, or a question it
+ * asked, in reply order.
+ */
 export type ReplySegment =
-  { kind: "text"; text: string } | { kind: "step"; step: ReplyStep };
+  | { kind: "text"; text: string }
+  | { kind: "step"; step: ReplyStep }
+  | { kind: "question"; question: AskedQuestion };
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
   readKcs: "Reading KCs",
   findExercises: "Finding Exercises",
   remember: "Making a note",
+  ask: "Asking a question",
+  grade: "Grading your answer",
 };
 
 /**
@@ -60,13 +81,70 @@ export function replySegments(
       else if (part.text !== "")
         segments.push({ kind: "text", text: part.text });
     } else if (isToolUIPart(part)) {
-      segments.push({ kind: "step", step: replyStep(part, inProgress) });
+      const question = askedQuestion(part);
+      segments.push(
+        question
+          ? { kind: "question", question }
+          : { kind: "step", step: replyStep(part, inProgress) },
+      );
     }
   }
   return segments;
 }
 
 type ToolPart = Extract<Part, { toolCallId: string }>;
+
+/** The question of an `ask` call that stored it; null for any other part. */
+function askedQuestion(part: ToolPart): AskedQuestion | null {
+  if (getToolName(part) !== "ask" || part.state !== "output-available") {
+    return null;
+  }
+  const input = asRecord(part.input);
+  const output = asRecord(part.output);
+  if (typeof output.questionId !== "string") return null;
+  return {
+    id: output.questionId,
+    kind: input.kind as QuestionKind,
+    prompt: typeof input.prompt === "string" ? input.prompt : "",
+  };
+}
+
+/**
+ * Where each question of a Chat stands, by question id, read from its
+ * messages: submitted once a Student's message answers it from its card
+ * (the latest answer counts), graded once a `grade` call returned for it.
+ * A question missing here is open.
+ */
+export function questionStates(
+  messages: ChatUIMessage[],
+): Map<string, QuestionState> {
+  const states = new Map<string, QuestionState>();
+  for (const message of messages) {
+    const questionId = message.metadata?.questionId;
+    if (message.role === "user" && questionId) {
+      states.set(questionId, { status: "submitted" });
+    }
+    for (const part of message.parts) {
+      if (
+        !isToolUIPart(part) ||
+        getToolName(part) !== "grade" ||
+        part.state !== "output-available"
+      ) {
+        continue;
+      }
+      const graded = asRecord(part.input).questionId;
+      const kcs = asRecord(part.output).kcs;
+      if (typeof graded === "string" && Array.isArray(kcs)) {
+        states.set(graded, { status: "graded", kcs: kcs as GradedKc[] });
+      }
+    }
+  }
+  return states;
+}
+
+/** A question's state on its task card, once it is no longer open. */
+export type QuestionState =
+  { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
 
 /** One tool call as its card shows it. */
 function replyStep(part: ToolPart, inProgress = true): ReplyStep {
@@ -120,6 +198,13 @@ function describeOutput(
           ? note
           : `Found ${count(exercises.length, "Exercise")}`,
       detail: { tool: "findExercises", exercises, note },
+    };
+  }
+  if (name === "grade" && Array.isArray(out.kcs)) {
+    const kcs = out.kcs as GradedKc[];
+    return {
+      summary: `Graded: ${kcs.map((kc) => `${kc.name} ${kc.result}`).join(", ")}`,
+      detail: { tool: "grade", kcs },
     };
   }
   if (name === "remember" && typeof args.text === "string") {

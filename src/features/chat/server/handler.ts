@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   consumeStream,
   createUIMessageStreamResponse,
+  hasToolCall,
   isStepCount,
   streamText,
   toUIMessageStream,
@@ -47,7 +48,12 @@ import {
   getCourseWith,
   materialReferenceSchema,
 } from "@/features/courses/server";
-import { startTutoring, TutorToolError } from "@/features/study/server";
+import {
+  isAnswerable,
+  recordAnswer,
+  startTutoring,
+  TutorToolError,
+} from "@/features/study/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
@@ -66,11 +72,12 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * the AI SDK message persistence guide. The stages, in order:
  *
  * 1. require the signed-in Student
- * 2. validate the request: the message, an offered model choice, and a Chat
+ * 2. validate the request: the message and a Chat
  *    the Student owns, or a new Chat in a Course the Student owns
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, or mark the new reply as the
- *    Chat's latest with its model choice, then store the Student's message
+ *    Chat's latest, then store the Student's message, and an answer from a
+ *    task card on its question, which must still be open
  * 5. stream the reply from the full stored history
  * 6. on end, record the call's usage and store the reply with its model,
  *    unless a newer request has started a reply since
@@ -141,6 +148,15 @@ export async function respondInChat({
   const resent = resentHistory(stored, message);
   if (resent === "refused") return refuse(409, alreadySentMessage);
 
+  // An answer from a task card, for a question still open in this Chat.
+  const questionId = resent ? undefined : message.metadata?.questionId;
+  if (
+    questionId &&
+    !(existing && (await isAnswerable(supabase, existing.id, questionId)))
+  ) {
+    return refuse(409, questionClosedMessage);
+  }
+
   // The reply's id, marked as the Chat's latest before the Student's message
   // is stored, so a stopped reply still ending from an earlier request can
   // never be kept after it.
@@ -168,6 +184,13 @@ export async function respondInChat({
       });
     }
     return refuse(409, alreadySentMessage);
+  }
+  if (questionId) {
+    await recordAnswer(supabase, {
+      questionId,
+      messageId: message.id,
+      text: messageText(message.parts),
+    });
   }
 
   // After storing the message, so Retry can send it again.
@@ -200,6 +223,31 @@ function refuse(status: number, message: string) {
 }
 
 const alreadySentMessage = "This message was already sent.";
+
+const questionClosedMessage =
+  "This question is already graded, so it takes no more answers.";
+
+/**
+ * The history as the model reads it: a Student's answer on a task card
+ * starts with a line naming the question it answers, so the AI can grade
+ * it.
+ */
+function withAnswerNotes(history: ChatUIMessage[]): ChatUIMessage[] {
+  return history.map((message) => {
+    const questionId = message.metadata?.questionId;
+    if (message.role !== "user" || !questionId) return message;
+    return {
+      ...message,
+      parts: [
+        {
+          type: "text",
+          text: `[My answer on the card of question ${questionId}:]\n\n`,
+        },
+        ...message.parts,
+      ],
+    };
+  });
+}
 
 /**
  * The history to answer when the message is already stored: when it is the
@@ -258,7 +306,7 @@ async function streamReply({
     dataSchemas: { material: materialReferenceSchema },
   });
   // Read on every reply, so the candidates and dates are always current.
-  const tutoring = await startTutoring(supabase, chat.courseId);
+  const tutoring = await startTutoring(supabase, chat.courseId, chat.id);
   const settings = chatReplySettings(tutoring.context);
   // What the provider reports when the call completes: its usage over all
   // steps and the model that answered, a gateway fallback when the primary
@@ -271,9 +319,10 @@ async function streamReply({
     async () =>
       streamText({
         ...settings,
-        messages: await toModelMessages(messages, materials),
+        messages: await toModelMessages(withAnswerNotes(messages), materials),
         tools: tutoring.tools,
-        stopWhen: isStepCount(MAX_STEPS),
+        // A question on a task card waits for the Student's answer.
+        stopWhen: [isStepCount(MAX_STEPS), hasToolCall("ask")],
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),

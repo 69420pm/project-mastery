@@ -1,9 +1,13 @@
 import type { CandidateGroup } from "@/features/study/domain/candidates";
-import type { KcStateName } from "@/features/study/domain/ladder";
+import type {
+  AttemptHelp,
+  AttemptResult,
+  KcStateName,
+} from "@/features/study/domain/ladder";
 import type { Phase } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
-export type { KcStateName, Phase };
+export type { AttemptHelp, AttemptResult, KcStateName, Phase };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -91,6 +95,21 @@ export type ExerciseView = {
     /** Null when the Course has no solution for it. */
     markdown: string | null;
   };
+};
+
+/** What a Question asks for, which sets how its attempts count. */
+export type QuestionKind =
+  "prequestion" | "recall" | "question" | "problem" | "rebuild" | "mock_item";
+
+/** A KC of a graded Question as `grade` returns it, with its new state. */
+export type GradedKc = {
+  id: string;
+  name: string;
+  result: AttemptResult;
+  /** 1 to 5. */
+  level: number;
+  /** As YYYY-MM-DD. */
+  nextReview: string;
 };
 
 /** A KC as `readKcs` returns it. */

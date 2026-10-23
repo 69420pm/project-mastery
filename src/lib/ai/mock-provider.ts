@@ -152,6 +152,22 @@ function mockAnswerFinding(
     .filter((part) => part.type === "text")
     .map((part) => part.text ?? "")
     .join(" ");
+  return toolCallStream("mock-answer-finding", "answerFinding", {
+    findingId,
+    answer,
+  });
+}
+
+/** A Student's message that starts with this makes the tutor mock ask. */
+export const MOCK_QUIZ_REQUEST = "Quiz me";
+
+/** The question the tutor mock asks. */
+export const MOCK_QUESTION = "Mock question: what is $2 + 2$?";
+
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/** One tool call as a whole streamed step. */
+function toolCallStream(id: string, toolName: string, input: unknown) {
   return simulateReadableStream({
     initialDelayInMs: null,
     chunkDelayInMs: null,
@@ -159,9 +175,9 @@ function mockAnswerFinding(
       { type: "stream-start" as const, warnings: [] },
       {
         type: "tool-call" as const,
-        toolCallId: "mock-answer-finding",
-        toolName: "answerFinding",
-        input: JSON.stringify({ findingId, answer }),
+        toolCallId: id,
+        toolName,
+        input: JSON.stringify(input),
       },
       {
         type: "finish" as const,
@@ -169,6 +185,67 @@ function mockAnswerFinding(
         usage,
       },
     ],
+  });
+}
+
+/** The input of the latest `ask` call in the prompt, if any. */
+function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
+  for (const message of prompt.toReversed()) {
+    if (message.role !== "assistant" || !Array.isArray(message.content)) {
+      continue;
+    }
+    const call = (
+      message.content as Array<{
+        type: string;
+        toolName?: string;
+        input?: unknown;
+      }>
+    ).findLast((part) => part.type === "tool-call" && part.toolName === "ask");
+    if (call) {
+      return typeof call.input === "string"
+        ? JSON.parse(call.input)
+        : (call.input as { kcIds?: string[] });
+    }
+  }
+  return undefined;
+}
+
+/**
+ * In a Chat, the tutor's questions: a Student message starting with "Quiz
+ * me" gets an `ask` call on the first KC id the instructions name, and an
+ * answer from a task card, which names its question, a `grade` call with
+ * every KC of the asked question full. Each then ends its step.
+ */
+function mockTutorQuestions(
+  prompt: Prompt,
+  tools: ReadonlyArray<{ name: string }> | undefined,
+) {
+  if (!tools?.some(({ name }) => name === "ask")) return null;
+  if (prompt.at(-1)?.role !== "user") return null;
+  const text = lastUserParts(prompt)
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join(" ");
+  const answered = new RegExp(`card of question (${UUID})`).exec(text)?.[1];
+  if (answered) {
+    const kcIds = lastAskInput(prompt)?.kcIds ?? [];
+    return toolCallStream("mock-grade", "grade", {
+      questionId: answered,
+      results: kcIds.map((kcId) => ({ kcId, result: "full" })),
+      help: "none",
+    });
+  }
+  if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
+  const system = prompt.find(({ role }) => role === "system")?.content;
+  const kcId =
+    typeof system === "string"
+      ? new RegExp(`\\(id (${UUID})`).exec(system)?.[1]
+      : undefined;
+  if (!kcId) return null;
+  return toolCallStream("mock-ask", "ask", {
+    kind: "question",
+    prompt: MOCK_QUESTION,
+    kcIds: [kcId],
   });
 }
 
@@ -201,6 +278,7 @@ function languageModel(modelId: string) {
     }) => ({
       stream:
         mockAnswerFinding(prompt, tools) ??
+        mockTutorQuestions(prompt, tools) ??
         simulateReadableStream({
           initialDelayInMs: null,
           chunkDelayInMs: WORD_DELAY_MS,

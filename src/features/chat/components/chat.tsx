@@ -10,7 +10,7 @@ import {
   RotateCcwIcon,
   UploadIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -45,6 +45,7 @@ import { chatPath } from "@/features/chat/domain/chat-paths";
 import { messageText } from "@/lib/ai/reply";
 import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
+import { questionStates } from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
@@ -178,7 +179,6 @@ export function Chat({
     generateId: () => crypto.randomUUID(),
     transport: new DefaultChatTransport({
       api: "/api/chat",
-      // `body` carries the model choice of each send and retry.
       prepareSendMessagesRequest: ({ messages, body }) => ({
         body: {
           ...body,
@@ -208,6 +208,16 @@ export function Chat({
 
   const isBusy = status === "submitted" || status === "streaming";
   const lastMessage = messages.at(-1);
+  const questions = useMemo(() => questionStates(messages), [messages]);
+  const canAnswer = !isBusy && !limitReached;
+
+  /** Sends an answer from a task card as the next message. */
+  function sendAnswer(questionId: string, text: string) {
+    if (!canAnswer) return;
+    setInputError(null);
+    clearError();
+    void sendMessage({ text, metadata: { questionId } });
+  }
 
   async function handleSubmit({ text }: { text: string }) {
     if (
@@ -281,6 +291,9 @@ export function Chat({
                           parts={message.parts}
                           streaming={status === "streaming" && isLast}
                           inProgress={isStreaming}
+                          questions={questions}
+                          canAnswer={canAnswer}
+                          onAnswer={sendAnswer}
                         />
                         {activity !== null && (
                           <Shimmer className="text-sm">{activity}</Shimmer>

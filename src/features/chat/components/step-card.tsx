@@ -115,6 +115,19 @@ function StepDetails({ detail }: { detail: StepDetail }) {
       );
     case "remember":
       return <p>{detail.text}</p>;
+    case "grade":
+      return (
+        <Items>
+          {detail.kcs.map((kc) => (
+            <li key={kc.id}>
+              <span className="font-medium">{kc.name}</span>{" "}
+              <span className="text-muted-foreground">
+                · {kc.result} · level {kc.level}, next review {kc.nextReview}
+              </span>
+            </li>
+          ))}
+        </Items>
+      );
     case "other":
       return (
         <div className="flex flex-col gap-2">

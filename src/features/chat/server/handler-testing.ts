@@ -85,6 +85,7 @@ function createDb() {
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
       questions: { session_id: "study_sessions" },
+      question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
     },
     // Every new Chat starts a learn session in its Course.
@@ -132,6 +133,14 @@ function createDb() {
         title_set_manually: false,
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
+      questions: () => ({
+        owner: signedIn,
+        asked_at: new Date().toISOString(),
+        answer_text: null,
+        answer_message_id: null,
+        answered_at: null,
+        graded_at: null,
+      }),
       // Recorded now, as in the database, so the ladder replays it today.
       attempts: () => ({
         owner: signedIn,

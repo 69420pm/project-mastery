@@ -20,7 +20,7 @@ const ANSWER =
 const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises", "remember"];
+const TOOL_NAMES = ["readKcs", "findExercises", "remember", "ask", "grade"];
 
 /** A preference worth keeping in the Memory (#107). */
 const PREFERENCE = "I learn best with examples before formulas.";
@@ -63,7 +63,9 @@ async function sendMessage(
   studentId: string,
   chat: { chatId: string; courseId: string },
   text: string,
-): Promise<{ calls: ToolCall[]; text: string }> {
+  /** The question it answers on its task card. */
+  questionId?: string,
+): Promise<{ calls: ToolCall[]; text: string; questionIds: string[] }> {
   console.info(`Student: ${text}`);
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
@@ -74,6 +76,7 @@ async function sendMessage(
           id: randomUUID(),
           role: "user",
           parts: [{ type: "text", text }],
+          ...(questionId && { metadata: { questionId } }),
         },
       }),
     }),
@@ -88,12 +91,19 @@ async function sendMessage(
     .map((line) => JSON.parse(line.slice("data: ".length)));
 
   const calls: ToolCall[] = [];
+  const questionIds: string[] = [];
   for (const part of chunks) {
+    if (
+      part.type === "tool-output-available" &&
+      typeof part.output?.questionId === "string"
+    ) {
+      questionIds.push(part.output.questionId);
+    }
     if (part.type === "tool-input-available") {
       console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
       const kcIds =
         part.input?.kcIds ??
-        part.input?.kcs?.map((kc: { kcId: string }) => kc.kcId) ??
+        part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
       calls.push({ toolName: part.toolName, kcIds });
     }
@@ -106,7 +116,7 @@ async function sendMessage(
     .map((part) => part.delta)
     .join("");
   console.info(`AI: ${reply}`);
-  return { calls, text: reply };
+  return { calls, text: reply, questionIds };
 }
 
 /**
@@ -262,7 +272,8 @@ export const tutorSmoke: SmokeCheck = {
 
     // The Chat runs as the Student, with Row Level Security as in the app.
     const client = await signInAsUser(supabase, studentId);
-    const { context } = await startTutoring(client, course.id);
+    const chat = { chatId: randomUUID(), courseId: course.id };
+    const { context } = await startTutoring(client, course.id, chat.chatId);
     const due = new Set(context.dueReviews.kcs.map((kc) => kc.id));
     const offered = new Set([
       ...due,
@@ -277,10 +288,10 @@ export const tutorSmoke: SmokeCheck = {
       throw new Error(`Expected ${taught.length} due KCs, got ${due.size}`);
     }
 
-    const chat = { chatId: randomUUID(), courseId: course.id };
     const first = await sendMessage(client, studentId, chat, GREETING);
-    const answeredAt = new Date().toISOString();
-    const second = await sendMessage(client, studentId, chat, ANSWER);
+    // The Student answers the question the first reply asked, on its card.
+    const asked = first.questionIds.at(-1);
+    const second = await sendMessage(client, studentId, chat, ANSWER, asked);
     const memoryBefore = await readMemory(supabase, course.id);
     // The turn may cross UTC midnight, so either day counts as "this turn".
     const utcDay = () => new Date().toISOString().slice(0, 10);
@@ -293,13 +304,20 @@ export const tutorSmoke: SmokeCheck = {
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
 
-    const { data: recorded, error: attemptsError } = await supabase
-      .from("attempts")
-      .select("kc_id, study_sessions!inner(course_id)")
-      .eq("study_sessions.course_id", course.id)
-      .gte("created_at", answeredAt);
-    if (attemptsError) throw new Error(attemptsError.message);
-    const courseKcs = new Set(gold.kcs.map((kc) => id(kc.id)));
+    // The asked question with its answer and the attempts its grade stored.
+    const { data: graded, error: questionError } = asked
+      ? await supabase
+          .from("questions")
+          .select(
+            'answer_text, graded_at, question_kcs(kc_id), attempts(kc_id, result, help, "check")',
+          )
+          .eq("id", asked)
+          .single()
+      : { data: null, error: null };
+    if (questionError) throw new Error(questionError.message);
+    const recorded = graded?.attempts ?? [];
+    console.info(`Graded: ${JSON.stringify(recorded)}`);
+    const askedKcs = graded?.question_kcs.map(({ kc_id }) => kc_id) ?? [];
 
     const dueReads = first.calls.filter(
       ({ toolName, kcIds }) =>
@@ -318,24 +336,26 @@ export const tutorSmoke: SmokeCheck = {
       calls.length === 0
         ? "no tool call"
         : calls.map((c) => `${c.toolName} ×${c.kcIds.length}`).join(", ");
-    // The KCs the answer's turn recorded show what the question was about,
-    // so a reply that reads a due KC and then asks about a new one fails.
-    const dueRecorded = recorded.filter(({ kc_id }) => due.has(kc_id));
+    // The KCs the question tests show what it was about, so a reply that
+    // reads a due KC and then asks about a new one fails.
+    const dueAsked = askedKcs.filter((kc) => due.has(kc));
     return [
       result(
-        "the first reply asked about a due KC",
-        dueReads.length > 0 && dueRecorded.length > 0,
-        `read: ${describe(first.calls)}; ${dueRecorded.length} due KCs recorded`,
+        "the first reply asked a question on a due KC through ask",
+        dueReads.length > 0 && dueAsked.length > 0,
+        `${describe(first.calls)}; ${dueAsked.length} due KCs asked`,
       ),
       result(
-        "the first reply ends by asking the Student something",
-        /\?[\s"'”)*_]*$/.test(first.text.trim()),
-        JSON.stringify(first.text.trim().slice(-80)),
+        "the answer was stored on the question",
+        graded?.answer_text === ANSWER,
+        asked ? "" : "no question asked",
       ),
       result(
-        "the answer's turn recorded an attempt on a Course KC",
-        recorded.some(({ kc_id }) => courseKcs.has(kc_id)),
-        `${recorded.length} rows; ${describe(second.calls)}`,
+        "the answer's turn graded it: one attempt per KC of the question",
+        graded?.graded_at != null &&
+          recorded.length === askedKcs.length &&
+          askedKcs.every((kc) => recorded.some(({ kc_id }) => kc_id === kc)),
+        `${recorded.length} attempts for ${askedKcs.length} KCs; ${describe(second.calls)}`,
       ),
       result(
         "the preference's turn added a line to the Memory",

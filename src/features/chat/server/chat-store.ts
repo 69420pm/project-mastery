@@ -4,6 +4,7 @@ import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import type { ChatUIMessage, ReplyUsage } from "@/features/chat/types";
 import type { TutorContext } from "@/features/study";
+import { loadAnswerLinks } from "@/features/study/server";
 import { loadReplyUsage } from "@/features/usage/server";
 
 /**
@@ -204,11 +205,13 @@ export async function deleteChat(
 function toUIMessage(
   row: MessageRow,
   usage?: ReplyUsage | undefined,
+  questionId?: string | undefined,
 ): ChatUIMessage {
   const message = {
     id: row.id,
     role: row.role as ChatUIMessage["role"],
     parts: row.parts as unknown as ChatUIMessage["parts"],
+    ...(questionId && { metadata: { questionId } }),
   };
   return row.role === "assistant"
     ? {
@@ -225,7 +228,11 @@ function toUIMessage(
     : message;
 }
 
-/** A Chat's messages in order. Not validated: run `validateUIMessages` before model calls. */
+/**
+ * A Chat's messages in order, a Student's answer on a task card with the
+ * question it answers. Not validated: run `validateUIMessages` before model
+ * calls.
+ */
 export async function loadMessages(
   supabase: Supabase,
   chatId: string,
@@ -239,11 +246,16 @@ export async function loadMessages(
     .order("created_at", { ascending: true });
   if (error) failed("Loading the messages", error);
 
-  const usage = await loadReplyUsage(
-    supabase,
-    data.filter(({ role }) => role === "assistant").map((r) => r.id),
+  const [usage, answers] = await Promise.all([
+    loadReplyUsage(
+      supabase,
+      data.filter(({ role }) => role === "assistant").map((r) => r.id),
+    ),
+    loadAnswerLinks(supabase, chatId),
+  ]);
+  return data.map((row) =>
+    toUIMessage(row, usage.get(row.id), answers.get(row.id)),
   );
-  return data.map((row) => toUIMessage(row, usage.get(row.id)));
 }
 
 /**

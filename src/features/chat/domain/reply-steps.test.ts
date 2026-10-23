@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { replySegments } from "./reply-steps";
+import { questionStates, replySegments } from "./reply-steps";
 
 type Parts = ChatUIMessage["parts"];
 
@@ -19,9 +19,77 @@ function summaries(parts: Parts) {
   return replySegments(parts, live).map((segment) =>
     segment.kind === "text"
       ? segment.text
-      : `${segment.step.state}: ${segment.step.summary}`,
+      : segment.kind === "question"
+        ? `question ${segment.question.id}: ${segment.question.prompt}`
+        : `${segment.step.state}: ${segment.step.summary}`,
   );
 }
+
+const askPart = (id: string, state: "input-available" | "output-available") =>
+  ({
+    type: "tool-ask",
+    toolCallId: `ask-${id}`,
+    state,
+    input: { kind: "question", prompt: `Question ${id}?`, kcIds: ["a"] },
+    ...(state === "output-available" && { output: { questionId: id } }),
+  }) as Parts[number];
+
+test("shows an asked question as a task card, and one being asked as a step", () => {
+  expect(
+    summaries([
+      { type: "text", text: "Try this. " },
+      askPart("q1", "output-available"),
+    ]),
+  ).toEqual(["Try this. ", "question q1: Question q1?"]);
+  expect(summaries([askPart("q2", "input-available")])).toEqual([
+    "running: Asking a question…",
+  ]);
+});
+
+test("a question is submitted by an answer from its card and graded by grade", () => {
+  const graded = [{ id: "a", name: "Limits", result: "partial" }];
+  const messages = [
+    { id: "1", role: "assistant", parts: [askPart("q1", "output-available")] },
+    { id: "2", role: "user", parts: [{ type: "text", text: "On the side" }] },
+    {
+      id: "3",
+      role: "user",
+      metadata: { questionId: "q1" },
+      parts: [{ type: "text", text: "4" }],
+    },
+    {
+      id: "4",
+      role: "assistant",
+      metadata: {},
+      parts: [askPart("q2", "output-available")],
+    },
+    {
+      id: "5",
+      role: "user",
+      metadata: { questionId: "q2" },
+      parts: [{ type: "text", text: "5" }],
+    },
+    {
+      id: "6",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-grade",
+          toolCallId: "g",
+          state: "output-available",
+          input: { questionId: "q2" },
+          output: { kcs: graded },
+        },
+      ],
+    },
+  ] as ChatUIMessage[];
+
+  const states = questionStates(messages);
+
+  expect(states.get("q1")).toEqual({ status: "submitted" });
+  expect(states.get("q2")).toEqual({ status: "graded", kcs: graded });
+  expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
+});
 
 test("keeps text and tool calls in order, merging text across steps", () => {
   expect(

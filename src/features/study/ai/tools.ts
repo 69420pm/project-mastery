@@ -1,6 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
-import type { ExerciseView, KcReading } from "@/features/study/types";
+import type {
+  ExerciseView,
+  GradedKc,
+  KcReading,
+  QuestionKind,
+} from "@/features/study/types";
 
 /** What `readKcs` and `findExercises` take: KC ids of the Course. */
 const kcIdsInputSchema = z.object({
@@ -10,6 +15,77 @@ const kcIdsInputSchema = z.object({
     .max(8)
     .describe("The ids of 1 to 8 KCs of this Course."),
 });
+
+const QUESTION_KINDS = [
+  "prequestion",
+  "recall",
+  "question",
+  "problem",
+  "rebuild",
+  "mock_item",
+] as const satisfies readonly QuestionKind[];
+
+/** What `ask` takes: one graded question for a task card. */
+const askInputSchema = z.object({
+  kind: z
+    .enum(QUESTION_KINDS)
+    .describe(
+      "prequestion: before teaching, a guess on what comes next; recall: retrieve what was taught; question: check understanding; problem: a problem or Exercise to solve; rebuild: rebuild a derivation or argument; mock_item: an exam-conditions item.",
+    ),
+  prompt: z
+    .string()
+    .min(1)
+    .max(20_000)
+    .describe(
+      "The question as the Student reads it on the card, in Markdown with LaTeX. Complete on its own: give all data the Student needs.",
+    ),
+  kcIds: kcIdsInputSchema.shape.kcIds.describe(
+    "The ids of the 1 to 8 KCs of this Course the question tests.",
+  ),
+  exerciseId: z
+    .string()
+    .nullish()
+    .describe(
+      "The id of the Exercise from findExercises when the question poses one; omit it for your own question.",
+    ),
+});
+
+/** What `grade` takes: the verdict on the Student's answer to a question. */
+const gradeInputSchema = z.object({
+  questionId: z
+    .string()
+    .describe("The questionId that ask returned for the question answered."),
+  results: z
+    .array(
+      z.object({
+        kcId: z.string(),
+        result: z
+          .enum(["full", "partial", "wrong"])
+          .describe(
+            "full: the answer shows this KC right; partial: the right idea with a gap or slip; wrong: missing or wrong.",
+          ),
+      }),
+    )
+    .min(1)
+    .max(8)
+    .describe("One result for each of the question's KCs, each KC once."),
+  help: z
+    .enum(["none", "some", "solution_shown"])
+    .describe(
+      "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
+    ),
+});
+
+type GradeInput = z.infer<typeof gradeInputSchema>;
+
+/** A stored question as `grade` checks it. */
+export type QuestionToGrade = {
+  kind: QuestionKind;
+  /** The KCs it tests. */
+  kcIds: string[];
+  answered: boolean;
+  graded: boolean;
+};
 
 /** What `remember` takes: one line for the Memory. */
 const rememberInputSchema = z.object({
@@ -33,6 +109,22 @@ export type TutorToolActions = {
   ) => Promise<{ exercises: ExerciseView[]; note?: string }>;
   /** Appends one line to the Course's Memory. */
   remember: (text: string) => Promise<void>;
+  /** Stores a question in the Chat's Study session; returns its id. */
+  ask: (question: {
+    kind: QuestionKind;
+    prompt: string;
+    kcIds: string[];
+    exerciseId: string | null;
+  }) => Promise<string>;
+  /** A question asked in the Chat's Study session; null for any other id. */
+  findQuestion: (questionId: string) => Promise<QuestionToGrade | null>;
+  /**
+   * Marks the question graded and stores one attempt per KC; returns each
+   * KC's new state, or null when it was graded in the meantime.
+   */
+  saveGrade: (
+    grade: GradeInput & { kind: "pre" | "learn" },
+  ) => Promise<GradedKc[] | null>;
 };
 
 /** A refused tool call: its message tells the model what to fix. */
@@ -64,7 +156,62 @@ export function tutorTools(actions: TutorToolActions) {
         return { ok: true };
       },
     }),
+    ask: tool({
+      description:
+        "Ask the Student a graded question: it shows on a task card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
+      inputSchema: askInputSchema,
+      execute: async ({ exerciseId, ...question }) => ({
+        questionId: await actions.ask({
+          ...question,
+          exerciseId: exerciseId ?? null,
+        }),
+      }),
+    }),
+    grade: tool({
+      description:
+        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs and how much you helped. Returns each KC's new level (1 to 5) and next review date (YYYY-MM-DD).",
+      inputSchema: gradeInputSchema,
+      execute: async (input) => ({ kcs: await grade(actions, input) }),
+    }),
   };
+}
+
+const alreadyGraded = "This question is already graded.";
+
+/** The `grade` call's rules: one result for each KC of an open, answered question. */
+async function grade(
+  actions: TutorToolActions,
+  input: GradeInput,
+): Promise<GradedKc[]> {
+  const question = await actions.findQuestion(input.questionId);
+  if (!question) {
+    throw new TutorToolError(
+      `${input.questionId} is no question you asked in this Chat: use the questionId that ask returned.`,
+    );
+  }
+  if (question.graded) throw new TutorToolError(alreadyGraded);
+  if (!question.answered) {
+    throw new TutorToolError(
+      "The Student has not answered this question yet: wait for their answer on the card.",
+    );
+  }
+  const kcIds = input.results.map(({ kcId }) => kcId);
+  if (new Set(kcIds).size < kcIds.length) {
+    throw new TutorToolError("Give each KC once.");
+  }
+  const foreign = kcIds.filter((id) => !question.kcIds.includes(id));
+  const missing = question.kcIds.filter((id) => !kcIds.includes(id));
+  if (foreign.length > 0 || missing.length > 0) {
+    throw new TutorToolError(
+      `Give one result for each KC the question tests, and no others: ${question.kcIds.join(", ")}.`,
+    );
+  }
+  const kcs = await actions.saveGrade({
+    ...input,
+    kind: question.kind === "prequestion" ? "pre" : "learn",
+  });
+  if (!kcs) throw new TutorToolError(alreadyGraded);
+  return kcs;
 }
 
 export type TutorTools = ReturnType<typeof tutorTools>;
