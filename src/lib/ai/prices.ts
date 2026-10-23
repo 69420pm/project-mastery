@@ -29,6 +29,9 @@ export type ModelPrice = {
  *   that from 01:00 to 04:00 and 06:00 to 10:00 UTC on weekdays, excluding
  *   Chinese public holidays; this table has no time of day, so calls in those
  *   hours are recorded at half their cost.
+ * - Qwen 3.7 Flash is priced at its tier under 32k input tokens, verified live
+ *   on 2026-10-23; longer prompts cost more, and judge prompts stay under
+ *   it. No cache price was checked, so cached input is priced as fresh input.
  */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
   "google/gemini-3.1-flash-lite": {
@@ -47,6 +50,7 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   "openai/gpt-5-nano": { input: 0.05, output: 0.4, cachedInput: 0.005 },
   "cohere/embed-v5.0-fast": { input: 0.08, output: 0, cachedInput: 0 },
   "xiaomi/mimo-v2.6-flash": { input: 0.14, output: 0.28, cachedInput: 0.0028 },
+  "alibaba/qwen3.7-flash": { input: 0.03, output: 0.13, cachedInput: 0.03 },
   "deepseek/deepseek-v4.1-flash-1017": {
     input: 0.15,
     output: 0.6,
