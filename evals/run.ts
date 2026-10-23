@@ -3,6 +3,8 @@
  *
  *   pnpm evals                          # all evals
  *   pnpm evals <name>                   # one eval
+ *   pnpm evals draft <criterion> [--limit N]   # draft judge labels on traces
+ *   pnpm evals calibrate <criterion>    # judge candidates against the labels
  *
  * Evals make real model calls through AI Gateway, so they never run in `pnpm check`, Vitest or CI. With Langfuse keys, each
  * fixture is synced to a Langfuse dataset and run with Langfuse's experiment
@@ -11,12 +13,15 @@
  */
 // Must come first: lets evals import modules that use Next.js.
 import "./next-aliases";
+import { parseArgs } from "node:util";
 import { LangfuseClient, type Evaluation } from "@langfuse/client";
+import { AI_TASKS, aiTask, aiTaskCandidate } from "@/lib/ai/models";
 import { isLangfuseConfigured } from "@/lib/tracing/env";
 import { startTracing } from "@/lib/tracing/node";
 import { chatEval } from "./chat";
 import {
   experimentTask,
+  guardQuota,
   isQuotaExhausted,
   loadFixture,
   QuotaExhaustedError,
@@ -24,6 +29,14 @@ import {
   type EvalDefinition,
   type EvalItem,
 } from "./eval";
+import { judgeReply, loadRubric } from "./judge";
+import {
+  calibrate,
+  DEFAULT_DRAFT_LIMIT,
+  draft,
+  type JudgeCommandDeps,
+} from "./judge-commands";
+import { createEvalLangfuse } from "./langfuse";
 
 // Register each eval here; its fixture is `evals/datasets/<name>.json`.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous registry
@@ -109,9 +122,67 @@ async function runLocally<Input, Expected>(
   return passRate(definition.gates, results, fixture.items.length);
 }
 
+/** `pnpm evals draft|calibrate <criterion>`, on the traces in Langfuse. */
+async function runJudgeCommand(command: "draft" | "calibrate", args: string[]) {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: { limit: { type: "string" } },
+  });
+  const [criterion] = positionals;
+  if (!criterion || positionals.length > 1) {
+    throw new Error(
+      "Usage: pnpm evals draft <criterion> [--limit N] | pnpm evals calibrate <criterion>",
+    );
+  }
+  const limit = Number(values.limit ?? DEFAULT_DRAFT_LIMIT);
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error(`--limit must be a positive whole number: ${values.limit}`);
+  }
+  if (!isLangfuseConfigured()) {
+    throw new Error(
+      `pnpm evals ${command} reads traces from Langfuse: set LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY.`,
+    );
+  }
+  const rubric = await loadRubric(criterion);
+
+  const tracing = startTracing();
+  const client = new LangfuseClient();
+  const deps: JudgeCommandDeps = {
+    langfuse: createEvalLangfuse(client),
+    judge: guardQuota((model, rubric, transcript) =>
+      judgeReply(
+        model ? aiTaskCandidate("judge", model) : aiTask("judge"),
+        rubric,
+        transcript,
+      ),
+    ),
+    log: (line) => console.info(line),
+  };
+  try {
+    if (command === "draft") {
+      await draft(deps, { criterion, rubric, limit });
+    } else {
+      await calibrate(deps, {
+        criterion,
+        rubric,
+        candidates: AI_TASKS.judge.candidates,
+      });
+    }
+  } finally {
+    await client.flush();
+    await tracing?.shutdown();
+  }
+}
+
 async function main() {
   if (process.env.CI) {
     throw new Error("Evals make real model calls and must not run in CI.");
+  }
+
+  const [command, ...args] = process.argv.slice(2);
+  if (command === "draft" || command === "calibrate") {
+    return runJudgeCommand(command, args);
   }
 
   const requested = process.argv.slice(2);

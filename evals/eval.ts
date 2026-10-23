@@ -76,6 +76,25 @@ export function isQuotaExhausted() {
 }
 
 /**
+ * Wraps a model call so that it, and every other guarded call, throws
+ * `QuotaExhaustedError` instead of calling again after the first `429`.
+ */
+export function guardQuota<Args extends unknown[], Result>(
+  call: (...args: Args) => Promise<Result>,
+) {
+  return async (...args: Args) => {
+    if (quotaExhausted) throw new QuotaExhaustedError();
+    try {
+      return await call(...args);
+    } catch (error) {
+      if (!isQuotaError(error)) throw error;
+      quotaExhausted = true;
+      throw new QuotaExhaustedError();
+    }
+  };
+}
+
+/**
  * Wraps a definition so that its task and evaluators stop making model calls
  * after the first `429`. The Langfuse runner catches failures per item, so the
  * caller checks `isQuotaExhausted()` after a run as well.
@@ -83,23 +102,9 @@ export function isQuotaExhausted() {
 export function withQuotaGuard<Input, Expected>(
   definition: EvalDefinition<Input, Expected>,
 ): EvalDefinition<Input, Expected> {
-  const guard =
-    <Args extends unknown[], Result>(
-      call: (...args: Args) => Promise<Result>,
-    ) =>
-    async (...args: Args) => {
-      if (quotaExhausted) throw new QuotaExhaustedError();
-      try {
-        return await call(...args);
-      } catch (error) {
-        if (!isQuotaError(error)) throw error;
-        quotaExhausted = true;
-        throw new QuotaExhaustedError();
-      }
-    };
   return {
     ...definition,
-    task: guard(definition.task),
-    evaluators: definition.evaluators.map(guard),
+    task: guardQuota(definition.task),
+    evaluators: definition.evaluators.map((evaluator) => guardQuota(evaluator)),
   };
 }
