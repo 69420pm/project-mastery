@@ -46,6 +46,13 @@ function lastUserParts(prompt: Prompt): Part[] {
   return Array.isArray(message.content) ? (message.content as Part[]) : [];
 }
 
+const MOCK_REPLY_START = 'Mock reply to "';
+
+/** Whether a stored reply's text came from the mock models. */
+export function isMockReply(text: string): boolean {
+  return text.startsWith(MOCK_REPLY_START);
+}
+
 /**
  * The reply to a prompt: names the question and the files sent with it, so
  * tests can tell replies apart and see what reached the AI.
@@ -60,7 +67,7 @@ export function mockReply(prompt: Prompt): string {
     .filter((part) => part.type === "file")
     .map((part) => `${part.filename ?? "file"} (${part.mediaType})`);
   const attached = files.length > 0 ? ` Attached: ${files.join(", ")}.` : "";
-  return `Mock reply to "${text}".${attached} This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.`;
+  return `${MOCK_REPLY_START}${text}".${attached} This is a deterministic answer from the mock AI. It streams word by word, slowly enough for an end-to-end test to stop it before it ends, and it never calls a real model.`;
 }
 
 /** The text of every string in a mock object: inline math, so it renders. */
