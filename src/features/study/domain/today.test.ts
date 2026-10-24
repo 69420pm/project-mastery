@@ -70,6 +70,12 @@ describe("planToday", () => {
     expect(today({}).reviews).toBeNull();
   });
 
+  test("rounds the review minutes at a measured, fractional pace", () => {
+    const pace = { ...DEFAULT_PACE, minutesPerReview: 0.85 };
+    expect(today({ pace }, { dueCount: 7 }).reviews?.minutes).toBe(6);
+    expect(today({ pace }, { dueCount: 1 }).reviews?.minutes).toBe(1);
+  });
+
   test.each([["build" as const], [null]])(
     "in %s takes the first Topic of the plan order, without a hint",
     (phase) => {

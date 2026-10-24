@@ -18,7 +18,7 @@ export type TodayTopic = {
 };
 
 export type TodayPlan = {
-  /** The due reviews and their minutes at the Student's pace; null when none are due. */
+  /** The due reviews and their whole minutes (at least 1) at the Student's pace; null when none are due. */
   reviews: { count: number; minutes: number } | null;
   /** Null when the plan has no Topic to work on. */
   next: TodayTopic | null;
@@ -60,7 +60,10 @@ export function planToday(
         ? null
         : {
             count: input.dueCount,
-            minutes: input.dueCount * plan.pace.minutesPerReview,
+            minutes: Math.max(
+              1,
+              Math.round(input.dueCount * plan.pace.minutesPerReview),
+            ),
           },
     next: topic
       ? {
