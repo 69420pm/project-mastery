@@ -17,6 +17,7 @@ export const chatNotFoundMessage = "This chat does not exist.";
 export const chatMessageMetadataSchema = z
   .object({
     questionId: z.string().optional(),
+    confidence: z.number().int().min(1).max(4).optional(),
     modelId: z.string().optional(),
     stopped: z.boolean().optional(),
     // Built by the server and only displayed, so only its shape is checked.
@@ -58,7 +59,12 @@ const textPartSchema = z.object({ type: z.literal("text"), text: z.string() });
 const studentMessageSchema = z.object({
   id: z.uuid(),
   role: z.literal("user"),
-  metadata: z.object({ questionId: z.uuid() }).optional(),
+  metadata: z
+    .object({
+      questionId: z.uuid(),
+      confidence: z.number().int().min(1).max(4).optional(),
+    })
+    .optional(),
   parts: z
     .array(z.discriminatedUnion("type", [textPartSchema, materialPartSchema]))
     .min(1)

@@ -109,8 +109,10 @@ export function KcPanel({
           <Fact label="State">
             <StateBadge state={learned} />
           </Fact>
-          {learned?.level != null && (
-            <Fact label="Level">{learned.level} of 5</Fact>
+          {learned?.retrievability != null && (
+            <Fact label="Recall today">
+              {Math.round(learned.retrievability * 100)}%
+            </Fact>
           )}
           {learned?.nextReview && (
             <Fact label="Next review">{formatDate(learned.nextReview)}</Fact>

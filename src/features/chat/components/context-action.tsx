@@ -16,8 +16,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  dueReviewText,
   goalLabel,
-  overdueText,
   pacingText,
   phaseLabel,
 } from "@/features/chat/domain/tutor-context";
@@ -98,7 +98,7 @@ function ContextDetails({ context }: { context: TutorContext }) {
                 <span className="font-medium">{kc.name}</span>
                 <span className="text-muted-foreground">
                   {" "}
-                  · {kc.type} · level {kc.level} · {overdueText(kc.daysOverdue)}
+                  · {kc.type} · {dueReviewText(kc)}
                 </span>
               </li>
             ))}

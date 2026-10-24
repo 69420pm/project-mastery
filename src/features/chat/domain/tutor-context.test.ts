@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  dueReviewText,
   goalLabel,
-  overdueText,
   pacingText,
   phaseLabel,
 } from "./tutor-context";
@@ -49,10 +49,14 @@ describe("pacingText", () => {
   });
 });
 
-test.each([
-  [0, "due today"],
-  [1, "1 day overdue"],
-  [3, "3 days overdue"],
-])("overdueText(%i) is %s", (days, text) => {
-  expect(overdueText(days)).toBe(text);
+describe("dueReviewText", () => {
+  test("shows today's recall", () => {
+    expect(dueReviewText({ retrievability: 0.836 })).toBe(
+      "due · Recall today 84%",
+    );
+  });
+
+  test("shows only due for a context stored before FSRS", () => {
+    expect(dueReviewText({})).toBe("due");
+  });
 });

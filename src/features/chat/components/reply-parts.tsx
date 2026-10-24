@@ -31,7 +31,11 @@ export function ReplyParts({
   questions: Map<string, QuestionState>;
   /** Whether the Student can send an answer now. */
   canAnswer: boolean;
-  onAnswer: (questionId: string, text: string) => void;
+  onAnswer: (
+    questionId: string,
+    text: string,
+    confidence: number | undefined,
+  ) => void;
 }) {
   const segments = replySegments(parts, { inProgress });
   return segments.map((segment, i) => {
@@ -49,7 +53,9 @@ export function ReplyParts({
             question={segment.question}
             state={questions.get(segment.question.id)}
             canAnswer={canAnswer}
-            onAnswer={(text) => onAnswer(segment.question.id, text)}
+            onAnswer={(text, confidence) =>
+              onAnswer(segment.question.id, text, confidence)
+            }
           />
         );
       case "step":

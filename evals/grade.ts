@@ -253,6 +253,7 @@ async function gradeTask(item: Input): Promise<string> {
             kcIds: question.kcIds,
             answered: true,
             graded: stored !== undefined,
+            sessionEnded: false,
             finalAnswers: question.finalAnswers,
           }
         : null,
@@ -268,8 +269,10 @@ async function gradeTask(item: Input): Promise<string> {
         id: kcId,
         name: gold.kcs.find((kc) => kc.id === kcId)?.name ?? kcId,
         result,
-        level: result === "full" ? 2 : 1,
-        nextReview: "2026-11-03",
+        // First taught in this session, which is still open.
+        state: "learning" as const,
+        nextReview: null,
+        retrievability: null,
       }));
     },
   };

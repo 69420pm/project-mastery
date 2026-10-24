@@ -21,6 +21,8 @@ export type ReplyUsage = {
 export type ChatMessageMetadata = {
   /** The question a Student's message answers, sent from its question card. */
   questionId?: string;
+  /** How sure the Student was in that answer, from 1 to 4. */
+  confidence?: number;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */
@@ -53,6 +55,8 @@ export type ChatWithMessages = {
   courseId: string;
   title: string | null;
   messages: ChatUIMessage[];
+  /** Whether its Study session has ended, which makes it read-only. */
+  ended: boolean;
 };
 
 /** A Chat as the sidebar lists it. */

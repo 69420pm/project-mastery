@@ -1402,6 +1402,7 @@ export type Database = {
           answer_text: string | null;
           answered_at: string | null;
           asked_at: string;
+          confidence: number | null;
           exercise_id: string | null;
           graded_at: string | null;
           id: string;
@@ -1416,6 +1417,7 @@ export type Database = {
           answer_text?: string | null;
           answered_at?: string | null;
           asked_at?: string;
+          confidence?: number | null;
           exercise_id?: string | null;
           graded_at?: string | null;
           id?: string;
@@ -1429,6 +1431,7 @@ export type Database = {
           answer_text?: string | null;
           answered_at?: string | null;
           asked_at?: string;
+          confidence?: number | null;
           exercise_id?: string | null;
           graded_at?: string | null;
           id?: string;

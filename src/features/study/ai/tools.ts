@@ -97,6 +97,8 @@ export type QuestionToGrade = {
   kcIds: string[];
   answered: boolean;
   graded: boolean;
+  /** Whether its Study session has ended, which closes it for grading. */
+  sessionEnded: boolean;
   /** Its Exercise's numeric final answers; null without any. */
   finalAnswers: FinalAnswer[] | null;
 };
@@ -190,7 +192,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     grade: tool({
       description:
-        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, new level (1 to 5) and next review date (YYYY-MM-DD), and the check: match, mismatch or null when it didn't apply.",
+        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
     }),
@@ -200,8 +202,8 @@ export function tutorTools(actions: TutorToolActions) {
 const alreadyGraded = "This question is already graded.";
 
 /**
- * The `grade` call's rules: one result for each KC of an open, answered
- * question, and the numeric check of a final value against its Exercise's
+ * The `grade` call's rules: one result for each KC of an ungraded, answered
+ * question of a running session, and the numeric check of a final value against its Exercise's
  * final answers, which turns every `full` into `partial` on a mismatch.
  */
 async function grade(
@@ -215,6 +217,11 @@ async function grade(
     );
   }
   if (question.graded) throw new TutorToolError(alreadyGraded);
+  if (question.sessionEnded) {
+    throw new TutorToolError(
+      "This question's study session has ended, so it can't be graded.",
+    );
+  }
   if (!question.answered) {
     throw new TutorToolError(
       "The Student has not answered this question yet: wait for their answer on the card.",

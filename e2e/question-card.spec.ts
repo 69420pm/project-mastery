@@ -84,3 +84,54 @@ test("the AI asks on a question card, the Student answers there, and the card sh
     "graded",
   );
 });
+
+test("after an answered card, End session makes the Chat read-only and schedules the KC's first review", async ({
+  page,
+  student,
+  course,
+}) => {
+  const kcName = await seedKc(student.id, course.id);
+  await page.goto(course.chatPath);
+
+  const message = page.getByRole("textbox", { name: "Message" });
+  await message.fill("Quiz me");
+  await message.press("Enter");
+  const card = page.getByRole("region", { name: "Question" });
+  await card.getByRole("textbox", { name: "Your answer" }).fill("It is $4$.");
+  await card.getByRole("radio", { name: "Confidence 4 of 4" }).click();
+  await expect(
+    card.getByRole("radio", { name: "Confidence 4 of 4" }),
+  ).toBeChecked();
+  await card.getByRole("button", { name: "Submit" }).click();
+  await expect(card).toHaveAttribute("data-question-state", "graded");
+  await expect(
+    page.getByText("it never calls a real model.", { exact: false }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "End session" }).click();
+
+  const ended = page.getByRole("status").filter({ hasText: "Session ended" });
+  await expect(ended).toBeVisible();
+  await expect(message).toBeHidden();
+  await expect(page.getByRole("button", { name: "End session" })).toBeHidden();
+  // Stays read-only on a reload, and opens a new Chat to go on.
+  await page.reload();
+  await expect(ended).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeHidden();
+  await ended.getByRole("link", { name: "Start new session" }).click();
+  await expect(page).toHaveURL(new RegExp(`${course.chatPath}$`));
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+
+  // The ended session created the KC's card: the map shows its next review.
+  await page.goto(`/courses/${course.id}/map`);
+  await page
+    .getByRole("application", { name: "Knowledge map graph" })
+    .getByRole("button", { name: new RegExp(`^${kcName}`) })
+    .first()
+    .click();
+  await expect(
+    page
+      .getByLabel("KC details", { exact: true })
+      .getByRole("region", { name: "Learning" }),
+  ).toContainText("Next review");
+});

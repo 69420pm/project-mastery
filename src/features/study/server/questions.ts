@@ -8,7 +8,7 @@ import type {
 import type {
   AttemptHelp,
   AttemptResult,
-} from "@/features/study/domain/ladder";
+} from "@/features/study/domain/replay";
 import type { QuestionKind } from "@/features/study/types";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
@@ -66,12 +66,15 @@ export async function insertQuestion(
   return data.id;
 }
 
-/** A question of the session, as `grade` checks it; null for any other id. */
+/**
+ * A question of the session, as `grade` checks it, but for whether the
+ * session has ended; null for any other id.
+ */
 export async function findSessionQuestion(
   supabase: Supabase,
   sessionId: string,
   questionId: string,
-): Promise<QuestionToGrade | null> {
+): Promise<Omit<QuestionToGrade, "sessionEnded"> | null> {
   if (!isUuid(questionId)) return null;
   const { data, error } = await supabase
     .from("questions")
@@ -170,12 +173,19 @@ export async function isAnswerable(
  */
 export async function recordAnswer(
   supabase: Supabase,
-  answer: { questionId: string; messageId: string; text: string },
+  answer: {
+    questionId: string;
+    messageId: string;
+    text: string;
+    /** From 1 to 4; undefined when the Student gave none. */
+    confidence?: number | undefined;
+  },
 ): Promise<void> {
   const { error } = await supabase
     .from("questions")
     .update({
       answer_text: answer.text,
+      confidence: answer.confidence ?? null,
       answer_message_id: answer.messageId,
       answered_at: new Date().toISOString(),
     })

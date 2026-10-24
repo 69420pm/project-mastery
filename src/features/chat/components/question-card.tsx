@@ -43,7 +43,7 @@ export function QuestionCard({
   state: QuestionState | undefined;
   /** False while a reply is on its way or at the Daily limit. */
   canAnswer: boolean;
-  onAnswer: (text: string) => void;
+  onAnswer: (text: string, confidence: number | undefined) => void;
 }) {
   const [answering, setAnswering] = useState(false);
   const status = state?.status ?? "open";
@@ -59,9 +59,9 @@ export function QuestionCard({
       {showBox ? (
         <AnswerBox
           canAnswer={canAnswer}
-          onSubmit={(text) => {
+          onSubmit={(text, confidence) => {
             setAnswering(false);
-            onAnswer(text);
+            onAnswer(text, confidence);
           }}
         />
       ) : status === "submitted" ? (
@@ -88,9 +88,10 @@ function AnswerBox({
   onSubmit,
 }: {
   canAnswer: boolean;
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, confidence: number | undefined) => void;
 }) {
   const [text, setText] = useState("");
+  const [confidence, setConfidence] = useState<number>();
   const id = useId();
   const tooLong = text.length > MAX_MESSAGE_LENGTH;
   const submittable = canAnswer && text.trim() !== "" && !tooLong;
@@ -99,7 +100,7 @@ function AnswerBox({
       className="flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        if (submittable) onSubmit(text);
+        if (submittable) onSubmit(text, confidence);
       }}
     >
       <label htmlFor={id} className="sr-only">
@@ -121,7 +122,32 @@ function AnswerBox({
           <Markdown>{text}</Markdown>
         </div>
       )}
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <div
+          role="radiogroup"
+          aria-label="How sure are you?"
+          className="mr-auto flex items-center gap-1.5"
+        >
+          <span className="text-muted-foreground" aria-hidden>
+            How sure are you?
+          </span>
+          {[1, 2, 3, 4].map((value) => (
+            <Button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={confidence === value}
+              aria-label={`Confidence ${value} of 4`}
+              size="icon-sm"
+              variant={confidence === value ? "default" : "outline"}
+              onClick={() =>
+                setConfidence(confidence === value ? undefined : value)
+              }
+            >
+              {value}
+            </Button>
+          ))}
+        </div>
         {tooLong && (
           <p role="alert" className="mr-auto text-destructive">
             Keep your answer under {MAX_MESSAGE_LENGTH.toLocaleString("en-US")}{" "}

@@ -1,5 +1,7 @@
 # Spaced repetition: a review ladder now, FSRS later
 
+**Status.** Superseded by [ADR 0019](0019-fsrs-replay.md): FSRS replaced the ladder in M2 (#174).
+
 **Context.** Spaced retrieval is central to [VISION.md](../../VISION.md), and scheduling algorithms are a solved problem. FSRS, the best-studied one, schedules from a memory model whose parameters are fitted to a Student's review history; with no history, it runs on population defaults tuned for flashcards, not for KCs reviewed through problems in a Chat.
 
 **Decision.** Schedule reviews on a fixed review ladder until there is history to fit FSRS (`ts-fsrs`) to (#103). Code replays a KC's attempts in time order (`src/features/study/domain/ladder.ts`) into a level from 1 to 5, with intervals of 1, 3, 7, 14 and 30 days, capped by the exam date. The `attempts` log is the only stored state of a Student's learning: no per-KC state and no mastery number.

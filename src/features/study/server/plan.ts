@@ -3,9 +3,9 @@ import { z } from "zod";
 import { getExamFacts } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
-import { utcDay } from "@/features/study/domain/ladder";
 import { planStudy } from "@/features/study/domain/plan";
-import { loadLadder } from "@/features/study/server/attempts";
+import { utcDay } from "@/features/study/domain/replay";
+import { loadSchedules } from "@/features/study/server/attempts";
 import type { StudyPlan } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -32,13 +32,19 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
     loadKcPriorities(supabase, courseId),
     getExamFacts(supabase, courseId),
   ]);
-  const ladder = await loadLadder(supabase, courseId, exam.examDate);
+  const now = new Date();
+  const schedules = await loadSchedules(
+    supabase,
+    courseId,
+    { examDate: exam.examDate, goal: exam.goal, priorities },
+    now,
+  );
   const { phase, pacing } = planStudy({
     kcs: map.kcs,
     priorities,
-    taught: new Set(ladder.keys()),
+    taught: new Set(schedules.keys()),
     exam,
-    today: utcDay(new Date()),
+    today: utcDay(now),
   });
   const kcName = new Map(map.kcs.map((kc) => [kc.id, kc.name]));
   return {

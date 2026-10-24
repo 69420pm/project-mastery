@@ -67,15 +67,23 @@ function describeCandidates(groups: CandidateGroup[]): string {
 
 function describeReviews({ kcs, more }: DueReviews): string {
   if (kcs.length === 0) return "No reviews are due.";
-  const lines = kcs.map(({ id, name, type, level, daysOverdue }) => {
-    const due =
-      daysOverdue === 0
-        ? "due today"
-        : `overdue by ${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`;
-    return `- ${name} (id ${id}, ${type}; level ${level}, ${due})`;
+  // Contexts stored before FSRS (#174), which the Context sheet re-renders,
+  // have no recall.
+  const lines = kcs.map((kc) => {
+    const { id, name, type } = kc;
+    const { retrievability } = kc as { retrievability?: number };
+    const recall =
+      retrievability === undefined
+        ? ""
+        : `; recall today ${Math.round(retrievability * 100)}%`;
+    return `- ${name} (id ${id}, ${type}${recall})`;
   });
   const rest = more > 0 ? [`… and ${more} more due.`] : [];
-  return [`Due reviews, most urgent first:`, ...lines, ...rest].join("\n");
+  return [
+    `Due reviews, most urgent first (recall today is the chance the Student still remembers the KC):`,
+    ...lines,
+    ...rest,
+  ].join("\n");
 }
 
 function describeMap(context: TutorContext): string {
