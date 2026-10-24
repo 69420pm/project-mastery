@@ -80,24 +80,24 @@ Every reply checks the Student's Daily limit first and is refused with 429 at th
 
 ## Tables
 
-- **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`).
-- **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`), `chunks` and `exercise_solutions`.
+- **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`). `topic_choices` (owner, Topic, `choice` pinned or skipped, `created_at`, one row per Topic), which the Student reads, writes and deletes only for Topics of their own Courses; the owner is set by the database and only `topic_id`, `choice` and `created_at` are granted for insert and update.
+- **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`, `topics`), `chunks`, `exercise_solutions`, and for the measured pace `study_sessions`, `questions` and `chat_messages`.
 - **Written elsewhere:** `ai_usage`. The `append_memory` function (`security invoker`) writes the Memory line.
 
-Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memories.sql` and `20261016120000_create_append_memory.sql`.
+Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memories.sql` and `20261016120000_create_append_memory.sql` and `20261024140000_create_topic_choices.sql`.
 
 ## Where to change things
 
 - **Code:** `src/features/study/`. The prompt is in `ai/instructions.ts`, the tool schemas and descriptions in `ai/tools.ts`, the context and tool actions in `server/tutoring.ts`, the storage in `server/`, and the pure rules in `domain/`, with tests beside them.
 - **Reply loop:** `src/features/chat/server/handler.ts` (steps, Daily limit, usage) and `src/features/chat/ai/reply.ts` (the instructions and the model settings).
-- **UI:** the plan line, the "won't fit" badge and the state badges in `src/features/knowledge-map/components/` (`study-plan.tsx`, `kc-priority.tsx`, `knowledge-map.tsx`); the Memory card on the Brief page in `src/features/study/components/memory-card.tsx`.
+- **UI:** in `src/features/study/components/`: the fit line and the Topics that won't fit (`study-plan.tsx`), the Today card (`today-card.tsx`), Pin and Skip on the Topic page (`topic-choice-controls.tsx`, calling the `setTopicChoice` Server Action in `server/actions.ts`) and the Memory card on the Brief page (`memory-card.tsx`).
 - **Model:** the `chat` task in `AI_TASKS` in `src/lib/ai/models.ts`.
 - **Prompt changes:** run the `chat` eval, as ADR 0012 and [live-ai.md](../agents/live-ai.md) describe.
 
 ## Checks
 
 - `pnpm test:run` covers the pure rules (FSRS replay, reviews, plan, pace, the Today card, Exercises), the Memory save action, and the Chat handler tests (`handler.tutor`, `handler.attempts`, `handler.memory`). The handler tests run replies in-process, with mock models and a fake Supabase.
-- `pnpm db:test` covers the policies, grants and cascades of `attempts` and `memories`, and `append_memory` (`attempts.test.sql`, `memories.test.sql`).
+- `pnpm db:test` covers the policies, grants and cascades of `attempts`, `memories` and `topic_choices`, and `append_memory` (`attempts.test.sql`, `memories.test.sql`, `topic_choices.test.sql`).
 - `pnpm test:e2e` covers `e2e/memory.spec.ts`, the Memory on the Brief page.
 - `pnpm smoke tutor` runs real exchanges through the Chat handler on the jet-engines gold map with one Topic per Big idea and stand-in sources. Before anything is taught, a greeting must read the next Topic's KCs before any text. Then, with two KCs due, it sends a greeting, a plausible answer and a learning preference, and checks that the first reply reads a due KC and ends with a question, that every KC id the AI uses comes from its context or a tool's result, that the answer records an attempt on a KC of the Course, that the preference adds a Memory line, and that no ids or tool names appear in the text. It calls a live model, so [live-ai.md](../agents/live-ai.md) applies.
 
@@ -108,9 +108,9 @@ From the deferred items of #101 and its build order:
 - Generated problems, a math or code tool for checking answers, and the problem store (milestone 2).
 - Session flags, the constraint log and the weekly reading routine (milestone 6).
 - The pilot items (milestone 7): reserving an old exam for the final week, a guarantee that every high-priority KC gets a review in the final week (the final-week guidance asks only for mixed review), and asking for grades.
-- Plan: personal pace (time is not measured, and every KC takes a fixed 30 minutes), goal handling beyond the AI's context, move, pin and skip controls, an "if time allows" group, and an AI summary of the plan.
+- Plan: moving a Topic by hand, an AI summary of the plan, reading time in active time (M4), and starting a Chat on a chosen Topic (M4).
 - Memory: topic notes, session notes, consolidation, a trigger for ending a Chat, and pinned instructions. The Student edits the whole text, not single notes.
 - Guidance from #101 that the instructions do not yet give: active recall every two or three KCs, asking for confidence before a reveal, probing known misconceptions, asking why a step works after a correct answer, saying so when help is used without an attempt, and steering difficulty beyond fading scaffolds. Interleaving easily confused KCs (the `contrasts_with` links in #101) is also not built.
-- Stored topics, a mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, and photos of handwritten work, which #101 leaves untested.
+- A mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, and photos of handwritten work, which #101 leaves untested.
 
-The open decisions of #101 stay open: what ends a Chat for notes and consolidation, whether the plan needs stored topics, how pacing measures time, and how handwritten work is submitted and read.
+The open decisions of #101 stay open: what ends a Chat for notes and consolidation, and how handwritten work is submitted and read.
