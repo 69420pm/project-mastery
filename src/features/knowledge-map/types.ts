@@ -183,6 +183,15 @@ export type MapTopic = {
   kcs: Array<{ id: string; name: string }>;
 };
 
+/** A Topic as its page shows it, with what a Student reads around it. */
+export type MapTopicDetail = MapTopic & {
+  whyItMatters: string;
+  /** Prerequisites from outside the Topic, prior KCs included. */
+  anchors: Array<{ id: string; name: string }>;
+  /** Such as "Lecture 1, pp. 3–5", linking to the section's first chunk. */
+  readingSections: Array<{ label: string; href: string }>;
+};
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;

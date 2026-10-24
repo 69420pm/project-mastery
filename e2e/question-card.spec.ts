@@ -6,8 +6,14 @@ import { adminClient, expect, test } from "./fixtures";
  * answer from the card makes it grade every KC full.
  */
 
-/** Stores a one-KC Knowledge map in the Course; returns the KC's name. */
-async function seedKc(owner: string, courseId: string): Promise<string> {
+/**
+ * Stores a one-KC Knowledge map with its Topic in the Course; returns the
+ * KC's name and the Topic's id.
+ */
+async function seedKc(
+  owner: string,
+  courseId: string,
+): Promise<{ name: string; topicId: string }> {
   const admin = adminClient();
   const owned = { owner, course_id: courseId };
   const bigIdea = await admin
@@ -17,18 +23,40 @@ async function seedKc(owner: string, courseId: string): Promise<string> {
     .single();
   if (bigIdea.error) throw new Error(bigIdea.error.message);
   const name = "Thrust equation";
-  const kc = await admin.from("kcs").insert({
-    ...owned,
-    big_idea_id: bigIdea.data.id,
-    name,
-    description: "Thrust is mass flow times the change in velocity.",
-    type: "procedure",
-    bloom: "apply",
-    origin: "content",
-    position: 0,
-  });
+  const kc = await admin
+    .from("kcs")
+    .insert({
+      ...owned,
+      big_idea_id: bigIdea.data.id,
+      name,
+      description: "Thrust is mass flow times the change in velocity.",
+      type: "procedure",
+      bloom: "apply",
+      origin: "content",
+      position: 0,
+    })
+    .select("id")
+    .single();
   if (kc.error) throw new Error(kc.error.message);
-  return name;
+  // The Topic page is where the map shows the KC.
+  const topic = await admin
+    .from("topics")
+    .insert({
+      ...owned,
+      big_idea_id: bigIdea.data.id,
+      name: "Thrust basics",
+      central_question: "What makes a rocket accelerate?",
+      why_it_matters: "Thrust drives every launch.",
+      position: 0,
+    })
+    .select("id")
+    .single();
+  if (topic.error) throw new Error(topic.error.message);
+  const link = await admin
+    .from("topic_kcs")
+    .insert({ topic_id: topic.data.id, kc_id: kc.data.id, owner, position: 0 });
+  if (link.error) throw new Error(link.error.message);
+  return { name, topicId: topic.data.id };
 }
 
 test("the AI asks on a question card, the Student answers there, and the card shows graded", async ({
@@ -36,7 +64,7 @@ test("the AI asks on a question card, the Student answers there, and the card sh
   student,
   course,
 }) => {
-  const kcName = await seedKc(student.id, course.id);
+  const { name: kcName } = await seedKc(student.id, course.id);
   await page.goto(course.chatPath);
 
   const message = page.getByRole("textbox", { name: "Message" });
@@ -90,7 +118,7 @@ test("after an answered card, End session makes the Chat read-only and schedules
   student,
   course,
 }) => {
-  await seedKc(student.id, course.id);
+  const { name: kcName, topicId } = await seedKc(student.id, course.id);
   await page.goto(course.chatPath);
 
   const message = page.getByRole("textbox", { name: "Message" });
@@ -121,4 +149,18 @@ test("after an answered card, End session makes the Chat read-only and schedules
   await ended.getByRole("link", { name: "Start new session" }).click();
   await expect(page).toHaveURL(new RegExp(`${course.chatPath}$`));
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
+
+  // The ended session created the KC's card: its Topic page shows the next
+  // review.
+  await page.goto(`/courses/${course.id}/map/${topicId}`);
+  await page
+    .getByRole("application", { name: "Knowledge map graph" })
+    .getByRole("button", { name: new RegExp(`^${kcName}`) })
+    .first()
+    .click();
+  await expect(
+    page
+      .getByLabel("KC details", { exact: true })
+      .getByRole("region", { name: "Learning" }),
+  ).toContainText("Next review");
 });

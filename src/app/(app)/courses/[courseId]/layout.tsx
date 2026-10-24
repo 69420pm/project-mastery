@@ -19,7 +19,12 @@ import {
   materialsPath,
 } from "@/features/courses";
 import { getCourse, getCourseList } from "@/features/courses/server";
-import { CourseMapLink, courseMapPath } from "@/features/knowledge-map";
+import {
+  CourseMapLink,
+  TopicTitle,
+  courseMapPath,
+} from "@/features/knowledge-map";
+import { getTopicNames } from "@/features/knowledge-map/server";
 import { getUser } from "@/lib/auth/user";
 import { isSidebarOpen } from "@/lib/sidebar-state";
 
@@ -38,13 +43,15 @@ export default async function CourseLayout({
   params,
 }: LayoutProps<"/courses/[courseId]">) {
   const { courseId } = await params;
-  const [user, course, courses, chats, cookieStore] = await Promise.all([
-    getUser(),
-    getCourse(courseId),
-    getCourseList(),
-    getChatList(courseId),
-    cookies(),
-  ]);
+  const [user, course, courses, chats, topicNames, cookieStore] =
+    await Promise.all([
+      getUser(),
+      getCourse(courseId),
+      getCourseList(),
+      getChatList(courseId),
+      getTopicNames(courseId),
+      cookies(),
+    ]);
   // Signed out, the page sends the Student to sign in instead.
   if (user && !course) notFound();
 
@@ -85,7 +92,14 @@ export default async function CourseLayout({
                   href: materialsPath(course.id),
                 },
                 { path: briefPath(course.id), label: "Brief" },
-                { path: courseMapPath(course.id), label: "Course map" },
+                {
+                  path: courseMapPath(course.id),
+                  label: "Course map",
+                  href: courseMapPath(course.id),
+                  detail: (
+                    <TopicTitle courseId={course.id} topics={topicNames} />
+                  ),
+                },
               ]}
             />
           )

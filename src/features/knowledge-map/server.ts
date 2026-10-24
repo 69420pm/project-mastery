@@ -11,6 +11,7 @@ export { getChunkFindings } from "./server/chunk-findings";
 export { loadCourseTopics, type CourseTopic } from "./server/course-topics";
 export { getFindings } from "./server/findings";
 export { getKnowledgeMap } from "./server/queries";
+export { getTopicNames } from "./server/topic-names";
 export {
   answerFinding,
   getOpenFindings,

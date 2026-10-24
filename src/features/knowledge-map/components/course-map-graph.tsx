@@ -47,7 +47,9 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
       <Link
         href={href}
         aria-label={topic.name}
-        className="flex size-full flex-col gap-1 rounded-lg border bg-card px-3 py-2 text-left text-sm shadow-xs transition-colors hover:border-ring"
+        // React Flow switches pointer events off on nodes that can't be
+        // dragged or selected; the card is a link, so it turns them on.
+        className="pointer-events-auto flex size-full flex-col gap-1 rounded-lg border bg-card px-3 py-2 text-left text-sm shadow-xs transition-colors hover:border-ring"
       >
         <div className="line-clamp-2 font-medium">
           <Markdown>{topic.name}</Markdown>

@@ -24,6 +24,8 @@ export type BreadcrumbSection = {
   exact?: boolean;
   /** Where the crumb leads when the current page is below `path`. */
   href?: string;
+  /** A last crumb after the section, shown on the pages below `path`. */
+  detail?: ReactNode;
 };
 
 /** The section the path is in: an exact match first, then the longest. */
@@ -78,6 +80,16 @@ export function PathBreadcrumb({
               <BreadcrumbPage className="truncate">{last.label}</BreadcrumbPage>
             )}
           </BreadcrumbItem>
+        )}
+        {section?.detail && pathname !== section.path && (
+          <>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem className="min-w-0">
+              <BreadcrumbPage className="truncate">
+                {section.detail}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </>
         )}
       </BreadcrumbList>
     </Breadcrumb>

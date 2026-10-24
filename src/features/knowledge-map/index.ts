@@ -4,6 +4,8 @@
 export { CourseMap } from "./components/course-map";
 export { CourseMapLink } from "./components/course-map-link";
 export { KnowledgeMap } from "./components/knowledge-map";
+export { TopicDetail } from "./components/topic-detail";
+export { TopicTitle } from "./components/topic-title";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export type { FinalAnswer } from "./schemas";
 export type {
@@ -11,5 +13,6 @@ export type {
   MapKcLearning,
   MapPriorities,
   MapTopic,
+  MapTopicDetail,
   ReviewFinding,
 } from "./types";

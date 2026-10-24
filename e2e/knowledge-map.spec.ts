@@ -52,4 +52,62 @@ test("a parsed Material is built into a Course map of Topics", async ({
     "href",
     new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
   );
+
+  // Opening a Topic shows its detail and its KC graph.
+  await card.click();
+  await expect(page).toHaveURL(
+    new RegExp(`^.*/courses/${course.id}/map/[0-9a-f-]{36}$`),
+  );
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "Mock text from the mock AI",
+  );
+  await expect(
+    page.getByRole("region", { name: "Central question" }),
+  ).toBeVisible();
+  // The breadcrumb reads Course map › Topic name.
+  const breadcrumb = page.getByRole("navigation", { name: "breadcrumb" });
+  await expect(
+    breadcrumb.getByRole("link", { name: "Course map" }),
+  ).toBeVisible();
+  await expect(breadcrumb).toContainText("Mock text from the mock AI");
+
+  // The mock names every KC with its text and teaches it on pages 1–2.
+  const kcGraph = page.getByRole("application", {
+    name: "Knowledge map graph",
+  });
+  // Without Big-idea groups the KCs are laid out again, flat.
+  await page.getByRole("button", { name: "Layers" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }).click();
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }),
+  ).not.toBeChecked();
+  await page.keyboard.press("Escape");
+  await kcGraph
+    .getByRole("button", { name: /^Mock text from the mock AI/ })
+    .first()
+    .click();
+  // Beside the graph, or in a Sheet on a phone.
+  const panel = page.getByLabel("KC details", { exact: true });
+  const overview = panel.getByRole("region", { name: "Overview" });
+  await expect(overview).toContainText("Mock text from the mock AI");
+  await expect(overview).toContainText("Fact");
+  await expect(panel.getByRole("region", { name: "Learning" })).toContainText(
+    "No attempts yet.",
+  );
+  await expect(panel.getByRole("region", { name: "Sources" })).toContainText(
+    "two-page-lecture pp. 1–2",
+  );
+  // The mock parse labels no chunk an exercise.
+  await expect(panel.getByRole("region", { name: "Exercises" })).toContainText(
+    "No Exercise tests it.",
+  );
+  // The built map starts the priorities; a KC no exam, Exercise or KC
+  // needs ranks low. The panel stays open while the page polls.
+  await expect(
+    panel.getByRole("region", { name: "Priority" }).getByText("Low priority"),
+  ).toBeVisible({ timeout: 30_000 });
+
+  // Esc clears the selection.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
 });
