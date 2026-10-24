@@ -33,6 +33,19 @@ import {
   type Prerequisite,
 } from "@/features/knowledge-map/domain/links";
 import {
+  MODE_CALL_FAILED_REASON,
+  WRITING_CALL_FAILED_REASON,
+} from "@/features/knowledge-map/domain/reading-checks";
+import {
+  readingCallInput,
+  type ReadingCallInput,
+} from "@/features/knowledge-map/domain/reading-input";
+import {
+  readingSections,
+  sectionsToStore,
+  type ReadingSection,
+} from "@/features/knowledge-map/domain/topic-reading";
+import {
   topicsOnMap,
   unplacedKcs,
   withTopicRules,
@@ -59,6 +72,13 @@ import {
   storeMap,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  chooseReadingMode,
+  loadReadingChunks,
+  loadReadingInput,
+  storeReadingSections,
+  writeReading,
+} from "@/features/knowledge-map/workflows/reading-steps";
 import {
   groupTopics,
   loadTopicsInput,
@@ -88,13 +108,17 @@ import {
  * pairs (`withoutDuplicates`). (7) Code checks the whole map, which is
  * stored with its check report, keeping the ids of its stored rows, and the
  * new chunks are recorded as processed. (2b) The Topics stage then groups
- * the stored map's unplaced KCs into Topics (`buildTopics`), and storing
- * them marks the build built. With nothing new and every KC placed, the
- * update makes no model call. A step that fails for good, or a reached
- * Daily limit, fails the build with a reason: before the map is stored, it
- * leaves the stored map and its chunks new; in the Topics stage, the map
- * stays stored and the next update runs the Topics stage again. A deleted
- * Course stops it quietly.
+ * the stored map's unplaced KCs into Topics (`buildTopics`). (2c) The Reading
+ * stage then cuts each Topic's Reading sections and gives each new one a
+ * reading mode and texts (`buildReading`), and storing them marks the build
+ * built. With nothing new, every KC placed and no new section, the update
+ * makes no model call. A step that fails for good, or a reached Daily limit,
+ * fails the build with a reason: before the map is stored, it leaves the
+ * stored map and its chunks new; in the Topics stage, the map stays stored
+ * and the next update runs the Topics stage again; in the Reading stage, the
+ * Topics and the sections judged so far are stored, and the next update
+ * judges the rest. A failed `reading` call only leaves its section
+ * `original`, for good. A deleted Course stops it quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -248,7 +272,12 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       ),
     );
     const topics = await buildTopics(courseId);
-    if (!topics.ok) await failBuild(courseId, topics.reason);
+    if (!topics.ok) {
+      await failBuild(courseId, topics.reason);
+      return;
+    }
+    const reading = await buildReading(courseId);
+    if (!reading.ok) await failBuild(courseId, reading.reason);
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);
@@ -259,8 +288,7 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
  * Stage 2b, Topics (#175), on the stored map: one `topic` call per Big idea
  * with a non-prior KC no Topic holds, after removed and moved KCs left their
  * Topics, so an unchanged Big idea costs nothing. Code then merges small
- * Topics and orders KCs and Topics over all Big ideas, and stores them,
- * which marks the build built.
+ * Topics and orders KCs and Topics over all Big ideas, and stores them.
  */
 async function buildTopics(courseId: string): Promise<StepOutcome<null>> {
   const input = await loadTopicsInput(courseId);
@@ -286,6 +314,121 @@ async function buildTopics(courseId: string): Promise<StepOutcome<null>> {
     ),
   );
   return { ok: true, value: null };
+}
+
+/**
+ * Stage 2c, Reading (#178), on the stored Topics: cuts each Topic's Reading
+ * sections from the chunks its KCs cite and keeps the stored sections with
+ * the same chunks. Each new section gets a mode call and, unless it stays
+ * `original`, a writing call (`judgeSection`), `READING_BATCH` sections at a
+ * time. Storing the sections marks the build built. A reached Daily limit
+ * starts no further batch and stores the kept and judged sections without
+ * marking the build built, so the next build judges only the missing ones.
+ */
+async function buildReading(courseId: string): Promise<StepOutcome<null>> {
+  const input = await loadReadingInput(courseId);
+  if (!input) return { ok: true, value: null };
+  const sections = sectionsToStore(
+    input.topics.map((topic) => ({
+      topicId: topic.id,
+      sections: readingSections(
+        topic.kcs.flatMap(
+          (id) => input.kcs.find((kc) => kc.id === id)?.sources ?? [],
+        ),
+        input.spans,
+      ),
+    })),
+    input.stored,
+  );
+  const fresh = sections.filter((section) => section.id === null);
+  const chunks =
+    fresh.length > 0
+      ? await loadReadingChunks(
+          fresh.flatMap((section) => section.cut.chunkIds),
+        )
+      : {};
+  const texts = new Map<
+    (typeof fresh)[number],
+    Pick<ReadingSection, "mode" | "reason" | "annotations" | "studyText">
+  >();
+  let failure: { ok: false; reason: string } | null = null;
+  for (let start = 0; start < fresh.length; start += READING_BATCH) {
+    const batch = fresh.slice(start, start + READING_BATCH);
+    const judged = await Promise.all(
+      batch.map((section) => {
+        const topic = input.topics.find((item) => item.id === section.topicId);
+        if (!topic) throw new Error(`Unknown topic ${section.topicId}.`);
+        return judgeSection(
+          input.studentId,
+          readingCallInput(topic, section.cut, input.kcs, chunks),
+        );
+      }),
+    );
+    for (const [index, outcome] of judged.entries()) {
+      const section = batch[index];
+      if (outcome.ok && section) texts.set(section, outcome.value);
+      else if (!outcome.ok) failure ??= outcome;
+    }
+    if (failure) break;
+  }
+  await storeReadingSections(
+    courseId,
+    sections.flatMap((section) => {
+      if (section.id !== null) return [section];
+      const judged = texts.get(section);
+      return judged ? [{ ...section, ...judged }] : [];
+    }),
+    failure === null,
+  );
+  return failure ?? { ok: true, value: null };
+}
+
+/**
+ * The most new sections whose `reading` calls run at once. The Daily limit
+ * is checked per call, so this bounds how far a build overshoots it.
+ */
+const READING_BATCH = 4;
+
+/**
+ * A new section's mode and texts: the mode call, then for an `annotated` or
+ * `study_text` mode the writing call. A call that fails for good leaves the
+ * section `original` with the reason; a reached Daily limit stops the build.
+ */
+async function judgeSection(
+  studentId: string,
+  input: ReadingCallInput,
+): Promise<
+  StepOutcome<
+    Pick<ReadingSection, "mode" | "reason" | "annotations" | "studyText">
+  >
+> {
+  const original = (reason: string) => ({
+    ok: true as const,
+    value: {
+      mode: "original" as const,
+      reason,
+      annotations: null,
+      studyText: null,
+    },
+  });
+  let judged: Awaited<ReturnType<typeof chooseReadingMode>>;
+  try {
+    judged = await chooseReadingMode(studentId, input);
+  } catch (error) {
+    console.error("The mode call failed:", error);
+    return original(MODE_CALL_FAILED_REASON);
+  }
+  if (!judged.ok) return judged;
+  const { mode, reason } = judged.value;
+  if (mode === "original") return original(reason);
+  try {
+    const written = await writeReading(studentId, input, { mode, reason });
+    if (!written.ok) return written;
+    return { ok: true, value: { mode, reason, ...written.value } };
+  } catch (error) {
+    console.error("The writing call failed:", error);
+    return original(WRITING_CALL_FAILED_REASON);
+  }
 }
 
 /**

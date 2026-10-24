@@ -2,8 +2,28 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { materialChunksPath } from "@/features/courses/server";
 import { chunkAnchor } from "@/features/ingestion/server";
-import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 import type { Supabase } from "@/lib/supabase/types";
+import {
+  ANSWERED,
+  BIG_IDEA,
+  C1,
+  C2,
+  C3,
+  COURSE,
+  createDb,
+  D1,
+  EXERCISE,
+  id,
+  K1,
+  K2,
+  LECTURE,
+  OPEN,
+  OTHER_COURSE,
+  OTHER_OPEN,
+  PRIOR,
+  T1,
+  T2,
+} from "./readers-testing";
 
 /**
  * The Knowledge map's server reads on one seeded Course: the map view, the
@@ -11,201 +31,9 @@ import type { Supabase } from "@/lib/supabase/types";
  * from and the Findings of a Material's chunks.
  */
 
-const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
-const OTHER_COURSE = "aaaaaaaa-c000-4000-8000-000000000002";
-const id = (n: number) =>
-  `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const [LECTURE, NOTES] = [id(1), id(2)];
-// c1–c3 are Lecture 1's pages 1, 2–3 and 4; d1 is page 1 of the later Notes.
-const [C1, C2, C3, D1] = [id(11), id(12), id(13), id(14)];
-const [BIG_IDEA, K1, K2, PRIOR, EXERCISE] = [
-  id(21),
-  id(22),
-  id(23),
-  id(24),
-  id(25),
-];
-const [ANSWERED, OPEN, OTHER_OPEN] = [id(31), id(32), id(33)];
-const [T1, T2] = [id(41), id(42)];
-const topicText = (name: string) => ({
-  course_id: COURSE,
-  name,
-  central_question: `${name}?`,
-  why_it_matters: "It matters.",
-});
-
 let signedIn = true;
 let failing: string | undefined;
 let db = createDb();
-
-function createDb() {
-  const material = (materialId: string, name: string, createdAt: string) => ({
-    id: materialId,
-    course_id: COURSE,
-    name,
-    media_type: "application/pdf",
-    size_bytes: 1,
-    created_at: createdAt,
-    parse_status: "parsed",
-    is_exam: false,
-  });
-  const chunk = (
-    chunkId: string,
-    materialId: string,
-    position: number,
-    pages: [number, number],
-  ) => ({
-    id: chunkId,
-    material_id: materialId,
-    position,
-    page_from: pages[0],
-    page_to: pages[1],
-    markdown: `Text of ${chunkId}`,
-  });
-  const finding = (
-    findingId: string,
-    position: number,
-    status: string,
-    askedAt: string | null,
-  ) => ({
-    id: findingId,
-    course_id: COURSE,
-    kind: "solution_mismatch",
-    text: `Finding ${position}`,
-    status,
-    answer: status === "answered" ? "It is right." : null,
-    asked_at: askedAt,
-    answered_at: status === "answered" ? "2026-01-03" : null,
-    position,
-  });
-  const ofCourse = (rows: FakeRow[]) =>
-    rows.map((row) => ({ course_id: COURSE, ...row }));
-  return fakeSupabase({
-    tables: {
-      materials: [
-        material(NOTES, "Notes", "2026-01-02"),
-        material(LECTURE, "Lecture 1", "2026-01-01"),
-      ],
-      // Stored against reading order, which the readers restore.
-      chunks: [
-        chunk(D1, NOTES, 0, [1, 1]),
-        chunk(C3, LECTURE, 2, [4, 4]),
-        chunk(C2, LECTURE, 1, [2, 3]),
-        chunk(C1, LECTURE, 0, [1, 1]),
-      ],
-      knowledge_map_builds: ofCourse([
-        {
-          status: "built",
-          failure_reason: null,
-          finished_at: "2026-01-02",
-          check_report: {
-            uncoveredChunkIds: [D1],
-            ungroundedKcs: [],
-            orphanKcs: [],
-            droppedCycleEdges: [],
-          },
-        },
-      ]),
-      big_ideas: ofCourse([
-        { id: BIG_IDEA, name: "Thrust", description: "Force.", position: 0 },
-      ]),
-      kcs: ofCourse([
-        {
-          id: PRIOR,
-          big_idea_id: null,
-          name: "Newton",
-          description: "F = ma.",
-          type: "prior",
-          bloom: null,
-          origin: "prior",
-          position: 2,
-        },
-        {
-          id: K2,
-          big_idea_id: BIG_IDEA,
-          name: "Thrust equation",
-          description: "F = m(v2 - v1).",
-          type: "procedure",
-          bloom: "apply",
-          origin: "content",
-          position: 1,
-        },
-        {
-          id: K1,
-          big_idea_id: BIG_IDEA,
-          name: "Momentum",
-          description: "m v.",
-          type: "concept",
-          bloom: "understand",
-          origin: "content",
-          position: 0,
-        },
-      ]),
-      kc_sources: ofCourse([
-        { kc_id: K2, chunk_id: C2 },
-        { kc_id: K1, chunk_id: C1 },
-        { kc_id: K1, chunk_id: C2 },
-      ]),
-      prerequisite_links: ofCourse([
-        // Postgres returns a numeric as text.
-        { id: 1, from_kc: K1, to_kc: K2, extraction_confidence: "0.8" },
-      ]),
-      semantic_links: ofCourse([
-        { id: 1, from_kc: K2, to_kc: K1, core_type: "causes", label: "uses" },
-      ]),
-      exercises: ofCourse([
-        {
-          id: EXERCISE,
-          question_chunk_id: C3,
-          name: "Ex. 1",
-          task_type: "compute thrust",
-          solution_status: "generated",
-          solution: "F = 10 N.",
-          difficulty: 2,
-          position: 0,
-        },
-      ]),
-      exercise_kcs: ofCourse([
-        { exercise_id: EXERCISE, kc_id: K2 },
-        { exercise_id: EXERCISE, kc_id: K1 },
-      ]),
-      exercise_solutions: [] as FakeRow[],
-      findings: [
-        finding(ANSWERED, 0, "answered", "2026-01-02"),
-        finding(OPEN, 1, "open", "2026-01-02"),
-        finding(OTHER_OPEN, 2, "open", null),
-        {
-          ...finding(id(34), 0, "open", null),
-          course_id: OTHER_COURSE,
-        },
-      ],
-      finding_sources: ofCourse([
-        { finding_id: ANSWERED, chunk_id: C1 },
-        { finding_id: OPEN, chunk_id: D1 },
-        { finding_id: OPEN, chunk_id: C3 },
-        { finding_id: OPEN, chunk_id: C2 },
-        { finding_id: OTHER_OPEN, chunk_id: C2 },
-      ]),
-      knowledge_map_chunks: [] as FakeRow[],
-      topics: [
-        { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
-        { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },
-        {
-          id: id(43),
-          big_idea_id: BIG_IDEA,
-          position: 0,
-          ...topicText("Other"),
-          course_id: OTHER_COURSE,
-        },
-      ],
-      topic_kcs: [
-        { topic_id: T2, kc_id: K2, position: 0 },
-        { topic_id: T1, kc_id: K1, position: 0 },
-      ],
-    },
-    foreignKeys: { topic_kcs: { topic_id: "topics" } },
-  });
-}
 
 /** The client, whose reads of the `failing` table fail. */
 function client() {
@@ -414,21 +242,41 @@ describe("loadCourseTopics", () => {
         anchors: [],
         readingSections: [
           {
+            id: id(51),
             materialId: LECTURE,
             materialName: "Lecture 1",
             pageFrom: 1,
             pageTo: 3,
             chunkIds: [C1, C2],
+            mode: "annotated",
+            reason: "Reason.",
+            annotations: [
+              { page: 2, note: "Momentum is mass times velocity." },
+            ],
+            studyText: null,
           },
+          expect.objectContaining({ id: id(52), mode: "original" }),
         ],
       },
       expect.objectContaining({
         id: T2,
         kcs: [{ id: K2, name: "Thrust equation" }],
         anchors: [{ id: K1, name: "Momentum" }],
-        readingSections: [expect.objectContaining({ chunkIds: [C2] })],
+        readingSections: [
+          expect.objectContaining({
+            chunkIds: [C2],
+            mode: "study_text",
+            studyText: "Text. [p. 2]",
+          }),
+        ],
       }),
     ]);
+  });
+
+  test("gives a Topic without stored sections none", async () => {
+    db.tables.reading_sections = [];
+    const topics = await loadCourseTopics(COURSE);
+    expect(topics.map((topic) => topic.readingSections)).toEqual([[], []]);
   });
 
   test.each([

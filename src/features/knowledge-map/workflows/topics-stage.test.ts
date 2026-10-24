@@ -164,7 +164,8 @@ describe("the Topics stage", () => {
     broken = false;
     const calls = sent.length;
     expect(await update()).toBe("built");
-    expect(sent.slice(calls).every(isTopicCall)).toBe(true);
+    const mapCalls = sent.slice(calls).filter((input) => !("section" in input));
+    expect(mapCalls.every(isTopicCall)).toBe(true);
     expect(storedTopics().map((topic) => topic.kcs)).toEqual([
       ["Thrust", "Drag"],
       ["Fins", "Airflow"],

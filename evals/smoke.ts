@@ -21,6 +21,7 @@ import { briefSmoke } from "./smoke/brief";
 import { mapSmoke } from "./smoke/map";
 import { parseSmoke } from "./smoke/parse";
 import { prioritySmoke } from "./smoke/priority";
+import { readingSmoke } from "./smoke/reading";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 import { topicsSmoke } from "./smoke/topics";
 import { tutorSmoke } from "./smoke/tutor";
@@ -32,6 +33,7 @@ const CHECKS: SmokeCheck[] = [
   briefSmoke,
   prioritySmoke,
   topicsSmoke,
+  readingSmoke,
   tutorSmoke,
 ];
 
@@ -83,6 +85,7 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_MAP",
   "AI_MODEL_EXERCISE",
   "AI_MODEL_TOPIC",
+  "AI_MODEL_READING",
   "AI_MODEL_PRIORITY",
   "AI_MODEL_JUDGE",
 ];

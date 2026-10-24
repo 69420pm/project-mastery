@@ -1471,6 +1471,87 @@ export type Database = {
           },
         ];
       };
+      reading_sections: {
+        Row: {
+          annotations: Json | null;
+          chunk_ids: string[];
+          course_id: string;
+          generated_at: string;
+          id: string;
+          material_id: string;
+          mode: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          position: number;
+          reason: string;
+          study_text: string | null;
+          topic_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          annotations?: Json | null;
+          chunk_ids: string[];
+          course_id: string;
+          generated_at?: string;
+          id?: string;
+          material_id: string;
+          mode: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          position: number;
+          reason: string;
+          study_text?: string | null;
+          topic_id: string;
+        };
+        Update: {
+          annotations?: Json | null;
+          chunk_ids?: string[];
+          course_id?: string;
+          generated_at?: string;
+          id?: string;
+          material_id?: string;
+          mode?: string;
+          owner?: string;
+          page_from?: number;
+          page_to?: number;
+          position?: number;
+          reason?: string;
+          study_text?: string | null;
+          topic_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reading_sections_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reading_sections_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reading_sections_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reading_sections_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       semantic_links: {
         Row: {
           core_type: string;
@@ -1787,6 +1868,10 @@ export type Database = {
           p_material_id: string;
         };
         Returns: undefined;
+      };
+      replace_reading_sections: {
+        Args: { p_course_id: string; p_mark_built?: boolean; p_sections: Json };
+        Returns: boolean;
       };
       replace_topics: {
         Args: { p_course_id: string; p_topics: Json };

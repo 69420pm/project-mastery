@@ -1,6 +1,5 @@
 -- Topics (#175): only the build workflow writes them through
--- replace_topics, which keeps stored ids, drops left-out Topics and marks the
--- build built; a KC sits in at most one Topic; owners read their own. Run
+-- replace_topics, which keeps stored ids and drops left-out Topics; a KC sits in at most one Topic; owners read their own. Run
 -- with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -50,8 +49,10 @@ select results_eq(
   'Topics are stored in order with their KCs in teaching order');
 select is((select status from public.knowledge_map_builds
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
-  'built', 'storing Topics ends the build');
+  'building', 'storing Topics leaves the build running');
 
+update public.knowledge_map_builds set status = 'built'
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 set local role service_role;
 select is(
   public.replace_topics('aaaaaaaa-0000-0000-0000-000000000001', '[]'),

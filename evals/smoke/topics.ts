@@ -174,7 +174,7 @@ export const topicsSmoke: SmokeCheck = {
 };
 
 /** Runs the build workflow on the Course; returns the build's status. */
-async function build(supabase: Supabase, courseId: string) {
+export async function build(supabase: Supabase, courseId: string) {
   const { error } = await supabase
     .from("knowledge_map_builds")
     .update({ status: "building", failure_reason: null })

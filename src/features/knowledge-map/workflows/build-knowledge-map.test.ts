@@ -187,7 +187,7 @@ describe("building a Knowledge map", () => {
     // KCs go to the links call by their place in the map.
     expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k2"]);
     // One topic call for the big idea, on the stored map; prior KCs stay out.
-    expect(sent.at(-1)).toEqual({
+    expect(sent.findLast((input) => "storedTopics" in input)).toEqual({
       bigIdeaToGroup: {
         name: "Compression",
         description: "How air is compressed.",
@@ -205,12 +205,15 @@ describe("building a Knowledge map", () => {
       semanticLinks: [{ from: "k2", to: "k1", label: "raises" }],
       storedTopics: [],
     });
-    expect(sent).toHaveLength(7);
+    // Then a mode call per Reading section, which stays `original`.
+    expect(sent).toHaveLength(9);
     expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
       ...Array(5).fill("map"),
       "exercise",
       "embed",
       "topic",
+      "reading",
+      "reading",
     ]);
     expect(db.tables.topics).toMatchObject([
       { name: "New topic", big_idea_id: db.tables.big_ideas[0]?.id },
