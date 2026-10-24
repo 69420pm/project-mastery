@@ -6,7 +6,7 @@
 
 - **Retention** comes from the Brief's goal: `pass` 0.85, `good_grade` 0.90, `master_everything` 0.93, none 0.90.
 - **Ratings:** wrong or `solution_shown` is Again; partial, or full with `some` help, is Hard; full without help is Good. Easy needs the Student's confidence and their median answer time (#174, slice 3).
-- **What schedules:** `pre` attempts never do. A KC's first session with another attempt creates its card once that session has ended, rated by the KC's last attempt there and dated at it. In each later session only the KC's first attempt is a review.
+- **What schedules:** `pre` attempts never do. A KC's first session with another attempt creates its card once that session has ended, rated by the KC's last attempt there and dated at it. In each later session only the KC's first attempt is a review, unless it predates the card: a session that ran alongside the first one overlaps the attempts the card was made from, and FSRS cannot review a card before its last review.
 - **Session end:** `study_sessions.ended_at`, or else the Chat's newest message once it is more than 2 hours old, computed on read.
 - **Exam cap:** with the exam after a review's day, its due date is at most `max(1, floor(days left / 2))` days after it.
 - **Final-week sweep:** with an exam date not yet passed, the top half (rounded up) by Priority of the Course's KCs with a card whose last review is more than 7 days before `examDate − 3` become due on `examDate − 3` at the latest.

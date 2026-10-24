@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(23);
 
 insert into auth.users (id, email)
 values
@@ -121,7 +121,14 @@ select is(
     + (select count(*)::int from public.attempts),
   0,
   'another Student reads none of the questions, their KCs or attempts');
+select lives_ok(
+  $$update public.questions set confidence = 1$$,
+  'another Student''s write to confidence does not raise');
 reset role;
+select results_eq(
+  $$select confidence::int from public.questions$$,
+  $$values (4)$$,
+  'only the owner''s confidence is stored');
 
 delete from public.chats where id = 'cccccccc-0000-0000-0000-000000000001';
 select results_eq(

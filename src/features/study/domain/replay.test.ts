@@ -182,6 +182,18 @@ describe("replayKc", () => {
     expect(replayKc(later, ALL_ENDED)!.card!.lapses).toBe(1);
   });
 
+  test("skips a later session's first attempt that predates the card", () => {
+    const overlapping = [
+      attempt("s1", "2026-10-01T10:00:00Z"),
+      attempt("s2", "2026-10-01T10:10:00Z", "wrong"),
+      attempt("s1", "2026-10-01T10:30:00Z"),
+    ];
+
+    expect(replayKc(overlapping, ALL_ENDED)).toEqual(
+      replayKc([overlapping[0]!, overlapping[2]!], ALL_ENDED),
+    );
+  });
+
   test("caps a due date at half the days left to the exam", () => {
     const options = { ...ALL_ENDED, examDate: "2026-10-06" };
     const good = [attempt("s1", "2026-10-01T10:00:00Z")];
