@@ -1,5 +1,5 @@
 {
-  "description": "The AI's grade call on a Student's answer to a Question on a question card, on the jet-engines gold course (evals/gold/jet-engines): full answers by another method, partial answers, plausible wrong ones, unit slips, answers right after a large hint, and \"just tell me\". Each case gives the question, the reference the AI has read, the Student's answer and, per KC, the expected result and the expected help level. All labels are drafts until the maintainer confirms them. Exercise cases carry the Exercise's key, so the numeric check of the grade tool applies: a final value off the key turns every full into partial.",
+  "description": "The AI's grade call on a Student's answer to a Question on a question card, on the jet-engines gold course (evals/gold/jet-engines): full answers by another method, partial answers, plausible wrong ones, unit slips, answers right after a large hint, and \"just tell me\". Each case gives the question, the reference the AI has read, the Student's answer and, per KC, the expected result and the expected help level. The maintainer has checked every label by hand. Exercise cases carry the Exercise's key, so the numeric check of the grade tool applies: a final value off the key turns every full into partial.",
   "items": [
     {
       "id": "ex72a-full-momentum",
@@ -14,7 +14,7 @@
         "answer": "The nozzle is perfectly expanded, so the pressure term drops out and thrust is just the change in momentum flow: the air goes from 200 to 600 m/s, so ΔV = 400 m/s. F = 50 kg/s × 400 m/s = 20,000 N = 20 kN."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "full" },
           { "kcId": "KC06", "result": "full" }
@@ -35,7 +35,7 @@
         "answer": "Perfectly expanded, so no pressure term. Thrust = mass flow × (exit speed − flight speed) = 50 × (600 − 200) = 20000 N. That is about 4500 lbf."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "full" },
           { "kcId": "KC06", "result": "full" }
@@ -58,7 +58,7 @@
         "answer": "Power is force times velocity, and the useful velocity is the flight speed, not the jet speed: P = 20,000 N × 200 m/s = 4.0 × 10^6 W = 4 MW."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC06", "result": "full" },
           { "kcId": "KC07", "result": "full" }
@@ -81,7 +81,7 @@
         "answer": "Power = force × velocity. The thrust is 20 kN and the gas leaves at 600 m/s, so P = 20,000 × 600 = 12,000,000 W = 12 MW."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC06", "result": "partial" },
           { "kcId": "KC07", "result": "wrong" }
@@ -104,7 +104,7 @@
         "answer": "P = F × V0 = 20 kN × 200 m/s = 20 × 200 = 4000 W."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC06", "result": "partial" },
           { "kcId": "KC07", "result": "partial" }
@@ -125,7 +125,7 @@
         "answer": "Perfectly expanded, so F = m(Ve − V0) = 50 × (600 − 200) = 20000, which is 20 N."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "partial" },
           { "kcId": "KC06", "result": "partial" }
@@ -146,7 +146,7 @@
         "answer": "Perfectly expanded so F = ṁ(Ve − V0) = 50 × (600 − 200) = 20000."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "full" },
           { "kcId": "KC06", "result": "partial" }
@@ -167,7 +167,7 @@
         "answer": "No pressure term because the nozzle is perfectly expanded. F = ṁ (Ve − V0) = 50 × (600 − 200) = 50 × 40 = 2000 N = 2 kN."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "partial" },
           { "kcId": "KC06", "result": "partial" }
@@ -198,7 +198,7 @@
         "answer": "F = 50 × (600 − 200) = 50 × 400 = 20,000 N = 20 kN."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "full" },
           { "kcId": "KC06", "result": "full" }
@@ -228,7 +228,7 @@
         "answer": "P = 20,000 N × 200 m/s = 4,000,000 W = 4 MW."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC06", "result": "full" },
           { "kcId": "KC07", "result": "full" }
@@ -259,7 +259,7 @@
         "answer": "F = 50 × (600 − 200) = 20,000 N = 20 kN, with no pressure term because the nozzle is perfectly expanded."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "full" },
           { "kcId": "KC06", "result": "full" }
@@ -280,7 +280,7 @@
         "answer": "Just tell me the answer."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC05", "result": "wrong" },
           { "kcId": "KC06", "result": "wrong" }
@@ -303,7 +303,7 @@
         "answer": "r_p = 12 and γ = 1.4, so the exponent is (γ−1)/γ = 0.4/1.4 = 0.2857. (1/12)^0.2857 = 0.492, so η_th = 1 − 0.492 = 0.508, about 50.8 %."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC22", "result": "full" },
           { "kcId": "KC23", "result": "full" },
@@ -328,7 +328,7 @@
         "answer": "η_th = 1 − (1/12)^(0.4/1.4) = 1 − (1/12)^0.2857 ≈ 1 − 0.535 = 0.465, so about 46.5 %."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC22", "result": "partial" },
           { "kcId": "KC23", "result": "partial" },
@@ -353,7 +353,7 @@
         "answer": "The pressure ratio is 12 and γ is 1.4. I used η = 1 − r_p^((γ−1)/γ) = 1 − 12^0.2857 = 1 − 2.03 = −1.03. That can't be right, but I don't see my mistake."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC22", "result": "partial" },
           { "kcId": "KC23", "result": "partial" },
@@ -388,7 +388,7 @@
         "answer": "η = 1 − (1/12)^0.2857 = 1 − 0.492 = 0.508, so 50.8 %."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC22", "result": "full" },
           { "kcId": "KC23", "result": "full" },
@@ -411,7 +411,7 @@
         "answer": "General thrust: F = ṁ(Ve − V0) + (pe − p0)Ae. The nozzle is perfectly expanded so the pressure term is zero. F = 400 × (320 − 250) = 28,000 N = 28 kN. In pounds-force: 28,000 / 4.448 ≈ 6,300 lbf, which is plausible for one engine of a regional jet."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC04", "result": "full" },
           { "kcId": "KC05", "result": "full" },
@@ -434,7 +434,7 @@
         "answer": "The thrust equation is F = ṁ(Ve − V0) + (pe − p0)Ae, and the second term is zero for a perfectly expanded nozzle. So F = 400 × 70 = 28 kN."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC04", "result": "full" },
           { "kcId": "KC05", "result": "full" },
@@ -457,7 +457,7 @@
         "answer": "Thrust is the mass flow times the exhaust velocity, F = 400 × 320 = 128,000 N = 128 kN. That is 128,000 / 4.448 ≈ 28,800 lbf, which is a lot but it is a big engine."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC04", "result": "wrong" },
           { "kcId": "KC05", "result": "partial" },
@@ -480,7 +480,7 @@
         "answer": "Propulsive efficiency is the useful propulsive power divided by the power added to the air, and it is highest when the exhaust speed is only a bit above the flight speed, because the wasted jet kinetic energy goes with the square of (Ve − V0) but thrust only with the difference itself. A turbojet gives a small air mass a big speed increase: high exhaust velocity, much wasted energy, poor efficiency at airliner speed. A turbofan with bypass ratio 8:1 (8 kg of bypass air per kg through the core) moves a much larger mass by a smaller speed increase, gets the same thrust and wastes much less energy. That is why it dominates commercial aviation."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC28", "result": "full" },
           { "kcId": "KC29", "result": "full" },
@@ -504,7 +504,7 @@
         "answer": "The turbofan moves more air but more slowly, so less energy is wasted in the jet and it is more efficient. The turbojet shoots out a small amount of air very fast."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC28", "result": "wrong" },
           { "kcId": "KC29", "result": "partial" },
@@ -528,7 +528,7 @@
         "answer": "Propulsive efficiency is how much fuel energy turns into heat. The turbofan has an 8:1 bypass so it burns eight times less fuel, and a higher exhaust velocity always wastes fuel, so the turbojet is worse."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC28", "result": "wrong" },
           { "kcId": "KC29", "result": "wrong" },
@@ -552,7 +552,7 @@
         "answer": "Intake, compressor, burner (combustion chamber), turbine, exhaust nozzle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC09", "result": "full" }],
         "help": "none"
       }
@@ -570,7 +570,7 @@
         "answer": "Inlet, combustor, compressor, turbine, nozzle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC09", "result": "partial" }],
         "help": "none"
       }
@@ -588,7 +588,7 @@
         "answer": "Compressor, then the combustor where the fuel burns, then the nozzle. I can't remember the others."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC09", "result": "partial" }],
         "help": "none"
       }
@@ -613,7 +613,7 @@
         "answer": "Inlet, compressor, combustor, turbine, nozzle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC09", "result": "full" }],
         "help": "solution_shown"
       }
@@ -631,7 +631,7 @@
         "answer": "Only as much as the compressor needs to run (plus small accessories). If it took more, there would be less pressure and temperature left in the gas to expand through the nozzle, and the nozzle is what makes the thrust."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC13", "result": "full" }],
         "help": "none"
       }
@@ -649,7 +649,7 @@
         "answer": "It takes the work needed to drive the compressor."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC13", "result": "partial" }],
         "help": "none"
       }
@@ -677,7 +677,7 @@
         "answer": "Just the work to drive the compressor. The rest of the gas energy has to stay in the gas so the nozzle can speed it up into the jet."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC13", "result": "full" }],
         "help": "some"
       }
@@ -695,7 +695,7 @@
         "answer": "I don't know."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC13", "result": "wrong" }],
         "help": "none"
       }
@@ -713,7 +713,7 @@
         "answer": "As much as it can, all of the energy in the gas, to get the most work out of the fuel. The gas then just leaves through the nozzle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC13", "result": "wrong" }],
         "help": "none"
       }
@@ -731,7 +731,7 @@
         "answer": "Compression 1→2 is isentropic, so T2/T1 = rp^((γ−1)/γ) = 20^0.2857 = 2.35. The cycle's efficiency is 1 − T1/T2 = 1 − 1/2.35 = 1 − 0.425 = 0.575, so 57.5 %."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC25", "result": "full" },
           { "kcId": "KC26", "result": "full" }
@@ -759,7 +759,7 @@
         "answer": "η = 1 − (1/20)^(0.4/1.4) = 1 − (1/20)^0.2857 = 1 − 0.425 = 0.575, so 57.5 %."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC25", "result": "full" },
           { "kcId": "KC26", "result": "full" }
@@ -780,7 +780,7 @@
         "answer": "It gets better the higher the pressure ratio r_p = p2/p1 is, something like 1 − 1/r_p to a power. I don't remember the exponent."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC22", "result": "full" },
           { "kcId": "KC23", "result": "wrong" },
@@ -802,7 +802,7 @@
         "answer": "The propulsive efficiency, because a higher pressure ratio gives faster exhaust and more thrust."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC30", "result": "wrong" }],
         "help": "none"
       }
@@ -820,7 +820,7 @@
         "answer": "Thermal efficiency: in the Brayton formula it depends only on the pressure ratio and γ. Propulsive efficiency is about Ve compared to V0."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC30", "result": "full" }],
         "help": "none"
       }
@@ -838,7 +838,7 @@
         "answer": "Bypass ratio = bypass flow / core flow = 8, so the total is 9 times the core flow: core = 400/9 ≈ 44.4 kg/s, bypass = 8 × 44.4 ≈ 355.6 kg/s."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC33", "result": "full" }],
         "help": "none"
       }
@@ -856,7 +856,7 @@
         "answer": "The core gets 1 part out of 9, so 400/9 = 44.4 kg/s."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC33", "result": "partial" }],
         "help": "none"
       }
@@ -881,7 +881,7 @@
         "answer": "Then the bypass gets 400/8 = 50 kg/s and the core gets the rest, 350 kg/s."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC33", "result": "wrong" }],
         "help": "some"
       }
@@ -899,7 +899,7 @@
         "answer": "The hot gas pushes backward against the outside air, and the outside air pushes back on the engine, like pushing off a wall."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC01", "result": "wrong" }],
         "help": "none"
       }
@@ -917,7 +917,7 @@
         "answer": "It throws air out the back really fast, so by Newton's third law the plane gets pushed forward."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC01", "result": "full" }],
         "help": "none"
       }
@@ -935,7 +935,7 @@
         "answer": "28,000 N × 4.448 = 124,544 lbf. That seems like a lot, but jet engines are powerful."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC08", "result": "wrong" }],
         "help": "none"
       }
@@ -953,7 +953,7 @@
         "answer": "Because it has no fuel on the ground; ramjets only get fuel in the air."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC35", "result": "wrong" }],
         "help": "none"
       }
@@ -971,7 +971,7 @@
         "answer": "It has no rotating compressor. The air is only compressed by being rammed into the inlet at high flight speed, so with no forward speed there is no compression and no useful combustion cycle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC35", "result": "full" }],
         "help": "none"
       }
@@ -989,7 +989,7 @@
         "answer": "It happens in the compressor. The pressure and the temperature rise and the entropy goes up too, since the work is added to the air."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC16", "result": "partial" }],
         "help": "none"
       }
@@ -1007,7 +1007,7 @@
         "answer": "1→2 is the compressor, 2→3 the combustor, 3→4 the expansion in the turbine and then the nozzle. 4→1 doesn't happen in the engine: the exhaust just leaves to the atmosphere, so heat rejection to the air is imagined to close the cycle."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC20", "result": "full" }],
         "help": "none"
       }
@@ -1025,7 +1025,7 @@
         "answer": "A turbojet, because it has the highest exhaust velocity and so the most thrust and the fastest flight."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [
           { "kcId": "KC32", "result": "wrong" },
           { "kcId": "KC36", "result": "wrong" }
@@ -1046,7 +1046,7 @@
         "answer": "Small mass flow at a very high velocity. It works best at supersonic speed; at airliner subsonic cruise it burns too much fuel."
       },
       "expectedOutput": {
-        "labelStatus": "draft",
+        "labelStatus": "confirmed",
         "kcs": [{ "kcId": "KC31", "result": "full" }],
         "help": "none"
       }
