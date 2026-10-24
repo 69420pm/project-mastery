@@ -98,6 +98,10 @@ test("after an answered card, End session makes the Chat read-only and schedules
   await message.press("Enter");
   const card = page.getByRole("region", { name: "Question" });
   await card.getByRole("textbox", { name: "Your answer" }).fill("It is $4$.");
+  await card.getByRole("radio", { name: "Confidence 4 of 4" }).click();
+  await expect(
+    card.getByRole("radio", { name: "Confidence 4 of 4" }),
+  ).toBeChecked();
   await card.getByRole("button", { name: "Submit" }).click();
   await expect(card).toHaveAttribute("data-question-state", "graded");
   await expect(

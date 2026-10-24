@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(21);
 
 insert into auth.users (id, email)
 values
@@ -76,6 +76,12 @@ select throws_ok(
 select lives_ok(
   $$update public.questions set answer_text = 'Mass flow times Δv.', answered_at = now()$$,
   'the owner answers the question');
+select lives_ok(
+  $$update public.questions set confidence = 4$$,
+  'the owner stores how sure they were');
+select throws_ok(
+  $$update public.questions set confidence = 5$$,
+  '23514', null, 'a confidence is from 1 to 4');
 select throws_ok(
   $$update public.questions set prompt = 'Something else'$$,
   '42501', null, 'what was asked cannot be changed');

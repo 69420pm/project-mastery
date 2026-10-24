@@ -464,7 +464,7 @@ describe("a question on a question card", () => {
     useMockModels({ chat: model });
     const answer = {
       ...userMessage("$F = \\dot m (v_0 - v_e)$"),
-      metadata: { questionId: question!.id },
+      metadata: { questionId: question!.id, confidence: 4 },
     };
 
     const graded = await send({ chatId, message: answer });
@@ -472,6 +472,7 @@ describe("a question on a question card", () => {
     expect(graded.text).toBe("Close: mind the sign.");
     expect(question).toMatchObject({
       answer_text: "$F = \\dot m (v_0 - v_e)$",
+      confidence: 4,
       answer_message_id: answer.id,
       graded_at: expect.any(String),
     });

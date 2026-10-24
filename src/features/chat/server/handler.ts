@@ -203,6 +203,7 @@ export async function respondInChat({
       questionId,
       messageId: message.id,
       text: messageText(message.parts),
+      confidence: message.metadata?.confidence,
     });
   }
 

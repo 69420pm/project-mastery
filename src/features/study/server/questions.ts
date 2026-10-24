@@ -173,12 +173,19 @@ export async function isAnswerable(
  */
 export async function recordAnswer(
   supabase: Supabase,
-  answer: { questionId: string; messageId: string; text: string },
+  answer: {
+    questionId: string;
+    messageId: string;
+    text: string;
+    /** From 1 to 4; undefined when the Student gave none. */
+    confidence?: number | undefined;
+  },
 ): Promise<void> {
   const { error } = await supabase
     .from("questions")
     .update({
       answer_text: answer.text,
+      confidence: answer.confidence ?? null,
       answer_message_id: answer.messageId,
       answered_at: new Date().toISOString(),
     })

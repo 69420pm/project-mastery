@@ -4,6 +4,7 @@ import {
   desiredRetention,
   finalWeekSweep,
   kcState,
+  medianSeconds,
   rateAttempt,
   replayCourse,
   replayKc,
@@ -22,6 +23,7 @@ const attempt = (
   createdAt: string,
   result: AttemptResult = "full",
   help: AttemptHelp = "none",
+  extra: Partial<ReplayAttempt> = {},
 ): ReplayAttempt => ({
   kcId: "k",
   sessionId,
@@ -29,6 +31,10 @@ const attempt = (
   kind: "learn",
   result,
   help,
+  questionId: `${sessionId}@${createdAt}`,
+  confidence: null,
+  seconds: null,
+  ...extra,
 });
 
 const dueDay = (schedule: ReturnType<typeof replayKc>) =>
@@ -45,6 +51,73 @@ describe("rateAttempt", () => {
   ] as const)("%s with %s help is %s", (result, help, _, rating) => {
     expect(rateAttempt({ result, help })).toBe(rating);
   });
+
+  const quick = {
+    result: "full",
+    help: "none",
+    kind: "learn",
+    confidence: 4,
+    seconds: 20,
+  } as const;
+
+  test.each([
+    ["confidence 4 and quicker than the median", quick, 4],
+    ["seconds equal to the median", { ...quick, seconds: 30 }, 3],
+    ["seconds above the median", { ...quick, seconds: 45 }, 3],
+    ["confidence 3", { ...quick, confidence: 3 }, 3],
+    ["no confidence", { ...quick, confidence: null }, 3],
+    ["unknown seconds", { ...quick, seconds: null }, 3],
+    ["some help", { ...quick, help: "some" }, 2],
+    ["a partial result", { ...quick, result: "partial" }, 2],
+    ["a wrong result", { ...quick, result: "wrong" }, 1],
+    ["no median for its kind", { ...quick, kind: "pre" }, 3],
+  ] as const)("Easy rule: %s is %s", (_, a, rating) => {
+    expect(rateAttempt(a, { learn: 30 })).toBe(rating);
+  });
+});
+
+describe("medianSeconds", () => {
+  const at = (kind: "pre" | "learn", seconds: number | null, q: string) =>
+    attempt("s", "2026-10-01T10:00:00Z", "full", "none", {
+      kind,
+      seconds,
+      questionId: q,
+    });
+
+  test("is the median per kind over answered questions, counting a question once", () => {
+    expect(
+      medianSeconds([
+        at("learn", 10, "a"),
+        at("learn", 10, "a"),
+        at("learn", 40, "b"),
+        at("learn", 100, "c"),
+        at("learn", null, "d"),
+        at("pre", 8, "e"),
+        at("pre", 12, "f"),
+      ]),
+    ).toEqual({ learn: 40, pre: 10 });
+  });
+
+  test("is empty without answered questions", () => {
+    expect(medianSeconds([at("learn", null, "a")])).toEqual({});
+  });
+});
+
+test("a quick, confident answer in the first session makes the next review later than a Good one", () => {
+  const slow = attempt("s1", "2026-10-01T10:00:00Z", "full", "none", {
+    questionId: "slow",
+    confidence: 4,
+    seconds: 100,
+  });
+  const quick = attempt("s1", "2026-10-01T10:00:00Z", "full", "none", {
+    questionId: "quick",
+    confidence: 4,
+    seconds: 10,
+  });
+  const medians = medianSeconds([slow, quick]);
+  const good = dueDay(replayKc([slow], { ...ALL_ENDED, medians }));
+  const easy = dueDay(replayKc([quick], { ...ALL_ENDED, medians }));
+  expect(easy! > good!).toBe(true);
 });
 
 test.each([

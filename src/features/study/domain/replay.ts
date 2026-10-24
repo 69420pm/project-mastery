@@ -34,7 +34,16 @@ export type ReplayAttempt = {
   kind: AttemptKind;
   result: AttemptResult;
   help: AttemptHelp;
+  /** The question the attempt grades, for the median seconds. */
+  questionId: string;
+  /** The Student's confidence from 1 to 4; null when not given. */
+  confidence: number | null;
+  /** Seconds from asking to answering the question; null if unanswered. */
+  seconds: number | null;
 };
+
+/** The Student's median seconds to answer, by attempt kind. */
+export type MedianSeconds = Partial<Record<AttemptKind, number>>;
 
 /**
  * A taught KC's schedule: its FSRS card, null while the first session with
@@ -103,19 +112,56 @@ export function desiredRetention(goal: Goal): number {
 }
 
 /**
- * An attempt's FSRS rating: wrong or with the solution shown is Again,
- * partial or with some help is Hard, full without help is Good. Easy waits
- * for the Student's confidence (slice 3 of #174).
+ * The median seconds to answer per attempt kind over the answered questions
+ * with attempts of that kind; a kind without any is missing.
  */
-export function rateAttempt(attempt: {
-  result: AttemptResult;
-  help: AttemptHelp;
-}): Grade {
+export function medianSeconds(attempts: ReplayAttempt[]): MedianSeconds {
+  const byQuestion = new Map<string, ReplayAttempt>();
+  for (const a of attempts) {
+    if (a.seconds !== null) byQuestion.set(`${a.kind}:${a.questionId}`, a);
+  }
+  const medians: MedianSeconds = {};
+  for (const [kind, group] of Map.groupBy(byQuestion.values(), (a) => a.kind)) {
+    const sorted = group.map((a) => a.seconds!).toSorted((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    medians[kind] =
+      sorted.length % 2 === 1
+        ? sorted[mid]!
+        : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  }
+  return medians;
+}
+
+/**
+ * An attempt's FSRS rating: wrong or with the solution shown is Again,
+ * partial or with some help is Hard, full without help is Good. Full without
+ * help with confidence 4 and seconds to answer strictly below the median for
+ * its kind is Easy.
+ */
+export function rateAttempt(
+  attempt: {
+    result: AttemptResult;
+    help: AttemptHelp;
+    kind?: AttemptKind;
+    confidence?: number | null;
+    seconds?: number | null;
+  },
+  medians: MedianSeconds = {},
+): Grade {
   if (attempt.result === "wrong" || attempt.help === "solution_shown") {
     return Rating.Again;
   }
   if (attempt.result === "partial" || attempt.help === "some") {
     return Rating.Hard;
+  }
+  const median = medians[attempt.kind ?? "learn"];
+  if (
+    attempt.confidence === 4 &&
+    attempt.seconds != null &&
+    median !== undefined &&
+    attempt.seconds < median
+  ) {
+    return Rating.Easy;
   }
   return Rating.Good;
 }
@@ -146,8 +192,13 @@ function review(
   card: Card,
   attempt: ReplayAttempt,
   examDate: string | null,
+  medians: MedianSeconds,
 ): Card {
-  const reviewed = f.next(card, attempt.createdAt, rateAttempt(attempt)).card;
+  const reviewed = f.next(
+    card,
+    attempt.createdAt,
+    rateAttempt(attempt, medians),
+  ).card;
   const day = utcDay(attempt.createdAt);
   if (examDate === null || examDate <= day) return reviewed;
   const cap = Math.max(1, Math.floor(daysBetween(day, examDate) / 2));
@@ -168,10 +219,12 @@ export function replayKc(
     ended,
     examDate,
     retention,
+    medians = {},
   }: {
     ended: (sessionId: string) => boolean;
     examDate: string | null;
     retention: number;
+    medians?: MedianSeconds;
   },
 ): KcSchedule | null {
   const scheduling = attempts
@@ -186,12 +239,18 @@ export function replayKc(
   if (!ended(firstId)) return { card: null };
   const f = scheduler(retention);
   const created = first.at(-1)!;
-  let card = review(f, createEmptyCard(created.createdAt), created, examDate);
+  let card = review(
+    f,
+    createEmptyCard(created.createdAt),
+    created,
+    examDate,
+    medians,
+  );
   for (const [, inSession] of later) {
     const attempt = inSession[0]!;
     // A session that ran alongside the first one can predate its card.
     if (Date.parse(attempt.createdAt) < card.last_review!.getTime()) continue;
-    card = review(f, card, attempt, examDate);
+    card = review(f, card, attempt, examDate, medians);
   }
   return { card };
 }
@@ -218,9 +277,15 @@ export function replayCourse(
   },
 ): Map<string, KcSchedule> {
   const retention = desiredRetention(goal);
+  const medians = medianSeconds(attempts);
   const schedules = new Map<string, KcSchedule>();
   for (const [kcId, kcAttempts] of Map.groupBy(attempts, (a) => a.kcId)) {
-    const schedule = replayKc(kcAttempts, { ended, examDate, retention });
+    const schedule = replayKc(kcAttempts, {
+      ended,
+      examDate,
+      retention,
+      medians,
+    });
     if (schedule) schedules.set(kcId, schedule);
   }
   return finalWeekSweep(schedules, { examDate, priorities, today });

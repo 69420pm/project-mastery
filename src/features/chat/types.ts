@@ -21,6 +21,8 @@ export type ReplyUsage = {
 export type ChatMessageMetadata = {
   /** The question a Student's message answers, sent from its question card. */
   questionId?: string;
+  /** How sure the Student was in that answer, from 1 to 4. */
+  confidence?: number;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */

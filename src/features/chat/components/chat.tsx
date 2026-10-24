@@ -219,11 +219,18 @@ export function Chat({
   const canAnswer = !isBusy && !limitReached && !ended;
 
   /** Sends an answer from a question card as the next message. */
-  function sendAnswer(questionId: string, text: string) {
+  function sendAnswer(
+    questionId: string,
+    text: string,
+    confidence: number | undefined,
+  ) {
     if (!canAnswer) return;
     setInputError(null);
     clearError();
-    void sendMessage({ text, metadata: { questionId } });
+    void sendMessage({
+      text,
+      metadata: { questionId, ...(confidence && { confidence }) },
+    });
   }
 
   async function handleSubmit({ text }: { text: string }) {
