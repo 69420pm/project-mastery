@@ -1,5 +1,6 @@
 import { chatEval } from "./chat";
 import type { EvalDefinition } from "./eval";
+import { gradeEval } from "./grade";
 
 /** A registered eval whose input and expected-output types are erased. */
 export type RegisteredEval = EvalDefinition<unknown, unknown>;
@@ -14,4 +15,7 @@ function register<Input, Expected>(
 }
 
 // Register each eval here; its fixture is `evals/datasets/<name>.json`.
-export const EVALS: RegisteredEval[] = [register(chatEval)];
+export const EVALS: RegisteredEval[] = [
+  register(chatEval),
+  register(gradeEval),
+];

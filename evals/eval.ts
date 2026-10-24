@@ -18,6 +18,14 @@ export type EvalDefinition<Input, Expected> = {
   gates: string[];
   /** Share of items that must pass for `pnpm evals` to exit successfully. */
   minPassRate: number;
+  /**
+   * For an eval whose gates are rates over the whole dataset rather than
+   * per-item passes: replaces `minPassRate` with its verdict on every item's
+   * scores.
+   */
+  aggregate?: (
+    items: Array<{ evaluations: Array<{ name: string; value: unknown }> }>,
+  ) => { passed: boolean; summary: string };
 };
 
 export type EvalItem<Input, Expected> = {
