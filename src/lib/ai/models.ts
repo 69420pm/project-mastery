@@ -75,6 +75,15 @@ export const AI_TASKS = {
     override: "AI_MODEL_EXERCISE",
   },
   /**
+   * One call per Big idea of a Knowledge map build that groups its new KCs
+   * into Topics, with structured output.
+   */
+  topic: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_TOPIC",
+  },
+  /**
    * One call per priority run that adjusts the KCs' Priority multipliers
    * from the Brief's notes and the answered Findings, with structured output.
    */

@@ -33,6 +33,11 @@ import {
   type Prerequisite,
 } from "@/features/knowledge-map/domain/links";
 import {
+  topicsOnMap,
+  unplacedKcs,
+  withTopicRules,
+} from "@/features/knowledge-map/domain/topics";
+import {
   newChunks,
   withoutRemoved,
 } from "@/features/knowledge-map/domain/update";
@@ -54,6 +59,11 @@ import {
   storeMap,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  groupTopics,
+  loadTopicsInput,
+  storeTopics,
+} from "@/features/knowledge-map/workflows/topic-steps";
 
 /**
  * Updates a Course's Knowledge map with the chunks of its parsed Materials
@@ -77,10 +87,14 @@ import {
  * new, and merges the duplicates one call finds among the new KCs' close
  * pairs (`withoutDuplicates`). (7) Code checks the whole map, which is
  * stored with its check report, keeping the ids of its stored rows, and the
- * new chunks are recorded as processed. With nothing new the update makes no
- * model call. A step that fails for good, or a reached Daily limit, fails the
- * build with a reason and leaves the stored map and its chunks new. A
- * deleted Course stops it quietly.
+ * new chunks are recorded as processed. (2b) The Topics stage then groups
+ * the stored map's unplaced KCs into Topics (`buildTopics`), and storing
+ * them marks the build built. With nothing new and every KC placed, the
+ * update makes no model call. A step that fails for good, or a reached
+ * Daily limit, fails the build with a reason: before the map is stored, it
+ * leaves the stored map and its chunks new; in the Topics stage, the map
+ * stays stored and the next update runs the Topics stage again. A deleted
+ * Course stops it quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -233,10 +247,45 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
         deduped.value.duplicates,
       ),
     );
+    const topics = await buildTopics(courseId);
+    if (!topics.ok) await failBuild(courseId, topics.reason);
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);
   }
+}
+
+/**
+ * Stage 2b, Topics (#175), on the stored map: one `topic` call per Big idea
+ * with a non-prior KC no Topic holds, after removed and moved KCs left their
+ * Topics, so an unchanged Big idea costs nothing. Code then merges small
+ * Topics and orders KCs and Topics over all Big ideas, and stores them,
+ * which marks the build built.
+ */
+async function buildTopics(courseId: string): Promise<StepOutcome<null>> {
+  const input = await loadTopicsInput(courseId);
+  if (!input) return { ok: true, value: null };
+  const { studentId, ...rest } = input;
+  let topics = topicsOnMap(input.map, input.topics);
+  for (const [bigIdea, newKcIds] of unplacedKcs(input.map, topics)) {
+    const grouped = await groupTopics(
+      studentId,
+      { ...rest, topics },
+      bigIdea,
+      newKcIds,
+    );
+    if (!grouped.ok) return grouped;
+    topics = grouped.value;
+  }
+  await storeTopics(
+    courseId,
+    withTopicRules(
+      input.map,
+      topics,
+      input.chunks.map((chunk) => chunk.id),
+    ),
+  );
+  return { ok: true, value: null };
 }
 
 /**

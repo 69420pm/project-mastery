@@ -125,7 +125,7 @@ export async function loadBuildInput(
  * The output of one metered model call for the Student. Null when the Daily
  * limit or the provider's daily quota is used up.
  */
-async function mapCall(
+export async function mapCall(
   studentId: string,
   traceName: string,
   call: Parameters<typeof meteredGenerate>[2],
@@ -139,7 +139,7 @@ async function mapCall(
   return result && result.output;
 }
 
-const limitReached = { ok: false, reason: dailyLimitReason } as const;
+export const limitReached = { ok: false, reason: dailyLimitReason } as const;
 
 /**
  * Step 1: new big ideas and candidate KCs from the outline of the new
@@ -460,9 +460,9 @@ export async function findScopeRemarks(
 
 /**
  * Makes the stored map this one, records the update's new chunks as
- * processed, stores the check report and marks the build built, in one
- * transaction. Rows of the stored map keep their ids. Does nothing when no
- * build runs any more.
+ * processed and stores the check report, in one transaction; the build runs
+ * on to the Topics stage. Rows of the stored map keep their ids. Does
+ * nothing when no build runs any more.
  */
 export async function storeMap(
   courseId: string,
