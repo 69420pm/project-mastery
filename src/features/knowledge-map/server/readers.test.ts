@@ -26,6 +26,13 @@ const [BIG_IDEA, K1, K2, PRIOR, EXERCISE] = [
   id(25),
 ];
 const [ANSWERED, OPEN, OTHER_OPEN] = [id(31), id(32), id(33)];
+const [T1, T2] = [id(41), id(42)];
+const topicText = (name: string) => ({
+  course_id: COURSE,
+  name,
+  central_question: `${name}?`,
+  why_it_matters: "It matters.",
+});
 
 let signedIn = true;
 let failing: string | undefined;
@@ -180,7 +187,23 @@ function createDb() {
         { finding_id: OTHER_OPEN, chunk_id: C2 },
       ]),
       knowledge_map_chunks: [] as FakeRow[],
+      topics: [
+        { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
+        { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },
+        {
+          id: id(43),
+          big_idea_id: BIG_IDEA,
+          position: 0,
+          ...topicText("Other"),
+          course_id: OTHER_COURSE,
+        },
+      ],
+      topic_kcs: [
+        { topic_id: T2, kc_id: K2, position: 0 },
+        { topic_id: T1, kc_id: K1, position: 0 },
+      ],
     },
+    foreignKeys: { topic_kcs: { topic_id: "topics" } },
   });
 }
 
@@ -214,6 +237,7 @@ const { getFindings } = await import("./findings");
 const { getOpenFindings } = await import("./review");
 const { loadStoredMap } = await import("./stored-map");
 const { getChunkFindings } = await import("./chunk-findings");
+const { loadCourseTopics } = await import("./course-topics");
 
 beforeEach(() => {
   signedIn = true;
@@ -372,6 +396,48 @@ describe("getOpenFindings", () => {
   ])("throws when reading %s fails", async (table, message) => {
     failing = table;
     await expect(getOpenFindings(client(), COURSE)).rejects.toThrow(message);
+  });
+});
+
+describe("loadCourseTopics", () => {
+  test("gives the Course's Topics in order with anchors and Reading sections", async () => {
+    const topics = await loadCourseTopics(COURSE);
+
+    expect(topics).toEqual([
+      {
+        id: T1,
+        bigIdeaId: BIG_IDEA,
+        name: "One",
+        centralQuestion: "One?",
+        whyItMatters: "It matters.",
+        kcs: [{ id: K1, name: "Momentum" }],
+        anchors: [],
+        readingSections: [
+          {
+            materialId: LECTURE,
+            materialName: "Lecture 1",
+            pageFrom: 1,
+            pageTo: 3,
+            chunkIds: [C1, C2],
+          },
+        ],
+      },
+      expect.objectContaining({
+        id: T2,
+        kcs: [{ id: K2, name: "Thrust equation" }],
+        anchors: [{ id: K1, name: "Momentum" }],
+        readingSections: [expect.objectContaining({ chunkIds: [C2] })],
+      }),
+    ]);
+  });
+
+  test.each([
+    ["signed out", COURSE, false],
+    ["a non-uuid id", "not-a-uuid", true],
+    ["a Course without Topics", id(99), true],
+  ])("gives none for %s", async (_, courseId, user) => {
+    signedIn = user;
+    expect(await loadCourseTopics(courseId)).toEqual([]);
   });
 });
 

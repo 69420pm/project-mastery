@@ -1590,6 +1590,109 @@ export type Database = {
           },
         ];
       };
+      topic_kcs: {
+        Row: {
+          kc_id: string;
+          owner: string;
+          position: number;
+          topic_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          kc_id: string;
+          owner: string;
+          position: number;
+          topic_id: string;
+        };
+        Update: {
+          kc_id?: string;
+          owner?: string;
+          position?: number;
+          topic_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_kcs_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: true;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topic_kcs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topic_kcs_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      topics: {
+        Row: {
+          big_idea_id: string;
+          central_question: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          name: string;
+          owner: string;
+          position: number;
+          why_it_matters: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          big_idea_id: string;
+          central_question: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          owner: string;
+          position: number;
+          why_it_matters: string;
+        };
+        Update: {
+          big_idea_id?: string;
+          central_question?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          owner?: string;
+          position?: number;
+          why_it_matters?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topics_big_idea_id_fkey";
+            columns: ["big_idea_id"];
+            isOneToOne: false;
+            referencedRelation: "big_ideas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topics_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topics_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1647,6 +1750,10 @@ export type Database = {
           p_material_id: string;
         };
         Returns: undefined;
+      };
+      replace_topics: {
+        Args: { p_course_id: string; p_topics: Json };
+        Returns: boolean;
       };
       request_exercise_pairing: {
         Args: { p_course_id: string };

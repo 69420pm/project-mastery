@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(27);
 
 insert into auth.users (id, email)
 values
@@ -107,8 +107,18 @@ select is((select count(*)::int from public.semantic_links
 select results_eq(
   $$select status, failure_reason, check_report, finished_at is not null from public.knowledge_map_builds
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
-  $$values ('built', null::text, '{"uncoveredChunks": []}'::jsonb, true)$$,
-  'the build is built with its report');
+  $$values ('building', null::text, '{"uncoveredChunks": []}'::jsonb, false)$$,
+  'the build stores its report and runs on to the Topics');
+-- Storing the Topics ends the build.
+set local role service_role;
+select is(public.replace_topics('aaaaaaaa-0000-0000-0000-000000000001', '[]'), true,
+  'the build stores its Topics');
+reset role;
+select results_eq(
+  $$select status, finished_at is not null from public.knowledge_map_builds
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  $$values ('built', true)$$,
+  'storing the Topics marks the build built');
 
 -- An update without a running build writes nothing.
 set local role service_role;
@@ -213,6 +223,9 @@ select results_eq(
 select is((select array_agg(name) from public.big_ideas
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
   '{Propulsion}'::text[], 'the left-out big idea is gone');
+-- As the Topics stage would end it.
+update public.knowledge_map_builds set status = 'built'
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 -- Owners only.
 set local role authenticated;

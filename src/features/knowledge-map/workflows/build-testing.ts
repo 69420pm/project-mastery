@@ -7,7 +7,10 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
  * in for the database function, which pgTAP tests: while the build runs, it
  * makes the stored big ideas, KCs, sources, links, Exercises and Findings
  * the map's, keeping rows whose ids the map names and giving new ones random
- * ids, records the processed chunks and marks the build built.
+ * ids, records the processed chunks and stores the check report, and Topics
+ * of KCs or big ideas that go go with them. `replace_topics` makes the
+ * stored Topics the given ones, keeping stored ids, and marks the build
+ * built.
  */
 export function createMapDb(courseId: string) {
   return fakeSupabase({
@@ -26,10 +29,56 @@ export function createMapDb(courseId: string) {
       exercise_kcs: [] as FakeRow[],
       findings: [] as FakeRow[],
       finding_sources: [] as FakeRow[],
+      topics: [] as FakeRow[],
+      topic_kcs: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
     defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
+    foreignKeys: { topic_kcs: { topic_id: "topics" } },
     functions: {
+      replace_topics: (args, tables) => {
+        const build = tables.knowledge_map_builds.find(
+          (row) =>
+            row.course_id === args.p_course_id && row.status === "building",
+        );
+        if (!build) return false;
+        const topics = args.p_topics as Array<{
+          id: string | null;
+          bigIdea: string;
+          name: string;
+          centralQuestion: string;
+          whyItMatters: string;
+          kcs: string[];
+        }>;
+        const stored = new Set(tables.topics.map((row) => row.id));
+        const ids = topics.map((topic) =>
+          topic.id !== null && stored.has(topic.id)
+            ? topic.id
+            : crypto.randomUUID(),
+        );
+        tables.topics = topics.map((topic, position) => ({
+          id: ids[position],
+          course_id: courseId,
+          big_idea_id: topic.bigIdea,
+          name: topic.name,
+          central_question: topic.centralQuestion,
+          why_it_matters: topic.whyItMatters,
+          position,
+        }));
+        tables.topic_kcs = topics.flatMap((topic, index) =>
+          topic.kcs.map((kcId, position) => ({
+            topic_id: ids[index],
+            kc_id: kcId,
+            position,
+          })),
+        );
+        Object.assign(build, {
+          status: "built",
+          failure_reason: null,
+          finished_at: new Date().toISOString(),
+        });
+        return true;
+      },
       apply_knowledge_map_update: (args, tables) => {
         const build = tables.knowledge_map_builds.find(
           (row) =>
@@ -173,11 +222,17 @@ export function createMapDb(courseId: string) {
             });
           }
         }
-        Object.assign(build, {
-          status: "built",
-          check_report: args.p_check_report,
-          finished_at: new Date().toISOString(),
-        });
+        // Topics and their KCs go with their big idea, KC or Topic.
+        const bigIdeaIds = new Set(tables.big_ideas.map((row) => row.id));
+        const kcIds = new Set(tables.kcs.map((row) => row.id));
+        tables.topics = tables.topics.filter((row) =>
+          bigIdeaIds.has(row.big_idea_id),
+        );
+        const topicIds = new Set(tables.topics.map((row) => row.id));
+        tables.topic_kcs = tables.topic_kcs.filter(
+          (row) => topicIds.has(row.topic_id) && kcIds.has(row.kc_id),
+        );
+        build.check_report = args.p_check_report;
         return true;
       },
     },
@@ -248,7 +303,8 @@ export type Sent = Record<string, unknown> & {
  * links calls with the test's links (or its function of what was sent) or
  * none, each exercise call with the test's function or a plain answer, and
  * the merge call with the test's function or each cluster merged whole, and
- * the scope call with the test's function or no remarks.
+ * the scope call with the test's function or no remarks, and each topic
+ * call with the test's function or the new KCs in one new Topic.
  * Remembers what each call was sent. Its `embed` model gives KCs named in
  * one `alike` group the same vector and every other KC its own; `models`
  * is what `useMockModels` takes.
@@ -272,6 +328,8 @@ export function mapModel(answers: {
   merge?: (input: Sent) => unknown;
   /** The scope call's answer; by default no remarks. */
   scope?: (input: Sent) => unknown;
+  /** A topic call's answer; by default the new KCs in one new Topic. */
+  topic?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
   const embedded: string[][] = [];
@@ -309,7 +367,23 @@ export function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("adminChunks" in input) {
+      if ("storedTopics" in input) {
+        const kcs = input.kcs as unknown as Array<{
+          id: string;
+          status: string;
+        }>;
+        answer = answers.topic?.(input) ?? {
+          topics: [
+            {
+              id: "new1",
+              name: "New topic",
+              centralQuestion: "What is new?",
+              whyItMatters: "It is new.",
+              kcs: kcs.filter((kc) => kc.status === "new").map((kc) => kc.id),
+            },
+          ],
+        };
+      } else if ("adminChunks" in input) {
         answer = answers.scope?.(input) ?? { remarks: [] };
       } else if ("clusters" in input) {
         const clusters = input.clusters as Array<{
@@ -397,6 +471,6 @@ export function mapModel(answers: {
     model,
     sent,
     embedded,
-    models: { map: model, exercise: model, embed },
+    models: { map: model, exercise: model, topic: model, embed },
   };
 }

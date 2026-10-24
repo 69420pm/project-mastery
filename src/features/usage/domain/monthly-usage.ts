@@ -28,6 +28,7 @@ const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   ingest: "study",
   map: "study",
   exercise: "study",
+  topic: "study",
   embed: "study",
   priority: "study",
   judge: undefined,

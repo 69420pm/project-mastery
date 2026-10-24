@@ -8,6 +8,7 @@ How a Course's Materials become its Knowledge map, and how the Brief and the Pri
 | ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | 1. Parse      | A Material is added, or Parse or Retry is pressed           | page reads (`ingest`), file call (`ingest`), embeddings (`embed`), pairing (`ingest`) | `materials`, `material_pages`, `chunks`, `exercise_solutions`           |
 | 2. Build      | Build or Update map is pressed on the map page              | `map`, `exercise`, `embed`                                                            | `knowledge_map_builds`, `knowledge_map_chunks` and the map tables       |
+| 2b. Topics    | Every build, after its map is stored                        | `topic` (one per Big idea with KCs no Topic holds)                                    | `topics`, `topic_kcs`; the build becomes `built`                        |
 | 3. Brief      | The Student sends a message on the Brief page               | `brief` (streamed)                                                                    | `briefs`, `brief_excluded_materials`, `brief_messages`, Finding answers |
 | 4. Priorities | The map page opens and something changed since the last run | `priority` (at most one call)                                                         | `kc_priorities`, `priority_runs`                                        |
 
@@ -35,7 +36,18 @@ A build reads only the chunks that no earlier update processed. A first build st
 5. **Exercises** (`exercise`, one per new subtask): the KCs it needs, a task type, the model's own solution, and whether a given solution matches. Code sets the difficulty (1 to 3) and the solution status (`verified`, `disputed` or `generated`). A disputed solution becomes a `solution_mismatch` Finding. KCs that exercises propose go through Links again.
 6. **Scope** (`map`, only with new `admin` chunks): remarks that exclude or limit exam content become `scope` Findings.
 7. **Dedup**: with new KCs, they are embedded (`embed`), and pairs at similarity 0.85 or more go to one merge call (`map`).
-8. **Store**: `apply_knowledge_map_update` writes the map in one transaction. Rows keep their ids, so Findings and their answers survive; the chunks are marked processed; the check report is stored (uncovered chunks, ungrounded KCs, orphans, dropped cycle edges, remaining duplicates). With nothing new, no model call is made.
+8. **Store**: `apply_knowledge_map_update` writes the map in one transaction. Rows keep their ids, so Findings and their answers survive; the chunks are marked processed; the check report is stored (uncovered chunks, ungrounded KCs, orphans, dropped cycle edges, remaining duplicates). With nothing new, no model call is made. The build stays `building` until stage 2b stores the Topics.
+
+## 2b. Topics
+
+Every build ends here, on the stored map and its stored ids ([ADR 0020](../adr/0020-topics.md)). Prior KCs belong to no Topic.
+
+1. **Leavers.** A KC removed from the map or moved to another Big idea leaves its Topic.
+2. **Grouping** (`topic`, one per Big idea with a non-prior KC no Topic holds): the model gets the Big idea's KCs (each new or placed, with its first source), the links among them and its stored Topics, and returns Topics with a central question, why it matters and their KCs in teaching order. It is asked for 3 to 10 KCs per Topic and, on an update, to place only the new KCs. Code checks that every new KC appears exactly once, otherwise the step retries. Placed KCs stay in their Topic and stored Topics keep their name and question; only the new KCs' placement and the model's new Topics are taken.
+3. **Rules** (code, over all Big ideas): a Topic under 2 KCs merges into the Topic of its Big idea that shares the most Prerequisites and Semantic links with it (ties go to the nearest first source), and a Big idea's only Topic stays. KCs are put in teaching order (the model's, with Prerequisites first). Topics are ordered by Prerequisites between their KCs, then by earliest first source; a cycle breaks at the Topic with the earliest first source.
+4. **Store**: `replace_topics` replaces the Course's Topics in one transaction, keeping stored ids, and marks the running build `built`. A step that fails for good, or the Daily limit, fails the build with a reason; the map stays and the next Update map runs this stage again.
+
+**Read.** `loadCourseTopics(courseId)` returns the Topics in Course order with their KCs in teaching order, their anchors (Prerequisites of their KCs from outside, prior KCs included, in map order) and their Reading sections (the cited chunks in Material order, a new section when the Material changes or past 3 pages). Anchors and sections are derived on each read and not stored.
 
 ## 3. Brief
 
@@ -57,7 +69,7 @@ Every workflow model call, and each Brief reply, checks the Student's Daily limi
 ## Tables
 
 - **Materials:** `materials`, `material_pages` (page reads, internal), `chunks`, `exercise_solutions`.
-- **Map:** `knowledge_map_builds`, `knowledge_map_chunks`, `big_ideas`, `kcs`, `kc_sources`, `prerequisite_links`, `semantic_links`, `exercises`, `exercise_kcs`, `findings`, `finding_sources`.
+- **Map:** `knowledge_map_builds`, `knowledge_map_chunks`, `big_ideas`, `kcs`, `kc_sources`, `prerequisite_links`, `semantic_links`, `exercises`, `exercise_kcs`, `findings`, `finding_sources`, `topics`, `topic_kcs`.
 - **Brief:** `briefs`, `brief_excluded_materials`, `brief_messages`. **Priorities:** `kc_priorities`, `priority_runs`. **Usage:** `ai_usage`.
 
 Every table has an `owner` and Row Level Security. Workflows write through the admin client, scoped to the Course and its owner. The queue functions (`queue_material_parse`, `queue_knowledge_map_build`, `queue_priority_run`) write their state only when no run is already going, so two presses start one workflow.
@@ -66,4 +78,4 @@ Every table has an `owner` and Row Level Security. Workflows write through the a
 
 - **Code:** workflows in `src/features/ingestion/workflows/`, `knowledge-map/workflows/` and `priorities/workflows/`; the Brief handler in `brief/server/`. Pure rules sit in `domain/`, with tests beside them, and prompts in `ai/`.
 - **Models:** the tasks are in `AI_TASKS` in `src/lib/ai/models.ts`, each overridable with its `AI_MODEL_*` variable.
-- **Checks:** `pnpm test` runs the workflows in-process against `fakeSupabase` and mock models. `pnpm smoke` checks the map against the jet-engines gold set (`evals/gold/jet-engines/gold.json`).
+- **Checks:** `pnpm test` runs the workflows in-process against `fakeSupabase` and mock models. `pnpm smoke map` checks the map against the jet-engines gold set (`evals/gold/jet-engines/gold.json`), and `pnpm smoke topics` runs stage 2b on the gold map: coverage, order, stable ids on a rerun and one new KC.

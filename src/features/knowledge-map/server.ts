@@ -8,6 +8,7 @@ import "server-only";
 export { knowledgeMapPath } from "./domain/map-paths";
 export { finalAnswerSchema } from "./schemas";
 export { getChunkFindings } from "./server/chunk-findings";
+export { loadCourseTopics, type CourseTopic } from "./server/course-topics";
 export { getFindings } from "./server/findings";
 export { getKnowledgeMap } from "./server/queries";
 export {

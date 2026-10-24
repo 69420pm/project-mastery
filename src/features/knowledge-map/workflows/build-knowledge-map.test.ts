@@ -186,11 +186,38 @@ describe("building a Knowledge map", () => {
     ]);
     // KCs go to the links call by their place in the map.
     expect(linksCall?.kcs?.map((kc) => kc.id)).toEqual(["k1", "k2"]);
-    expect(sent).toHaveLength(6);
+    // One topic call for the big idea, on the stored map; prior KCs stay out.
+    expect(sent.at(-1)).toEqual({
+      bigIdeaToGroup: {
+        name: "Compression",
+        description: "How air is compressed.",
+      },
+      kcs: [
+        expect.objectContaining({
+          id: "k1",
+          name: "Pressure ratio",
+          firstSource: "Lecture 1 p. 1",
+          status: "new",
+        }),
+        expect.objectContaining({ id: "k2", firstSource: "Lecture 1 p. 2" }),
+      ],
+      prerequisites: [{ from: "k1", to: "k2" }],
+      semanticLinks: [{ from: "k2", to: "k1", label: "raises" }],
+      storedTopics: [],
+    });
+    expect(sent).toHaveLength(7);
     expect(db.tables.ai_usage.map((row) => row.task)).toEqual([
       ...Array(5).fill("map"),
       "exercise",
       "embed",
+      "topic",
+    ]);
+    expect(db.tables.topics).toMatchObject([
+      { name: "New topic", big_idea_id: db.tables.big_ideas[0]?.id },
+    ]);
+    expect(db.tables.topic_kcs.map((row) => nameOf(row.kc_id))).toEqual([
+      "Pressure ratio",
+      "Turbine work",
     ]);
   });
 

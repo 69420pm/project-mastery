@@ -65,8 +65,9 @@ export const mapSmoke: SmokeCheck = {
   // Per run: a skeleton, an assignment per 10 chunks, a fill per big idea,
   // links, an embedding, a merge call and a scope call (both halves have
   // `admin` chunks); the update adds 4 exercise subtasks and the links call
-  // for KCs they add.
-  maxCalls: 32,
+  // for KCs they add. Each run ends with a `topic` call per big idea with
+  // new KCs, about 5 per run.
+  maxCalls: 42,
   async run({ supabase, studentId }) {
     const json: unknown = JSON.parse(await readFile(CHUNKS_FILE, "utf8"));
     const fixture = fixtureSchema.parse(json);
