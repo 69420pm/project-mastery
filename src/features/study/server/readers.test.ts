@@ -35,6 +35,8 @@ const MAP = {
   ],
   exercises: [],
 };
+const SESSION = "aaaaaaaa-5000-4000-8000-000000000001";
+const QUESTION = "aaaaaaaa-9000-4000-8000-000000000001";
 const EMPTY_MAP = { bigIdeas: [], kcs: [], prerequisites: [], exercises: [] };
 
 let signedIn = true;
@@ -49,7 +51,13 @@ function createDb() {
         { course_id: COURSE, kc_id: THRUST, priority: "0.8" },
         { course_id: COURSE, kc_id: NOZZLE, priority: "0.1" },
       ] as FakeRow[],
+      study_sessions: [{ id: SESSION, course_id: COURSE }] as FakeRow[],
+      questions: [{ id: QUESTION, session_id: SESSION, exercise_id: null }],
       attempts: [] as FakeRow[],
+    },
+    foreignKeys: {
+      questions: { session_id: "study_sessions" },
+      attempts: { question_id: "questions", session_id: "study_sessions" },
     },
   });
 }
@@ -73,10 +81,10 @@ const day = (days: number) => at(days).slice(0, 10);
 /** A stored attempt on a KC `days` from now. */
 const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
   id: randomUUID(),
-  course_id: COURSE,
+  question_id: QUESTION,
+  session_id: SESSION,
   kc_id: kcId,
-  exercise_id: null,
-  correct,
+  result: correct ? "full" : "wrong",
   help: "none",
   created_at: at(days),
 });
@@ -118,13 +126,27 @@ describe("getKcLearning", () => {
       nextReview: day(-2),
       attempts: db.tables.attempts.map((row) => ({
         createdAt: row.created_at,
-        correct: true,
+        result: "full",
         help: "none",
         exerciseId: null,
       })),
       candidate: false,
       anchors: [],
     });
+  });
+
+  test("reads only the Course's sessions, and a partial answer as wrong", async () => {
+    db.tables.study_sessions.push({ id: "other", course_id: "other-course" });
+    db.tables.questions.push({ id: "q2", session_id: "other" });
+    db.tables.attempts.push(
+      { ...attempt(NOZZLE, -1), question_id: "q2", session_id: "other" },
+      { ...attempt(THRUST, -1), result: "partial" },
+    );
+
+    const learning = await getKcLearning(COURSE);
+
+    expect(learning[NOZZLE]).toMatchObject({ state: "new", attempts: [] });
+    expect(learning[THRUST]).toMatchObject({ level: 1, nextReview: day(0) });
   });
 
   test("lists unattempted candidates with their anchors, and nothing else", async () => {

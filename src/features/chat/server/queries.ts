@@ -1,10 +1,6 @@
 import "server-only";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import {
-  DEFAULT_MODEL_CHOICE,
-  offeredModelChoice,
-} from "@/features/chat/ai/reply";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath } from "@/features/chat/domain/chat-paths";
 import {
@@ -35,23 +31,16 @@ export async function getChat(
     id: chat.id,
     courseId: chat.courseId,
     title: chat.title,
-    modelChoice: offeredModelChoice(chat.modelChoice),
     messages: await loadMessages(supabase, chat.id),
   };
 }
 
 /**
- * An unsaved Chat in a Course for the new Chat page, on the default model
- * choice. It is stored with its first message, under this id.
+ * An unsaved Chat in a Course for the new Chat page. It is stored with its
+ * first message, under this id.
  */
 export function newChat(courseId: string): ChatWithMessages {
-  return {
-    id: randomUUID(),
-    courseId,
-    title: null,
-    modelChoice: DEFAULT_MODEL_CHOICE,
-    messages: [],
-  };
+  return { id: randomUUID(), courseId, title: null, messages: [] };
 }
 
 /**

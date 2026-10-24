@@ -107,10 +107,24 @@ const semanticLinkSchema = z.object({
 });
 
 /**
+ * One numeric final result of an Exercise, the key a Student's final value
+ * is checked against: such as `{ label: "Thrust", value: 17.5, unit: "kN" }`.
+ * The unit is written for mathjs; null for a number without one.
+ */
+export const finalAnswerSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  value: z.number(),
+  unit: z.string().trim().min(1).max(50).nullable(),
+});
+
+export type FinalAnswer = z.infer<typeof finalAnswerSchema>;
+
+/**
  * An Exercise: one subtask whose question is the `questionChunk`, with the
  * KCs it tests, a short reusable task type such as "compute thrust", its
- * solution's status and a difficulty from 1 (easy) to 3 (hard). Only a
- * `generated` solution is stored; a printed one stays in its chunk.
+ * solution's status, a difficulty from 1 (easy) to 3 (hard) and its numeric
+ * final answers (null without any, and in maps from before they existed).
+ * Only a `generated` solution is stored; a printed one stays in its chunk.
  */
 function exerciseSchema<Source extends z.ZodType>(source: Source) {
   return z
@@ -124,6 +138,7 @@ function exerciseSchema<Source extends z.ZodType>(source: Source) {
       solution: z.string().trim().min(1).max(20_000).nullable(),
       difficulty: z.int().min(1).max(3),
       kcs: z.array(id),
+      finalAnswers: z.array(finalAnswerSchema).min(1).nullish(),
     })
     .refine(
       (exercise) =>

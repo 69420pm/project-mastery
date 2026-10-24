@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Chat, chatPath } from "@/features/chat";
-import { chatModelOptions, getChat } from "@/features/chat/server";
+import { getChat } from "@/features/chat/server";
 import { getMaterialList } from "@/features/courses/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
@@ -28,7 +28,6 @@ export default async function ChatPage({
       key={chat.id}
       chat={chat}
       isNew={false}
-      modelOptions={chatModelOptions()}
       materials={materials}
       ownerId={user.id}
       dailyLimit={dailyLimit}

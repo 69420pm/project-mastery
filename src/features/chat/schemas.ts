@@ -11,11 +11,12 @@ export const messageTooLongMessage = `Your message is too long. Keep it under ${
 export const chatNotFoundMessage = "This chat does not exist.";
 
 /**
- * Metadata the server attaches to AI messages (see `ChatMessageMetadata`).
- * Student messages have none.
+ * A message's metadata (see `ChatMessageMetadata`): the question a Student's
+ * answer is for, and what the server attaches to AI messages.
  */
 export const chatMessageMetadataSchema = z
   .object({
+    questionId: z.string().optional(),
     modelId: z.string().optional(),
     stopped: z.boolean().optional(),
     // Built by the server and only displayed, so only its shape is checked.
@@ -50,10 +51,14 @@ const materialPartSchema = z.object({
 
 const textPartSchema = z.object({ type: z.literal("text"), text: z.string() });
 
-/** A Student's message: text, attached Materials, or both. */
+/**
+ * A Student's message: text, attached Materials, or both. Sent from a task
+ * card, it names the question it answers.
+ */
 const studentMessageSchema = z.object({
   id: z.uuid(),
   role: z.literal("user"),
+  metadata: z.object({ questionId: z.uuid() }).optional(),
   parts: z
     .array(z.discriminatedUnion("type", [textPartSchema, materialPartSchema]))
     .min(1)
@@ -89,12 +94,6 @@ const studentMessageSchema = z.object({
 export const chatRequestSchema = z.object({
   chatId: z.uuid(),
   courseId: z.uuid().optional(),
-  /**
-   * The key of the Student's model choice for this message, never a model
-   * id. The server checks it against the offered choices. Without one, the
-   * Chat's last choice is used.
-   */
-  modelChoice: z.string().max(100).optional(),
   message: studentMessageSchema,
 });
 

@@ -23,7 +23,6 @@ test("names the tool the AI is using", () => {
 test.each([
   ["readKcs", "Reading your knowledge map…"],
   ["findExercises", "Looking for exercises…"],
-  ["recordAttempt", "Recording your progress…"],
   ["remember", "Making a note…"],
 ])("while %s runs, says %s", (tool, text) => {
   expect(

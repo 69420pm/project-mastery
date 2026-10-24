@@ -1,13 +1,14 @@
 // @vitest-environment node
-// The chat handler: the first message, stored Chats, the model choice, refusals
-// and the Chat title.
+// The chat handler: the first message, stored Chats, refusals and the Chat
+// title.
 // Shared setup and helpers: handler-testing.ts.
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, test, vi } from "vitest";
-import { modelChoices } from "@/lib/ai/models";
-import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
+  MAP,
+  seedMap,
   STUDENT,
   CLASSMATE,
   COURSE,
@@ -49,6 +50,15 @@ describe("a first message", () => {
         text: "Show me your attempt first.",
         modelId: "xiaomi/mimo-v2.6-flash",
       },
+    ]);
+    expect(db.tables.study_sessions).toEqual([
+      expect.objectContaining({
+        owner: STUDENT,
+        chat_id: chatId,
+        course_id: COURSE,
+        mode: "learn",
+        ended_at: null,
+      }),
     ]);
   });
 });
@@ -153,92 +163,6 @@ describe("a message to a stored Chat", () => {
       "Why?",
       "Because.",
     ]);
-  });
-});
-
-describe("the model choice", () => {
-  const defaultChoice = () =>
-    modelChoices("chat").find(({ key }) => key === "balanced");
-
-  /** A choice other than the default, so a test can tell them apart. */
-  function otherChoice() {
-    const choice = modelChoices("chat").find(({ key }) => key !== "balanced");
-    if (!choice) throw new Error("The chat task needs a second choice.");
-    return choice;
-  }
-
-  test("a new Chat answers with the chosen model, stores it on the reply and remembers the choice", async () => {
-    useMockModels({ chat: mockTextModel("Chosen.") });
-    const choice = otherChoice();
-    const chatId = randomUUID();
-
-    await send({
-      chatId,
-      courseId: COURSE,
-      modelChoice: choice.key,
-      message: userMessage("Hi"),
-    });
-
-    expect(storedMessages(chatId).at(-1)).toMatchObject({
-      role: "assistant",
-      modelId: choice.model,
-    });
-    expect(db.tables.chats[0]).toMatchObject({ model_choice: choice.key });
-  });
-
-  test("a changed choice applies from the next message on and is remembered", async () => {
-    useMockModels({ chat: mockTextModel("Changed.") });
-    const choice = otherChoice();
-    const chatId = seedChat(STUDENT);
-
-    await send({ chatId, message: userMessage("First") });
-    await send({
-      chatId,
-      modelChoice: choice.key,
-      message: userMessage("Second"),
-    });
-
-    const replies = storedMessages(chatId).filter(
-      ({ role }) => role === "assistant",
-    );
-    expect(replies.map(({ modelId }) => modelId)).toEqual([
-      defaultChoice()?.model,
-      choice.model,
-    ]);
-    expect(db.tables.chats[0]).toMatchObject({ model_choice: choice.key });
-  });
-
-  test("without a choice, a stored Chat answers with its last choice", async () => {
-    useMockModels({ chat: mockTextModel("Remembered.") });
-    const choice = otherChoice();
-    const chatId = seedChat(STUDENT);
-    db.tables.chats[0]!.model_choice = choice.key;
-
-    await send({ chatId, message: userMessage("Again") });
-
-    expect(storedMessages(chatId).at(-1)?.modelId).toBe(choice.model);
-  });
-
-  test("an unknown choice key, such as a raw model id, is refused without a model call", async () => {
-    const model = mockTextModel("Never sent.");
-    useMockModels({ chat: model });
-    const chatId = randomUUID();
-
-    for (const modelChoice of ["turbo", otherChoice().model]) {
-      const reply = await send({
-        chatId,
-        courseId: COURSE,
-        modelChoice,
-        message: userMessage("Hi"),
-      });
-      expect(reply).toEqual({
-        status: 400,
-        refusal: expect.stringMatching(/model/i),
-      });
-    }
-
-    expect(db.tables.chats).toEqual([]);
-    expect(model.doStreamCalls).toHaveLength(0);
   });
 });
 
@@ -481,5 +405,139 @@ describe("the Chat title", () => {
       "Hi",
       "Kept.",
     ]);
+  });
+});
+
+describe("a question on a question card", () => {
+  test("is asked, answered by a message that links to it, and graded into attempts", async () => {
+    seedMap();
+    const chatId = randomUUID();
+    useMockModels({
+      chat: mockToolModel(
+        [
+          [
+            {
+              toolName: "ask",
+              input: {
+                kind: "question",
+                prompt: "State the thrust equation.",
+                kcIds: [MAP.thrust],
+              },
+            },
+          ],
+        ],
+        "Never reached: ask ends the reply.",
+      ),
+    });
+
+    const asked = await send({
+      chatId,
+      courseId: COURSE,
+      message: userMessage("Quiz me"),
+    });
+
+    expect(asked.text).toBe("");
+    const [question] = db.tables.questions;
+    expect(question).toMatchObject({
+      prompt: "State the thrust equation.",
+      session_id: db.tables.study_sessions[0]!.id,
+    });
+    expect(db.tables.question_kcs).toEqual([
+      expect.objectContaining({ question_id: question!.id, kc_id: MAP.thrust }),
+    ]);
+
+    const model = mockToolModel(
+      [
+        [
+          {
+            toolName: "grade",
+            input: {
+              questionId: question!.id,
+              results: [{ kcId: MAP.thrust, result: "partial" }],
+              help: "none",
+            },
+          },
+        ],
+      ],
+      "Close: mind the sign.",
+    );
+    useMockModels({ chat: model });
+    const answer = {
+      ...userMessage("$F = \\dot m (v_0 - v_e)$"),
+      metadata: { questionId: question!.id },
+    };
+
+    const graded = await send({ chatId, message: answer });
+
+    expect(graded.text).toBe("Close: mind the sign.");
+    expect(question).toMatchObject({
+      answer_text: "$F = \\dot m (v_0 - v_e)$",
+      answer_message_id: answer.id,
+      graded_at: expect.any(String),
+    });
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
+      `card of question ${question!.id}`,
+    );
+    expect(db.tables.attempts).toEqual([
+      expect.objectContaining({
+        question_id: question!.id,
+        kc_id: MAP.thrust,
+        kind: "learn",
+        result: "partial",
+      }),
+    ]);
+
+    // Graded, the card takes no more answers.
+    const late = await send({
+      chatId,
+      message: { ...userMessage("Again"), metadata: answer.metadata },
+    });
+    expect(late).toMatchObject({ status: 409 });
+  });
+
+  test("an answer whose recording failed is recorded when it is resent", async () => {
+    seedMap();
+    const chatId = randomUUID();
+    useMockModels({
+      chat: mockToolModel(
+        [
+          [
+            {
+              toolName: "ask",
+              input: { kind: "question", prompt: "Q?", kcIds: [MAP.thrust] },
+            },
+          ],
+        ],
+        "",
+      ),
+    });
+    await send({ chatId, courseId: COURSE, message: userMessage("Quiz me") });
+    const [question] = db.tables.questions;
+    const answer = {
+      ...userMessage("It is $4$."),
+      metadata: { questionId: question!.id },
+    };
+    useMockModels({ chat: mockTextModel("Failed reply.") });
+    await send({ chatId, message: answer });
+    // The message was stored, but recording the answer failed.
+    Object.assign(question!, {
+      answer_text: null,
+      answer_message_id: null,
+      answered_at: null,
+    });
+
+    const model = mockTextModel("Let me grade that.");
+    useMockModels({ chat: model });
+    const retried = await send({ chatId, message: answer });
+
+    expect(retried.text).toBe("Let me grade that.");
+    expect(question).toMatchObject({
+      answer_text: "It is $4$.",
+      answer_message_id: answer.id,
+      answered_at: expect.any(String),
+    });
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
+      `card of question ${question!.id}`,
+    );
   });
 });

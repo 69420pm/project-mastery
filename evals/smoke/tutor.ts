@@ -16,11 +16,32 @@ const GREETING = "Let's start studying.";
 const ANSWER =
   "I think the air goes through the intake, the compressor, the combustion chamber, the turbine and then the nozzle. Thermal efficiency is the useful power you get out, the gain in the jet's kinetic energy, divided by the heat the fuel puts in.";
 
+/** The gold Exercise the Student asks for, with real data and a key. */
+const THRUST_EXERCISE = {
+  name: "Ex. 7.2a",
+  markdown:
+    "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
+  finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
+  /**
+   * Every KC of the gold map's thrust big idea, not only its two, so
+   * `findExercises` finds it whichever of them the AI looks up: the AI knows
+   * only the ids of the candidates and their anchors, which may leave out
+   * the Exercise's own KCs.
+   */
+  kcs: ["KC01", "KC02", "KC03", "KC04", "KC05", "KC06", "KC07", "KC08"],
+};
+
+const EXERCISE_REQUEST = `Can you give me ${THRUST_EXERCISE.name} from the exercise sheet? I want to practise computing net thrust.`;
+
+/** The right answer to `THRUST_EXERCISE`, in another unit than its key. */
+const EXERCISE_ANSWER =
+  "F = mdot (v_e - v_0) = 50 kg/s × (600 - 250) m/s = 17500 N.";
+
 /** How long ago the due KCs were taught. */
 const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises", "recordAttempt", "remember"];
+const TOOL_NAMES = ["readKcs", "findExercises", "remember", "ask", "grade"];
 
 /** A preference worth keeping in the Memory (#107). */
 const PREFERENCE = "I learn best with examples before formulas.";
@@ -63,7 +84,9 @@ async function sendMessage(
   studentId: string,
   chat: { chatId: string; courseId: string },
   text: string,
-): Promise<{ calls: ToolCall[]; text: string }> {
+  /** The question it answers on its question card. */
+  questionId?: string,
+): Promise<{ calls: ToolCall[]; text: string; questionIds: string[] }> {
   console.info(`Student: ${text}`);
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
@@ -74,6 +97,7 @@ async function sendMessage(
           id: randomUUID(),
           role: "user",
           parts: [{ type: "text", text }],
+          ...(questionId && { metadata: { questionId } }),
         },
       }),
     }),
@@ -88,12 +112,30 @@ async function sendMessage(
     .map((line) => JSON.parse(line.slice("data: ".length)));
 
   const calls: ToolCall[] = [];
+  const questionIds: string[] = [];
   for (const part of chunks) {
+    if (
+      part.type === "tool-output-available" &&
+      typeof part.output?.questionId === "string"
+    ) {
+      questionIds.push(part.output.questionId);
+    }
+    if (
+      part.type === "tool-output-available" &&
+      Array.isArray(part.output?.exercises)
+    ) {
+      const names = part.output.exercises.map(
+        (exercise: { name?: string }) => exercise.name,
+      );
+      console.info(
+        `  found ${JSON.stringify(names)} ${part.output.note ?? ""}`,
+      );
+    }
     if (part.type === "tool-input-available") {
       console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
       const kcIds =
         part.input?.kcIds ??
-        part.input?.kcs?.map((kc: { kcId: string }) => kc.kcId) ??
+        part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
       calls.push({ toolName: part.toolName, kcIds });
     }
@@ -106,23 +148,25 @@ async function sendMessage(
     .map((part) => part.delta)
     .join("");
   console.info(`AI: ${reply}`);
-  return { calls, text: reply };
+  return { calls, text: reply, questionIds };
 }
 
 /**
  * Sets up a Course with the jet-engines gold map, a stand-in source chunk
- * for every KC, the gold Exercises with stand-in question chunks and two
- * KCs taught a few days ago, so both are due. Then sends "Let's start
- * studying.", a plausible answer and a learning preference in a new Chat,
- * through the real Chat handler, and checks what the AI did, said and
- * remembered.
+ * for every KC, the gold Exercises with stand-in question chunks (Ex. 7.2a
+ * with real data and a numeric key) and two KCs taught a few days ago, so
+ * both are due. Then sends "Let's start studying.", a plausible answer and a
+ * learning preference in a new Chat, and a request for Ex. 7.2a and its
+ * right answer in a second one, through the real Chat handler, and checks
+ * what the AI did, said, remembered and graded, numeric check included.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer and a preference in a Chat)",
+    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer, a preference, a request for Ex. 7.2a and its answer in a second Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
-  // are recorded as one row (task `chat`), with the title the only other.
+  // are recorded as one row (task `chat`), with a title per Chat the only
+  // others.
   maxCalls: 12,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
@@ -164,7 +208,9 @@ export const tutorSmoke: SmokeCheck = {
       chunk(
         index + 1,
         "exercise",
-        `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
+        exercise.name === THRUST_EXERCISE.name
+          ? THRUST_EXERCISE.markdown
+          : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
       ),
     );
     await insertRows(supabase, "chunks", [source, ...questions]);
@@ -196,14 +242,25 @@ export const tutorSmoke: SmokeCheck = {
         solution_status: exercise.solutionStatus,
         solution: null,
         question_chunk_id: questions[position]!.id,
+        final_answers:
+          exercise.name === THRUST_EXERCISE.name
+            ? THRUST_EXERCISE.finalAnswers
+            : null,
         position,
       })),
     );
+    const thrustExerciseId =
+      exerciseIds[
+        gold.exercises.findIndex(({ name }) => name === THRUST_EXERCISE.name)
+      ];
     await insertRows(
       supabase,
       "exercise_kcs",
       gold.exercises.flatMap((exercise, position) =>
-        exercise.kcs.map((kc) => ({
+        (exercise.name === THRUST_EXERCISE.name
+          ? THRUST_EXERCISE.kcs
+          : exercise.kcs
+        ).map((kc) => ({
           ...owned,
           exercise_id: exerciseIds[position],
           kc_id: id(kc),
@@ -211,8 +268,9 @@ export const tutorSmoke: SmokeCheck = {
       ),
     );
 
-    // Two content KCs without Prerequisites, taught a few days ago. Only
-    // the admin client can backdate an attempt.
+    // Two content KCs without Prerequisites, taught a few days ago by a
+    // question graded full in an earlier session. Only the admin client can
+    // backdate an attempt.
     const hasPrerequisite = new Set(gold.prerequisites.map((link) => link.to));
     const taught = gold.kcs
       .filter((kc) => kc.bigIdea !== null && !hasPrerequisite.has(kc.id))
@@ -221,13 +279,39 @@ export const tutorSmoke: SmokeCheck = {
     const taughtAt = new Date(
       Date.now() - TAUGHT_DAYS_AGO * 24 * 60 * 60 * 1000,
     ).toISOString();
+    const session = { id: randomUUID(), owner: studentId };
+    await insertRows(supabase, "study_sessions", [
+      { ...owned, ...session, mode: "learn", started_at: taughtAt },
+    ]);
+    const question = { id: randomUUID(), owner: studentId };
+    await insertRows(supabase, "questions", [
+      {
+        ...question,
+        session_id: session.id,
+        kind: "question",
+        prompt:
+          "Name the sections of a turbojet and define thermal efficiency.",
+        asked_at: taughtAt,
+        answer_text: ANSWER,
+        answered_at: taughtAt,
+        graded_at: taughtAt,
+      },
+    ]);
+    await insertRows(
+      supabase,
+      "question_kcs",
+      taught.map((kcId) => ({ question_id: question.id, kc_id: kcId })),
+    );
     await insertRows(
       supabase,
       "attempts",
       taught.map((kcId) => ({
-        ...owned,
+        owner: studentId,
+        question_id: question.id,
+        session_id: session.id,
         kc_id: kcId,
-        correct: true,
+        kind: "learn",
+        result: "full",
         help: "none",
         created_at: taughtAt,
       })),
@@ -235,7 +319,8 @@ export const tutorSmoke: SmokeCheck = {
 
     // The Chat runs as the Student, with Row Level Security as in the app.
     const client = await signInAsUser(supabase, studentId);
-    const { context } = await startTutoring(client, course.id);
+    const chat = { chatId: randomUUID(), courseId: course.id };
+    const { context } = await startTutoring(client, course.id, chat.chatId);
     const due = new Set(context.dueReviews.kcs.map((kc) => kc.id));
     const offered = new Set([
       ...due,
@@ -250,10 +335,10 @@ export const tutorSmoke: SmokeCheck = {
       throw new Error(`Expected ${taught.length} due KCs, got ${due.size}`);
     }
 
-    const chat = { chatId: randomUUID(), courseId: course.id };
     const first = await sendMessage(client, studentId, chat, GREETING);
-    const answeredAt = new Date().toISOString();
-    const second = await sendMessage(client, studentId, chat, ANSWER);
+    // The Student answers the question the first reply asked, on its card.
+    const asked = first.questionIds.at(-1);
+    const second = await sendMessage(client, studentId, chat, ANSWER, asked);
     const memoryBefore = await readMemory(supabase, course.id);
     // The turn may cross UTC midnight, so either day counts as "this turn".
     const utcDay = () => new Date().toISOString().slice(0, 10);
@@ -265,21 +350,51 @@ export const tutorSmoke: SmokeCheck = {
       .split("\n")
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
+    // In a second Chat, without open cards, the Student asks for the numeric
+    // Exercise and answers it on its card.
+    const exerciseChat = { chatId: randomUUID(), courseId: course.id };
+    const fourth = await sendMessage(
+      client,
+      studentId,
+      exerciseChat,
+      EXERCISE_REQUEST,
+    );
+    const exerciseAsked = fourth.questionIds.at(-1);
+    const fifth = await sendMessage(
+      client,
+      studentId,
+      exerciseChat,
+      EXERCISE_ANSWER,
+      exerciseAsked,
+    );
 
-    const { data: recorded, error: attemptsError } = await supabase
-      .from("attempts")
-      .select("kc_id")
-      .eq("course_id", course.id)
-      .gte("created_at", answeredAt);
-    if (attemptsError) throw new Error(attemptsError.message);
-    const courseKcs = new Set(gold.kcs.map((kc) => id(kc.id)));
+    // An asked question with its answer and the attempts its grade stored.
+    const loadQuestion = async (questionId: string | undefined) => {
+      if (!questionId) return null;
+      const { data, error } = await supabase
+        .from("questions")
+        .select(
+          'exercise_id, answer_text, graded_at, question_kcs(kc_id), attempts(kc_id, result, help, "check")',
+        )
+        .eq("id", questionId)
+        .single();
+      if (error) throw new Error(error.message);
+      return data;
+    };
+    const graded = await loadQuestion(asked);
+    const exercise = await loadQuestion(exerciseAsked);
+    const checks = exercise?.attempts.map((attempt) => attempt.check) ?? [];
+    console.info(`Exercise graded: ${JSON.stringify(exercise?.attempts)}`);
+    const recorded = graded?.attempts ?? [];
+    console.info(`Graded: ${JSON.stringify(recorded)}`);
+    const askedKcs = graded?.question_kcs.map(({ kc_id }) => kc_id) ?? [];
 
     const dueReads = first.calls.filter(
       ({ toolName, kcIds }) =>
         toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = [first.text, second.text, third.text]
+    const shown = [first.text, second.text, third.text, fourth.text, fifth.text]
       .join("\n")
       .replace(/\]\([^)]*\)/g, "]");
     const named = [
@@ -291,24 +406,26 @@ export const tutorSmoke: SmokeCheck = {
       calls.length === 0
         ? "no tool call"
         : calls.map((c) => `${c.toolName} ×${c.kcIds.length}`).join(", ");
-    // The KCs the answer's turn recorded show what the question was about,
-    // so a reply that reads a due KC and then asks about a new one fails.
-    const dueRecorded = recorded.filter(({ kc_id }) => due.has(kc_id));
+    // The KCs the question tests show what it was about, so a reply that
+    // reads a due KC and then asks about a new one fails.
+    const dueAsked = askedKcs.filter((kc) => due.has(kc));
     return [
       result(
-        "the first reply asked about a due KC",
-        dueReads.length > 0 && dueRecorded.length > 0,
-        `read: ${describe(first.calls)}; ${dueRecorded.length} due KCs recorded`,
+        "the first reply asked a question on a due KC through ask",
+        dueReads.length > 0 && dueAsked.length > 0,
+        `${describe(first.calls)}; ${dueAsked.length} due KCs asked`,
       ),
       result(
-        "the first reply ends by asking the Student something",
-        /\?[\s"'”)*_]*$/.test(first.text.trim()),
-        JSON.stringify(first.text.trim().slice(-80)),
+        "the answer was stored on the question",
+        graded?.answer_text === ANSWER,
+        asked ? "" : "no question asked",
       ),
       result(
-        "the answer's turn recorded an attempt on a Course KC",
-        recorded.some(({ kc_id }) => courseKcs.has(kc_id)),
-        `${recorded.length} rows; ${describe(second.calls)}`,
+        "the answer's turn graded it: one attempt per KC of the question",
+        graded?.graded_at != null &&
+          recorded.length === askedKcs.length &&
+          askedKcs.every((kc) => recorded.some(({ kc_id }) => kc_id === kc)),
+        `${recorded.length} attempts for ${askedKcs.length} KCs; ${describe(second.calls)}`,
       ),
       result(
         "the preference's turn added a line to the Memory",
@@ -317,6 +434,16 @@ export const tutorSmoke: SmokeCheck = {
             turnDays.some((day) => line.startsWith(`${day}: `)),
           ),
         `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
+      ),
+      result(
+        `the request asked ${THRUST_EXERCISE.name} as a question`,
+        exercise?.exercise_id === thrustExerciseId,
+        `${describe(fourth.calls)}; exercise ${exercise?.exercise_id ?? "none"}`,
+      ),
+      result(
+        "its right final value was checked as a match on every attempt",
+        checks.length > 0 && checks.every((check) => check === "match"),
+        `checks ${JSON.stringify(checks)}; ${describe(fifth.calls)}`,
       ),
       result(
         "no ids or tool names in the text",

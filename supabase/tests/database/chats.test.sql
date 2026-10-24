@@ -51,10 +51,12 @@ select policies_are(
   'chat_messages has exactly the expected policies'
 );
 
-select is(
-  (select model_choice from public.chats where id = 'aaaaaaaa-0000-0000-0000-000000000001'),
-  'balanced',
-  'a new Chat starts with the Balanced model choice'
+select results_eq(
+  $$select owner, course_id, mode, ended_at is null from public.study_sessions
+    where chat_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  $$values ('11111111-1111-1111-1111-111111111111'::uuid,
+    'aaaaaaaa-c000-0000-0000-000000000001'::uuid, 'learn', true)$$,
+  'a new Chat starts a running learn session in its Course'
 );
 
 -- Anonymous visitors see nothing.
@@ -135,12 +137,12 @@ select throws_ok(
 );
 
 select lives_ok(
-  $$update public.chats set model_choice = 'fast', latest_reply_id = gen_random_uuid() where id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
-  'a Student can change their Chat''s model choice and latest reply'
+  $$update public.chats set title = 'Mine', latest_reply_id = gen_random_uuid() where id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
+  'a Student can change their Chat''s title and latest reply'
 );
 
 select lives_ok(
-  $$update public.chats set model_choice = 'fast' where id = 'bbbbbbbb-0000-0000-0000-000000000001'$$,
+  $$update public.chats set title = 'Taken' where id = 'bbbbbbbb-0000-0000-0000-000000000001'$$,
   'updating another Student''s Chat does not raise'
 );
 
@@ -170,8 +172,8 @@ select lives_ok(
 reset role;
 
 select is(
-  (select model_choice from public.chats where id = 'bbbbbbbb-0000-0000-0000-000000000001'),
-  'balanced',
+  (select title from public.chats where id = 'bbbbbbbb-0000-0000-0000-000000000001'),
+  null,
   'a Student cannot update another Student''s Chat'
 );
 

@@ -1,9 +1,13 @@
 import type { CandidateGroup } from "@/features/study/domain/candidates";
-import type { KcStateName } from "@/features/study/domain/ladder";
+import type {
+  AttemptHelp,
+  AttemptResult,
+  KcStateName,
+} from "@/features/study/domain/ladder";
 import type { Phase } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
-export type { KcStateName, Phase };
+export type { AttemptHelp, AttemptResult, KcStateName, Phase };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -61,16 +65,6 @@ export type KcState = {
   nextReview: string | null;
 };
 
-/** What `recordAttempt` returns for each KC it recorded. */
-export type RecordedKc = {
-  id: string;
-  name: string;
-  /** 1 to 5. */
-  level: number;
-  /** As YYYY-MM-DD. */
-  nextReview: string;
-};
-
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {
   material: string;
@@ -83,7 +77,7 @@ type KcSourceView = {
 
 /** An Exercise as `findExercises` returns it. */
 export type ExerciseView = {
-  /** What `recordAttempt` takes as `exerciseId`. */
+  /** The Exercise's id, which a question on it names. */
   id: string;
   name: string;
   taskType: string;
@@ -101,6 +95,21 @@ export type ExerciseView = {
     /** Null when the Course has no solution for it. */
     markdown: string | null;
   };
+};
+
+/** What a Question asks for, which sets how its attempts count. */
+export type QuestionKind =
+  "prequestion" | "recall" | "question" | "problem" | "rebuild" | "mock_item";
+
+/** A KC of a graded Question as `grade` returns it, with its new state. */
+export type GradedKc = {
+  id: string;
+  name: string;
+  result: AttemptResult;
+  /** 1 to 5. */
+  level: number;
+  /** As YYYY-MM-DD. */
+  nextReview: string;
 };
 
 /** A KC as `readKcs` returns it. */

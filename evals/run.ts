@@ -91,7 +91,7 @@ async function runWithLangfuse<Input, Expected>(
     maxConcurrency: MAX_CONCURRENCY,
   });
   console.info(await result.format({ includeItemResults: true }));
-  return passRate(definition.gates, result.itemResults, fixture.items.length);
+  return result.itemResults;
 }
 
 async function runLocally<Input, Expected>(
@@ -115,7 +115,7 @@ async function runLocally<Input, Expected>(
       );
     }
   }
-  return passRate(definition.gates, results, fixture.items.length);
+  return results;
 }
 
 /** `pnpm evals draft|calibrate <criterion>`, on the traces in Langfuse. */
@@ -205,11 +205,18 @@ async function main() {
     for (const definition of selected) {
       console.info(`\n=== ${definition.name}`);
       const fixture = await loadFixture(definition);
-      const rate = langfuse
+      const items = langfuse
         ? await runWithLangfuse(langfuse, definition, fixture)
         : await runLocally(definition, fixture);
       if (isQuotaExhausted()) throw new QuotaExhaustedError();
 
+      if (definition.aggregate) {
+        const { passed, summary } = definition.aggregate(items);
+        console.info(`\n${passed ? "✓ passed" : "✗ failed"}: ${summary}`);
+        failed ||= !passed;
+        continue;
+      }
+      const rate = passRate(definition.gates, items, fixture.items.length);
       const verdict = rate >= definition.minPassRate ? "✓ passed" : "✗ failed";
       console.info(
         `\n${verdict}: pass rate ${rate.toFixed(2)} (minimum ${definition.minPassRate})`,

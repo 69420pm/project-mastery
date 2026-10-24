@@ -72,51 +72,43 @@ export type Database = {
       };
       attempts: {
         Row: {
-          correct: boolean;
-          course_id: string;
+          check: string | null;
           created_at: string;
-          exercise_id: string | null;
           help: string;
           id: string;
           kc_id: string;
+          kind: string;
           owner: string;
+          question_id: string;
+          result: string;
+          session_id: string;
         };
         ComputedFields: never;
         Insert: {
-          correct: boolean;
-          course_id: string;
+          check?: string | null;
           created_at?: string;
-          exercise_id?: string | null;
           help: string;
           id?: string;
           kc_id: string;
+          kind: string;
           owner?: string;
+          question_id: string;
+          result: string;
+          session_id: string;
         };
         Update: {
-          correct?: boolean;
-          course_id?: string;
+          check?: string | null;
           created_at?: string;
-          exercise_id?: string | null;
           help?: string;
           id?: string;
           kc_id?: string;
+          kind?: string;
           owner?: string;
+          question_id?: string;
+          result?: string;
+          session_id?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "attempts_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "attempts_exercise_id_fkey";
-            columns: ["exercise_id"];
-            isOneToOne: false;
-            referencedRelation: "exercises";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "attempts_kc_id_fkey";
             columns: ["kc_id"];
@@ -129,6 +121,20 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attempts_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "questions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "attempts_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
             referencedColumns: ["id"];
           },
         ];
@@ -382,7 +388,6 @@ export type Database = {
           id: string;
           last_message_at: string;
           latest_reply_id: string | null;
-          model_choice: string;
           owner: string;
           title: string | null;
           title_set_manually: boolean;
@@ -395,7 +400,6 @@ export type Database = {
           id?: string;
           last_message_at?: string;
           latest_reply_id?: string | null;
-          model_choice?: string;
           owner?: string;
           title?: string | null;
           title_set_manually?: boolean;
@@ -407,7 +411,6 @@ export type Database = {
           id?: string;
           last_message_at?: string;
           latest_reply_id?: string | null;
-          model_choice?: string;
           owner?: string;
           title?: string | null;
           title_set_manually?: boolean;
@@ -656,6 +659,7 @@ export type Database = {
           course_id: string;
           created_at: string;
           difficulty: number;
+          final_answers: Json | null;
           id: string;
           name: string;
           owner: string;
@@ -670,6 +674,7 @@ export type Database = {
           course_id: string;
           created_at?: string;
           difficulty: number;
+          final_answers?: Json | null;
           id?: string;
           name: string;
           owner: string;
@@ -683,6 +688,7 @@ export type Database = {
           course_id?: string;
           created_at?: string;
           difficulty?: number;
+          final_answers?: Json | null;
           id?: string;
           name?: string;
           owner?: string;
@@ -1359,6 +1365,109 @@ export type Database = {
         };
         Relationships: [];
       };
+      question_kcs: {
+        Row: {
+          kc_id: string;
+          question_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          kc_id: string;
+          question_id: string;
+        };
+        Update: {
+          kc_id?: string;
+          question_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "question_kcs_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "question_kcs_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      questions: {
+        Row: {
+          answer_message_id: string | null;
+          answer_text: string | null;
+          answered_at: string | null;
+          asked_at: string;
+          exercise_id: string | null;
+          graded_at: string | null;
+          id: string;
+          kind: string;
+          owner: string;
+          prompt: string;
+          session_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          answer_message_id?: string | null;
+          answer_text?: string | null;
+          answered_at?: string | null;
+          asked_at?: string;
+          exercise_id?: string | null;
+          graded_at?: string | null;
+          id?: string;
+          kind: string;
+          owner?: string;
+          prompt: string;
+          session_id: string;
+        };
+        Update: {
+          answer_message_id?: string | null;
+          answer_text?: string | null;
+          answered_at?: string | null;
+          asked_at?: string;
+          exercise_id?: string | null;
+          graded_at?: string | null;
+          id?: string;
+          kind?: string;
+          owner?: string;
+          prompt?: string;
+          session_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "questions_answer_message_id_fkey";
+            columns: ["answer_message_id"];
+            isOneToOne: false;
+            referencedRelation: "chat_messages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "questions_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "questions_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "questions_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       semantic_links: {
         Row: {
           core_type: string;
@@ -1415,6 +1524,65 @@ export type Database = {
             columns: ["to_kc"];
             isOneToOne: false;
             referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      study_sessions: {
+        Row: {
+          chat_id: string | null;
+          course_id: string;
+          ended_at: string | null;
+          id: string;
+          mode: string;
+          owner: string;
+          stage: string | null;
+          started_at: string;
+          topic_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          chat_id?: string | null;
+          course_id: string;
+          ended_at?: string | null;
+          id?: string;
+          mode: string;
+          owner: string;
+          stage?: string | null;
+          started_at?: string;
+          topic_id?: string | null;
+        };
+        Update: {
+          chat_id?: string | null;
+          course_id?: string;
+          ended_at?: string | null;
+          id?: string;
+          mode?: string;
+          owner?: string;
+          stage?: string | null;
+          started_at?: string;
+          topic_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_chat_id_fkey";
+            columns: ["chat_id"];
+            isOneToOne: true;
+            referencedRelation: "chats";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_sessions_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_sessions_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];

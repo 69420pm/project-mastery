@@ -1,70 +1,17 @@
-import { modelName } from "@/lib/ai/model-name";
-import {
-  aiTask,
-  defaultModelChoice,
-  modelChoices,
-  type ModelChoiceKey,
-} from "@/lib/ai/models";
-import type { ModelOption } from "@/features/chat/types";
+import { aiTask } from "@/lib/ai/models";
 import { tutorInstructions, type TutorContext } from "@/features/study/server";
 
 /**
- * Call settings for the AI's reply in a Chat: the `chat` task's model for the
- * Student's choice (the default choice without one), with retries, fallbacks
- * and telemetry, plus the tutor instructions with `context`. The request
- * handler and the `chat` eval both use it, so the eval tests the real
- * configuration:
+ * Call settings for the AI's reply in a Chat: the `chat` task's model, with
+ * retries, fallbacks and telemetry, plus the tutor instructions with
+ * `context`. The request handler and the `chat` eval both use it, so the
+ * eval tests the real configuration:
  *
- *   streamText({ ...chatReplySettings(choice, context), messages, tools })
+ *   streamText({ ...chatReplySettings(context), messages, tools })
  */
-export function chatReplySettings(
-  modelChoice: string | undefined,
-  context: TutorContext,
-) {
+export function chatReplySettings(context: TutorContext) {
   return {
-    ...aiTask("chat", modelChoice),
+    ...aiTask("chat"),
     instructions: tutorInstructions(context),
   };
-}
-
-/**
- * The model choice of a new Chat: the `chat` task's default. The database's
- * `chats.model_choice` default repeats it for rows inserted without one, but
- * the handler always sets the choice.
- */
-export const DEFAULT_MODEL_CHOICE = defaultModelChoice("chat");
-
-/**
- * The choice a Chat answers with: `key` while it is offered, otherwise the
- * default, as for a stored choice that has since been removed.
- */
-export function offeredModelChoice(
-  key: string | undefined,
-): ModelChoiceKey<"chat"> {
-  const offered = modelChoices("chat").find((choice) => choice.key === key);
-  return (
-    (offered?.key as ModelChoiceKey<"chat"> | undefined) ?? DEFAULT_MODEL_CHOICE
-  );
-}
-
-/**
- * Why a request's model choice is refused: null when `key` is offered or no
- * choice was sent, otherwise the message naming the offered choices.
- */
-export function modelChoiceRefusal(key: string | undefined): string | null {
-  const offered = modelChoices("chat");
-  if (key === undefined || offered.some((choice) => choice.key === key)) {
-    return null;
-  }
-  const labels = offered.map(({ label }) => label);
-  return `This model is not available. Choose ${labels.slice(0, -1).join(", ")} or ${labels.at(-1)}.`;
-}
-
-/** The model choices the picker offers, in display order. */
-export function chatModelOptions(): ModelOption[] {
-  return modelChoices("chat").map(({ key, label, model }) => ({
-    key,
-    label,
-    modelName: modelName(model),
-  }));
 }

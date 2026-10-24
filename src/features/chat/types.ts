@@ -13,8 +13,14 @@ export type ReplyUsage = {
   estimated: boolean;
 };
 
-/** What the server attaches to an AI message. */
+/**
+ * What a message carries besides its parts: on a Student's message, the
+ * question it answers on a question card; the rest the server attaches to an AI
+ * message.
+ */
 export type ChatMessageMetadata = {
+  /** The question a Student's message answers, sent from its question card. */
+  questionId?: string;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */
@@ -46,21 +52,7 @@ export type ChatWithMessages = {
   /** The Course the Chat belongs to. */
   courseId: string;
   title: string | null;
-  /**
-   * The key of the model choice the Chat answers with: its last choice, or
-   * the default when that is no longer offered.
-   */
-  modelChoice: string;
   messages: ChatUIMessage[];
-};
-
-/** A model choice as the picker shows it. The client knows only the key. */
-export type ModelOption = {
-  key: string;
-  /** Fast, Balanced or Thorough. */
-  label: string;
-  /** The model's name, shown under the label. */
-  modelName: string;
 };
 
 /** A Chat as the sidebar lists it. */

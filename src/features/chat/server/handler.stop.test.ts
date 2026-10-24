@@ -4,7 +4,7 @@
 import { randomUUID } from "node:crypto";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, test, vi } from "vitest";
-import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
   STUDENT,
   CLASSMATE,
@@ -71,15 +71,15 @@ describe("a stopped reply", () => {
   /** Lets pending database writes of an ended reply finish. */
   const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-  /** Sends a message and disconnects once the reply's first text arrives. */
-  async function sendAndStop(body: unknown) {
+  /** Sends a message and disconnects once `chunk` (its first text) arrives. */
+  async function sendAndStop(body: unknown, chunk = '"text-delta"') {
     const disconnect = new AbortController();
     const response = await post(body, disconnect.signal);
     const reader = response
       .body!.pipeThrough(new TextDecoderStream())
       .getReader();
     let received = "";
-    while (!received.includes('"text-delta"')) {
+    while (!received.includes(chunk)) {
       const { value, done } = await reader.read();
       if (done) break;
       received += value;
@@ -105,6 +105,51 @@ describe("a stopped reply", () => {
       "Hi",
       "The first step is ",
     ]);
+  });
+
+  test("with no text yet is kept when a tool call has finished", async () => {
+    const tool = mockToolModel(
+      [[{ toolName: "remember", input: { text: "Likes examples." } }]],
+      "",
+    );
+    const stalled = new MockLanguageModelV4({
+      doStream: async ({ abortSignal }) => ({
+        stream: new ReadableStream({
+          start(controller) {
+            controller.enqueue({ type: "stream-start", warnings: [] });
+            abortSignal?.addEventListener("abort", () =>
+              controller.error(abortSignal.reason),
+            );
+          },
+        }),
+      }),
+    });
+    let calls = 0;
+    useMockModels({
+      chat: new MockLanguageModelV4({
+        doStream: (options) =>
+          calls++ === 0 ? tool.doStream(options) : stalled.doStream(options),
+      }),
+    });
+    const chatId = randomUUID();
+
+    await sendAndStop(
+      { chatId, courseId: COURSE, message: userMessage("Hi") },
+      '"tool-output-available"',
+    );
+
+    await vi.waitFor(() =>
+      expect(db.tables.chat_messages.at(-1)).toMatchObject({
+        role: "assistant",
+        stopped: true,
+        parts: expect.arrayContaining([
+          expect.objectContaining({
+            type: "tool-remember",
+            state: "output-available",
+          }),
+        ]),
+      }),
+    );
   });
 
   test("records an estimated cost of about four characters per token", async () => {

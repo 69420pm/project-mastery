@@ -182,7 +182,7 @@ test("clicking a KC node opens its panel", async () => {
         attempts: [
           {
             createdAt: "2026-10-15T10:00:00Z",
-            correct: true,
+            result: "full",
             help: "some",
             exerciseId: null,
           },
@@ -198,7 +198,7 @@ test("clicking a KC node opens its panel", async () => {
   const section = (name: string) => within(panel).getByRole("region", { name });
   expect(section("Overview")).toHaveTextContent("About Nozzles.");
   expect(section("Learning")).toHaveTextContent("2 of 5");
-  expect(section("Learning")).toHaveTextContent("Correctsome help");
+  expect(section("Learning")).toHaveTextContent("Fullsome help");
   expect(section("Priority")).toHaveTextContent("won't fit");
   expect(section("Priority")).toHaveTextContent("0.80");
 
@@ -222,7 +222,7 @@ test("an Exercise node shows its solution status and opens its panel", async () 
         attempts: [
           {
             createdAt: "2026-10-15T10:00:00Z",
-            correct: false,
+            result: "wrong",
             help: "none",
             exerciseId: "e1",
           },

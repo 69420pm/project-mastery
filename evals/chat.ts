@@ -96,7 +96,7 @@ export const chatEval: EvalDefinition<Input, z.infer<typeof expectedOutput>> = {
   expectedOutput,
   task: async ({ messages }) => {
     const { text } = await generateText({
-      ...chatReplySettings(undefined, SAMPLE_CONTEXT),
+      ...chatReplySettings(SAMPLE_CONTEXT),
       messages,
     });
     return text;

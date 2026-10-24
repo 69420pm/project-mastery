@@ -1,6 +1,7 @@
 import {
   BLOOM_LEVELS,
   type BloomLevel,
+  type FinalAnswer,
   type KcType,
   type KnowledgeMap,
   type SolutionStatus,
@@ -34,6 +35,8 @@ export type ExerciseAnswer = {
   /** The model's own worked solution. */
   solution: string;
   finalResult: string;
+  /** Its numeric final results; empty when it asks for no number. */
+  finalAnswers: FinalAnswer[];
   /** The number of steps in that solution. */
   steps: number;
   /** Only when a solution was given: its final result and whether it matches. */
@@ -127,6 +130,7 @@ export function exerciseFromAnswer(
       steps: answer.steps,
     }),
     kcs,
+    finalAnswers: answer.finalAnswers.length > 0 ? answer.finalAnswers : null,
   };
   const finding: Finding | null =
     status === "disputed" && answer.given

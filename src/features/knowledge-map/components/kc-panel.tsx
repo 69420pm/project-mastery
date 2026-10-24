@@ -14,6 +14,7 @@ import {
   checkFlags,
   HELP_NAMES,
   ORIGIN_NAMES,
+  RESULT_NAMES,
   TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import { attemptedExercises } from "@/features/knowledge-map/domain/map-details";
@@ -123,7 +124,7 @@ export function KcPanel({
                 <span className="text-muted-foreground">
                   {formatDate(attempt.createdAt)}
                 </span>
-                <span>{attempt.correct ? "Correct" : "Wrong"}</span>
+                <span>{RESULT_NAMES[attempt.result]}</span>
                 <span className="text-muted-foreground">
                   {HELP_NAMES[attempt.help]}
                 </span>

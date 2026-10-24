@@ -4,6 +4,7 @@ import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import type { ChatUIMessage, ReplyUsage } from "@/features/chat/types";
 import type { TutorContext } from "@/features/study";
+import { loadAnswerLinks } from "@/features/study/server";
 import { loadReplyUsage } from "@/features/usage/server";
 
 /**
@@ -16,7 +17,6 @@ export type StoredChat = {
   /** The Course the Chat belongs to. It never moves. */
   courseId: string;
   title: string | null;
-  modelChoice: string;
   /** The reply the latest request writes (`startReply`). */
   latestReplyId: string | null;
 };
@@ -27,19 +27,17 @@ function toStoredChat(row: {
   id: string;
   course_id: string;
   title: string | null;
-  model_choice: string;
   latest_reply_id: string | null;
 }): StoredChat {
   return {
     id: row.id,
     courseId: row.course_id,
     title: row.title,
-    modelChoice: row.model_choice,
     latestReplyId: row.latest_reply_id,
   };
 }
 
-const chatColumns = "id, course_id, title, model_choice, latest_reply_id";
+const chatColumns = "id, course_id, title, latest_reply_id";
 
 /** The Student's Chat with this id, or null when it is missing or not theirs. */
 export async function findChat(
@@ -57,28 +55,19 @@ export async function findChat(
 
 /**
  * Creates a Chat owned by the signed-in Student in their Course `courseId`,
- * with `replyId` as its latest reply (see `startReply`). Refuses with
- * "taken" when the id is taken, which for the Student means it belongs to
- * someone else, and with "no course" when the Course is not (or no longer)
- * theirs.
+ * with `replyId` as its latest reply (see `startReply`). The database starts
+ * its learn session with it. Refuses with "taken" when the id is taken,
+ * which for the Student means it belongs to someone else, and with "no
+ * course" when the Course is not (or no longer) theirs.
  */
 export async function createChat(
   supabase: Supabase,
   chatId: string,
-  {
-    courseId,
-    modelChoice,
-    replyId,
-  }: { courseId: string; modelChoice: string; replyId: string },
+  { courseId, replyId }: { courseId: string; replyId: string },
 ): Promise<StoredChat | "taken" | "no course"> {
   const { data, error } = await supabase
     .from("chats")
-    .insert({
-      id: chatId,
-      course_id: courseId,
-      model_choice: modelChoice,
-      latest_reply_id: replyId,
-    })
+    .insert({ id: chatId, course_id: courseId, latest_reply_id: replyId })
     .select(chatColumns)
     .single();
   if (error?.code === "23505") return "taken";
@@ -89,20 +78,19 @@ export async function createChat(
 }
 
 /**
- * Starts a new reply in a Chat: stores the model choice it uses and marks
- * `replyId` as the latest reply, so a reply still ending from an earlier
- * request is not kept (`saveReply`). Call it before storing the Student's
- * message. It does not reorder the Chat list, which follows
- * `last_message_at`.
+ * Starts a new reply in a Chat: marks `replyId` as the latest reply, so a
+ * reply still ending from an earlier request is not kept (`saveReply`). Call
+ * it before storing the Student's message. It does not reorder the Chat
+ * list, which follows `last_message_at`.
  */
 export async function startReply(
   supabase: Supabase,
   chatId: string,
-  { modelChoice, replyId }: { modelChoice: string; replyId: string },
+  replyId: string,
 ) {
   const { error } = await supabase
     .from("chats")
-    .update({ model_choice: modelChoice, latest_reply_id: replyId })
+    .update({ latest_reply_id: replyId })
     .eq("id", chatId);
   if (error) failed("Starting the reply", error);
 }
@@ -217,11 +205,13 @@ export async function deleteChat(
 function toUIMessage(
   row: MessageRow,
   usage?: ReplyUsage | undefined,
+  questionId?: string | undefined,
 ): ChatUIMessage {
   const message = {
     id: row.id,
     role: row.role as ChatUIMessage["role"],
     parts: row.parts as unknown as ChatUIMessage["parts"],
+    ...(questionId && { metadata: { questionId } }),
   };
   return row.role === "assistant"
     ? {
@@ -238,7 +228,11 @@ function toUIMessage(
     : message;
 }
 
-/** A Chat's messages in order. Not validated: run `validateUIMessages` before model calls. */
+/**
+ * A Chat's messages in order, a Student's answer on a question card with the
+ * question it answers. Not validated: run `validateUIMessages` before model
+ * calls.
+ */
 export async function loadMessages(
   supabase: Supabase,
   chatId: string,
@@ -252,11 +246,16 @@ export async function loadMessages(
     .order("created_at", { ascending: true });
   if (error) failed("Loading the messages", error);
 
-  const usage = await loadReplyUsage(
-    supabase,
-    data.filter(({ role }) => role === "assistant").map((r) => r.id),
+  const [usage, answers] = await Promise.all([
+    loadReplyUsage(
+      supabase,
+      data.filter(({ role }) => role === "assistant").map((r) => r.id),
+    ),
+    loadAnswerLinks(supabase, chatId),
+  ]);
+  return data.map((row) =>
+    toUIMessage(row, usage.get(row.id), answers.get(row.id)),
   );
-  return data.map((row) => toUIMessage(row, usage.get(row.id)));
 }
 
 /**

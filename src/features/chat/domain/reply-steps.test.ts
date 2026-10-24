@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { replySegments } from "./reply-steps";
+import { questionStates, replySegments } from "./reply-steps";
 
 type Parts = ChatUIMessage["parts"];
 
@@ -19,9 +19,77 @@ function summaries(parts: Parts) {
   return replySegments(parts, live).map((segment) =>
     segment.kind === "text"
       ? segment.text
-      : `${segment.step.state}: ${segment.step.summary}`,
+      : segment.kind === "question"
+        ? `question ${segment.question.id}: ${segment.question.prompt}`
+        : `${segment.step.state}: ${segment.step.summary}`,
   );
 }
+
+const askPart = (id: string, state: "input-available" | "output-available") =>
+  ({
+    type: "tool-ask",
+    toolCallId: `ask-${id}`,
+    state,
+    input: { kind: "question", prompt: `Question ${id}?`, kcIds: ["a"] },
+    ...(state === "output-available" && { output: { questionId: id } }),
+  }) as Parts[number];
+
+test("shows an asked question as a question card, and one being asked as a step", () => {
+  expect(
+    summaries([
+      { type: "text", text: "Try this. " },
+      askPart("q1", "output-available"),
+    ]),
+  ).toEqual(["Try this. ", "question q1: Question q1?"]);
+  expect(summaries([askPart("q2", "input-available")])).toEqual([
+    "running: Asking a question…",
+  ]);
+});
+
+test("a question is submitted by an answer from its card and graded by grade", () => {
+  const graded = [{ id: "a", name: "Limits", result: "partial" }];
+  const messages = [
+    { id: "1", role: "assistant", parts: [askPart("q1", "output-available")] },
+    { id: "2", role: "user", parts: [{ type: "text", text: "On the side" }] },
+    {
+      id: "3",
+      role: "user",
+      metadata: { questionId: "q1" },
+      parts: [{ type: "text", text: "4" }],
+    },
+    {
+      id: "4",
+      role: "assistant",
+      metadata: {},
+      parts: [askPart("q2", "output-available")],
+    },
+    {
+      id: "5",
+      role: "user",
+      metadata: { questionId: "q2" },
+      parts: [{ type: "text", text: "5" }],
+    },
+    {
+      id: "6",
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-grade",
+          toolCallId: "g",
+          state: "output-available",
+          input: { questionId: "q2" },
+          output: { kcs: graded },
+        },
+      ],
+    },
+  ] as ChatUIMessage[];
+
+  const states = questionStates(messages);
+
+  expect(states.get("q1")).toEqual({ status: "submitted" });
+  expect(states.get("q2")).toEqual({ status: "graded", kcs: graded });
+  expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
+});
 
 test("keeps text and tool calls in order, merging text across steps", () => {
   expect(
@@ -117,46 +185,6 @@ test("summarizes found Exercises, or the note when there are none", () => {
   ).toEqual(["done: Found 1 Exercise", "done: All attempted already."]);
 });
 
-test("a recorded attempt names each KC's result, the help and the Exercise", () => {
-  const [, recorded] = replySegments(
-    [
-      {
-        type: "tool-findExercises",
-        toolCallId: "1",
-        state: "output-available",
-        input: { kcIds: ["a"] },
-        output: { exercises: [{ id: "e1", name: "Ex. 3" }] },
-      },
-      {
-        type: "tool-recordAttempt",
-        toolCallId: "2",
-        state: "output-available",
-        input: {
-          exerciseId: "e1",
-          help: "some",
-          kcs: [
-            { kcId: "a", correct: true },
-            { kcId: "b", correct: false },
-          ],
-        },
-        output: {
-          kcs: [
-            { id: "a", name: "A", level: 3, nextReview: "2026-10-20" },
-            { id: "b", name: "B", level: 1, nextReview: "2026-10-17" },
-          ],
-        },
-      },
-    ],
-    live,
-  );
-  expect(recorded).toMatchObject({
-    step: {
-      summary: "Recorded: A ✓, B ✗ · some help",
-      detail: { tool: "recordAttempt", exercise: "Ex. 3" },
-    },
-  });
-});
-
 test("a note shows its text, and an unknown tool its name with input and output", () => {
   const [note, other] = replySegments(
     [
@@ -191,7 +219,6 @@ test("a note shows its text, and an unknown tool its name with input and output"
 test.each([
   ["readKcs", "Reading KCs"],
   ["findExercises", "Finding Exercises"],
-  ["recordAttempt", "Recording an attempt"],
   ["remember", "Making a note"],
   ["search", "search"],
 ])("a running %s call reads %s…", (tool, title) => {
@@ -211,7 +238,7 @@ test("a denied call is a failed step saying it was denied", () => {
   const [denied] = replySegments(
     [
       {
-        type: "tool-recordAttempt",
+        type: "tool-remember",
         toolCallId: "1",
         state: "output-denied",
         input: {},
@@ -223,7 +250,7 @@ test("a denied call is a failed step saying it was denied", () => {
   expect(denied).toMatchObject({
     step: {
       state: "error",
-      summary: "Recording an attempt failed",
+      summary: "Making a note failed",
       errorText: "The call was denied.",
       detail: null,
     },
@@ -242,60 +269,4 @@ test("a note without text input shows as the tool's name", () => {
       },
     ]),
   ).toEqual(["done: remember"]);
-});
-
-test("a recorded attempt names a KC it did not grade, an unseen Exercise by id, and no unknown help", () => {
-  const [recorded] = replySegments(
-    [
-      {
-        type: "tool-recordAttempt",
-        toolCallId: "1",
-        state: "output-available",
-        input: {
-          exerciseId: "e9",
-          help: "lots",
-          kcs: [{ kcId: "a", correct: true }],
-        },
-        output: {
-          kcs: [
-            { id: "a", name: "A", level: 3, nextReview: "2026-10-20" },
-            { id: "b", name: "B", level: 1, nextReview: "2026-10-17" },
-          ],
-        },
-      },
-    ],
-    live,
-  );
-  expect(recorded).toMatchObject({
-    step: {
-      summary: "Recorded: A ✓, B",
-      detail: {
-        tool: "recordAttempt",
-        exercise: "e9",
-        kcs: [
-          { id: "a", correct: true },
-          { id: "b", correct: undefined },
-        ],
-      },
-    },
-  });
-});
-
-test.each([
-  ["none", "Recorded: A ✗ · no help"],
-  ["solution_shown", "Recorded: A ✗ · solution shown"],
-])("a recorded attempt with help %s reads %s", (help, summary) => {
-  expect(
-    summaries([
-      {
-        type: "tool-recordAttempt",
-        toolCallId: "1",
-        state: "output-available",
-        input: { help, kcs: [{ kcId: "a", correct: false }] },
-        output: {
-          kcs: [{ id: "a", name: "A", level: 0, nextReview: "2026-10-17" }],
-        },
-      },
-    ]),
-  ).toEqual([`done: ${summary}`]);
 });

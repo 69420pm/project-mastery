@@ -72,6 +72,7 @@ describe("updating a Knowledge map", () => {
         taskType: "compute thrust",
         solution: "Worked.",
         finalResult: "12 kN",
+        finalAnswers: [{ label: "Thrust", value: 12, unit: "kN" }],
         givenFinalResult: "10 kN",
         matchesGiven: false,
         steps: 1,

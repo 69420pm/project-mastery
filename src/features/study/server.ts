@@ -10,12 +10,22 @@ import "server-only";
 // Also here for the Chat's reply settings: `index.ts` loads the Memory card,
 // whose React components fail to import outside Next.js (evals, smoke checks).
 export { tutorInstructions } from "./ai/instructions";
-export { TutorToolError, type TutorTools } from "./ai/tools";
+export {
+  TutorToolError,
+  tutorTools,
+  type TutorToolActions,
+  type TutorTools,
+} from "./ai/tools";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getMemory } from "./server/memory";
 export { getOpeningLine } from "./server/opening";
 export { getPlan } from "./server/plan";
+export {
+  isAnswerable,
+  loadAnswerLinks,
+  recordAnswer,
+} from "./server/questions";
 export { startTutoring } from "./server/tutoring";
 export type {
   KcState,

@@ -5,7 +5,7 @@ import { fakeStorage } from "./testing-storage";
  * An in-memory stand-in for the Supabase server client in unit tests, so
  * tests check the rows a module stores instead of mocking query chains. It
  * supports the query builder calls the app uses (select, insert, upsert,
- * update, delete, eq, in, contains, lt, gt, gte, order, limit, range, single,
+ * update, delete, eq, is, not, in, contains, lt, gt, gte, order, limit, range, single,
  * maybeSingle, and
  * `rpc` through the test's `functions`) and emulates Row Level
  * Security with `canAccess`: rows it rejects are invisible to reads, updates
@@ -28,7 +28,9 @@ export type FakeSupabaseOptions<Table extends string> = {
    * inserting a row whose referenced row is missing fails with `23503`. A
    * select of the referenced table can embed this one, as
    * `select("id, chat_messages(parts)")` with `referencedTable` order and
-   * limit.
+   * limit. A select of this table can embed the referenced row, as
+   * `select("id, questions!inner(exercise_id)")`, and filter on it, as
+   * `eq("questions.session_id", id)`.
    */
   foreignKeys?: Partial<Record<NoInfer<Table>, Record<string, NoInfer<Table>>>>;
   /**
@@ -47,6 +49,17 @@ export type FakeSupabaseOptions<Table extends string> = {
       args: Record<string, unknown>,
       tables: Record<NoInfer<Table>, FakeRow[]>,
     ) => unknown
+  >;
+  /**
+   * What the database's `after insert` triggers do, per table: called with
+   * each inserted row and the tables, as the trigger's owner, so Row Level
+   * Security does not apply.
+   */
+  afterInsert?: Partial<
+    Record<
+      NoInfer<Table>,
+      (row: FakeRow, tables: Record<NoInfer<Table>, FakeRow[]>) => void
+    >
   >;
   /**
    * PostgREST's `max_rows`: a select returns at most this many rows, as
@@ -160,6 +173,31 @@ export function fakeSupabase<Table extends string>(
       }
     >();
 
+    // Embedded many-to-one resources, such as `questions!inner(exercise_id)`
+    // on attempts: the referenced row through this table's foreign key.
+    const parents = new Set<Table>();
+
+    /** The row `row` references in `parent` through a declared foreign key. */
+    function parentOf(row: FakeRow, parent: string): FakeRow | undefined {
+      const [column] =
+        Object.entries(options.foreignKeys?.[table] ?? {}).find(
+          ([, referenced]) => referenced === parent,
+        ) ?? [];
+      if (column === undefined) {
+        throw new Error(`${table} declares no foreign key to ${parent}`);
+      }
+      return rowsOf(parent as Table).find(
+        (other) => visible(parent as Table, other) && other.id === row[column],
+      );
+    }
+
+    /** A column's value; `parent.column` reads an embedded referenced row. */
+    function valueOf(row: FakeRow, column: string): unknown {
+      const [parent, parentColumn] = column.split(".");
+      if (parentColumn === undefined) return row[column];
+      return parentOf(row, parent!)?.[parentColumn];
+    }
+
     const matching = () =>
       rowsOf(table).filter(
         (row) => visible(table, row) && filters.every((f) => f(row)),
@@ -171,6 +209,9 @@ export function fakeSupabase<Table extends string>(
      */
     function withEmbeds(row: FakeRow): FakeRow {
       const embedded: FakeRow = { ...row };
+      for (const parent of parents) {
+        embedded[parent] = parentOf(row, parent) ?? null;
+      }
       for (const [child, { orders: childOrders, limit, count }] of embeds) {
         const [column] =
           Object.entries(options.foreignKeys?.[child] ?? {}).find(
@@ -228,6 +269,7 @@ export function fakeSupabase<Table extends string>(
         }
       }
       rowsOf(table).push(...prepared);
+      for (const row of prepared) options.afterInsert?.[table]?.(row, tables);
       return { data: prepared, error: null };
     }
 
@@ -291,9 +333,16 @@ export function fakeSupabase<Table extends string>(
       select(columns = "*") {
         if (action.kind !== "select") returning = true;
         // Embeds a table only when the test declares its foreign key here.
-        for (const [, child, inner] of columns.matchAll(/(\w+)\(([^)]*)\)/g)) {
+        // A referenced row must exist, as with `!inner` on a not-null key.
+        for (const [, child, inner] of columns.matchAll(
+          /(\w+)(?:!inner)?\(([^)]*)\)/g,
+        )) {
           const fks = options.foreignKeys?.[child as Table] ?? {};
-          if (Object.values(fks).includes(table)) {
+          const own = options.foreignKeys?.[table] ?? {};
+          if (Object.values(own).includes(child as Table)) {
+            parents.add(child as Table);
+            filters.push((row) => parentOf(row, child!) !== undefined);
+          } else if (Object.values(fks).includes(table)) {
             embeds.set(child as Table, {
               orders: [],
               limit: Infinity,
@@ -325,19 +374,24 @@ export function fakeSupabase<Table extends string>(
         return builder;
       },
       eq(column: string, value: unknown) {
-        filters.push((row) => row[column] === value);
+        filters.push((row) => valueOf(row, column) === value);
         return builder;
       },
       /** `is(column, null)`: the column has no value. */
       is(column: string, value: null) {
-        filters.push((row) => (row[column] ?? null) === value);
+        filters.push((row) => (valueOf(row, column) ?? null) === value);
+        return builder;
+      },
+      /** `not(column, "is", null)`: the column has a value. */
+      not(column: string, operator: "is", value: null) {
+        filters.push((row) => (valueOf(row, column) ?? null) !== value);
         return builder;
       },
       in(column: string, values: unknown[]) {
         if (values.length > (options.maxInValues ?? Infinity)) {
           uriTooLong = true;
         }
-        filters.push((row) => values.includes(row[column]));
+        filters.push((row) => values.includes(valueOf(row, column)));
         return builder;
       },
       /**

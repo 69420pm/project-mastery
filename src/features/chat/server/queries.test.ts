@@ -27,8 +27,13 @@ function createDb() {
       chats: [] as FakeRow[],
       chat_messages: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
+      study_sessions: [] as FakeRow[],
+      questions: [] as FakeRow[],
     },
-    foreignKeys: { chat_messages: { chat_id: "chats" } },
+    foreignKeys: {
+      chat_messages: { chat_id: "chats" },
+      questions: { session_id: "study_sessions" },
+    },
     canAccess: (table, row, tables) =>
       table === "chats"
         ? row.owner === STUDENT
@@ -59,7 +64,6 @@ function seedChat(
     owner,
     course_id: course,
     title,
-    model_choice: "balanced",
     last_message_at: lastMessageAt,
   });
   messages.forEach((text, index) =>

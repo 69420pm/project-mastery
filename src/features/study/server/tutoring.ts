@@ -19,7 +19,6 @@ import {
 } from "@/features/study/ai/tools";
 import { selectCandidates } from "@/features/study/domain/candidates";
 import {
-  insertAttempts,
   loadAttemptedExercises,
   loadLadder,
 } from "@/features/study/server/attempts";
@@ -29,6 +28,12 @@ import {
 } from "@/features/study/domain/exercises";
 import { utcDay } from "@/features/study/domain/ladder";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
+import {
+  findSessionQuestion,
+  insertQuestion,
+  loadSessionId,
+  saveAttempts,
+} from "@/features/study/server/questions";
 import { planStudy } from "@/features/study/domain/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
@@ -42,11 +47,13 @@ const SOURCES_PER_KC = 3;
 /**
  * What the AI tutors a reply in a Course's Chat with, read with `supabase`,
  * the Student's session client: the tutor context for its instructions and
- * its tools. Read on every reply, so both are current.
+ * its tools, which ask and grade questions in the Chat's Study session.
+ * Read on every reply, so both are current.
  */
 export async function startTutoring(
   supabase: Supabase,
   courseId: string,
+  chatId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
   const [map, priorities, memory, [exam, ladder]] = await Promise.all([
     loadStoredMap(supabase, courseId),
@@ -83,7 +90,9 @@ export async function startTutoring(
         ? selectCandidates(map, priorities, new Set(ladder.keys()))
         : [],
     },
-    tools: tutorTools(tutorToolActions(supabase, courseId, map, examDate)),
+    tools: tutorTools(
+      tutorToolActions(supabase, { courseId, chatId, examDate, map }),
+    ),
   };
 }
 
@@ -92,12 +101,29 @@ const pagesLabel = (from: number, to: number) =>
 
 function tutorToolActions(
   supabase: Supabase,
-  courseId: string,
-  map: KnowledgeMap,
-  examDate: string | null,
+  {
+    courseId,
+    chatId,
+    examDate,
+    map,
+  }: {
+    courseId: string;
+    chatId: string;
+    examDate: string | null;
+    map: KnowledgeMap;
+  },
 ): TutorToolActions {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
-  const exerciseIds = new Set(map.exercises.map((exercise) => exercise.id));
+  // The Chat's session, read once per reply when a question needs it.
+  let sessionId: Promise<string | null> | undefined;
+  const session = async () => {
+    sessionId ??= loadSessionId(supabase, chatId);
+    const id = await sessionId;
+    if (id === null) {
+      throw new TutorToolError("This Chat has no Study session yet.");
+    }
+    return id;
+  };
   const requireKnown = (kcIds: string[]) => {
     const unknown = kcIds.filter((id) => !kcById.has(id));
     if (unknown.length > 0) {
@@ -166,24 +192,43 @@ function tutorToolActions(
       });
       return { exercises };
     },
-    async recordAttempt(attempt) {
-      const kcIds = attempt.kcs.map(({ kcId }) => kcId);
+    async ask({ kcIds, exerciseId, ...question }) {
       requireKnown(kcIds);
-      if (new Set(kcIds).size < kcIds.length) {
-        throw new TutorToolError("List each KC once.");
-      }
-      const { exerciseId } = attempt;
-      if (exerciseId !== undefined && !exerciseIds.has(exerciseId)) {
+      if (
+        exerciseId !== null &&
+        !map.exercises.some(({ id }) => id === exerciseId)
+      ) {
         throw new TutorToolError(
           `${exerciseId} is no Exercise id of this Course: use an id from findExercises, or omit it.`,
         );
       }
-      await insertAttempts(supabase, courseId, attempt);
+      return insertQuestion(supabase, {
+        ...question,
+        sessionId: await session(),
+        kcIds,
+        exerciseId,
+      });
+    },
+    async findQuestion(questionId) {
+      return findSessionQuestion(supabase, await session(), questionId);
+    },
+    async saveGrade({ questionId, kind, help, results, check }) {
+      const saved = await saveAttempts(supabase, {
+        questionId,
+        sessionId: await session(),
+        kind,
+        help,
+        results,
+        check,
+      });
+      if (!saved) return null;
+      const kcIds = results.map(({ kcId }) => kcId);
       const ladder = await loadLadder(supabase, courseId, examDate, kcIds);
-      return kcIds.map((id) => ({
-        id,
-        name: kcById.get(id)!.name,
-        ...ladder.get(id)!,
+      return results.map(({ kcId, result }) => ({
+        id: kcId,
+        name: kcById.get(kcId)?.name ?? kcId,
+        result,
+        ...ladder.get(kcId)!,
       }));
     },
     async remember(text) {

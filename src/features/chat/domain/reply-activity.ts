@@ -5,8 +5,9 @@ import type { ChatUIMessage } from "@/features/chat/types";
 const TOOL_ACTIVITY: Record<string, string> = {
   readKcs: "Reading your knowledge map…",
   findExercises: "Looking for exercises…",
-  recordAttempt: "Recording your progress…",
   remember: "Making a note…",
+  ask: "Writing a question…",
+  grade: "Grading your answer…",
 };
 
 /** What the AI is doing when it has not said a word yet. */

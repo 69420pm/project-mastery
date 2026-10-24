@@ -12,8 +12,9 @@ export {
 export { PHASE_NAMES } from "./domain/plan";
 export type {
   ExerciseView,
+  GradedKc,
   KcReading,
-  RecordedKc,
+  QuestionKind,
   StudyPlan,
   TutorContext,
 } from "./types";

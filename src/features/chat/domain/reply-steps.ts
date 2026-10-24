@@ -1,6 +1,11 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type { ExerciseView, KcReading, RecordedKc } from "@/features/study";
+import type {
+  ExerciseView,
+  GradedKc,
+  KcReading,
+  QuestionKind,
+} from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
@@ -14,13 +19,8 @@ type StepState = "running" | "done" | "error" | "stopped";
 export type StepDetail =
   | { tool: "readKcs"; kcs: KcReading[] }
   | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
-  | {
-      tool: "recordAttempt";
-      /** The Exercise's name, or its id when the reply never showed it. */
-      exercise?: string;
-      kcs: Array<RecordedKc & { correct?: boolean }>;
-    }
   | { tool: "remember"; text: string }
+  | { tool: "grade"; kcs: GradedKc[] }
   | { tool: "other"; input: unknown; output: unknown };
 
 /** One tool call of an AI reply, as its step card shows it. */
@@ -37,22 +37,30 @@ export type ReplyStep = {
   detail: StepDetail | null;
 };
 
-/** A run of an AI reply's text, or one of its tool calls, in reply order. */
+/** A question the AI asked, as its question card shows it. */
+export type AskedQuestion = {
+  id: string;
+  kind: QuestionKind;
+  /** Markdown with LaTeX. */
+  prompt: string;
+};
+
+/**
+ * A run of an AI reply's text, one of its tool calls, or a question it
+ * asked, in reply order.
+ */
 export type ReplySegment =
-  { kind: "text"; text: string } | { kind: "step"; step: ReplyStep };
+  | { kind: "text"; text: string }
+  | { kind: "step"; step: ReplyStep }
+  | { kind: "question"; question: AskedQuestion };
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
   readKcs: "Reading KCs",
   findExercises: "Finding Exercises",
-  recordAttempt: "Recording an attempt",
   remember: "Making a note",
-};
-
-const HELP_LABELS: Record<string, string> = {
-  none: "no help",
-  some: "some help",
-  solution_shown: "solution shown",
+  ask: "Asking a question",
+  grade: "Grading your answer",
 };
 
 /**
@@ -66,8 +74,6 @@ export function replySegments(
   { inProgress }: { inProgress: boolean },
 ): ReplySegment[] {
   const segments: ReplySegment[] = [];
-  // Exercise names from earlier findExercises calls, for recordAttempt.
-  const exerciseNames = new Map<string, string>();
   for (const part of parts) {
     if (part.type === "text") {
       const last = segments.at(-1);
@@ -75,13 +81,12 @@ export function replySegments(
       else if (part.text !== "")
         segments.push({ kind: "text", text: part.text });
     } else if (isToolUIPart(part)) {
-      const step = replyStep(part, exerciseNames, inProgress);
-      if (step.detail?.tool === "findExercises") {
-        for (const { id, name } of step.detail.exercises) {
-          exerciseNames.set(id, name);
-        }
-      }
-      segments.push({ kind: "step", step });
+      const question = askedQuestion(part);
+      segments.push(
+        question
+          ? { kind: "question", question }
+          : { kind: "step", step: replyStep(part, inProgress) },
+      );
     }
   }
   return segments;
@@ -89,12 +94,60 @@ export function replySegments(
 
 type ToolPart = Extract<Part, { toolCallId: string }>;
 
+/** The question of an `ask` call that stored it; null for any other part. */
+function askedQuestion(part: ToolPart): AskedQuestion | null {
+  if (getToolName(part) !== "ask" || part.state !== "output-available") {
+    return null;
+  }
+  const input = asRecord(part.input);
+  const output = asRecord(part.output);
+  if (typeof output.questionId !== "string") return null;
+  return {
+    id: output.questionId,
+    kind: input.kind as QuestionKind,
+    prompt: typeof input.prompt === "string" ? input.prompt : "",
+  };
+}
+
+/**
+ * Where each question of a Chat stands, by question id, read from its
+ * messages: submitted once a Student's message answers it from its card
+ * (the latest answer counts), graded once a `grade` call returned for it.
+ * A question missing here is open.
+ */
+export function questionStates(
+  messages: ChatUIMessage[],
+): Map<string, QuestionState> {
+  const states = new Map<string, QuestionState>();
+  for (const message of messages) {
+    const questionId = message.metadata?.questionId;
+    if (message.role === "user" && questionId) {
+      states.set(questionId, { status: "submitted" });
+    }
+    for (const part of message.parts) {
+      if (
+        !isToolUIPart(part) ||
+        getToolName(part) !== "grade" ||
+        part.state !== "output-available"
+      ) {
+        continue;
+      }
+      const graded = asRecord(part.input).questionId;
+      const kcs = asRecord(part.output).kcs;
+      if (typeof graded === "string" && Array.isArray(kcs)) {
+        states.set(graded, { status: "graded", kcs: kcs as GradedKc[] });
+      }
+    }
+  }
+  return states;
+}
+
+/** A question's state on its question card, once it is no longer open. */
+export type QuestionState =
+  { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
+
 /** One tool call as its card shows it. */
-function replyStep(
-  part: ToolPart,
-  exerciseNames: ReadonlyMap<string, string> = new Map(),
-  inProgress = true,
-): ReplyStep {
+function replyStep(part: ToolPart, inProgress = true): ReplyStep {
   const name = getToolName(part);
   const base = { id: part.toolCallId, name };
   const title = TOOL_TITLES[name] ?? name;
@@ -118,12 +171,7 @@ function replyStep(
           detail: null,
         };
   }
-  const { summary, detail } = describeOutput(
-    name,
-    part.input,
-    part.output,
-    exerciseNames,
-  );
+  const { summary, detail } = describeOutput(name, part.input, part.output);
   return { ...base, state: "done", summary, detail };
 }
 
@@ -131,7 +179,6 @@ function describeOutput(
   name: string,
   input: unknown,
   output: unknown,
-  exerciseNames: ReadonlyMap<string, string>,
 ): { summary: string; detail: StepDetail } {
   const out = asRecord(output);
   const args = asRecord(input);
@@ -153,29 +200,11 @@ function describeOutput(
       detail: { tool: "findExercises", exercises, note },
     };
   }
-  if (name === "recordAttempt" && Array.isArray(out.kcs)) {
-    const attempted = Array.isArray(args.kcs)
-      ? (args.kcs as Array<{ kcId: string; correct: boolean }>)
-      : [];
-    const kcs = (out.kcs as RecordedKc[]).map((kc) => ({
-      ...kc,
-      correct: attempted.find(({ kcId }) => kcId === kc.id)?.correct,
-    }));
-    const results = kcs
-      .map(({ name, correct }) =>
-        correct === undefined ? name : `${name} ${correct ? "✓" : "✗"}`,
-      )
-      .join(", ");
-    const help = HELP_LABELS[String(args.help)];
-    const exerciseId =
-      typeof args.exerciseId === "string" ? args.exerciseId : undefined;
+  if (name === "grade" && Array.isArray(out.kcs)) {
+    const kcs = out.kcs as GradedKc[];
     return {
-      summary: `Recorded: ${results}${help ? ` · ${help}` : ""}`,
-      detail: {
-        tool: "recordAttempt",
-        exercise: exerciseId && (exerciseNames.get(exerciseId) ?? exerciseId),
-        kcs,
-      },
+      summary: `Graded: ${kcs.map((kc) => `${kc.name} ${kc.result}`).join(", ")}`,
+      detail: { tool: "grade", kcs },
     };
   }
   if (name === "remember" && typeof args.text === "string") {

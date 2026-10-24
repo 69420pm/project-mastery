@@ -37,7 +37,6 @@ const COURSE_TABLES = [
   "kc_priorities",
   "briefs",
   "chunks",
-  "attempts",
   "memories",
 ] as const;
 
@@ -77,10 +76,34 @@ function createDb() {
       kc_priorities: [],
       briefs: [],
       chunks: [],
+      study_sessions: [],
+      questions: [],
+      question_kcs: [],
       attempts: [],
       memories: [],
     },
     primaryKeys: { memories: ["course_id"] },
+    foreignKeys: {
+      questions: { session_id: "study_sessions" },
+      question_kcs: { question_id: "questions" },
+      attempts: { question_id: "questions", session_id: "study_sessions" },
+    },
+    // Every new Chat starts a learn session in its Course.
+    afterInsert: {
+      chats: (chat, tables) => {
+        tables.study_sessions.push({
+          id: randomUUID(),
+          owner: chat.owner,
+          chat_id: chat.id,
+          course_id: chat.course_id,
+          mode: "learn",
+          topic_id: null,
+          stage: null,
+          started_at: new Date().toISOString(),
+          ended_at: null,
+        });
+      },
+    },
     functions: {
       // The real function appends as the Student; this one trusts the Course.
       append_memory: (args, tables) => {
@@ -108,13 +131,20 @@ function createDb() {
         owner: signedIn,
         title: null,
         title_set_manually: false,
-        model_choice: "balanced",
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
+      questions: () => ({
+        owner: signedIn,
+        asked_at: new Date().toISOString(),
+        answer_text: null,
+        answer_message_id: null,
+        answered_at: null,
+        graded_at: null,
+      }),
       // Recorded now, as in the database, so the ladder replays it today.
       attempts: () => ({
         owner: signedIn,
-        exercise_id: null,
+        check: null,
         created_at: new Date().toISOString(),
       }),
       // Recorded now, as in the database, so it counts towards today's spend.
@@ -135,8 +165,20 @@ function createDb() {
           )
         );
       }
-      if (table === "courses" || table === "materials") {
+      if (
+        table === "courses" ||
+        table === "materials" ||
+        table === "study_sessions" ||
+        table === "questions" ||
+        table === "attempts"
+      ) {
         return row.owner === signedIn;
+      }
+      if (table === "question_kcs") {
+        return tables.questions.some(
+          (question) =>
+            question.id === row.question_id && question.owner === signedIn,
+        );
       }
       if ((COURSE_TABLES as readonly string[]).includes(table)) {
         return tables.courses.some(
@@ -256,7 +298,6 @@ export function seedChat(owner: string, messages: FakeRow[] = []) {
     course_id: owner === STUDENT ? COURSE : CLASSMATE_COURSE,
     title: null,
     title_set_manually: false,
-    model_choice: "balanced",
     created_at: "2025-12-31T00:00:00.000Z",
   });
   messages.forEach((message, index) =>
