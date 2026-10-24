@@ -18,4 +18,5 @@ export {
   markFindingAsked,
 } from "./server/review";
 export { loadStoredMap } from "./server/stored-map";
+export { loadStoredTopics } from "./server/stored-topics";
 export { buildKnowledgeMap } from "./workflows/build-knowledge-map";

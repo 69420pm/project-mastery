@@ -9,7 +9,11 @@ import {
 } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
 import { PlanLine } from "@/features/study";
-import { getKcLearning, getPlan } from "@/features/study/server";
+import {
+  getKcLearning,
+  getPlan,
+  getTopicProgress,
+} from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
 
 export const metadata: Metadata = {
@@ -27,14 +31,16 @@ export default async function CourseMapPage({
   const { courseId } = await params;
   await requireUser(courseMapPath(courseId));
   await ensurePriorities(courseId);
-  const [course, map, topics, priorities, learning, plan] = await Promise.all([
-    getCourse(courseId),
-    getKnowledgeMap(courseId),
-    loadCourseTopics(courseId),
-    getPriorities(courseId),
-    getKcLearning(courseId),
-    getPlan(courseId),
-  ]);
+  const [course, map, topics, priorities, learning, progress, plan] =
+    await Promise.all([
+      getCourse(courseId),
+      getKnowledgeMap(courseId),
+      loadCourseTopics(courseId),
+      getPriorities(courseId),
+      getKcLearning(courseId),
+      getTopicProgress(courseId),
+      getPlan(courseId),
+    ]);
   if (!course) notFound();
 
   return (
@@ -49,6 +55,7 @@ export default async function CourseMapPage({
       }))}
       priorities={priorities}
       learning={learning}
+      progress={progress}
       planLine={<PlanLine plan={plan} briefHref={briefPath(courseId)} />}
     />
   );

@@ -183,6 +183,19 @@ export type MapTopic = {
   kcs: Array<{ id: string; name: string }>;
 };
 
+/**
+ * Where the Student stands on each Topic, which the page passes in, by Topic
+ * id: its Topic state and the mean of its KCs' recall today, 0 to 1. A
+ * Topic missing here is new, with no recall.
+ */
+export type MapTopicProgress = Record<
+  string,
+  {
+    state: "new" | "in_progress" | "learned" | "solid" | "needs_work";
+    recall: number;
+  }
+>;
+
 /** A Topic as its page shows it, with what a Student reads around it. */
 export type MapTopicDetail = MapTopic & {
   whyItMatters: string;

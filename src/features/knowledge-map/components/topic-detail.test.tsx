@@ -126,6 +126,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       learning={{}}
       leftOut={[]}
       leftOutBadge={null}
+      progress={{ state: "solid", recall: 0.91 }}
     />,
   );
 
@@ -140,6 +141,12 @@ describe("TopicDetail", () => {
       screen.getByText("How does a nozzle speed up gas?"),
     ).toBeInTheDocument();
     expect(screen.getByText("Exit speed sets the thrust.")).toBeInTheDocument();
+  });
+
+  test("shows the Topic state and recall today", () => {
+    renderTopic(topic);
+    expect(screen.getByLabelText("Topic state: Solid")).toBeInTheDocument();
+    expect(screen.getByText("Recall today 91%")).toBeInTheDocument();
   });
 
   test("links an anchor to its Topic and shows prior knowledge as text", () => {

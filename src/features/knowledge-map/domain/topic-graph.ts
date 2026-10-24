@@ -13,7 +13,7 @@ import type {
  */
 
 /** A Topic card's size; the card clamps longer text. */
-const TOPIC_NODE_SIZE = { width: 256, height: 104 } as const;
+const TOPIC_NODE_SIZE = { width: 256, height: 148 } as const;
 
 /** Room around a group's Topics, with its name on top. */
 const GROUP_PADDING = "[top=44,left=16,bottom=16,right=16]";

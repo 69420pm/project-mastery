@@ -9,7 +9,11 @@ import {
 import { chunkAnchor } from "@/features/ingestion/server";
 import { getPriorities } from "@/features/priorities/server";
 import { LeftOutBadge } from "@/features/study";
-import { getKcLearning, getPlan } from "@/features/study/server";
+import {
+  getKcLearning,
+  getPlan,
+  getTopicProgress,
+} from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
 
 export const metadata: Metadata = {
@@ -25,13 +29,16 @@ export default async function TopicPage({
 }: PageProps<"/courses/[courseId]/map/[topicId]">) {
   const { courseId, topicId } = await params;
   await requireUser(topicPath(courseId, topicId));
-  const [map, topics, priorities, learning, plan] = await Promise.all([
-    getKnowledgeMap(courseId),
-    loadCourseTopics(courseId),
-    getPriorities(courseId),
-    getKcLearning(courseId),
-    getPlan(courseId),
-  ]);
+  const [map, topics, priorities, learning, progress, plan] = await Promise.all(
+    [
+      getKnowledgeMap(courseId),
+      loadCourseTopics(courseId),
+      getPriorities(courseId),
+      getKcLearning(courseId),
+      getTopicProgress(courseId),
+      getPlan(courseId),
+    ],
+  );
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic) notFound();
 
@@ -65,6 +72,7 @@ export default async function TopicPage({
       learning={learning}
       leftOut={plan.leftOut.map((kc) => kc.id)}
       leftOutBadge={<LeftOutBadge />}
+      progress={progress[topic.id]}
     />
   );
 }

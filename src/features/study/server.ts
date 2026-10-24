@@ -28,6 +28,7 @@ export {
 } from "./server/questions";
 export { sessionEndedMessage } from "./schemas";
 export { closeIdleSession, getSessionEnd } from "./server/sessions";
+export { getTopicProgress } from "./server/topic-progress";
 export { startTutoring } from "./server/tutoring";
 export type {
   GradedKc,

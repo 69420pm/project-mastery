@@ -40,6 +40,10 @@ _Avoid_: Skill, learning objective, concept, node
 A named unit of a few KCs of one Big idea that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates.
 _Avoid_: Chapter, unit, lesson, module
 
+**Topic state**:
+Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS card has lapsed 3 or more times), solid (every KC has a card whose recall on the exam date, or today without an exam ahead, reaches the goal's retention), learned (every KC is taught), in progress (some KC is taught) or new.
+_Avoid_: Topic status, Topic progress
+
 **Reading section**:
 A part of a Topic's source pages, about one to three pages in Material order, that a Student reads as the original pages, annotated pages or a study text written from them.
 _Avoid_: Passage, excerpt, reading

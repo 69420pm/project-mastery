@@ -10,11 +10,14 @@ import type {
   MapPriorities,
   MapTopic,
   MapTopicDetail,
+  MapTopicProgress,
 } from "@/features/knowledge-map/types";
 import { KnowledgeMap } from "./knowledge-map";
+import { RecallBar, TopicStateBadge } from "./topic-progress";
 
 /**
- * A Topic's page: its name, Big idea, central question and why it matters,
+ * A Topic's page: its name, Big idea, Topic state and recall today, central
+ * question and why it matters,
  * its anchors (each linking to the Topic that holds it; prior knowledge is
  * plain text), its KCs in teaching order, its Reading sections and the
  * Topics before and after it. Below sits the KC graph restricted to the
@@ -31,9 +34,12 @@ export function TopicDetail({
   learning,
   leftOut,
   leftOutBadge,
+  progress,
 }: {
   courseId: string;
   topic: MapTopicDetail;
+  /** The Topic's state and recall today; undefined while it is new. */
+  progress?: MapTopicProgress[string];
   topics: MapTopic[];
   map: KnowledgeMapView;
   priorities: MapPriorities;
@@ -54,6 +60,12 @@ export function TopicDetail({
         title={topic.name}
         description={bigIdea && `Big idea: ${bigIdea.name}`}
       />
+      <div className="flex max-w-sm items-end gap-3">
+        <TopicStateBadge progress={progress} />
+        <div className="flex-1">
+          <RecallBar progress={progress} />
+        </div>
+      </div>
 
       <div className="flex max-w-3xl flex-col gap-4 text-sm">
         <Section title="Central question">
