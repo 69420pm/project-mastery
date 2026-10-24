@@ -66,12 +66,15 @@ export async function insertQuestion(
   return data.id;
 }
 
-/** A question of the session, as `grade` checks it; null for any other id. */
+/**
+ * A question of the session, as `grade` checks it, but for whether the
+ * session has ended; null for any other id.
+ */
 export async function findSessionQuestion(
   supabase: Supabase,
   sessionId: string,
   questionId: string,
-): Promise<QuestionToGrade | null> {
+): Promise<Omit<QuestionToGrade, "sessionEnded"> | null> {
   if (!isUuid(questionId)) return null;
   const { data, error } = await supabase
     .from("questions")

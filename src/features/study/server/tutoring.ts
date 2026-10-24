@@ -34,6 +34,7 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
+import { getSessionEnd } from "@/features/study/server/sessions";
 import { planStudy } from "@/features/study/domain/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
@@ -209,7 +210,11 @@ function tutorToolActions(
       });
     },
     async findQuestion(questionId) {
-      return findSessionQuestion(supabase, await session(), questionId);
+      const [question, end] = await Promise.all([
+        findSessionQuestion(supabase, await session(), questionId),
+        getSessionEnd(supabase, chatId),
+      ]);
+      return question && { ...question, sessionEnded: end !== null };
     },
     async saveGrade({ questionId, kind, help, results, check }) {
       const saved = await saveAttempts(supabase, {

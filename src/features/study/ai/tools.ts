@@ -97,6 +97,8 @@ export type QuestionToGrade = {
   kcIds: string[];
   answered: boolean;
   graded: boolean;
+  /** Whether its Study session has ended, which closes it for grading. */
+  sessionEnded: boolean;
   /** Its Exercise's numeric final answers; null without any. */
   finalAnswers: FinalAnswer[] | null;
 };
@@ -200,8 +202,8 @@ export function tutorTools(actions: TutorToolActions) {
 const alreadyGraded = "This question is already graded.";
 
 /**
- * The `grade` call's rules: one result for each KC of an open, answered
- * question, and the numeric check of a final value against its Exercise's
+ * The `grade` call's rules: one result for each KC of an ungraded, answered
+ * question of a running session, and the numeric check of a final value against its Exercise's
  * final answers, which turns every `full` into `partial` on a mismatch.
  */
 async function grade(
@@ -215,6 +217,11 @@ async function grade(
     );
   }
   if (question.graded) throw new TutorToolError(alreadyGraded);
+  if (question.sessionEnded) {
+    throw new TutorToolError(
+      "This question's study session has ended, so it can't be graded.",
+    );
+  }
   if (!question.answered) {
     throw new TutorToolError(
       "The Student has not answered this question yet: wait for their answer on the card.",

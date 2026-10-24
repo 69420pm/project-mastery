@@ -253,6 +253,7 @@ async function gradeTask(item: Input): Promise<string> {
             kcIds: question.kcIds,
             answered: true,
             graded: stored !== undefined,
+            sessionEnded: false,
             finalAnswers: question.finalAnswers,
           }
         : null,

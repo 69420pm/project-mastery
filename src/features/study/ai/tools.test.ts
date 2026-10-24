@@ -43,6 +43,7 @@ describe("grade", () => {
     kcIds: ["kc-a", "kc-b"],
     answered: true,
     graded: false,
+    sessionEnded: false,
     finalAnswers: null,
   };
   const saved: Array<Parameters<TutorToolActions["saveGrade"]>[0]> = [];
@@ -93,6 +94,12 @@ describe("grade", () => {
       "not answered",
     ],
     ["a graded one", { ...open, graded: true }, undefined, "already graded"],
+    [
+      "one from an ended session",
+      { ...open, sessionEnded: true },
+      undefined,
+      "session has ended",
+    ],
     [
       "a KC the question does not test",
       open,

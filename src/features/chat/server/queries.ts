@@ -9,6 +9,7 @@ import {
   loadMessages,
 } from "@/features/chat/server/chat-store";
 import type { ChatListItem, ChatWithMessages } from "@/features/chat/types";
+import { getSessionEnd } from "@/features/study/server";
 import { getUser, requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -27,11 +28,16 @@ export async function getChat(
   const supabase = await createClient();
   const chat = await findChat(supabase, chatId);
   if (chat?.courseId !== courseId) return null;
+  const [messages, end] = await Promise.all([
+    loadMessages(supabase, chat.id),
+    getSessionEnd(supabase, chat.id),
+  ]);
   return {
     id: chat.id,
     courseId: chat.courseId,
     title: chat.title,
-    messages: await loadMessages(supabase, chat.id),
+    messages,
+    ended: end !== null,
   };
 }
 
@@ -40,7 +46,13 @@ export async function getChat(
  * first message, under this id.
  */
 export function newChat(courseId: string): ChatWithMessages {
-  return { id: randomUUID(), courseId, title: null, messages: [] };
+  return {
+    id: randomUUID(),
+    courseId,
+    title: null,
+    messages: [],
+    ended: false,
+  };
 }
 
 /**

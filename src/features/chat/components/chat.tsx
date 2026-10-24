@@ -41,7 +41,9 @@ import { MessageActionRow } from "@/features/chat/components/message-action-row"
 import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import { SessionEnded } from "@/features/chat/components/session-end";
 import { chatPath } from "@/features/chat/domain/chat-paths";
+import { EndSessionButton, sessionEndedMessage } from "@/features/study";
 import { messageText } from "@/lib/ai/reply";
 import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
@@ -109,6 +111,7 @@ export function Chat({
 }: ChatProps) {
   const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
+  const [endedHere, setEndedHere] = useState(false);
   const [dailyLimit, setDailyLimit] = useState(initialDailyLimit);
   const [opened, setOpened] = useState<MaterialListItem | null>(null);
   const limitReached = dailyLimit.level === "reached";
@@ -207,9 +210,13 @@ export function Chat({
   }, [isNew, status, path, chatId, firstMessage, noteChatActivity]);
 
   const isBusy = status === "submitted" || status === "streaming";
+  // Ended on the server, here with End session, or found idle by the
+  // handler, which refuses the message.
+  const ended =
+    chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
   const questions = useMemo(() => questionStates(messages), [messages]);
-  const canAnswer = !isBusy && !limitReached;
+  const canAnswer = !isBusy && !limitReached && !ended;
 
   /** Sends an answer from a question card as the next message. */
   function sendAnswer(questionId: string, text: string) {
@@ -246,6 +253,20 @@ export function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
+      {/* Once the first message is sent, the Chat's session can be ended. */}
+      {messages.length > 0 && !ended && (
+        <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
+          <EndSessionButton
+            chatId={chatId}
+            disabled={isBusy}
+            onEnded={() => {
+              setInputError(null);
+              setEndedHere(true);
+            }}
+            onError={setInputError}
+          />
+        </div>
+      )}
       <Conversation className="min-h-0">
         <ConversationContent
           className={cn(
@@ -320,7 +341,10 @@ export function Chat({
                     stopped={message.metadata?.stopped}
                     hidden={isStreaming && message.role === "assistant"}
                     onRegenerate={
-                      message.role === "assistant" && isLast && !limitReached
+                      message.role === "assistant" &&
+                      isLast &&
+                      !limitReached &&
+                      !ended
                         ? () => {
                             clearError();
                             void regenerate();
@@ -350,8 +374,9 @@ export function Chat({
               <MessageActionRow from="assistant" text="" hidden />
             </Message>
           )}
-          {/* At the limit, the notice below explains the refusal. */}
-          {error && !limitReached && (
+          {/* At the limit or once ended, the notice below explains the
+              refusal. */}
+          {error && !limitReached && !ended && (
             <Alert variant="destructive">
               <CircleAlertIcon />
               <AlertDescription>{error.message}</AlertDescription>
@@ -371,132 +396,136 @@ export function Chat({
         <ConversationScrollButton />
       </Conversation>
 
-      <div
-        ref={dropZone}
-        className="mx-auto flex w-full max-w-3xl flex-col gap-2"
-      >
-        <DailyLimitNotice status={dailyLimit} />
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          aria-label="Upload file"
-          accept={MATERIAL_MEDIA_TYPES.join(",")}
-          // Opened by "Upload file" in the attach menu.
-          hidden
-          onChange={(event) => {
-            if (event.target.files) uploadFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        {/* Controlled, so a refused message stays in the input. */}
-        <PromptInputProvider>
-          <PromptInput onSubmit={handleSubmit}>
-            {(attached.length > 0 || uploading) && (
-              <PromptInputHeader aria-label="Attached materials">
-                {attached.map((material) => (
-                  <MaterialChip
-                    key={material.materialId}
-                    name={
-                      materialsById.get(material.materialId)?.name ??
-                      material.name
-                    }
-                    mediaType={material.mediaType}
-                    onRemove={() => detach(material.materialId)}
-                  />
-                ))}
-                {uploads.map((upload) => (
-                  <MaterialChip
-                    key={upload.key}
-                    name={upload.filename}
-                    mediaType={upload.mediaType}
-                    progress={
-                      upload.status === "failed" ? undefined : upload.progress
-                    }
-                    error={
-                      upload.status === "failed" ? upload.message : undefined
-                    }
-                    onRetry={
-                      upload.canRetry
-                        ? () => retryUpload(upload.key)
-                        : undefined
-                    }
-                    onRemove={
-                      upload.status === "registering"
-                        ? undefined
-                        : () => removeUpload(upload.key)
-                    }
-                  />
-                ))}
-              </PromptInputHeader>
-            )}
-            <PromptInputBody>
-              <PromptInputTextarea
-                aria-label="Message"
-                aria-invalid={inputError !== null}
-                aria-describedby={inputError ? "chat-input-error" : undefined}
-                placeholder="Ask about your studies…"
-                disabled={limitReached}
-                onChange={() => setInputError(null)}
-              />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger
-                    aria-label="Attach"
-                    tooltip="Attach"
-                    disabled={limitReached}
-                  >
-                    <PaperclipIcon className="size-4" />
-                  </PromptInputActionMenuTrigger>
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionMenuItem
-                      onSelect={() => fileInput.current?.click()}
+      {ended ? (
+        <SessionEnded courseId={chat.courseId} />
+      ) : (
+        <div
+          ref={dropZone}
+          className="mx-auto flex w-full max-w-3xl flex-col gap-2"
+        >
+          <DailyLimitNotice status={dailyLimit} />
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            aria-label="Upload file"
+            accept={MATERIAL_MEDIA_TYPES.join(",")}
+            // Opened by "Upload file" in the attach menu.
+            hidden
+            onChange={(event) => {
+              if (event.target.files) uploadFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          {/* Controlled, so a refused message stays in the input. */}
+          <PromptInputProvider>
+            <PromptInput onSubmit={handleSubmit}>
+              {(attached.length > 0 || uploading) && (
+                <PromptInputHeader aria-label="Attached materials">
+                  {attached.map((material) => (
+                    <MaterialChip
+                      key={material.materialId}
+                      name={
+                        materialsById.get(material.materialId)?.name ??
+                        material.name
+                      }
+                      mediaType={material.mediaType}
+                      onRemove={() => detach(material.materialId)}
+                    />
+                  ))}
+                  {uploads.map((upload) => (
+                    <MaterialChip
+                      key={upload.key}
+                      name={upload.filename}
+                      mediaType={upload.mediaType}
+                      progress={
+                        upload.status === "failed" ? undefined : upload.progress
+                      }
+                      error={
+                        upload.status === "failed" ? upload.message : undefined
+                      }
+                      onRetry={
+                        upload.canRetry
+                          ? () => retryUpload(upload.key)
+                          : undefined
+                      }
+                      onRemove={
+                        upload.status === "registering"
+                          ? undefined
+                          : () => removeUpload(upload.key)
+                      }
+                    />
+                  ))}
+                </PromptInputHeader>
+              )}
+              <PromptInputBody>
+                <PromptInputTextarea
+                  aria-label="Message"
+                  aria-invalid={inputError !== null}
+                  aria-describedby={inputError ? "chat-input-error" : undefined}
+                  placeholder="Ask about your studies…"
+                  disabled={limitReached}
+                  onChange={() => setInputError(null)}
+                />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger
+                      aria-label="Attach"
+                      tooltip="Attach"
+                      disabled={limitReached}
                     >
-                      <UploadIcon />
-                      Upload file
-                    </PromptInputActionMenuItem>
-                    <PromptInputActionMenuItem
-                      onSelect={() => setPickerOpen(true)}
-                    >
-                      <FolderOpenIcon />
-                      Choose from materials
-                    </PromptInputActionMenuItem>
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
-              </PromptInputTools>
-              {/* While a reply is on its way, the button is Stop. */}
-              <PromptInputSubmit
-                status={status}
-                onStop={() => void stop()}
-                disabled={!isBusy && (limitReached || uploading)}
-              />
-            </PromptInputFooter>
-          </PromptInput>
-        </PromptInputProvider>
-        <MaterialPicker
-          open={pickerOpen}
-          onOpenChange={setPickerOpen}
-          materials={materials}
-          pickedIds={[
-            ...attached.map(({ materialId }) => materialId),
-            ...uploads.map(({ key }) => key),
-          ]}
-          max={MAX_ATTACHED_MATERIALS}
-          onToggle={toggleAttached}
-        />
-        <MaterialViewer material={opened} onClose={() => setOpened(null)} />
-        {inputError && (
-          <p
-            id="chat-input-error"
-            role="alert"
-            className="text-sm text-destructive"
-          >
-            {inputError}
-          </p>
-        )}
-      </div>
+                      <PaperclipIcon className="size-4" />
+                    </PromptInputActionMenuTrigger>
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionMenuItem
+                        onSelect={() => fileInput.current?.click()}
+                      >
+                        <UploadIcon />
+                        Upload file
+                      </PromptInputActionMenuItem>
+                      <PromptInputActionMenuItem
+                        onSelect={() => setPickerOpen(true)}
+                      >
+                        <FolderOpenIcon />
+                        Choose from materials
+                      </PromptInputActionMenuItem>
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
+                </PromptInputTools>
+                {/* While a reply is on its way, the button is Stop. */}
+                <PromptInputSubmit
+                  status={status}
+                  onStop={() => void stop()}
+                  disabled={!isBusy && (limitReached || uploading)}
+                />
+              </PromptInputFooter>
+            </PromptInput>
+          </PromptInputProvider>
+          <MaterialPicker
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            materials={materials}
+            pickedIds={[
+              ...attached.map(({ materialId }) => materialId),
+              ...uploads.map(({ key }) => key),
+            ]}
+            max={MAX_ATTACHED_MATERIALS}
+            onToggle={toggleAttached}
+          />
+          <MaterialViewer material={opened} onClose={() => setOpened(null)} />
+          {inputError && (
+            <p
+              id="chat-input-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {inputError}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

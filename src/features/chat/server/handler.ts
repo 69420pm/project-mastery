@@ -50,8 +50,10 @@ import {
   materialReferenceSchema,
 } from "@/features/courses/server";
 import {
+  closeIdleSession,
   isAnswerable,
   recordAnswer,
+  sessionEndedMessage,
   startTutoring,
   TutorToolError,
 } from "@/features/study/server";
@@ -74,7 +76,8 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *
  * 1. require the signed-in Student
  * 2. validate the request: the message and a Chat
- *    the Student owns, or a new Chat in a Course the Student owns
+ *    the Student owns, or a new Chat in a Course the Student owns, whose
+ *    Study session has not ended: a message to an idle one ends it
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, or mark the new reply as the
  *    Chat's latest, then store the Student's message, and an answer from a
@@ -125,6 +128,10 @@ export async function respondInChat({
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
   if (!existing && !(await getCourseWith(supabase, courseId!))) {
     return refuse(404, courseNotFoundMessage);
+  }
+  // An ended session's Chat is read-only; one gone idle ends now.
+  if (existing && (await closeIdleSession(supabase, existing.id))) {
+    return refuse(409, sessionEndedMessage);
   }
 
   // A stored message, as when retrying, is answered as stored: its

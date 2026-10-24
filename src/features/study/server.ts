@@ -26,6 +26,8 @@ export {
   loadAnswerLinks,
   recordAnswer,
 } from "./server/questions";
+export { sessionEndedMessage } from "./schemas";
+export { closeIdleSession, getSessionEnd } from "./server/sessions";
 export { startTutoring } from "./server/tutoring";
 export type {
   GradedKc,

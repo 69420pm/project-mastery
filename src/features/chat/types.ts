@@ -53,6 +53,8 @@ export type ChatWithMessages = {
   courseId: string;
   title: string | null;
   messages: ChatUIMessage[];
+  /** Whether its Study session has ended, which makes it read-only. */
+  ended: boolean;
 };
 
 /** A Chat as the sidebar lists it. */
