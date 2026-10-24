@@ -191,6 +191,56 @@ export async function loadCourseChunks(
   return chunks;
 }
 
+/** Where a chunk is in the Course, without its text. */
+export type ChunkSpan = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  pageFrom: number;
+  pageTo: number;
+};
+
+/**
+ * The places of every chunk of the Course's `parsed` Materials in reading
+ * order: Materials in upload order, chunks by position. Reads on the admin
+ * client, or on a Student's session client, where Row Level Security scopes
+ * it.
+ */
+export async function loadCourseChunkSpans(
+  supabase: Supabase,
+  courseId: string,
+): Promise<ChunkSpan[]> {
+  const materials = await supabase
+    .from("materials")
+    .select("id, name")
+    .eq("course_id", courseId)
+    .eq("parse_status", "parsed")
+    .order("created_at");
+  if (materials.error) failed("Loading the Materials", materials.error);
+
+  const spans: ChunkSpan[] = [];
+  for (const material of materials.data) {
+    const rows = await allRows("Loading the chunks", (from, to) =>
+      supabase
+        .from("chunks")
+        .select("id, page_from, page_to")
+        .eq("material_id", material.id)
+        .order("position")
+        .range(from, to),
+    );
+    for (const chunk of rows) {
+      spans.push({
+        id: chunk.id,
+        materialId: material.id,
+        materialName: material.name,
+        pageFrom: chunk.page_from,
+        pageTo: chunk.page_to,
+      });
+    }
+  }
+  return spans;
+}
+
 /** A chunk's printed points and its Material, as Priorities weighs them. */
 export type ChunkPoints = {
   id: string;

@@ -7,7 +7,9 @@ export { getMaterialChunks } from "./server/chunk-queries";
 export {
   getChunkPlaces,
   loadChunkPoints,
+  loadCourseChunkSpans,
   loadCourseChunks,
+  type ChunkSpan,
   loadChunkSources,
   loadExerciseSolutions,
   type ChunkPoints,
