@@ -6,6 +6,7 @@ import "server-only";
 // Also in `index.ts`: `index.ts` loads React components, which fail outside
 // Next.js, so server code that smoke checks load imports it from here.
 export { courseMapPath, topicPath } from "./domain/map-paths";
+export { topicAnchors } from "./domain/topic-reading";
 export { finalAnswerSchema } from "./schemas";
 export { getChunkFindings } from "./server/chunk-findings";
 export { loadCourseTopics, type CourseTopic } from "./server/course-topics";

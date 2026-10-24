@@ -43,7 +43,7 @@ function KcButton({
 /**
  * Every stat about one KC: what it is, what the Student has learned of it,
  * its Priority, its links, the chunks that teach it, the Exercises that test
- * it and what the checks and the AI's candidates say about it. Clicking a
+ * it and what the checks say about it. Clicking a
  * linked KC or an Exercise calls `onSelect` with its id.
  */
 export function KcPanel({
@@ -51,17 +51,12 @@ export function KcPanel({
   map,
   learning,
   priorities,
-  leftOut,
-  leftOutBadge,
   onSelect,
 }: {
   kc: KcView;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
-  leftOut: boolean;
-  /** Shown beside the Priority when the KC is left out of the study plan. */
-  leftOutBadge: ReactNode;
   onSelect: (kcId: string) => void;
 }) {
   const kcs = new Map(
@@ -148,14 +143,10 @@ export function KcPanel({
           <>
             <div className="flex flex-wrap gap-1.5">
               <PriorityBadge priority={priority} />
-              {leftOut && leftOutBadge}
             </div>
             <dl className="flex flex-col gap-1">
               <Fact label="Value">{priority.value.toFixed(2)}</Fact>
               <Fact label="Multiplier">×{priority.multiplier}</Fact>
-              <Fact label="Study plan">
-                {leftOut ? "Left out: it won't fit" : "In the plan"}
-              </Fact>
             </dl>
             <PriorityReasons priority={priority} />
           </>
@@ -272,24 +263,6 @@ export function KcPanel({
       </Section>
 
       <Section title="Flags">
-        <dl className="flex flex-col gap-1">
-          <Fact label="Next to learn">
-            {learned?.candidate
-              ? "Among the AI's candidates"
-              : "Not a candidate now"}
-          </Fact>
-          {learned?.candidate && learned.anchors.length > 0 && (
-            <Fact label="Anchors">
-              <ul>
-                {learned.anchors.map((anchor) => (
-                  <li key={anchor.id}>
-                    <KcButton kc={kcs.get(anchor.id)} onSelect={onSelect} />
-                  </li>
-                ))}
-              </ul>
-            </Fact>
-          )}
-        </dl>
         {flags.length > 0 ? (
           <ul aria-label="Check flags" className="flex flex-wrap gap-1.5">
             {flags.map((flag) => (

@@ -19,7 +19,6 @@ export {
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getMemory } from "./server/memory";
-export { getOpeningLine } from "./server/opening";
 export { getPlan } from "./server/plan";
 export {
   isAnswerable,

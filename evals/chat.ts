@@ -40,42 +40,38 @@ const SAMPLE_CONTEXT: TutorContext = {
   examDate: "2026-12-03",
   hasMap: true,
   phase: "build",
-  share: 70,
-  leftOutCount: 3,
   goal: "good_grade",
   memory: "",
   mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
   dueReviews: { kcs: [], more: 0 },
-  candidates: [
-    {
-      bigIdea: "Differentiation rules",
+  todayPlan: {
+    next: {
+      id: "topic-product-chain",
+      name: "Product and chain rule",
+      centralQuestion: "How do you differentiate products and compositions?",
       kcs: [
         {
           id: "kc-product-rule",
           name: "Product rule",
           type: "procedure",
-          anchors: [{ id: "kc-power-rule", name: "Derivative of a power" }],
+          taught: false,
         },
         {
           id: "kc-chain-rule",
           name: "Chain rule",
           type: "procedure",
-          anchors: [{ id: "kc-function", name: "Composition of functions" }],
+          taught: false,
         },
       ],
-    },
-    {
-      bigIdea: "Integration techniques",
-      kcs: [
-        {
-          id: "kc-parts",
-          name: "Integration by parts",
-          type: "procedure",
-          anchors: [{ id: "kc-antiderivative", name: "Antiderivative" }],
-        },
+      anchors: [
+        { id: "kc-power-rule", name: "Derivative of a power" },
+        { id: "kc-function", name: "Composition of functions" },
       ],
     },
-  ],
+    hint: null,
+    fitLine:
+      "Build phase. At your pace, 9 of 12 Topics fit, covering 70% of exam weight.",
+  },
 };
 
 const JUDGE_INSTRUCTIONS = `You grade replies of an AI that tutors university students in a study app. You get the Chat so far, the AI's reply to the Student's last message, and the criteria the reply must meet.

@@ -21,8 +21,6 @@ const entry = (
   nextReview: null,
   retrievability: null,
   attempts,
-  candidate: false,
-  anchors: [],
 });
 
 const learning: MapKcLearning = {

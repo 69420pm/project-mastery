@@ -94,25 +94,36 @@ function loadGold() {
   return goldCache;
 }
 
-/** The gold course's candidates, so the instructions read like a real Chat. */
+/**
+ * The gold course's first Big idea as the next Topic, so the instructions
+ * read like a real Chat.
+ */
 function contextOf(gold: z.infer<typeof goldSchema>): TutorContext {
+  const [first] = gold.bigIdeas;
   return {
     today: "2026-11-02",
     examDate: "2026-12-03",
     hasMap: true,
     phase: "build",
-    share: 70,
-    leftOutCount: 3,
     goal: "good_grade",
     memory: "",
     mapPath: "/courses/00000000-0000-4000-8000-000000000000/map",
     dueReviews: { kcs: [], more: 0 },
-    candidates: gold.bigIdeas.map((bigIdea) => ({
-      bigIdea: bigIdea.name,
-      kcs: gold.kcs
-        .filter((kc) => kc.bigIdea === bigIdea.id)
-        .map(({ id, name, type }) => ({ id, name, type, anchors: [] })),
-    })),
+    todayPlan: {
+      next: first
+        ? {
+            id: first.id,
+            name: first.name,
+            centralQuestion: `What is ${first.name} about?`,
+            kcs: gold.kcs
+              .filter((kc) => kc.bigIdea === first.id)
+              .map(({ id, name, type }) => ({ id, name, type, taught: false })),
+            anchors: [],
+          }
+        : null,
+      hint: null,
+      fitLine: null,
+    },
   };
 }
 

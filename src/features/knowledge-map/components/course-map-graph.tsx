@@ -25,16 +25,18 @@ import { useGraphLayout } from "@/features/knowledge-map/hooks/use-graph-layout"
 import type {
   KnowledgeMapView,
   MapTopic,
+  MapTopicBadges,
   MapTopicState,
   MapTopicStates,
 } from "@/features/knowledge-map/types";
-import { RecallBar, TopicStateBadge } from "./topic-state";
+import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
 import { ZoomControls } from "./zoom-controls";
 
 type TopicNodeData = {
   topic: MapTopic;
   href: string;
   topicState?: MapTopicState;
+  badges: string[];
 };
 type BigIdeaNodeData = { name: string };
 type TopicNode = Node<TopicNodeData, "topic">;
@@ -45,7 +47,7 @@ type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
  * opening the Topic page.
  */
 function TopicNodeView({ data }: NodeProps<TopicNode>) {
-  const { topic, href, topicState } = data;
+  const { topic, href, topicState, badges } = data;
   return (
     <>
       <Handle
@@ -64,10 +66,14 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
         <div className="line-clamp-2 font-medium">
           <Markdown>{topic.name}</Markdown>
         </div>
-        <div className="line-clamp-2 text-xs text-muted-foreground">
+        <div
+          className={`${badges.length > 0 ? "line-clamp-1" : "line-clamp-2"} text-xs text-muted-foreground`}
+        >
           <Markdown>{topic.centralQuestion}</Markdown>
         </div>
-        <div className="mt-auto flex items-end gap-3">
+        <div className="mt-auto" />
+        <PlanBadges badges={badges} />
+        <div className="flex items-end gap-3">
           <TopicStateBadge topicState={topicState} />
           <div className="flex-1">
             <RecallBar topicState={topicState} />
@@ -107,10 +113,12 @@ export function CourseMapGraph({
   map,
   topics,
   topicStates,
+  topicBadges,
 }: {
   map: KnowledgeMapView;
   topics: MapTopic[];
   topicStates: MapTopicStates;
+  topicBadges: MapTopicBadges;
 }) {
   const graph = useMemo(() => buildTopicGraph(topics, map), [topics, map]);
   const elkGraph = useMemo(() => toElkTopicGraph(graph), [graph]);
@@ -146,6 +154,7 @@ export function CourseMapGraph({
                 topic: node.topic,
                 href: topicPath(map.courseId, node.id),
                 topicState: topicStates[node.id],
+                badges: topicBadges[node.id] ?? [],
               },
             },
       );
@@ -158,7 +167,7 @@ export function CourseMapGraph({
         markerEnd: { type: MarkerType.ArrowClosed },
       }));
     return { nodes, edges };
-  }, [graph, laidOut, map.courseId, topicStates]);
+  }, [graph, laidOut, map.courseId, topicStates, topicBadges]);
 
   if (failed) {
     return (

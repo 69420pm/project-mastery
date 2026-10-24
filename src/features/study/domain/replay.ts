@@ -79,7 +79,8 @@ export const utcDay = (timestamp: string | Date) =>
 export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
 
-const addDays = (day: string, days: number) =>
+/** The day `days` after a YYYY-MM-DD day, before it when negative. */
+export const addDays = (day: string, days: number) =>
   utcDay(new Date(Date.parse(day) + days * DAY_MS));
 
 /**
@@ -208,10 +209,39 @@ function review(
 }
 
 /**
+ * One KC's attempts as the replay schedules them; null without a non-`pre`
+ * attempt. `first` is the first session with one, which teaches the KC.
+ * `reviews` are the first attempt of each later session, oldest first,
+ * leaving out a session that ran alongside the first one and started
+ * before its last attempt.
+ */
+export function schedulingAttempts(attempts: ReplayAttempt[]): {
+  firstId: string;
+  first: ReplayAttempt[];
+  reviews: ReplayAttempt[];
+} | null {
+  const scheduling = attempts
+    .filter((attempt) => attempt.kind !== "pre")
+    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
+  if (sessions.length === 0) return null;
+  const [[firstId, first], ...later] = sessions as [
+    [string, ReplayAttempt[]],
+    ...Array<[string, ReplayAttempt[]]>,
+  ];
+  const createdAt = Date.parse(first.at(-1)!.createdAt);
+  const reviews = later
+    .map(([, inSession]) => inSession[0]!)
+    .filter((attempt) => Date.parse(attempt.createdAt) >= createdAt);
+  return { firstId, first, reviews };
+}
+
+/**
  * Replays one KC's attempts into its schedule; null without a non-`pre`
  * attempt. The first session with one creates the card once it has ended,
  * rated by its last attempt there and dated at it. In every later session,
- * only the first attempt is a review; the rest don't schedule.
+ * only the first attempt is a review; the rest don't schedule
+ * (`schedulingAttempts`).
  */
 export function replayKc(
   attempts: ReplayAttempt[],
@@ -227,18 +257,11 @@ export function replayKc(
     medians?: MedianSeconds;
   },
 ): KcSchedule | null {
-  const scheduling = attempts
-    .filter((attempt) => attempt.kind !== "pre")
-    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-  const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
-  if (sessions.length === 0) return null;
-  const [[firstId, first], ...later] = sessions as [
-    [string, ReplayAttempt[]],
-    ...Array<[string, ReplayAttempt[]]>,
-  ];
-  if (!ended(firstId)) return { card: null };
+  const split = schedulingAttempts(attempts);
+  if (split === null) return null;
+  if (!ended(split.firstId)) return { card: null };
   const f = scheduler(retention);
-  const created = first.at(-1)!;
+  const created = split.first.at(-1)!;
   let card = review(
     f,
     createEmptyCard(created.createdAt),
@@ -246,10 +269,7 @@ export function replayKc(
     examDate,
     medians,
   );
-  for (const [, inSession] of later) {
-    const attempt = inSession[0]!;
-    // A session that ran alongside the first one can predate its card.
-    if (Date.parse(attempt.createdAt) < card.last_review!.getTime()) continue;
+  for (const attempt of split.reviews) {
     card = review(f, card, attempt, examDate, medians);
   }
   return { card };
@@ -325,6 +345,48 @@ export function finalWeekSweep(
     swept.set(kcId, { card: { ...card, due: new Date(sweepDay) } });
   }
   return swept;
+}
+
+/** The most reviews a forecast counts, a guard against a stuck card. */
+const MAX_FORECAST_REVIEWS = 1000;
+
+/**
+ * The reviews a card gets before the day `until` (YYYY-MM-DD) if every one
+ * is Good, through the replay's scheduler and exam cap: from its due date,
+ * or `now` when it is overdue. Without `card`, a fresh card taught with
+ * Good at `now`, whose teaching is not a review.
+ */
+export function forecastReviews(
+  card: Card | null,
+  {
+    now,
+    until,
+    examDate,
+    retention,
+  }: { now: Date; until: string; examDate: string | null; retention: number },
+): number {
+  const f = scheduler(retention);
+  const good = (at: Date): ReplayAttempt => ({
+    kcId: "",
+    sessionId: "",
+    createdAt: at.toISOString(),
+    kind: "learn",
+    result: "full",
+    help: "none",
+    questionId: "",
+    confidence: null,
+    seconds: null,
+  });
+  let current =
+    card ?? review(f, createEmptyCard(now), good(now), examDate, {});
+  let reviews = 0;
+  while (reviews < MAX_FORECAST_REVIEWS) {
+    const at = new Date(Math.max(current.due.getTime(), now.getTime()));
+    if (utcDay(at) >= until) break;
+    current = review(f, current, good(at), examDate, {});
+    reviews++;
+  }
+  return reviews;
 }
 
 /** Whether a card is due on `today` (YYYY-MM-DD): its due day or later. */

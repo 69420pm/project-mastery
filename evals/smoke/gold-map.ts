@@ -102,3 +102,56 @@ export async function insertGoldMap(
   ]);
   return { gold, id };
 }
+
+/** A central question for each gold Big idea's Topic, by gold id. */
+const CENTRAL_QUESTIONS: Record<string, string> = {
+  BI1: "How does pushing air backwards move an engine forwards, and how much?",
+  BI2: "What does each section of a turbojet do to the air flowing through it?",
+  BI3: "How does the Brayton cycle turn fuel into work, and what limits its efficiency?",
+  BI4: "Why do engines differ in how efficiently they turn jet power into thrust?",
+};
+
+/**
+ * Stores one Topic per gold Big idea, in Course order, each with its KCs in
+ * map order, as the Topics stage would. `ids` maps gold ids to stored ones,
+ * as `insertGoldMap` returns them. Returns the stored Topic ids by gold Big
+ * idea id.
+ */
+export async function insertGoldTopics(
+  supabase: AdminSupabase,
+  studentId: string,
+  courseId: string,
+  { gold, id }: Awaited<ReturnType<typeof insertGoldMap>>,
+): Promise<Map<string, string>> {
+  const topicIds = new Map(gold.bigIdeas.map((b) => [b.id, randomUUID()]));
+  await insert(
+    supabase,
+    "topics",
+    gold.bigIdeas.map((bigIdea, position) => ({
+      id: topicIds.get(bigIdea.id),
+      owner: studentId,
+      course_id: courseId,
+      big_idea_id: id(bigIdea.id),
+      name: bigIdea.name,
+      central_question:
+        CENTRAL_QUESTIONS[bigIdea.id] ?? `What is ${bigIdea.name}?`,
+      why_it_matters: bigIdea.description,
+      position,
+    })),
+  );
+  await insert(
+    supabase,
+    "topic_kcs",
+    gold.bigIdeas.flatMap((bigIdea) =>
+      gold.kcs
+        .filter((kc) => kc.bigIdea === bigIdea.id)
+        .map((kc, position) => ({
+          topic_id: topicIds.get(bigIdea.id),
+          kc_id: id(kc.id),
+          owner: studentId,
+          position,
+        })),
+    ),
+  );
+  return topicIds;
+}

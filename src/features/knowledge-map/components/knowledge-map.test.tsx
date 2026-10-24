@@ -5,10 +5,6 @@ import type {
   KnowledgeMapView,
   MapKcLearning,
 } from "@/features/knowledge-map/types";
-import { LeftOutBadge, type StudyPlan } from "@/features/study";
-
-/** The study plan with left-out KCs by id, as the map takes them. */
-type MapPlan = Omit<StudyPlan, "leftOut"> & { leftOut: string[] };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -93,21 +89,7 @@ const map: KnowledgeMapView = {
   canBuild: true,
 };
 
-const plan = (overrides: Partial<MapPlan>): MapPlan => ({
-  phase: "build",
-  share: 100,
-  leftOut: [],
-  hoursPerWeek: 5,
-  ...overrides,
-});
-
-/** The plan slots the page passes in. */
-const planSlots = (mapPlan: MapPlan) => ({
-  leftOut: mapPlan.leftOut,
-  leftOutBadge: <LeftOutBadge />,
-});
-
-const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
+const renderMap = (learning: MapKcLearning = {}) =>
   render(
     <KnowledgeMap
       map={map}
@@ -119,31 +101,25 @@ const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
         },
       }}
       learning={learning}
-      {...planSlots(plan(overrides))}
     />,
   );
 
 test("clicking a KC node opens its panel", async () => {
-  renderMap(
-    { share: 50, leftOut: ["k2"] },
-    {
-      k2: {
-        state: "learning",
-        nextReview: "2026-10-20",
-        retrievability: 0.934,
-        attempts: [
-          {
-            createdAt: "2026-10-15T10:00:00Z",
-            result: "full",
-            help: "some",
-            exerciseId: null,
-          },
-        ],
-        candidate: false,
-        anchors: [],
-      },
+  renderMap({
+    k2: {
+      state: "learning",
+      nextReview: "2026-10-20",
+      retrievability: 0.934,
+      attempts: [
+        {
+          createdAt: "2026-10-15T10:00:00Z",
+          result: "full",
+          help: "some",
+          exerciseId: null,
+        },
+      ],
     },
-  );
+  });
   fireEvent.click(await screen.findByRole("button", { name: "Nozzles" }));
 
   const panel = screen.getByRole("complementary", { name: "KC details" });
@@ -152,7 +128,6 @@ test("clicking a KC node opens its panel", async () => {
   expect(section("Learning")).toHaveTextContent("Recall today93%");
   expect(section("Learning")).toHaveTextContent("Next review");
   expect(section("Learning")).toHaveTextContent("Fullsome help");
-  expect(section("Priority")).toHaveTextContent("won't fit");
   expect(section("Priority")).toHaveTextContent("0.80");
 
   // A Prerequisite in the panel selects that KC.
@@ -165,26 +140,21 @@ test("clicking a KC node opens its panel", async () => {
 });
 
 test("an Exercise node shows its solution status and opens its panel", async () => {
-  renderMap(
-    {},
-    {
-      k2: {
-        state: "learning",
-        nextReview: null,
-        retrievability: null,
-        attempts: [
-          {
-            createdAt: "2026-10-15T10:00:00Z",
-            result: "wrong",
-            help: "none",
-            exerciseId: "e1",
-          },
-        ],
-        candidate: false,
-        anchors: [],
-      },
+  renderMap({
+    k2: {
+      state: "learning",
+      nextReview: null,
+      retrievability: null,
+      attempts: [
+        {
+          createdAt: "2026-10-15T10:00:00Z",
+          result: "wrong",
+          help: "none",
+          exerciseId: "e1",
+        },
+      ],
     },
-  );
+  });
   const node = await screen.findByRole("button", { name: "Ex. 7.2b" });
   expect(node).toHaveTextContent("HardDisputed");
   fireEvent.click(node);
@@ -212,7 +182,7 @@ const faded = (name: string) =>
     .classList.contains("opacity-30");
 
 test("a selected node focuses its neighbours until Esc", async () => {
-  renderMap({});
+  renderMap();
   fireEvent.click(await screen.findByRole("button", { name: "Ex. 7.2b" }));
   expect(faded("Nozzles")).toBe(false);
   expect(faded("Momentum")).toBe(true);
@@ -255,7 +225,6 @@ const renderWith = (view: KnowledgeMapView) =>
       map={view}
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
-      {...planSlots(plan({}))}
     />,
   );
 
@@ -298,7 +267,7 @@ describe("saved settings", () => {
 });
 
 test("a Big idea opens its KC count per state", async () => {
-  renderMap({});
+  renderMap();
   fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));
   const panel = screen.getByRole("complementary", { name: "Big idea details" });
   expect(within(panel).getByRole("region", { name: "KCs" })).toHaveTextContent(

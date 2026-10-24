@@ -4,12 +4,12 @@ How a Chat tutors a Student from the Course's Knowledge map: what code computes 
 
 ## Parts and when they run
 
-| Part         | Runs                                             | Decided by                                 | Reads                                                           | Writes                  |
-| ------------ | ------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
-| Plan         | On every read: the map page and every Chat reply | Code                                       | Exam date, weekly hours, goal, KCs, Priorities, attempts        | Nothing                 |
-| Context      | Every Chat reply, before the AI's call           | Code                                       | The stored map, Priorities, Memory, Brief, attempts             | Nothing                 |
-| Opening line | A new Chat opens                                 | Code, with no model call                   | The map and the KC states                                       | Nothing                 |
-| Reply        | Each message from the Student                    | The AI, with its tools and at most 5 steps | KC sources and Exercises, through `readKcs` and `findExercises` | `memories` (`remember`) |
+| Part       | Runs                                             | Decided by                                 | Reads                                                           | Writes                  |
+| ---------- | ------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
+| Plan       | On every read: the map page and every Chat reply | Code                                       | Exam date, weekly hours, goal, KCs, Priorities, attempts        | Nothing                 |
+| Context    | Every Chat reply, before the AI's call           | Code                                       | The stored map, Priorities, Memory, Brief, attempts             | Nothing                 |
+| Today card | The map page and a new Chat open                 | Code, with no model call                   | The plan and the due reviews                                    | Nothing                 |
+| Reply      | Each message from the Student                    | The AI, with its tools and at most 5 steps | KC sources and Exercises, through `readKcs` and `findExercises` | `memories` (`remember`) |
 
 FSRS scheduling is not a part of its own: code replays each KC's card from the attempts on every read, and it sets the KC states and the due reviews.
 
@@ -19,25 +19,24 @@ FSRS scheduling is not a part of its own: code replays each KC's card from the a
 
 1. The role, three rules, the tutoring guidance, the Memory guidance, the scope and the format. The rules are: never give a solution before the Student has tried; every activity asks the Student to produce something; claims about the course cite the Material and page.
 2. Today's date, the exam date, and the Memory in full when there is one.
-3. The plan: the Phase, the goal, the guidance for the Phase, and the share of relevant KCs that fit the weekly hours.
+3. The plan: the Phase, the goal, the guidance for the Phase, the Today card's hint and the fit line.
 4. The due reviews, when the Course has a map.
-5. The candidates, grouped by big idea with their anchors. Without a map, a note says so and points to the map page.
+5. The Today card's next Topic: its name and central question, its KCs in teaching order, each marked taught or not, and its anchors with their ids. Without a map, a note says so and points to the map page.
 
-### Plan (#106)
+### Plan over Topics (#177)
 
-`planStudy` (`src/features/study/domain/plan.ts`) is pure code on UTC days. A relevant KC is one that is not prior knowledge and has a Priority above 0, or no Priority yet.
+`planStudy` (`src/features/study/domain/plan.ts`) is pure code on UTC days over the stored Topics. A Topic's priority is the sum of its KCs' Priorities, a missing one counting as 0.
 
-- **Phase.** _Final week_ when the exam is within 7 days. _Deepen_ when every relevant KC is taught. _Build_ otherwise, including before the map is built. There is no Phase without an exam date, or after it has passed.
-- **Pacing.** Only with weekly hours and outside the final week. The hours until the final week are the weekly hours times (days left − 7) ÷ 7. At a fixed 30 minutes per KC, that many untaught relevant KCs fit, highest Priority first and then by name. The share is the taught and fitting KCs as a whole percent of the relevant ones, and the rest are left out.
-- **Where it shows.** The map page's plan line, with a "won't fit" badge on each left-out KC. The AI gets the same figures as one line, and mentions them only when the Student asks about time.
-- **Goal.** "to pass", "a good grade" or "to master everything" tells the AI how to weigh breadth against depth. It moves no KC.
+- **Topics in the plan.** _To pass_ takes Topics by priority until their sum reaches 80% of the total, the crossing Topic included. _A good grade_ and no goal take every Topic with priority above 0, _to master everything_ every Topic. Before any Priority, every Topic is in. The rest are _if time allows_. A pin always adds a Topic and a skip always removes it.
+- **Phase.** _Final week_ when the exam is within 7 days. _Deepen_ when every in-plan Topic is learned, solid or needs work. _Build_ otherwise. There is no Phase without an exam date, or after it has passed.
+- **Order.** The in-plan Topics that are new or in progress: pinned first, then in progress, then by priority per estimated minute, ties in Course order. A Topic never comes before one that reaches it over the Topic arrows, unless both are on a cycle.
+- **Fit.** Only with weekly hours and outside the final week. The budget is the weekly hours times the days until the final week ÷ 7, minus the review minutes of the existing cards, each reviewed Good through the replay's scheduler and exam cap until the final week (`forecastReviews`). Each Topic in order costs its untaught KCs × (minutes per KC + a fresh card's review minutes); from the first that doesn't fit, none fits. The pace is a fixed 30 minutes per KC and 2 per review until it is measured.
+- **Where it shows.** The fit line on the map ("Build phase. At your pace, 9 of 12 Topics fit, covering 84% of exam weight.") and in the Brief with the Topics that won't fit, and the badges _pinned_, _skipped_, _won't fit_ and _if time allows_ on the cards and the Topic page. The AI gets the fit line, and mentions it only when the Student asks about time.
 
-### Due reviews and candidates
+### Due reviews and the Today card
 
-- **Due reviews** (`src/features/study/domain/reviews.ts`): the taught KCs whose next review is today or earlier, ranked by Priority × (days overdue + 1), with ties to the longer overdue and then map order. A KC without a Priority counts as 0 but is still listed. The AI sees at most 8, and a count of the rest.
-- **Candidates** (`src/features/study/domain/candidates.ts`): up to 10 KCs that are new (neither prior knowledge nor taught), have a Priority above 0 or none, and whose Prerequisites are all prior knowledge or taught. They are ranked by Priority, KCs without one last, then grouped by big idea, and each carries its anchors (its Prerequisites).
-
-The map stores no topics. The AI picks a connected handful from the candidates, so the map can update without its groups going stale.
+- **Due reviews** (`src/features/study/domain/reviews.ts`): the taught KCs whose next review is today or earlier, ranked by Priority × (1 − today's recall), ties in map order. A KC without a Priority counts as 0 but is still listed. The AI sees at most 8, and a count of the rest.
+- **Today card** (`planToday` in `src/features/study/domain/today.ts`, `TodayCard` in `components/today-card.tsx`): the due reviews with their minutes at the measured pace, then the next Topic. In build and without an exam date it is the first of the plan order. In Deepen it is the needs-work Topic with the lowest recall, otherwise the learned one, otherwise the solid one. In the final week it is the taught Topic with the highest priority × (1 − mean recall projected to the exam), and no new Topic. Deepen adds the hint "Practice exam-style problems", the final week "Try an old exam under exam conditions". The card sits at the top of the Course map, with Start opening a new Chat, and in a new Chat's empty state, without Start. Without a map or Topics it says to build or update the map.
 
 ## The AI's reply
 
@@ -51,7 +50,7 @@ A reply streams one call with the `chat` task's model, with the instructions and
 
 A solution's status says where it comes from: `from the Materials`, `verified` when an AI solution agrees, `disputed` when one disagrees (the AI must check it before relying on it), or `generated` when the Materials have none. A refused call, such as an id that is not of the Course, a KC listed twice or a full Memory, throws a `TutorToolError`. The model reads its message and the reply goes on.
 
-The guidance is prompt text, not code. The AI starts with due reviews, then picks a handful of candidates, then docks, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems of the same task type in a row, and it keeps an Exercise's solution back until the Student has tried.
+The guidance is prompt text, not code. The AI starts with due reviews, then reads the next Topic's untaught KCs and teaches them in order: it docks, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems of the same task type in a row, and it keeps an Exercise's solution back until the Student has tried.
 
 ## Evidence and FSRS replay (#103, #174)
 
@@ -66,8 +65,6 @@ Every Chat is a Study session: the database starts a `learn` session (`study_ses
 
 `kcState` gives each KC's state: _new_ (no attempts besides prequestions), _learning_ (first session still open, or stability under 7 days and not due), _due_ (next review today or earlier) or _known_, with its next review and today's recall. The map page shows each KC's state, recall and next review, and the number of reviews due.
 
-`openingLine` (`src/features/study/domain/opening.ts`) writes a new Chat's empty state from code, with no model call. Without a map it asks the Student to build one. With no review due it says nothing is due. Otherwise it says how many reviews are due, then something new.
-
 ## Memory (#107)
 
 The Memory is one text per Course in `memories`, at most 4,000 characters, created on its first write.
@@ -79,30 +76,30 @@ The Memory is one text per Course in `memories`, at most 4,000 characters, creat
 
 ## Daily limit
 
-Every reply checks the Student's Daily limit first and is refused with 429 at the limit. The opening line makes no call. Each reply records its usage under the task `chat`, linked to its Chat. A stopped reply has no reported usage, so its cost is estimated from the text, and stopping does not get around the limit.
+Every reply checks the Student's Daily limit first and is refused with 429 at the limit. The Today card makes no call. Each reply records its usage under the task `chat`, linked to its Chat. A stopped reply has no reported usage, so its cost is estimated from the text, and stopping does not get around the limit.
 
 ## Tables
 
-- **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`).
-- **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`), `chunks` and `exercise_solutions`.
+- **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`). `topic_choices` (owner, Topic, `choice` pinned or skipped, `created_at`, one row per Topic), which the Student reads, writes and deletes only for Topics of their own Courses; the owner is set by the database and only `topic_id`, `choice` and `created_at` are granted for insert and update.
+- **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`, `topics`), `chunks`, `exercise_solutions`, and for the measured pace `study_sessions`, `questions` and `chat_messages`.
 - **Written elsewhere:** `ai_usage`. The `append_memory` function (`security invoker`) writes the Memory line.
 
-Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memories.sql` and `20261016120000_create_append_memory.sql`.
+Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memories.sql` and `20261016120000_create_append_memory.sql` and `20261024140000_create_topic_choices.sql`.
 
 ## Where to change things
 
 - **Code:** `src/features/study/`. The prompt is in `ai/instructions.ts`, the tool schemas and descriptions in `ai/tools.ts`, the context and tool actions in `server/tutoring.ts`, the storage in `server/`, and the pure rules in `domain/`, with tests beside them.
 - **Reply loop:** `src/features/chat/server/handler.ts` (steps, Daily limit, usage) and `src/features/chat/ai/reply.ts` (the instructions and the model settings).
-- **UI:** the plan line, the "won't fit" badge and the state badges in `src/features/knowledge-map/components/` (`study-plan.tsx`, `kc-priority.tsx`, `knowledge-map.tsx`); the Memory card on the Brief page in `src/features/study/components/memory-card.tsx`.
+- **UI:** in `src/features/study/components/`: the fit line and the Topics that won't fit (`study-plan.tsx`), the Today card (`today-card.tsx`), Pin and Skip on the Topic page (`topic-choice-controls.tsx`, calling the `setTopicChoice` Server Action in `server/actions.ts`) and the Memory card on the Brief page (`memory-card.tsx`).
 - **Model:** the `chat` task in `AI_TASKS` in `src/lib/ai/models.ts`.
 - **Prompt changes:** run the `chat` eval, as ADR 0012 and [live-ai.md](../agents/live-ai.md) describe.
 
 ## Checks
 
-- `pnpm test:run` covers the pure rules (FSRS replay, candidates, reviews, plan, Exercises, opening line), the Memory save action, and the Chat handler tests (`handler.tutor`, `handler.attempts`, `handler.memory`). The handler tests run replies in-process, with mock models and a fake Supabase.
-- `pnpm db:test` covers the policies, grants and cascades of `attempts` and `memories`, and `append_memory` (`attempts.test.sql`, `memories.test.sql`).
+- `pnpm test:run` covers the pure rules (FSRS replay, reviews, plan, pace, the Today card, Exercises), the Memory save action, and the Chat handler tests (`handler.tutor`, `handler.attempts`, `handler.memory`). The handler tests run replies in-process, with mock models and a fake Supabase.
+- `pnpm db:test` covers the policies, grants and cascades of `attempts`, `memories` and `topic_choices`, and `append_memory` (`attempts.test.sql`, `memories.test.sql`, `topic_choices.test.sql`).
 - `pnpm test:e2e` covers `e2e/memory.spec.ts`, the Memory on the Brief page.
-- `pnpm smoke tutor` runs one real exchange through the Chat handler on the jet-engines gold map, with stand-in sources and two KCs due. It sends a greeting, a plausible answer and a learning preference, then checks that the first reply reads a due KC and ends with a question, that the answer records an attempt on a KC of the Course, that the preference adds a Memory line, and that no ids or tool names appear in the text. It calls a live model, so [live-ai.md](../agents/live-ai.md) applies.
+- `pnpm smoke tutor` runs real exchanges through the Chat handler on the jet-engines gold map with one Topic per Big idea and stand-in sources. Before anything is taught, a greeting must read the next Topic's KCs before any text. Then, with two KCs due, it sends a greeting, a plausible answer and a learning preference, and checks that the first reply reads a due KC and ends with a question, that every KC id the AI uses comes from its context or a tool's result, that the answer records an attempt on a KC of the Course, that the preference adds a Memory line, and that no ids or tool names appear in the text. It calls a live model, so [live-ai.md](../agents/live-ai.md) applies.
 
 ## Not built
 
@@ -111,9 +108,9 @@ From the deferred items of #101 and its build order:
 - Generated problems, a math or code tool for checking answers, and the problem store (milestone 2).
 - Session flags, the constraint log and the weekly reading routine (milestone 6).
 - The pilot items (milestone 7): reserving an old exam for the final week, a guarantee that every high-priority KC gets a review in the final week (the final-week guidance asks only for mixed review), and asking for grades.
-- Plan: personal pace (time is not measured, and every KC takes a fixed 30 minutes), goal handling beyond the AI's context, move, pin and skip controls, an "if time allows" group, and an AI summary of the plan.
+- Plan: moving a Topic by hand, an AI summary of the plan, reading time in active time (M4), and starting a Chat on a chosen Topic (M4).
 - Memory: topic notes, session notes, consolidation, a trigger for ending a Chat, and pinned instructions. The Student edits the whole text, not single notes.
 - Guidance from #101 that the instructions do not yet give: active recall every two or three KCs, asking for confidence before a reveal, probing known misconceptions, asking why a step works after a correct answer, saying so when help is used without an attempt, and steering difficulty beyond fading scaffolds. Interleaving easily confused KCs (the `contrasts_with` links in #101) is also not built.
-- Stored topics, a mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, and photos of handwritten work, which #101 leaves untested.
+- A mastery number, FSRS ([ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)), a map of a group after a session, and photos of handwritten work, which #101 leaves untested.
 
-The open decisions of #101 stay open: what ends a Chat for notes and consolidation, whether the plan needs stored topics, how pacing measures time, and how handwritten work is submitted and read.
+The open decisions of #101 stay open: what ends a Chat for notes and consolidation, and how handwritten work is submitted and read.

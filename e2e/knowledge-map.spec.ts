@@ -42,6 +42,34 @@ test("a parsed Material is built into a Course map of Topics", async ({
     page.getByRole("status", { name: "Build status" }),
   ).toContainText("Last built");
 
+  // The Today card names the next Topic and starts a new Chat.
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(
+    today.getByRole("link", { name: /^Mock text from the mock AI/ }),
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
+  );
+  await expect(today.getByRole("link", { name: "Start" })).toHaveAttribute(
+    "href",
+    `/courses/${course.id}/chat`,
+  );
+
+  // Skipping the next Topic on its page takes it off the card. The mock
+  // builds a single Topic, so nothing is left to plan.
+  await today
+    .getByRole("link", { name: /^Mock text from the mock AI/ })
+    .click();
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unskip" })).toBeVisible();
+  await expect(page.getByLabel("Plan")).toContainText("skipped");
+  await page.goto(`/courses/${course.id}/map`);
+  const todayAfterSkip = page.getByRole("region", { name: "Today" });
+  await expect(todayAfterSkip).toContainText("Nothing planned for today.");
+  await expect(
+    todayAfterSkip.getByRole("link", { name: /^Mock text from the mock AI/ }),
+  ).toHaveCount(0);
+
   // The mock names every Topic with its text.
   const graph = page.getByRole("application", { name: "Course map graph" });
   const card = graph

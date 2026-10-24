@@ -3,7 +3,12 @@
 import "server-only";
 import { revalidatePath } from "next/cache";
 import { briefPath } from "@/features/brief";
-import { endSessionSchema, saveMemorySchema } from "@/features/study/schemas";
+import {
+  endSessionSchema,
+  saveMemorySchema,
+  setTopicChoiceSchema,
+} from "@/features/study/schemas";
+import { appendMemory } from "@/features/study/server/memory";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -63,4 +68,60 @@ export async function endStudySession(input: {
     return { ok: false, message: "This Chat has no study session to end." };
   }
   return { ok: true, data: undefined };
+}
+
+/**
+ * Pins or skips a Topic of the Student's Course, or clears the choice with
+ * null. A new choice replaces the old one. A skip's reason goes to the
+ * Memory as "Skipped <Topic>: <reason>"; `reasonKept` is false when the
+ * Memory is full, and the skip is saved anyway.
+ */
+export async function setTopicChoice(input: {
+  courseId: string;
+  topicId: string;
+  choice: "pinned" | "skipped" | null;
+  reason?: string;
+}): Promise<ActionResult<{ reasonKept: boolean }>> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(setTopicChoiceSchema, input);
+  if (!parsed.ok) return parsed;
+
+  const { courseId, topicId, choice, reason } = parsed.data;
+  const supabase = await createClient();
+  const { data: topic, error: topicError } = await supabase
+    .from("topics")
+    .select("name")
+    .eq("id", topicId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (topicError) {
+    throw new Error(`Reading the Topic failed: ${topicError.message}`);
+  }
+  if (!topic) return { ok: false, message: "This Topic was not found." };
+
+  const { error } =
+    choice === null
+      ? await supabase.from("topic_choices").delete().eq("topic_id", topicId)
+      : await supabase.from("topic_choices").upsert(
+          {
+            topic_id: topicId,
+            choice,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: "owner,topic_id" },
+        );
+  if (error) throw new Error(`Saving the choice failed: ${error.message}`);
+
+  let reasonKept = true;
+  if (choice === "skipped" && reason) {
+    reasonKept = await appendMemory(
+      supabase,
+      courseId,
+      `Skipped ${topic.name}: ${reason}`,
+    );
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, data: { reasonKept } };
 }

@@ -153,9 +153,8 @@ export type MapAttempt = {
 
 /**
  * What the Student has learned of each KC, which the page passes in, by KC
- * id: its state, next review and today's recall, its attempts newest first,
- * and whether the AI would propose it next, with the KCs it docks onto. A
- * KC missing here is new, without attempts, and no candidate.
+ * id: its state, next review and today's recall, and its attempts newest
+ * first. A KC missing here is new, without attempts.
  */
 export type MapKcLearning = Record<
   string,
@@ -166,10 +165,6 @@ export type MapKcLearning = Record<
     /** Today's FSRS recall, 0 to 1; null without an FSRS card. */
     retrievability: number | null;
     attempts: MapAttempt[];
-    /** Among the AI's top candidates to learn next. */
-    candidate: boolean;
-    /** Its Prerequisites that are prior knowledge or taught, as a candidate. */
-    anchors: Array<{ id: string; name: string }>;
   }
 >;
 
@@ -197,6 +192,12 @@ export type MapTopicState = {
  * Topic missing here is new, with no recall.
  */
 export type MapTopicStates = Record<string, MapTopicState>;
+
+/**
+ * The study plan's badges of each Topic, such as "won't fit", which the
+ * page passes in, by Topic id. A Topic missing here has none.
+ */
+export type MapTopicBadges = Record<string, string[]>;
 
 /** A Topic as its page shows it, with what a Student reads around it. */
 export type MapTopicDetail = MapTopic & {

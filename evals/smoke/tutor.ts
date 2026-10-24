@@ -3,7 +3,7 @@ import { respondInChat } from "@/features/chat/server";
 import { startTutoring, type GradedKc } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { Supabase } from "@/lib/supabase/types";
-import { insertGoldMap } from "./gold-map";
+import { insertGoldMap, insertGoldTopics } from "./gold-map";
 import { result, type SmokeCheck } from "./smoke-check";
 
 const GREETING = "Let's start studying.";
@@ -25,8 +25,8 @@ const THRUST_EXERCISE = {
   /**
    * Every KC of the gold map's thrust big idea, not only its two, so
    * `findExercises` finds it whichever of them the AI looks up: the AI knows
-   * only the ids of the candidates and their anchors, which may leave out
-   * the Exercise's own KCs.
+   * only the ids of the due reviews, the next Topic's KCs and their anchors,
+   * which may leave out the Exercise's own KCs.
    */
   kcs: ["KC01", "KC02", "KC03", "KC04", "KC05", "KC06", "KC07", "KC08"],
 };
@@ -72,8 +72,11 @@ async function insertRows(
   if (error) throw new Error(`${table}: ${error.message}`);
 }
 
-/** A tool call the AI made, with the KC ids it passed. */
-type ToolCall = { toolName: string; kcIds: string[] };
+/**
+ * A tool call the AI made, with the KC ids it passed and whether it came
+ * before any text of its reply.
+ */
+type ToolCall = { toolName: string; kcIds: string[]; beforeText: boolean };
 
 /**
  * Sends `text` in the Chat through the real Chat handler as the Student,
@@ -91,6 +94,8 @@ async function sendMessage(
   text: string;
   questionIds: string[];
   graded: GradedKc[];
+  /** The KC ids the tools' results named, such as an Exercise's KCs. */
+  returned: string[];
 }> {
   console.info(`Student: ${text}`);
   const response = await respondInChat({
@@ -119,8 +124,13 @@ async function sendMessage(
   const calls: ToolCall[] = [];
   const questionIds: string[] = [];
   const graded: GradedKc[] = [];
+  const returned: string[] = [];
   const toolNames = new Map<string, string>();
+  let hasText = false;
   for (const part of chunks) {
+    if (part.type === "text-delta" && part.delta.trim() !== "") {
+      hasText = true;
+    }
     if (part.type === "tool-input-available") {
       toolNames.set(part.toolCallId, part.toolName);
     }
@@ -145,6 +155,11 @@ async function sendMessage(
       const names = part.output.exercises.map(
         (exercise: { name?: string }) => exercise.name,
       );
+      for (const exercise of part.output.exercises) {
+        returned.push(
+          ...(exercise.kcs ?? []).map((kc: { id: string }) => kc.id),
+        );
+      }
       console.info(
         `  found ${JSON.stringify(names)} ${part.output.note ?? ""}`,
       );
@@ -155,7 +170,7 @@ async function sendMessage(
         part.input?.kcIds ??
         part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
-      calls.push({ toolName: part.toolName, kcIds });
+      calls.push({ toolName: part.toolName, kcIds, beforeText: !hasText });
     }
     if (part.type === "tool-output-error" || part.type === "error") {
       console.info(`  ${part.type}: ${part.errorText}`);
@@ -166,22 +181,25 @@ async function sendMessage(
     .map((part) => part.delta)
     .join("");
   console.info(`AI: ${reply}`);
-  return { calls, text: reply, questionIds, graded };
+  return { calls, text: reply, questionIds, graded, returned };
 }
 
 /**
- * Sets up a Course with the jet-engines gold map, a stand-in source chunk
- * for every KC, the gold Exercises with stand-in question chunks (Ex. 7.2a
- * with real data and a numeric key) and two KCs taught a few days ago, so
- * both are due. Then sends "Let's start studying.", a plausible answer and a
+ * Sets up a Course with the jet-engines gold map with one Topic per Big
+ * idea, a stand-in source chunk for every KC and the gold Exercises with
+ * stand-in question chunks (Ex. 7.2a with real data and a numeric key).
+ * Sends "Let's start studying." in a first Chat, where the AI must read the
+ * next Topic's KCs before any text. Then teaches two KCs a few days ago, so
+ * both are due, and sends "Let's start studying.", a plausible answer and a
  * learning preference in a new Chat, and a request for Ex. 7.2a and its
- * right answer in a second one, through the real Chat handler, and checks
- * what the AI did, said, remembered and graded, numeric check included.
+ * right answer in a third one, all through the real Chat handler, and
+ * checks what the AI did, said, remembered and graded, numeric check
+ * included, and that every KC id it used belongs to its context.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with stand-in sources, Exercises and two due KCs, then a greeting, an answer, a preference, a request for Ex. 7.2a and its answer in a second Chat)",
+    "pnpm smoke tutor (the gold map with Topics, stand-in sources and Exercises; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for Ex. 7.2a and its answer in a third Chat)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with a title per Chat the only
   // others.
@@ -286,6 +304,21 @@ export const tutorSmoke: SmokeCheck = {
       ),
     );
 
+    await insertGoldTopics(supabase, studentId, course.id, { gold, id });
+
+    // The Chat runs as the Student, with Row Level Security as in the app.
+    // Before anything is taught, a greeting starts on the next Topic.
+    const client = await signInAsUser(supabase, studentId);
+    const freshChat = { chatId: randomUUID(), courseId: course.id };
+    const fresh = (await startTutoring(client, course.id, freshChat.chatId))
+      .context;
+    const nextKcs = new Set(fresh.todayPlan.next?.kcs.map((kc) => kc.id));
+    console.info(
+      `Next Topic: ${fresh.todayPlan.next?.name ?? "none"} (${nextKcs.size} KCs)`,
+    );
+    if (nextKcs.size === 0) throw new Error("The context has no next Topic.");
+    const opening = await sendMessage(client, studentId, freshChat, GREETING);
+
     // Two content KCs without Prerequisites, taught a few days ago by a
     // question graded full in an earlier session. Only the admin client can
     // backdate an attempt.
@@ -341,19 +374,18 @@ export const tutorSmoke: SmokeCheck = {
       })),
     );
 
-    // The Chat runs as the Student, with Row Level Security as in the app.
-    const client = await signInAsUser(supabase, studentId);
     const chat = { chatId: randomUUID(), courseId: course.id };
     const { context } = await startTutoring(client, course.id, chat.chatId);
     const due = new Set(context.dueReviews.kcs.map((kc) => kc.id));
-    const offered = new Set([
-      ...due,
-      ...context.candidates.flatMap(({ kcs }) =>
-        kcs.flatMap((kc) => [kc.id, ...kc.anchors.map((a) => a.id)]),
-      ),
-    ]);
+    const offered = new Set(
+      [fresh, context].flatMap(({ dueReviews, todayPlan: { next } }) => [
+        ...dueReviews.kcs.map((kc) => kc.id),
+        ...(next?.kcs ?? []).map((kc) => kc.id),
+        ...(next?.anchors ?? []).map((kc) => kc.id),
+      ]),
+    );
     console.info(
-      `Due reviews: ${due.size}; candidates: ${context.candidates.length} groups`,
+      `Due reviews: ${due.size}; next Topic: ${context.todayPlan.next?.name ?? "none"}`,
     );
     if (due.size !== taught.length) {
       throw new Error(`Expected ${taught.length} due KCs, got ${due.size}`);
@@ -418,7 +450,8 @@ export const tutorSmoke: SmokeCheck = {
         toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = [first.text, second.text, third.text, fourth.text, fifth.text]
+    const shown = [opening, first, second, third, fourth, fifth]
+      .map((reply) => reply.text)
       .join("\n")
       .replace(/\]\([^)]*\)/g, "]");
     const named = [
@@ -445,7 +478,30 @@ export const tutorSmoke: SmokeCheck = {
       for (const kc of graded) earlier.add(kc.id);
       return checked;
     });
+    const replies = [opening, first, second, third, fourth, fifth];
+    const known = new Set([
+      ...offered,
+      ...replies.flatMap((reply) => reply.returned),
+    ]);
+    const unknown = replies.flatMap(({ calls }) =>
+      calls.flatMap(({ kcIds }) => kcIds.filter((kc) => !known.has(kc))),
+    );
     return [
+      result(
+        "the greeting read the next Topic's KCs before its first text",
+        opening.calls.some(
+          ({ toolName, kcIds, beforeText }) =>
+            toolName === "readKcs" &&
+            beforeText &&
+            kcIds.some((kc) => nextKcs.has(kc)),
+        ),
+        describe(opening.calls),
+      ),
+      result(
+        "every KC id the AI used belongs to its context or a tool's result",
+        unknown.length === 0,
+        unknown.join(", "),
+      ),
       result(
         "the first reply asked a question on a due KC through ask",
         dueReads.length > 0 && dueAsked.length > 0,

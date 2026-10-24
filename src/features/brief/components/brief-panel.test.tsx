@@ -28,9 +28,13 @@ const brief: Props["brief"] = {
 
 const plan: StudyPlan = {
   phase: null,
-  share: null,
+  topics: [],
+  order: [],
+  fit: null,
   hoursPerWeek: null,
-  leftOut: [],
+  pace: { minutesPerKc: 30, minutesPerReview: 2 },
+  hasMap: false,
+  today: { reviews: null, next: null, hint: null },
 };
 
 const renderPanel = (
@@ -176,23 +180,42 @@ describe("BriefPanel", () => {
     expect(items[0]).toHaveTextContent("First open.");
   });
 
-  test("shows the study plan with the left-out KC names", () => {
+  test("shows the fit line with the names of the Topics that won't fit", () => {
+    const topic = (id: string, name: string, fits: boolean) => ({
+      id,
+      name,
+      priority: 1,
+      topicState: { state: "new" as const, recall: 0 },
+      status: "in_plan" as const,
+      pinned: false,
+      untaught: ["k"],
+      fits,
+    });
     renderPanel({
       plan: {
         phase: "build",
-        share: 70,
         hoursPerWeek: 5,
-        leftOut: [
-          { id: "k1", name: "Momentum" },
-          { id: "k2", name: "Nozzles" },
+        topics: [
+          topic("t1", "Thrust", true),
+          topic("t2", "Momentum", false),
+          topic("t3", "Nozzles", false),
         ],
+        fit: { fitting: 1, inPlan: 3, examWeight: 33 },
       },
     });
 
     const section = screen.getByRole("region", { name: "Study plan" });
     expect(within(section).getByText("Build phase")).toBeVisible();
-    expect(within(section).getByText("70%")).toBeVisible();
-    expect(within(section).getByText("Momentum")).toBeVisible();
-    expect(within(section).getByText("Nozzles")).toBeVisible();
+    expect(
+      within(section).getByText(
+        "Build phase. At your pace, 1 of 3 Topics fit, covering 33% of exam weight.",
+      ),
+    ).toBeVisible();
+    const wontFit = within(section).getByRole("list", {
+      name: "Topics that won't fit",
+    });
+    expect(wontFit).toHaveTextContent("Momentum");
+    expect(wontFit).toHaveTextContent("Nozzles");
+    expect(wontFit).not.toHaveTextContent("Thrust");
   });
 });

@@ -13,7 +13,7 @@ import type {
   MapTopicState,
 } from "@/features/knowledge-map/types";
 import { KnowledgeMap } from "./knowledge-map";
-import { RecallBar, TopicStateBadge } from "./topic-state";
+import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
 
 /**
  * A Topic's page: its name, Big idea, Topic state and recall today, central
@@ -22,8 +22,8 @@ import { RecallBar, TopicStateBadge } from "./topic-state";
  * plain text), its KCs in teaching order, its Reading sections and the
  * Topics before and after it. Below sits the KC graph restricted to the
  * Topic and its anchors. `topics` are all the Course's Topics in Course
- * order; `map`, `priorities`, `learning`, `leftOut` and `leftOutBadge` are
- * what `KnowledgeMap` takes.
+ * order; `map`, `priorities` and `learning` are what `KnowledgeMap` takes.
+ * `controls` is the pin and skip slot below the badges.
  */
 export function TopicDetail({
   courseId,
@@ -32,20 +32,21 @@ export function TopicDetail({
   map,
   priorities,
   learning,
-  leftOut,
-  leftOutBadge,
+  controls,
   topicState,
+  badges,
 }: {
   courseId: string;
   topic: MapTopicDetail;
   /** The Topic's state and recall today; undefined while it is new. */
   topicState?: MapTopicState;
+  /** The study plan's badges of the Topic, such as "won't fit". */
+  badges?: string[];
   topics: MapTopic[];
   map: KnowledgeMapView;
   priorities: MapPriorities;
   learning: MapKcLearning;
-  leftOut: string[];
-  leftOutBadge: ReactNode;
+  controls?: ReactNode;
 }) {
   const bigIdea = map.bigIdeas.find(({ id }) => id === topic.bigIdeaId);
   const index = topics.findIndex(({ id }) => id === topic.id);
@@ -62,10 +63,12 @@ export function TopicDetail({
       />
       <div className="flex max-w-sm items-end gap-3">
         <TopicStateBadge topicState={topicState} />
+        <PlanBadges badges={badges} />
         <div className="flex-1">
           <RecallBar topicState={topicState} />
         </div>
       </div>
+      {controls}
 
       <div className="flex max-w-3xl flex-col gap-4 text-sm">
         <Section title="Central question">
@@ -153,8 +156,6 @@ export function TopicDetail({
           map={restrictMapToTopic(map, topic)}
           priorities={priorities}
           learning={learning}
-          leftOut={leftOut}
-          leftOutBadge={leftOutBadge}
         />
       </div>
     </div>

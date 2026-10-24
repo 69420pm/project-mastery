@@ -124,9 +124,9 @@ const renderTopic = (detail: MapTopicDetail) =>
       map={map}
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
-      leftOut={[]}
-      leftOutBadge={null}
       topicState={{ state: "solid", recall: 0.91 }}
+      badges={["pinned", "won't fit"]}
+      controls={<button type="button">Pin</button>}
     />,
   );
 
@@ -141,6 +141,13 @@ describe("TopicDetail", () => {
       screen.getByText("How does a nozzle speed up gas?"),
     ).toBeInTheDocument();
     expect(screen.getByText("Exit speed sets the thrust.")).toBeInTheDocument();
+  });
+
+  test("shows the plan badges and the pin and skip controls", () => {
+    renderTopic(topic);
+    expect(screen.getByLabelText("Plan")).toHaveTextContent("pinned");
+    expect(screen.getByLabelText("Plan")).toHaveTextContent("won't fit");
+    expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
   });
 
   test("shows the Topic state and recall today", () => {

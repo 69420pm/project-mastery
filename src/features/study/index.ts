@@ -5,12 +5,10 @@
 export { tutorInstructions } from "./ai/instructions";
 export { EndSessionButton } from "./components/end-session-button";
 export { MemoryCard } from "./components/memory-card";
-export {
-  LeftOutBadge,
-  PlanLine,
-  StudyPlanFacts,
-} from "./components/study-plan";
-export { PHASE_NAMES } from "./domain/plan";
+export { FitLine, StudyPlanFacts } from "./components/study-plan";
+export { TopicChoiceControls } from "./components/topic-choice-controls";
+export { TodayCard } from "./components/today-card";
+export { PHASE_NAMES, topicBadges } from "./domain/plan";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {
@@ -20,4 +18,5 @@ export type {
   QuestionKind,
   StudyPlan,
   TutorContext,
+  TutorToday,
 } from "./types";

@@ -44,15 +44,10 @@ export function KnowledgeMap({
   map,
   priorities,
   learning,
-  leftOut,
-  leftOutBadge,
 }: {
   map: KnowledgeMapView;
   priorities: MapPriorities;
   learning: MapKcLearning;
-  /** The ids of the KCs the weekly hours won't fit. */
-  leftOut: string[];
-  leftOutBadge: ReactNode;
 }) {
   const isWide = !useIsMobile();
   const [settings, saveSettings] = useSavedSettings();
@@ -66,8 +61,6 @@ export function KnowledgeMap({
     map,
     learning,
     priorities,
-    leftOut,
-    leftOutBadge,
     onSelect: setSelectedId,
   });
   const panel = selected?.panel ?? null;
@@ -171,16 +164,12 @@ function selectedPanel({
   map,
   learning,
   priorities,
-  leftOut,
-  leftOutBadge,
   onSelect,
 }: {
   id: string | null;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
-  leftOut: string[];
-  leftOutBadge: ReactNode;
   onSelect: (id: string) => void;
 }): { label: string; panel: ReactNode } | null {
   if (id === null) return null;
@@ -195,8 +184,6 @@ function selectedPanel({
           map={map}
           learning={learning}
           priorities={priorities}
-          leftOut={leftOut.includes(kc.id)}
-          leftOutBadge={leftOutBadge}
           onSelect={onSelect}
         />
       ),

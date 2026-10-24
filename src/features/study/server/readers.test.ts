@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { TopicChoice } from "@/features/study/domain/plan";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
- * The map page's study reads: KC learning, KC states, the plan and a new
- * Chat's opening line. The stored map is given; Priorities, the Brief and
+ * The map page's study reads: KC learning, KC states, the plan and its
+ * Today plan. The stored map is given; Priorities, the Brief and
  * the attempts come from local tables.
  */
 
@@ -63,6 +64,7 @@ function createDb() {
         { id: OPEN_SESSION, course_id: COURSE, chat_id: CHAT, ended_at: null },
       ] as FakeRow[],
       chats: [{ id: CHAT, last_message_at: at(0) }],
+      chat_messages: [] as FakeRow[],
       questions: [{ id: QUESTION, session_id: SESSION, exercise_id: null }],
       attempts: [] as FakeRow[],
     },
@@ -84,13 +86,30 @@ vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
   loadStoredTopics: async (_: unknown, courseId: string) =>
     courseId === COURSE
       ? [
-          { id: "t1", kcs: [THRUST, EFFICIENCY] },
-          { id: "t2", kcs: [NOZZLE] },
+          {
+            id: "t1",
+            name: "Thrust",
+            centralQuestion: "How is thrust made?",
+            kcs: [THRUST, EFFICIENCY],
+          },
+          {
+            id: "t2",
+            name: "Nozzles",
+            centralQuestion: "What does a nozzle do?",
+            kcs: [NOZZLE],
+          },
         ]
       : [],
 }));
 
-const { getKcLearning, getKcStates, getOpeningLine, getPlan, getTopicStates } =
+// The Student's pins and skips; RLS (`topic_choices.test.sql`) keeps another
+// Student's out.
+let choices: TopicChoice[] = [];
+vi.mock("@/features/study/server/choices", () => ({
+  loadTopicChoices: async () => choices,
+}));
+
+const { getKcLearning, getKcStates, getPlan, getTopicStates } =
   await import("@/features/study/server");
 
 /** A stored `learn` attempt on a KC `days` from now, in the ended session. */
@@ -107,6 +126,7 @@ const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
 
 beforeEach(() => {
   signedIn = true;
+  choices = [];
   map = MAP;
   db = createDb();
   // Stored newest first: the readers order them by time. The session's last
@@ -126,9 +146,13 @@ describe.each([
     expect(await getTopicStates(courseId)).toEqual({});
     expect(await getPlan(courseId)).toEqual({
       phase: null,
-      share: null,
-      leftOut: [],
+      topics: [],
+      order: [],
+      fit: null,
       hoursPerWeek: null,
+      pace: { minutesPerKc: 30, minutesPerReview: 2 },
+      hasMap: false,
+      today: { reviews: null, next: null, hint: null },
     });
   });
 });
@@ -147,8 +171,6 @@ describe("getKcLearning", () => {
         help: "none",
         exerciseId: null,
       })),
-      candidate: false,
-      anchors: [],
     });
   });
 
@@ -166,7 +188,7 @@ describe("getKcLearning", () => {
 
     const learning = await getKcLearning(COURSE);
 
-    expect(learning[NOZZLE]).toMatchObject({ state: "new", attempts: [] });
+    expect(learning[NOZZLE]).toBeUndefined();
     // Hard on a new card gives two days.
     expect(learning[THRUST]).toMatchObject({ nextReview: day(-2.5) });
   });
@@ -176,7 +198,7 @@ describe("getKcLearning", () => {
       ...attempt(EFFICIENCY, 0),
       session_id: OPEN_SESSION,
     });
-    // A prequestion leaves a KC new, and a candidate.
+    // A prequestion leaves a KC new.
     db.tables.attempts.push({ ...attempt(NOZZLE, -1), kind: "pre" });
 
     const learning = await getKcLearning(COURSE);
@@ -188,7 +210,6 @@ describe("getKcLearning", () => {
     });
     expect(learning[NOZZLE]).toMatchObject({
       state: "new",
-      candidate: true,
       attempts: [expect.objectContaining({ result: "full" })],
     });
   });
@@ -205,22 +226,8 @@ describe("getKcLearning", () => {
     expect(learning[EFFICIENCY]).toMatchObject({ nextReview: day(2.89) });
   });
 
-  test("lists unattempted candidates with their anchors, and nothing else", async () => {
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[EFFICIENCY]).toEqual({
-      state: "new",
-      nextReview: null,
-      retrievability: null,
-      attempts: [],
-      candidate: true,
-      anchors: [{ id: THRUST, name: "Thrust equation" }],
-    });
-    expect(learning[NOZZLE]).toMatchObject({ candidate: true, anchors: [] });
-    // Prior knowledge is no candidate.
-    expect(Object.keys(learning).toSorted()).toEqual(
-      [THRUST, EFFICIENCY, NOZZLE].toSorted(),
-    );
+  test("lists only KCs with attempts", async () => {
+    expect(Object.keys(await getKcLearning(COURSE))).toEqual([THRUST]);
   });
 });
 
@@ -263,40 +270,137 @@ describe("getTopicStates", () => {
 });
 
 describe("getPlan", () => {
-  test("gives the Phase, the share, the left-out names and the weekly hours", async () => {
-    // Half an hour before the final week: one of the two untaught KCs fits.
+  const brief = (hoursPerWeek: string) =>
     db.tables.briefs.push({
       course_id: COURSE,
       exam_date: day(21),
-      hours_per_week: "0.25",
+      hours_per_week: hoursPerWeek,
       goal: null,
     });
 
-    expect(await getPlan(COURSE)).toEqual({
+  test("gives the Topic plan with its fit and the weekly hours", async () => {
+    brief("10");
+
+    const plan = await getPlan(COURSE);
+    expect(plan).toMatchObject({
       phase: "build",
-      share: 66,
-      leftOut: [{ id: EFFICIENCY, name: "Propulsive efficiency" }],
-      hoursPerWeek: 0.25,
+      // t1 is in progress, with Thrust taught.
+      order: ["t1", "t2"],
+      fit: { fitting: 2, inPlan: 2, examWeight: 100 },
+      hoursPerWeek: 10,
+    });
+    expect(plan.topics).toMatchObject([
+      { id: "t1", priority: 0.8, untaught: [EFFICIENCY], fits: true },
+      { id: "t2", priority: 0.1, untaught: [NOZZLE], fits: true },
+    ]);
+  });
+
+  test("reads the Student's skips and pins", async () => {
+    brief("10");
+    choices = [
+      { topicId: "t1", choice: "skipped", createdAt: at(-1) },
+      { topicId: "t2", choice: "pinned", createdAt: at(-1) },
+    ];
+
+    const plan = await getPlan(COURSE);
+    expect(plan.order).toEqual(["t2"]);
+    expect(plan.topics).toMatchObject([
+      { id: "t1", status: "skipped" },
+      { id: "t2", status: "in_plan", pinned: true },
+    ]);
+    // The Today card names the pinned Topic, not the skipped one.
+    expect(plan.today.next?.id).toBe("t2");
+  });
+
+  test("leaves out what the weekly hours don't fit", async () => {
+    brief("0.01");
+
+    expect((await getPlan(COURSE)).fit).toEqual({
+      fitting: 0,
+      inPlan: 2,
+      examWeight: 0,
+    });
+  });
+
+  test("measures the pace from 3 ended teaching sessions' messages", async () => {
+    // Six active minutes each, teaching one KC: 4 between the Student's
+    // messages and 2 to the AI's last reply.
+    [PRIOR, EFFICIENCY, NOZZLE].forEach((kcId, i) => {
+      const [session, chat] = [`s${i}`, `c${i}`];
+      const start = -3 + i;
+      db.tables.study_sessions.push({
+        id: session,
+        course_id: COURSE,
+        chat_id: chat,
+        ended_at: at(start + 0.1),
+      });
+      db.tables.questions.push({ id: `q${i}`, session_id: session });
+      db.tables.attempts.push({
+        ...attempt(kcId, start),
+        question_id: `q${i}`,
+        session_id: session,
+      });
+      db.tables.chat_messages.push(
+        ...[
+          ["user", 0],
+          ["assistant", 1],
+          ["user", 4],
+          ["assistant", 6],
+        ].map(([role, minutes]) => ({
+          id: randomUUID(),
+          chat_id: chat,
+          role,
+          created_at: at(start + (minutes as number) / 1440),
+        })),
+      );
+    });
+
+    expect((await getPlan(COURSE)).pace).toEqual({
+      minutesPerKc: expect.closeTo(6, 5),
+      minutesPerReview: 2,
     });
   });
 
   test("has no Phase without an exam date", async () => {
-    expect(await getPlan(COURSE)).toMatchObject({ phase: null, share: null });
+    expect(await getPlan(COURSE)).toMatchObject({ phase: null, fit: null });
+  });
+
+  test("is empty for another Student's Course", async () => {
+    expect(await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).toMatchObject(
+      { phase: null, topics: [], order: [], fit: null },
+    );
   });
 });
 
-describe("getOpeningLine", () => {
-  test("counts the due reviews of the map", async () => {
-    expect(await getOpeningLine(COURSE)).toBe(
-      "1 review due, then something new. Or ask about anything.",
-    );
+describe("the Today plan", () => {
+  test("gives the due reviews in minutes and the next Topic", async () => {
+    expect(await getPlan(COURSE)).toMatchObject({
+      hasMap: true,
+      today: {
+        reviews: { count: 1, minutes: 2 },
+        next: {
+          id: "t1",
+          name: "Thrust",
+          centralQuestion: "How is thrust made?",
+          kcs: [THRUST, EFFICIENCY],
+        },
+        hint: null,
+      },
+    });
   });
 
-  test("asks for a map without one", async () => {
+  test("has no map without one", async () => {
     map = EMPTY_MAP;
 
-    expect(await getOpeningLine(COURSE)).toBe(
-      "Build your Knowledge map to start studying, or ask about anything.",
-    );
+    expect(await getPlan(COURSE)).toMatchObject({
+      hasMap: false,
+      today: { reviews: null },
+    });
+  });
+
+  test("is empty for another Student's Course", async () => {
+    expect(
+      (await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).today,
+    ).toEqual({ reviews: null, next: null, hint: null });
   });
 });
