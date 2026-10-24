@@ -1,7 +1,7 @@
 import { adminClient, expect, test } from "./fixtures";
 
 /**
- * A graded question on a task card, with the mock AI (AI_PROVIDER=mock):
+ * A graded question on a question card, with the mock AI (AI_PROVIDER=mock):
  * "Quiz me" makes it ask about the Course's first candidate KC, and an
  * answer from the card makes it grade every KC full.
  */
@@ -31,7 +31,7 @@ async function seedKc(owner: string, courseId: string): Promise<string> {
   return name;
 }
 
-test("the AI asks on a task card, the Student answers there, and the card shows graded", async ({
+test("the AI asks on a question card, the Student answers there, and the card shows graded", async ({
   page,
   student,
   course,

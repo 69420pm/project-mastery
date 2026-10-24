@@ -32,7 +32,7 @@ const RESULT_VARIANTS = {
  * again, until it is graded; graded, it shows the result on each KC.
  * Feedback stays in the AI's reply.
  */
-export function TaskCard({
+export function QuestionCard({
   question,
   state,
   canAnswer,
@@ -51,7 +51,7 @@ export function TaskCard({
   return (
     <section
       aria-label="Question"
-      data-testid="task-card"
+      data-testid="question-card"
       data-question-state={status}
       className="flex w-full flex-col gap-3 rounded-lg border bg-card p-4 text-sm sm:min-w-md"
     >

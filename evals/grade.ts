@@ -10,7 +10,7 @@ import {
 import type { EvalDefinition } from "./eval";
 
 /**
- * The AI's `grade` call (#173): given a Question it asked on a task card and
+ * The AI's `grade` call (#173): given a Question it asked on a question card and
  * the Student's answer, how often does it label the KCs wrong, in particular
  * `full` when the answer is not. Runs the real Chat instructions, model
  * settings and tools with the question asked and the answer given, and scores

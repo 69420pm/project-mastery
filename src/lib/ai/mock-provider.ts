@@ -213,7 +213,7 @@ function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
 /**
  * In a Chat, the tutor's questions: a Student message starting with "Quiz
  * me" gets an `ask` call on the first KC id the instructions name, and an
- * answer from a task card, which names its question, a `grade` call with
+ * answer from a question card, which names its question, a `grade` call with
  * every KC of the asked question full. Each then ends its step.
  */
 function mockTutorQuestions(

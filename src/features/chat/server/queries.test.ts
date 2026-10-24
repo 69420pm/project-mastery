@@ -64,7 +64,6 @@ function seedChat(
     owner,
     course_id: course,
     title,
-    model_choice: "balanced",
     last_message_at: lastMessageAt,
   });
   messages.forEach((text, index) =>

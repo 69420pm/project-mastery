@@ -408,7 +408,7 @@ describe("the Chat title", () => {
   });
 });
 
-describe("a question on a task card", () => {
+describe("a question on a question card", () => {
   test("is asked, answered by a message that links to it, and graded into attempts", async () => {
     seedMap();
     const chatId = randomUUID();
@@ -493,5 +493,51 @@ describe("a question on a task card", () => {
       message: { ...userMessage("Again"), metadata: answer.metadata },
     });
     expect(late).toMatchObject({ status: 409 });
+  });
+
+  test("an answer whose recording failed is recorded when it is resent", async () => {
+    seedMap();
+    const chatId = randomUUID();
+    useMockModels({
+      chat: mockToolModel(
+        [
+          [
+            {
+              toolName: "ask",
+              input: { kind: "question", prompt: "Q?", kcIds: [MAP.thrust] },
+            },
+          ],
+        ],
+        "",
+      ),
+    });
+    await send({ chatId, courseId: COURSE, message: userMessage("Quiz me") });
+    const [question] = db.tables.questions;
+    const answer = {
+      ...userMessage("It is $4$."),
+      metadata: { questionId: question!.id },
+    };
+    useMockModels({ chat: mockTextModel("Failed reply.") });
+    await send({ chatId, message: answer });
+    // The message was stored, but recording the answer failed.
+    Object.assign(question!, {
+      answer_text: null,
+      answer_message_id: null,
+      answered_at: null,
+    });
+
+    const model = mockTextModel("Let me grade that.");
+    useMockModels({ chat: model });
+    const retried = await send({ chatId, message: answer });
+
+    expect(retried.text).toBe("Let me grade that.");
+    expect(question).toMatchObject({
+      answer_text: "It is $4$.",
+      answer_message_id: answer.id,
+      answered_at: expect.any(String),
+    });
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
+      `card of question ${question!.id}`,
+    );
   });
 });

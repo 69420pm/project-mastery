@@ -34,7 +34,7 @@ const askPart = (id: string, state: "input-available" | "output-available") =>
     ...(state === "output-available" && { output: { questionId: id } }),
   }) as Parts[number];
 
-test("shows an asked question as a task card, and one being asked as a step", () => {
+test("shows an asked question as a question card, and one being asked as a step", () => {
   expect(
     summaries([
       { type: "text", text: "Try this. " },

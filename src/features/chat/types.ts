@@ -15,11 +15,11 @@ export type ReplyUsage = {
 
 /**
  * What a message carries besides its parts: on a Student's message, the
- * question it answers on a task card; the rest the server attaches to an AI
+ * question it answers on a question card; the rest the server attaches to an AI
  * message.
  */
 export type ChatMessageMetadata = {
-  /** The question a Student's message answers, sent from its task card. */
+  /** The question a Student's message answers, sent from its question card. */
   questionId?: string;
   /** The model that wrote the reply. */
   modelId?: string;

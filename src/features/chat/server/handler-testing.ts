@@ -298,7 +298,6 @@ export function seedChat(owner: string, messages: FakeRow[] = []) {
     course_id: owner === STUDENT ? COURSE : CLASSMATE_COURSE,
     title: null,
     title_set_manually: false,
-    model_choice: "balanced",
     created_at: "2025-12-31T00:00:00.000Z",
   });
   messages.forEach((message, index) =>

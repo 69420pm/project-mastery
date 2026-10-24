@@ -229,7 +229,7 @@ function toUIMessage(
 }
 
 /**
- * A Chat's messages in order, a Student's answer on a task card with the
+ * A Chat's messages in order, a Student's answer on a question card with the
  * question it answers. Not validated: run `validateUIMessages` before model
  * calls.
  */

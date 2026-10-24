@@ -37,7 +37,7 @@ export type ReplyStep = {
   detail: StepDetail | null;
 };
 
-/** A question the AI asked, as its task card shows it. */
+/** A question the AI asked, as its question card shows it. */
 export type AskedQuestion = {
   id: string;
   kind: QuestionKind;
@@ -142,7 +142,7 @@ export function questionStates(
   return states;
 }
 
-/** A question's state on its task card, once it is no longer open. */
+/** A question's state on its question card, once it is no longer open. */
 export type QuestionState =
   { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
 

@@ -211,7 +211,7 @@ export function Chat({
   const questions = useMemo(() => questionStates(messages), [messages]);
   const canAnswer = !isBusy && !limitReached;
 
-  /** Sends an answer from a task card as the next message. */
+  /** Sends an answer from a question card as the next message. */
   function sendAnswer(questionId: string, text: string) {
     if (!canAnswer) return;
     setInputError(null);

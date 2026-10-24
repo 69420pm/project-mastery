@@ -30,7 +30,7 @@ const QUESTION_KINDS = [
   "mock_item",
 ] as const satisfies readonly QuestionKind[];
 
-/** What `ask` takes: one graded question for a task card. */
+/** What `ask` takes: one graded question for a question card. */
 const askInputSchema = z.object({
   kind: z
     .enum(QUESTION_KINDS)
@@ -179,7 +179,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     ask: tool({
       description:
-        "Ask the Student a graded question: it shows on a task card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
+        "Ask the Student a graded question: it shows on a question card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
       inputSchema: askInputSchema,
       execute: async ({ exerciseId, ...question }) => ({
         questionId: await actions.ask({

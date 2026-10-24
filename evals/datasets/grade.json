@@ -1,5 +1,5 @@
 {
-  "description": "The AI's grade call on a Student's answer to a Question on a task card, on the jet-engines gold course (evals/gold/jet-engines): full answers by another method, partial answers, plausible wrong ones, unit slips, answers right after a large hint, and \"just tell me\". Each case gives the question, the reference the AI has read, the Student's answer and, per KC, the expected result and the expected help level. All labels are drafts until the maintainer confirms them. Exercise cases carry the Exercise's key, so the numeric check of the grade tool applies: a final value off the key turns every full into partial.",
+  "description": "The AI's grade call on a Student's answer to a Question on a question card, on the jet-engines gold course (evals/gold/jet-engines): full answers by another method, partial answers, plausible wrong ones, unit slips, answers right after a large hint, and \"just tell me\". Each case gives the question, the reference the AI has read, the Student's answer and, per KC, the expected result and the expected help level. All labels are drafts until the maintainer confirms them. Exercise cases carry the Exercise's key, so the numeric check of the grade tool applies: a final value off the key turns every full into partial.",
   "items": [
     {
       "id": "ex72a-full-momentum",

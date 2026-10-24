@@ -5,6 +5,7 @@ import {
   createUIMessageStreamResponse,
   hasToolCall,
   isStepCount,
+  isToolUIPart,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -77,7 +78,7 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * 3. refuse at the Daily limit, before any model call
  * 4. create the Chat on its first message, or mark the new reply as the
  *    Chat's latest, then store the Student's message, and an answer from a
- *    task card on its question, which must still be open
+ *    question card on its question, which must still be open
  * 5. stream the reply from the full stored history
  * 6. on end, record the call's usage and store the reply with its model,
  *    unless a newer request has started a reply since
@@ -148,14 +149,19 @@ export async function respondInChat({
   const resent = resentHistory(stored, message);
   if (resent === "refused") return refuse(409, alreadySentMessage);
 
-  // An answer from a task card, for a question still open in this Chat.
-  const questionId = resent ? undefined : message.metadata?.questionId;
-  if (
-    questionId &&
-    !(existing && (await isAnswerable(supabase, existing.id, questionId)))
-  ) {
+  // An answer from a question card, for a question still open in this Chat.
+  const answerTo = message.metadata?.questionId;
+  const answerable =
+    !!answerTo &&
+    !!existing &&
+    (await isAnswerable(supabase, existing.id, answerTo));
+  if (answerTo && !resent && !answerable) {
     return refuse(409, questionClosedMessage);
   }
+  // A resent answer is recorded again when its first recording failed, and
+  // the question is still open; a resend after grading only regenerates.
+  const questionId =
+    answerable && !resent?.at(-1)?.metadata?.questionId ? answerTo : undefined;
 
   // The reply's id, marked as the Chat's latest before the Student's message
   // is stored, so a stopped reply still ending from an earlier request can
@@ -171,7 +177,7 @@ export async function respondInChat({
   if (existing) await startReply(supabase, chat.id, replyId);
 
   const history =
-    resent ??
+    (resent && withQuestion(resent, questionId)) ??
     ((await saveStudentMessage(supabase, chat, message, !existing)) && [
       ...stored,
       message,
@@ -228,7 +234,7 @@ const questionClosedMessage =
   "This question is already graded, so it takes no more answers.";
 
 /**
- * The history as the model reads it: a Student's answer on a task card
+ * The history as the model reads it: a Student's answer on a question card
  * starts with a line naming the question it answers, so the AI can grade
  * it.
  */
@@ -247,6 +253,22 @@ function withAnswerNotes(history: ChatUIMessage[]): ChatUIMessage[] {
       ],
     };
   });
+}
+
+/**
+ * A resent history whose last message, the Student's, answers `questionId`,
+ * when given.
+ */
+function withQuestion(
+  history: ChatUIMessage[],
+  questionId: string | undefined,
+): ChatUIMessage[] {
+  if (!questionId) return history;
+  const last = history.at(-1)!;
+  return [
+    ...history.slice(0, -1),
+    { ...last, metadata: { ...last.metadata, questionId } },
+  ];
 }
 
 /**
@@ -321,7 +343,7 @@ async function streamReply({
         ...settings,
         messages: await toModelMessages(withAnswerNotes(messages), materials),
         tools: tutoring.tools,
-        // A question on a task card waits for the Student's answer.
+        // A question on a question card waits for the Student's answer.
         stopWhen: [isStepCount(MAX_STEPS), hasToolCall("ask")],
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
@@ -374,7 +396,18 @@ async function streamReply({
         });
 
         if (outcome.status === "failed") return;
-        if (stopped && messageText(responseMessage.parts) === "") return;
+        // A stopped reply with nothing to show is dropped; one with a
+        // finished tool call is kept, as the call's rows (a question, its
+        // grading) are stored and its card reads them from the reply.
+        if (
+          stopped &&
+          messageText(responseMessage.parts) === "" &&
+          !responseMessage.parts.some(
+            (part) => isToolUIPart(part) && part.state === "output-available",
+          )
+        ) {
+          return;
+        }
         try {
           const kept = await saveReply(supabase, chat.id, history.at(-1)!.id, {
             ...responseMessage,

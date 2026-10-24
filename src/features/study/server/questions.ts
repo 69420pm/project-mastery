@@ -15,7 +15,7 @@ import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * Questions the AI asks in a Chat's Study session, the Student's answers on
- * their task cards, and the attempts their grading stores (ADR 0018).
+ * their question cards, and the attempts their grading stores (ADR 0018).
  */
 
 const isUuid = (value: string) => z.uuid().safeParse(value).success;

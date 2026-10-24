@@ -2,7 +2,7 @@
 
 import { Markdown } from "@/components/markdown";
 import { StepCard } from "@/features/chat/components/step-card";
-import { TaskCard } from "@/features/chat/components/task-card";
+import { QuestionCard } from "@/features/chat/components/question-card";
 import {
   replySegments,
   type QuestionState,
@@ -11,7 +11,7 @@ import type { ChatUIMessage } from "@/features/chat/types";
 
 /**
  * An AI reply's text and tool calls in the order they came: text as
- * Markdown, a question it asked as a task card, and each other tool call as
+ * Markdown, a question it asked as a question card, and each other tool call as
  * a step card.
  */
 export function ReplyParts({
@@ -44,7 +44,7 @@ export function ReplyParts({
         );
       case "question":
         return (
-          <TaskCard
+          <QuestionCard
             key={segment.question.id}
             question={segment.question}
             state={questions.get(segment.question.id)}

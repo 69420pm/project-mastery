@@ -84,7 +84,7 @@ async function sendMessage(
   studentId: string,
   chat: { chatId: string; courseId: string },
   text: string,
-  /** The question it answers on its task card. */
+  /** The question it answers on its question card. */
   questionId?: string,
 ): Promise<{ calls: ToolCall[]; text: string; questionIds: string[] }> {
   console.info(`Student: ${text}`);
