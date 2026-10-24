@@ -1,0 +1,1136 @@
+{
+  "description": "The mode call of a Reading section (#178), on six sections of the jet-engines gold course (evals/gold/jet-engines). Each section comes three times: as parsed (clean, expected original), rewritten as terse slides and rewritten as messy notes (both expected study_text). Each case gives the Topic, the section's pages, its KCs and its chunks, as stage 2c sends them. The labels are drafts until the maintainer confirms them.",
+  "items": [
+    {
+      "id": "principle-clean",
+      "input": {
+        "topic": {
+          "name": "Thrust from momentum",
+          "centralQuestion": "Where does a jet engine's thrust come from?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 1
+        },
+        "kcs": [
+          {
+            "name": "Newton's 3rd law as the jet principle",
+            "type": "concept",
+            "description": "Can explain how accelerating air rearward pushes the engine forward."
+          },
+          {
+            "name": "Definition of thrust",
+            "type": "fact",
+            "description": "Can define thrust precisely."
+          },
+          {
+            "name": "Jet vs. propeller thrust generation",
+            "type": "concept",
+            "description": "Can contrast how a jet engine and a propeller generate thrust."
+          },
+          {
+            "name": "General thrust equation",
+            "type": "fact",
+            "description": "Can write the full thrust equation, name every symbol and state where it comes from."
+          },
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "## 7.1 The Principle of Jet Propulsion\n\nEvery jet engine, regardless of its size or configuration, operates on a single unifying physical principle: Newton's third law of motion. An engine accelerates a mass of air (and, in the case of combustion engines, the products of burned fuel) rearward through the engine, and in reaction the engine itself is pushed forward. The net forward force produced by this exchange of momentum is called **thrust**. Unlike a propeller-driven aircraft, which relies primarily on an external airfoil to generate a pressure differential, a jet engine generates thrust entirely by processing air internally: drawing it in, compressing it, energizing it, and expelling it at high velocity.\n\nThe fundamental thrust equation, derived from the conservation of linear momentum applied to a control volume surrounding the engine, is written as:\n\n$$F = \\dot{m}_a(V_e - V_0) + (p_e - p_0)A_e$$\n\nwhere $F$ is net thrust, $\\dot{m}_a$ is the mass flow rate of air through the engine, $V_e$ and $V_0$ are the exhaust and freestream (flight) velocities, $p_e$ and $p_0$ are the exhaust and ambient static pressures, and $A_e$ is the exhaust nozzle exit area. When the nozzle is perfectly expanded — exhaust pressure equal to ambient — the pressure term vanishes, giving the familiar momentum form $F = \\dot{m}_a(V_e - V_0)$.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "principle-slides",
+      "input": {
+        "topic": {
+          "name": "Thrust from momentum",
+          "centralQuestion": "Where does a jet engine's thrust come from?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 1
+        },
+        "kcs": [
+          {
+            "name": "Newton's 3rd law as the jet principle",
+            "type": "concept",
+            "description": "Can explain how accelerating air rearward pushes the engine forward."
+          },
+          {
+            "name": "Definition of thrust",
+            "type": "fact",
+            "description": "Can define thrust precisely."
+          },
+          {
+            "name": "Jet vs. propeller thrust generation",
+            "type": "concept",
+            "description": "Can contrast how a jet engine and a propeller generate thrust."
+          },
+          {
+            "name": "General thrust equation",
+            "type": "fact",
+            "description": "Can write the full thrust equation, name every symbol and state where it comes from."
+          },
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "## Jet propulsion\n\n- Newton III\n- air rearward → engine forward\n- jet ≠ propeller (internal)\n\n$$F = \\dot{m}_a(V_e - V_0) + (p_e - p_0)A_e$$\n\n- perfectly expanded → $F = \\dot{m}_a(V_e - V_0)$",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "principle-notes",
+      "input": {
+        "topic": {
+          "name": "Thrust from momentum",
+          "centralQuestion": "Where does a jet engine's thrust come from?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 1
+        },
+        "kcs": [
+          {
+            "name": "Newton's 3rd law as the jet principle",
+            "type": "concept",
+            "description": "Can explain how accelerating air rearward pushes the engine forward."
+          },
+          {
+            "name": "Definition of thrust",
+            "type": "fact",
+            "description": "Can define thrust precisely."
+          },
+          {
+            "name": "Jet vs. propeller thrust generation",
+            "type": "concept",
+            "description": "Can contrast how a jet engine and a propeller generate thrust."
+          },
+          {
+            "name": "General thrust equation",
+            "type": "fact",
+            "description": "Can write the full thrust equation, name every symbol and state where it comes from."
+          },
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "jet propulsion - newton 3!! air goes back engine goes fwd. thrust = net fwd force (momentum exchange). not like propeller (prop uses wing/airfoil outside??) - jet does everything inside: in, compress, energize, out fast\n\nF = m_a (Ve - V0) + (pe-p0)Ae   <- from momentum, CV around engine\npe=p0 -> drop 2nd term (perf. expanded)\nVe exhaust, V0 flight, Ae = ? nozzle exit",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "anatomy-clean",
+      "input": {
+        "topic": {
+          "name": "Anatomy of a turbojet",
+          "centralQuestion": "What happens to the air in each section of a turbojet, in order?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 2
+        },
+        "kcs": [
+          {
+            "name": "Five turbojet sections in flow order",
+            "type": "fact",
+            "description": "Can name the five sections of a turbojet in flow order and sketch them."
+          },
+          {
+            "name": "Inlet: slow and diffuse the flow",
+            "type": "fact",
+            "description": "Can state the function of the inlet."
+          },
+          {
+            "name": "Compressor: rotor/stator rows, ×15–40",
+            "type": "fact",
+            "description": "Can describe compressor construction and typical modern pressure rise."
+          },
+          {
+            "name": "Combustor: continuous burning, 1800–2000 K",
+            "type": "fact",
+            "description": "Can describe what happens in the combustor and the gas temperatures reached."
+          },
+          {
+            "name": "Turbine drives the compressor",
+            "type": "concept",
+            "description": "Can explain how much work the turbojet turbine extracts and why."
+          },
+          {
+            "name": "Nozzle: energy → high-velocity jet",
+            "type": "fact",
+            "description": "Can state the function of the nozzle."
+          },
+          {
+            "name": "Map cycle processes ↔ engine components",
+            "type": "concept",
+            "description": "Can assign each Brayton process to the engine section where it occurs."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "## 7.2 Anatomy of a Turbojet Engine\n\nFigure 7.1 illustrates the five principal sections found in the simplest gas-turbine jet engine, the turbojet. Air enters through the **inlet**, which slows and diffuses the incoming flow before it reaches the **compressor**. The compressor consists of many rows of rotating and stationary airfoils (rotor and stator blades) that progressively raise the pressure of the air, typically by a factor of 15 to 40 in a modern engine. This high-pressure air then enters the **combustor**, where fuel is injected and burned continuously, raising the gas temperature to between $1800\\text{ K}$ and $2000\\text{ K}$. The resulting high-energy gas expands through the **turbine**, which extracts just enough mechanical work to drive the compressor via a common shaft, before the remaining energy is converted to high-velocity exhaust in the **nozzle**, producing thrust.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "Figure 1.1 — Schematic Cross-Section of a Turbojet Engine",
+            "figureDescription": "Schematic cross-section of a turbojet engine showing Air intake, Inlet, Compressor, Combustor, Turbine, Nozzle, and Thrust."
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "content",
+            "markdown": "Air is drawn in at the inlet, compressed, mixed with fuel and burned in the combustor, then expanded through the turbine (which powers the compressor) before accelerating out the nozzle to generate thrust.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "anatomy-slides",
+      "input": {
+        "topic": {
+          "name": "Anatomy of a turbojet",
+          "centralQuestion": "What happens to the air in each section of a turbojet, in order?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 2
+        },
+        "kcs": [
+          {
+            "name": "Five turbojet sections in flow order",
+            "type": "fact",
+            "description": "Can name the five sections of a turbojet in flow order and sketch them."
+          },
+          {
+            "name": "Inlet: slow and diffuse the flow",
+            "type": "fact",
+            "description": "Can state the function of the inlet."
+          },
+          {
+            "name": "Compressor: rotor/stator rows, ×15–40",
+            "type": "fact",
+            "description": "Can describe compressor construction and typical modern pressure rise."
+          },
+          {
+            "name": "Combustor: continuous burning, 1800–2000 K",
+            "type": "fact",
+            "description": "Can describe what happens in the combustor and the gas temperatures reached."
+          },
+          {
+            "name": "Turbine drives the compressor",
+            "type": "concept",
+            "description": "Can explain how much work the turbojet turbine extracts and why."
+          },
+          {
+            "name": "Nozzle: energy → high-velocity jet",
+            "type": "fact",
+            "description": "Can state the function of the nozzle."
+          },
+          {
+            "name": "Map cycle processes ↔ engine components",
+            "type": "concept",
+            "description": "Can assign each Brayton process to the engine section where it occurs."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "## Turbojet: 5 sections\n\n1. Inlet\n2. Compressor (×15–40)\n3. Combustor (1800–2000 K)\n4. Turbine → compressor\n5. Nozzle → thrust",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "Figure 1.1 — Turbojet",
+            "figureDescription": "Schematic cross-section of a turbojet engine showing Air intake, Inlet, Compressor, Combustor, Turbine, Nozzle, and Thrust."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "anatomy-notes",
+      "input": {
+        "topic": {
+          "name": "Anatomy of a turbojet",
+          "centralQuestion": "What happens to the air in each section of a turbojet, in order?"
+        },
+        "section": {
+          "pageFrom": 1,
+          "pageTo": 2
+        },
+        "kcs": [
+          {
+            "name": "Five turbojet sections in flow order",
+            "type": "fact",
+            "description": "Can name the five sections of a turbojet in flow order and sketch them."
+          },
+          {
+            "name": "Inlet: slow and diffuse the flow",
+            "type": "fact",
+            "description": "Can state the function of the inlet."
+          },
+          {
+            "name": "Compressor: rotor/stator rows, ×15–40",
+            "type": "fact",
+            "description": "Can describe compressor construction and typical modern pressure rise."
+          },
+          {
+            "name": "Combustor: continuous burning, 1800–2000 K",
+            "type": "fact",
+            "description": "Can describe what happens in the combustor and the gas temperatures reached."
+          },
+          {
+            "name": "Turbine drives the compressor",
+            "type": "concept",
+            "description": "Can explain how much work the turbojet turbine extracts and why."
+          },
+          {
+            "name": "Nozzle: energy → high-velocity jet",
+            "type": "fact",
+            "description": "Can state the function of the nozzle."
+          },
+          {
+            "name": "Map cycle processes ↔ engine components",
+            "type": "concept",
+            "description": "Can assign each Brayton process to the engine section where it occurs."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 1,
+            "pageTo": 1,
+            "label": "content",
+            "markdown": "turbojet parts: inlet, compressor, combustor, turbine, nozzle\ninlet slows air (diffuse)\ncomp = rotor + stator rows, p up 15-40x\ncomb: fuel burned continuously, T ~1800-2000K\nturbine -> shaft -> drives comp (only takes what comp needs)\nrest -> nozzle -> fast exhaust = thrust",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "see fig 1.1 (drawing of the engine) - learn order!!",
+            "figureDescription": "Schematic cross-section of a turbojet engine showing Air intake, Inlet, Compressor, Combustor, Turbine, Nozzle, and Thrust."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "brayton-clean",
+      "input": {
+        "topic": {
+          "name": "The Brayton cycle",
+          "centralQuestion": "Which ideal cycle models a gas turbine, and what sets its efficiency?"
+        },
+        "section": {
+          "pageFrom": 2,
+          "pageTo": 3
+        },
+        "kcs": [
+          {
+            "name": "Brayton (Joule) cycle as the ideal model",
+            "type": "concept",
+            "description": "Can state what the Brayton cycle models and its key assumption."
+          },
+          {
+            "name": "1→2 Isentropic compression",
+            "type": "concept",
+            "description": "Can describe process 1→2: where it happens and how p, T and s change."
+          },
+          {
+            "name": "2→3 Constant-pressure heat addition",
+            "type": "concept",
+            "description": "Can describe process 2→3."
+          },
+          {
+            "name": "3→4 Isentropic expansion",
+            "type": "concept",
+            "description": "Can describe process 3→4 and the energy conversions in it."
+          },
+          {
+            "name": "4→1 Constant-pressure heat rejection",
+            "type": "concept",
+            "description": "Can describe process 4→1 and why it is 'imagined'."
+          },
+          {
+            "name": "Reading P–v and T–s diagrams",
+            "type": "concept",
+            "description": "Can sketch the cycle in P–v and T–s coordinates and interpret the enclosed areas."
+          },
+          {
+            "name": "Pressure ratio rp",
+            "type": "fact",
+            "description": "Can define the pressure ratio."
+          },
+          {
+            "name": "Ideal Brayton efficiency formula",
+            "type": "concept",
+            "description": "Can write the formula and state that it depends only on rp and γ."
+          },
+          {
+            "name": "Rising pressure ratios in history",
+            "type": "concept",
+            "description": "Can explain the historical rise in pressure ratio and give the milestone values."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "content",
+            "markdown": "## 7.3 Thermodynamics: The Brayton Cycle\n\nThe thermodynamic behavior of every gas-turbine engine is idealized by the **Brayton cycle** (also called the Joule cycle), consisting of four processes performed on air treated as an ideal gas. Figure 7.2 shows this cycle on pressure-volume ($P$-$v$) and temperature-entropy ($T$-$s$) coordinates.\n\n* $\\mathbf{1 \\rightarrow 2, \\text{Isentropic compression}}$: Air is compressed adiabatically and reversibly in the compressor, raising both its pressure and temperature while entropy remains constant.\n* $\\mathbf{2 \\rightarrow 3, \\text{Constant-pressure heat addition}}$: Fuel is burned in the combustor, adding heat to the air at (ideally) constant pressure and sharply increasing its temperature.\n* $\\mathbf{3 \\rightarrow 4, \\text{Isentropic expansion}}$: The hot gas expands through the turbine and nozzle, converting thermal and pressure energy into mechanical work and kinetic energy.\n* $\\mathbf{4 \\rightarrow 1, \\text{Constant-pressure heat rejection}}$: In the idealized closed cycle, the exhausted gas is imagined to reject heat to the atmosphere at constant pressure, returning it to its initial state.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "Figure 2.1 — The Ideal Brayton Cycle ($1\\rightarrow 2$ Compression, $2\\rightarrow 3$ Heat Addition, $3\\rightarrow 4$ Expansion, $4\\rightarrow 1$ Heat Rejection)\n\n(a) P-v Diagram\n\n(b) T-s Diagram\n\nThe ideal Brayton cycle plotted in P-v and T-s coordinates. The enclosed area in the P-v diagram represents net specific work output; the enclosed area in the T-s diagram represents net heat converted to work.",
+            "figureDescription": "(a) P-v diagram and (b) T-s diagram of the ideal Brayton cycle with states 1, 2, 3, 4."
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "The thermal efficiency of the ideal Brayton cycle depends only on the **pressure ratio**, $r_p = p_2/p_1$, and the ratio of specific heats, $\\gamma$.\n\n$$\\eta_{th} = 1 - 1 / r_p^{(\\gamma-1)/\\gamma}$$\n\nThis remarkably simple result explains one of the central design trends in jet engine history: increasing the overall pressure ratio of the compressor is one of the most direct ways to improve fuel efficiency. Early turbojets of the 1940s operated with pressure ratios near 4:1; modern high-bypass turbofans exceed 40:1, and next-generation designs are pushing beyond 50:1.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "brayton-slides",
+      "input": {
+        "topic": {
+          "name": "The Brayton cycle",
+          "centralQuestion": "Which ideal cycle models a gas turbine, and what sets its efficiency?"
+        },
+        "section": {
+          "pageFrom": 2,
+          "pageTo": 3
+        },
+        "kcs": [
+          {
+            "name": "Brayton (Joule) cycle as the ideal model",
+            "type": "concept",
+            "description": "Can state what the Brayton cycle models and its key assumption."
+          },
+          {
+            "name": "1→2 Isentropic compression",
+            "type": "concept",
+            "description": "Can describe process 1→2: where it happens and how p, T and s change."
+          },
+          {
+            "name": "2→3 Constant-pressure heat addition",
+            "type": "concept",
+            "description": "Can describe process 2→3."
+          },
+          {
+            "name": "3→4 Isentropic expansion",
+            "type": "concept",
+            "description": "Can describe process 3→4 and the energy conversions in it."
+          },
+          {
+            "name": "4→1 Constant-pressure heat rejection",
+            "type": "concept",
+            "description": "Can describe process 4→1 and why it is 'imagined'."
+          },
+          {
+            "name": "Reading P–v and T–s diagrams",
+            "type": "concept",
+            "description": "Can sketch the cycle in P–v and T–s coordinates and interpret the enclosed areas."
+          },
+          {
+            "name": "Pressure ratio rp",
+            "type": "fact",
+            "description": "Can define the pressure ratio."
+          },
+          {
+            "name": "Ideal Brayton efficiency formula",
+            "type": "concept",
+            "description": "Can write the formula and state that it depends only on rp and γ."
+          },
+          {
+            "name": "Rising pressure ratios in history",
+            "type": "concept",
+            "description": "Can explain the historical rise in pressure ratio and give the milestone values."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "content",
+            "markdown": "## Brayton (Joule) cycle\n\n- 1→2 isentropic compression\n- 2→3 $p$ = const, heat in\n- 3→4 isentropic expansion\n- 4→1 $p$ = const, heat out",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "Figure 2.1 — P-v, T-s",
+            "figureDescription": "(a) P-v diagram and (b) T-s diagram of the ideal Brayton cycle with states 1, 2, 3, 4."
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "## Efficiency\n\n$$\\eta_{th} = 1 - 1 / r_p^{(\\gamma-1)/\\gamma}$$\n\n- $r_p = p_2/p_1$\n- 1940s: 4:1 → today: 40:1+",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "brayton-notes",
+      "input": {
+        "topic": {
+          "name": "The Brayton cycle",
+          "centralQuestion": "Which ideal cycle models a gas turbine, and what sets its efficiency?"
+        },
+        "section": {
+          "pageFrom": 2,
+          "pageTo": 3
+        },
+        "kcs": [
+          {
+            "name": "Brayton (Joule) cycle as the ideal model",
+            "type": "concept",
+            "description": "Can state what the Brayton cycle models and its key assumption."
+          },
+          {
+            "name": "1→2 Isentropic compression",
+            "type": "concept",
+            "description": "Can describe process 1→2: where it happens and how p, T and s change."
+          },
+          {
+            "name": "2→3 Constant-pressure heat addition",
+            "type": "concept",
+            "description": "Can describe process 2→3."
+          },
+          {
+            "name": "3→4 Isentropic expansion",
+            "type": "concept",
+            "description": "Can describe process 3→4 and the energy conversions in it."
+          },
+          {
+            "name": "4→1 Constant-pressure heat rejection",
+            "type": "concept",
+            "description": "Can describe process 4→1 and why it is 'imagined'."
+          },
+          {
+            "name": "Reading P–v and T–s diagrams",
+            "type": "concept",
+            "description": "Can sketch the cycle in P–v and T–s coordinates and interpret the enclosed areas."
+          },
+          {
+            "name": "Pressure ratio rp",
+            "type": "fact",
+            "description": "Can define the pressure ratio."
+          },
+          {
+            "name": "Ideal Brayton efficiency formula",
+            "type": "concept",
+            "description": "Can write the formula and state that it depends only on rp and γ."
+          },
+          {
+            "name": "Rising pressure ratios in history",
+            "type": "concept",
+            "description": "Can explain the historical rise in pressure ratio and give the milestone values."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "content",
+            "markdown": "brayton = joule, ideal gas, 4 steps\n12 compr. isentropic (s const, p T up)\n23 heat add p=const (combustor)\n34 exp. isentropic turbine+nozzle\n41 heat rej p=const (imagined, closed cycle)\nPv / Ts diagrams -> area = work / heat",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 2,
+            "pageTo": 2,
+            "label": "figure",
+            "markdown": "fig 2.1",
+            "figureDescription": "(a) P-v diagram and (b) T-s diagram of the ideal Brayton cycle with states 1, 2, 3, 4."
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "eta = 1 - 1/rp^((g-1)/g)    rp = p2/p1, g = cp/cv?\nONLY rp and gamma!! -> higher rp = better fuel eff.\nold ~4, now >40, soon 50",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "families-clean",
+      "input": {
+        "topic": {
+          "name": "Families of jet engines",
+          "centralQuestion": "Which engine architecture suits which flight regime?"
+        },
+        "section": {
+          "pageFrom": 3,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Turbojet characteristics",
+            "type": "concept",
+            "description": "Can characterize the turbojet's exhaust and best flight regime."
+          },
+          {
+            "name": "Turbofan characteristics",
+            "type": "concept",
+            "description": "Can describe the turbofan and explain why it dominates commercial aviation."
+          },
+          {
+            "name": "Turboprop & turboshaft",
+            "type": "concept",
+            "description": "Can explain where the energy goes and why efficiency drops near transonic speeds."
+          },
+          {
+            "name": "Ramjet",
+            "type": "concept",
+            "description": "Can explain ramjet compression and its operating limits."
+          },
+          {
+            "name": "Choose engine type for a flight regime",
+            "type": "decision",
+            "description": "Can select and justify the right architecture for a given mission."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "## 7.4 Families of Air-Breathing Jet Engines\n\nWhile all gas-turbine jet engines share the same Brayton-cycle core, engineers have developed several architectures optimized for different flight regimes.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "### Turbojet\n\nThe simplest configuration: all incoming air passes through the compressor, combustor, and turbine before exiting through a single nozzle. Turbojets produce high-velocity, low-mass-flow exhaust, which gives excellent performance at supersonic speeds but poor fuel efficiency at typical subsonic airliner cruise speeds.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "### Turbofan\n\nA large fan is added ahead of (or integrated with) the compressor. Most of the air accelerated by the fan bypasses the engine core entirely, mixing with the core exhaust downstream or exiting through a separate cold nozzle. By accelerating a much larger mass of air to a lower velocity, turbofans achieve substantially higher propulsive efficiency, following directly from the identity that propulsive power for a given thrust is minimized when exhaust velocity is close to flight velocity. This makes the turbofan the dominant architecture for commercial aviation today.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "### Turboprop and Turboshaft\n\nHere, the turbine extracts nearly all of the gas energy to drive an external propeller (turboprop) or rotor (turboshaft) through a reduction gearbox, rather than accelerating exhaust gas for thrust. This yields the highest propulsive efficiency of any configuration at low subsonic speeds, but efficiency falls sharply as flight speed approaches the transonic regime because propeller blade tips encounter compressibility losses.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "### Ramjet\n\nThe ramjet eliminates rotating machinery altogether. At high supersonic speeds, the forward motion of the vehicle itself compresses the incoming air sufficiently for combustion, and expansion through a fixed nozzle produces thrust. Ramjets cannot produce static thrust and are only viable above roughly Mach 1, making them suited to missiles and high-speed research vehicles rather than general aviation.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "figure",
+            "markdown": "Figure 4.1 --- Qualitative Comparison of Jet Engine Types",
+            "figureDescription": "A bar chart comparing Turbojet, Turbofan, Turboprop, and Ramjet engines on Propulsive efficiency (blue bars) and Suitability for high-speed flight (orange bars), on a relative scale of 0 to 100."
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "content",
+            "markdown": "A qualitative comparison of jet engine families. Turbofans dominate subsonic efficiency; turbojets and ramjets favor high-speed flight; turboprops excel at low speed but lose their advantage as flight speed increases. Values are illustrative, not measured data.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "families-slides",
+      "input": {
+        "topic": {
+          "name": "Families of jet engines",
+          "centralQuestion": "Which engine architecture suits which flight regime?"
+        },
+        "section": {
+          "pageFrom": 3,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Turbojet characteristics",
+            "type": "concept",
+            "description": "Can characterize the turbojet's exhaust and best flight regime."
+          },
+          {
+            "name": "Turbofan characteristics",
+            "type": "concept",
+            "description": "Can describe the turbofan and explain why it dominates commercial aviation."
+          },
+          {
+            "name": "Turboprop & turboshaft",
+            "type": "concept",
+            "description": "Can explain where the energy goes and why efficiency drops near transonic speeds."
+          },
+          {
+            "name": "Ramjet",
+            "type": "concept",
+            "description": "Can explain ramjet compression and its operating limits."
+          },
+          {
+            "name": "Choose engine type for a flight regime",
+            "type": "decision",
+            "description": "Can select and justify the right architecture for a given mission."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "## Engine families\n\n- Turbojet: high $V_e$, low $\\dot{m}$ → supersonic\n- Turbofan: bypass, large $\\dot{m}$, low $V_e$ → airliners\n- Turboprop/shaft: gearbox, propeller → low speed\n- Ramjet: no rotating parts, > Mach 1",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "figure",
+            "markdown": "Figure 4.1 — Comparison",
+            "figureDescription": "A bar chart comparing Turbojet, Turbofan, Turboprop, and Ramjet engines on Propulsive efficiency (blue bars) and Suitability for high-speed flight (orange bars), on a relative scale of 0 to 100."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "families-notes",
+      "input": {
+        "topic": {
+          "name": "Families of jet engines",
+          "centralQuestion": "Which engine architecture suits which flight regime?"
+        },
+        "section": {
+          "pageFrom": 3,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Turbojet characteristics",
+            "type": "concept",
+            "description": "Can characterize the turbojet's exhaust and best flight regime."
+          },
+          {
+            "name": "Turbofan characteristics",
+            "type": "concept",
+            "description": "Can describe the turbofan and explain why it dominates commercial aviation."
+          },
+          {
+            "name": "Turboprop & turboshaft",
+            "type": "concept",
+            "description": "Can explain where the energy goes and why efficiency drops near transonic speeds."
+          },
+          {
+            "name": "Ramjet",
+            "type": "concept",
+            "description": "Can explain ramjet compression and its operating limits."
+          },
+          {
+            "name": "Choose engine type for a flight regime",
+            "type": "decision",
+            "description": "Can select and justify the right architecture for a given mission."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 3,
+            "pageTo": 3,
+            "label": "content",
+            "markdown": "engine types (all brayton core)\n- TJ: all air thru core, fast exhaust small flow. good supersonic bad subsonic fuel\n- TF: big fan, bypass air!! more mass less V -> better prop. eff (Ve close to V0) -> airliners\n- TP/TS: turbine takes ~all energy -> gearbox -> prop/rotor. best at low speed, bad near transonic (tips)\n- ramjet: no compressor, ram air, no static thrust, M>1 only, missiles",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "figure",
+            "markdown": "bar chart p.4 - TF best subsonic, TJ/ramjet fast, TP slow (values made up)",
+            "figureDescription": "A bar chart comparing Turbojet, Turbofan, Turboprop, and Ramjet engines on Propulsive efficiency (blue bars) and Suitability for high-speed flight (orange bars), on a relative scale of 0 to 100."
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "worked-example-clean",
+      "input": {
+        "topic": {
+          "name": "Computing net thrust",
+          "centralQuestion": "How do you compute a jet engine's net thrust and check the result?"
+        },
+        "section": {
+          "pageFrom": 4,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          },
+          {
+            "name": "Compute net thrust",
+            "type": "procedure",
+            "description": "Can calculate net thrust from mass flow and velocities, with units."
+          },
+          {
+            "name": "Sanity-check a thrust result",
+            "type": "procedure",
+            "description": "Can convert N ↔ lbf and judge whether a thrust value is plausible."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "content",
+            "markdown": "7.5 Worked Example",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "exercise",
+            "markdown": "EXAMPLE 7.1 --- Computing Net Thrust\n\nA turbofan engine ingests air at a mass flow rate of $400\\text{ kg/s}$ while cruising at a flight speed of $250\\text{ m/s}$. The engine accelerates this air to an average exhaust velocity of $320\\text{ m/s}$. The nozzle is perfectly expanded, so the pressure term in the thrust equation is zero. Find the net thrust produced.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "solution",
+            "markdown": "Solution. Using the simplified thrust equation for a perfectly expanded nozzle:\n\n$$F = \\dot{m}(V_e - V_0)$$\n\n$F = (400\\text{ kg/s})(320\\text{ m/s} - 250\\text{ m/s}) = (400)(70) = 28,000\\text{ N} \\approx 28\\text{ kN}$\n\nThis corresponds to roughly $6,300\\text{ lbf}$ of thrust --- a useful sanity check is that this figure sits in the range typical of a single engine on a modern narrow-body regional aircraft.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "worked-example-slides",
+      "input": {
+        "topic": {
+          "name": "Computing net thrust",
+          "centralQuestion": "How do you compute a jet engine's net thrust and check the result?"
+        },
+        "section": {
+          "pageFrom": 4,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          },
+          {
+            "name": "Compute net thrust",
+            "type": "procedure",
+            "description": "Can calculate net thrust from mass flow and velocities, with units."
+          },
+          {
+            "name": "Sanity-check a thrust result",
+            "type": "procedure",
+            "description": "Can convert N ↔ lbf and judge whether a thrust value is plausible."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "content",
+            "markdown": "## Example 7.1\n\n- $\\dot{m} = 400$ kg/s, $V_0 = 250$ m/s, $V_e = 320$ m/s\n- perfectly expanded\n- $F$ = ?\n\n**Answer:** 28 kN (≈ 6,300 lbf)",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "worked-example-notes",
+      "input": {
+        "topic": {
+          "name": "Computing net thrust",
+          "centralQuestion": "How do you compute a jet engine's net thrust and check the result?"
+        },
+        "section": {
+          "pageFrom": 4,
+          "pageTo": 4
+        },
+        "kcs": [
+          {
+            "name": "Perfectly expanded nozzle simplification",
+            "type": "decision",
+            "description": "Can decide when the pressure term may be dropped and state the remaining momentum form."
+          },
+          {
+            "name": "Compute net thrust",
+            "type": "procedure",
+            "description": "Can calculate net thrust from mass flow and velocities, with units."
+          },
+          {
+            "name": "Sanity-check a thrust result",
+            "type": "procedure",
+            "description": "Can convert N ↔ lbf and judge whether a thrust value is plausible."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 4,
+            "pageTo": 4,
+            "label": "content",
+            "markdown": "ex 7.1: TF, m=400, V0=250, Ve=320, p-term 0\nF = 400*70 = 28000 N = 28kN (~6300lbf, ok for narrowbody engine)",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "propulsive-efficiency-clean",
+      "input": {
+        "topic": {
+          "name": "Propulsive efficiency",
+          "centralQuestion": "Why does accelerating more air more slowly save fuel at subsonic cruise?"
+        },
+        "section": {
+          "pageFrom": 5,
+          "pageTo": 5
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Bypass ratio",
+            "type": "fact",
+            "description": "Can define bypass ratio and use it to split mass flows."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 5,
+            "pageTo": 5,
+            "label": "exercise",
+            "markdown": "### Exercise 7.3\n\nExplain, using the concept of propulsive efficiency, why a turbofan with a bypass ratio of $8:1$ is generally more fuel-efficient at subsonic cruise than a pure turbojet, even though the turbofan produces a lower exhaust velocity.",
+            "figureDescription": null
+          },
+          {
+            "pageFrom": 5,
+            "pageTo": 5,
+            "label": "solution",
+            "markdown": "#### Solution\n\nPropulsive efficiency is highest when the exhaust velocity is only slightly greater than the flight velocity, because the kinetic energy left behind in the exhaust jet (the \"wasted\" energy) is proportional to the square of the velocity difference, while the thrust delivered is only proportional to the difference itself. A turbofan achieves the same net thrust as a turbojet by accelerating a much larger mass of bypass air through a smaller velocity increment, rather than accelerating a small mass of air through a large velocity increment. This produces the same momentum change (and hence the same thrust) while leaving far less residual kinetic energy in the exhaust, so a larger fraction of the engine's power output does useful work propelling the aircraft --- that is, the propulsive efficiency is higher and less fuel energy is wasted as jet noise and heat.",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "original"
+      }
+    },
+    {
+      "id": "propulsive-efficiency-slides",
+      "input": {
+        "topic": {
+          "name": "Propulsive efficiency",
+          "centralQuestion": "Why does accelerating more air more slowly save fuel at subsonic cruise?"
+        },
+        "section": {
+          "pageFrom": 5,
+          "pageTo": 5
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Bypass ratio",
+            "type": "fact",
+            "description": "Can define bypass ratio and use it to split mass flows."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 5,
+            "pageTo": 5,
+            "label": "content",
+            "markdown": "## Ex. 7.3\n\n- Turbofan (BPR 8:1) vs turbojet at subsonic cruise\n- Same thrust, lower $V_e$\n- Prop. efficiency ↑",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    },
+    {
+      "id": "propulsive-efficiency-notes",
+      "input": {
+        "topic": {
+          "name": "Propulsive efficiency",
+          "centralQuestion": "Why does accelerating more air more slowly save fuel at subsonic cruise?"
+        },
+        "section": {
+          "pageFrom": 5,
+          "pageTo": 5
+        },
+        "kcs": [
+          {
+            "name": "Large mass, small ΔV principle",
+            "type": "concept",
+            "description": "Can explain why propulsive efficiency peaks when Ve is only slightly above V0."
+          },
+          {
+            "name": "Bypass ratio",
+            "type": "fact",
+            "description": "Can define bypass ratio and use it to split mass flows."
+          }
+        ],
+        "chunks": [
+          {
+            "pageFrom": 5,
+            "pageTo": 5,
+            "label": "content",
+            "markdown": "7.3 why TF (bpr 8) better than TJ subsonic?\nprop eff high when Ve just above V0\nwasted KE ~ (dV)^2 but thrust ~ dV\n-> big mass small dV, same thrust, less KE lost -> less fuel (noise/heat)",
+            "figureDescription": null
+          }
+        ]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "mode": "study_text"
+      }
+    }
+  ]
+}
