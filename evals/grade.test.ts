@@ -16,10 +16,10 @@ const verdict = (results: Record<string, string>, help = "none") =>
     check: null,
   });
 
-test("the fixture is a draft of about 40 labelled cases", async () => {
+test("the fixture is about 40 labelled cases, checked by the maintainer", async () => {
   const { items } = await loadFixture(gradeEval);
   expect(items.length).toBeGreaterThanOrEqual(35);
-  expect(items.every((i) => i.expectedOutput.labelStatus === "draft")).toBe(
+  expect(items.every((i) => i.expectedOutput.labelStatus === "confirmed")).toBe(
     true,
   );
   for (const { input, expectedOutput } of items) {
