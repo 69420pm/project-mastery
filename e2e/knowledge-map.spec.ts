@@ -12,7 +12,7 @@ const PDF = path.join(
   "two-page-lecture.pdf",
 );
 
-test("a parsed Material is built into a Knowledge map of big ideas and KCs", async ({
+test("a parsed Material is built into a Course map of Topics", async ({
   page,
   course,
 }) => {
@@ -22,7 +22,13 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
     timeout: 30_000,
   });
 
-  await page.goto(`/courses/${course.id}/map`);
+  // Opening the Course lands on its Course map.
+  await page.goto("/courses");
+  await page
+    .getByRole("list", { name: "Courses" })
+    .getByRole("link", { name: course.name })
+    .click();
+  await expect(page).toHaveURL(`/courses/${course.id}/map`);
   await expect(page.getByRole("status", { name: "Build status" })).toHaveText(
     "Not built yet.",
   );
@@ -36,41 +42,14 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
     page.getByRole("status", { name: "Build status" }),
   ).toContainText("Last built");
 
-  // The mock names every KC with its text and teaches it on pages 1–2.
-  const graph = page.getByRole("application", { name: "Knowledge map graph" });
-  // Without Big-idea groups the KCs are laid out again, flat.
-  await page.getByRole("button", { name: "Layers" }).click();
-  await page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }).click();
-  await expect(
-    page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }),
-  ).not.toBeChecked();
-  await page.keyboard.press("Escape");
-  await graph
-    .getByRole("button", { name: /^Mock text from the mock AI/ })
-    .first()
-    .click();
-  // Beside the graph, or in a Sheet on a phone.
-  const panel = page.getByLabel("KC details", { exact: true });
-  const overview = panel.getByRole("region", { name: "Overview" });
-  await expect(overview).toContainText("Mock text from the mock AI");
-  await expect(overview).toContainText("Fact");
-  await expect(panel.getByRole("region", { name: "Learning" })).toContainText(
-    "No attempts yet.",
+  // The mock names every Topic with its text.
+  const graph = page.getByRole("application", { name: "Course map graph" });
+  const card = graph
+    .getByRole("link", { name: /^Mock text from the mock AI/ })
+    .first();
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute(
+    "href",
+    new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
   );
-  await expect(panel.getByRole("region", { name: "Sources" })).toContainText(
-    "two-page-lecture pp. 1–2",
-  );
-  // The mock parse labels no chunk an exercise.
-  await expect(panel.getByRole("region", { name: "Exercises" })).toContainText(
-    "No Exercise tests it.",
-  );
-  // The built map starts the priorities; a KC no exam, Exercise or KC
-  // needs ranks low. The panel stays open while the page polls.
-  await expect(
-    panel.getByRole("region", { name: "Priority" }).getByText("Low priority"),
-  ).toBeVisible({ timeout: 30_000 });
-
-  // Esc clears the selection.
-  await page.keyboard.press("Escape");
-  await expect(panel).toBeHidden();
 });

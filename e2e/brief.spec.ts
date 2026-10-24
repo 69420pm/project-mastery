@@ -94,7 +94,7 @@ test.describe("signed in", () => {
     // Findings no longer show on the map.
     await page.goto(`/courses/${course.id}/map`);
     await expect(
-      page.getByRole("heading", { name: "Knowledge map" }),
+      page.getByRole("heading", { name: "Course map" }),
     ).toBeVisible();
     await expect(page.getByRole("region", { name: "Findings" })).toHaveCount(0);
   });

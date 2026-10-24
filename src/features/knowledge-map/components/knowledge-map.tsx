@@ -1,16 +1,7 @@
 "use client";
 
-import { RotateCwIcon, WaypointsIcon, XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import {
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
-import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/page-header";
+import { XIcon } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -19,7 +10,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Spinner } from "@/components/ui/spinner";
 import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
 import { legendEntries } from "@/features/knowledge-map/domain/encodings";
 import {
@@ -27,10 +17,8 @@ import {
   TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
-import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   KnowledgeMapView,
-  MapBuild,
   MapKcLearning,
   MapPriorities,
 } from "@/features/knowledge-map/types";
@@ -41,49 +29,31 @@ import { ExercisePanel } from "./exercise-panel";
 import { FocusDepthMenu } from "./focus-depth";
 import { KcPanel } from "./kc-panel";
 import { LayerToggles } from "./layer-toggles";
-import { PriorityStatus } from "./kc-priority";
 import { MapGraph } from "./map-graph";
 
-const dateFormat = new Intl.DateTimeFormat("en", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-/** How often the page refreshes while a build runs. */
-const BUILD_POLL_MS = 2000;
-
 /**
- * A Course's Knowledge map, read-only: the build's state with Build or
- * Update map, the reviews due, the study plan's line (`planLine`, a slot, since
- * the study feature that owns the plan depends on this one), then the map as
- * a graph filling the rest of the page. Clicking a KC opens every stat about
- * it beside the graph, or in a Sheet below `md`: its learning from
- * `learning`, its Priority from `priorities` and, for a KC in `leftOut`, the
- * `leftOutBadge`. The selected node is focused on the graph, as far as the
- * focus depth reaches; Esc or a click on the empty canvas clears it. The page
- * refreshes itself while a
- * build or a priority run runs, and a selection stays while its node exists.
+ * A Knowledge map's KC graph, read-only, with its legend, focus, encoding
+ * and layer controls, filling the space it gets. Clicking a KC opens every
+ * stat about it beside the graph, or in a Sheet below `md`: its learning
+ * from `learning`, its Priority from `priorities` and, for a KC in
+ * `leftOut`, the `leftOutBadge`. The selected node is focused on the graph,
+ * as far as the focus depth reaches; Esc or a click on the empty canvas
+ * clears it. A selection stays while its node exists.
  */
 export function KnowledgeMap({
   map,
   priorities,
   learning,
-  planLine,
   leftOut,
   leftOutBadge,
 }: {
   map: KnowledgeMapView;
   priorities: MapPriorities;
   learning: MapKcLearning;
-  planLine: ReactNode;
   /** The ids of the KCs the weekly hours won't fit. */
   leftOut: string[];
   leftOutBadge: ReactNode;
 }) {
-  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
-  const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
-  const building = map.build?.status === "building";
-  useBuildPolling(building || priorities.running);
   const isWide = !useIsMobile();
   const [settings, saveSettings] = useSavedSettings();
   const { layers, colorBy, sizeByPriority } = settings;
@@ -104,104 +74,70 @@ export function KnowledgeMap({
   const panelLabel = selected?.label ?? "KC details";
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-6 px-4 pt-8 pb-4 sm:px-6">
-      <div className="flex flex-col gap-3">
-        <PageHeader
-          title="Knowledge map"
-          description="What your materials teach, and where you stand on each part."
-          actions={
-            <BuildButton
-              courseId={map.courseId}
-              hasMap={map.build?.finishedAt != null}
-              disabled={!map.canBuild}
+    <>
+      <div className="flex min-h-96 flex-1 gap-4">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <Legend
+              entries={legendEntries(
+                colorBy,
+                map.bigIdeas,
+                TYPE_NAMES,
+                STATE_NAMES,
+              )}
             />
-          }
-        />
-        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-muted-foreground">
-          <BuildStatus build={map.build} />
-          <PriorityStatus priorities={priorities} />
-          {map.bigIdeas.length > 0 && (
-            <>
-              <p>
-                {dueCount} {dueCount === 1 ? "review" : "reviews"} due
-              </p>
-              {planLine}
-            </>
-          )}
-        </div>
-      </div>
-
-      {map.bigIdeas.length === 0 ? (
-        <div className="max-w-3xl">
-          <EmptyMap building={building} />
-        </div>
-      ) : (
-        <div className="flex min-h-96 flex-1 gap-4">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <Legend
-                entries={legendEntries(
-                  colorBy,
-                  map.bigIdeas,
-                  TYPE_NAMES,
-                  STATE_NAMES,
-                )}
-              />
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <FocusDepthMenu depth={depth} onChange={setDepth} />
-                <EncodingControls
-                  colorBy={colorBy}
-                  sizeByPriority={sizeByPriority}
-                  onColorBy={(next) =>
-                    saveSettings({ ...settings, colorBy: next })
-                  }
-                  onSizeByPriority={(on) =>
-                    saveSettings({ ...settings, sizeByPriority: on })
-                  }
-                />
-                <LayerToggles
-                  layers={layers}
-                  onChange={(next) =>
-                    saveSettings({ ...settings, layers: next })
-                  }
-                />
-              </div>
-            </div>
-            <div className="min-h-0 flex-1">
-              <MapGraph
-                map={map}
-                learning={learning}
-                priorities={priorities}
-                layers={layers}
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <FocusDepthMenu depth={depth} onChange={setDepth} />
+              <EncodingControls
                 colorBy={colorBy}
                 sizeByPriority={sizeByPriority}
-                selectedId={selected ? selectedId : null}
-                depth={depth}
-                onSelect={setSelectedId}
-                onClear={clear}
+                onColorBy={(next) =>
+                  saveSettings({ ...settings, colorBy: next })
+                }
+                onSizeByPriority={(on) =>
+                  saveSettings({ ...settings, sizeByPriority: on })
+                }
+              />
+              <LayerToggles
+                layers={layers}
+                onChange={(next) => saveSettings({ ...settings, layers: next })}
               />
             </div>
           </div>
-          {isWide && panel && (
-            <aside
-              aria-label={panelLabel}
-              className="w-96 shrink-0 overflow-y-auto rounded-xl border"
-            >
-              <div className="flex justify-end px-2 pt-2">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Close"
-                  onClick={() => setSelectedId(null)}
-                >
-                  <XIcon />
-                </Button>
-              </div>
-              {panel}
-            </aside>
-          )}
+          <div className="min-h-0 flex-1">
+            <MapGraph
+              map={map}
+              learning={learning}
+              priorities={priorities}
+              layers={layers}
+              colorBy={colorBy}
+              sizeByPriority={sizeByPriority}
+              selectedId={selected ? selectedId : null}
+              depth={depth}
+              onSelect={setSelectedId}
+              onClear={clear}
+            />
+          </div>
         </div>
-      )}
+        {isWide && panel && (
+          <aside
+            aria-label={panelLabel}
+            className="w-96 shrink-0 overflow-y-auto rounded-xl border"
+          >
+            <div className="flex justify-end px-2 pt-2">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close"
+                onClick={() => setSelectedId(null)}
+              >
+                <XIcon />
+              </Button>
+            </div>
+            {panel}
+          </aside>
+        )}
+      </div>
       <Sheet
         open={!isWide && panel !== null}
         onOpenChange={(open) => {
@@ -222,7 +158,7 @@ export function KnowledgeMap({
           {panel}
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   );
 }
 
@@ -290,103 +226,6 @@ function selectedPanel({
   return null;
 }
 
-function EmptyMap({ building }: { building: boolean }) {
-  return (
-    <EmptyState
-      icon={<WaypointsIcon />}
-      title={building ? "Building your map" : "No map yet"}
-      description={
-        building
-          ? "The first map appears here when the build is done."
-          : "Parse your materials, then build the map of what they teach."
-      }
-    />
-  );
-}
-
-function FormattedTime({ iso }: { iso: string }) {
-  return (
-    <time dateTime={iso} suppressHydrationWarning>
-      {dateFormat.format(new Date(iso))}
-    </time>
-  );
-}
-
-/** The last build's state: running, failed with its reason, or done. */
-function BuildStatus({ build }: { build: MapBuild }) {
-  const lastBuilt = build?.finishedAt && (
-    <>
-      Last built <FormattedTime iso={build.finishedAt} />
-    </>
-  );
-  return (
-    <div
-      role="status"
-      aria-label="Build status"
-      className="flex flex-col gap-1 text-sm text-muted-foreground"
-    >
-      {build === null && <p>Not built yet.</p>}
-      {build?.status === "building" && (
-        <p className="flex items-center gap-2">
-          <Spinner className="size-3" />
-          Building…
-        </p>
-      )}
-      {build?.status === "failed" && (
-        <p className="text-destructive">Build failed: {build.failureReason}</p>
-      )}
-      {lastBuilt && <p>{lastBuilt}</p>}
-    </div>
-  );
-}
-
-/**
- * Starts a build: Build before the first map, Update map after, which maps
- * what Materials added or deleted since. Disabled while one runs or before a
- * Material is parsed.
- */
-function BuildButton({
-  courseId,
-  hasMap,
-  disabled,
-}: {
-  courseId: string;
-  hasMap: boolean;
-  disabled: boolean;
-}) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <Button
-        disabled={disabled || isPending}
-        onClick={() =>
-          startTransition(async () => {
-            setError(null);
-            const result = await startKnowledgeMapBuild({ courseId });
-            if (!result.ok) setError(result.message);
-            router.refresh();
-          })
-        }
-      >
-        {isPending ? (
-          <Spinner data-icon="inline-start" />
-        ) : (
-          <RotateCwIcon data-icon="inline-start" />
-        )}
-        {hasMap ? "Update map" : "Build knowledge map"}
-      </Button>
-      {error && (
-        <span role="alert" className="text-sm text-destructive">
-          {error}
-        </span>
-      )}
-    </div>
-  );
-}
-
 /**
  * Calls `clear` on Esc while `active`, unless a menu is open: Esc closes
  * that first.
@@ -411,14 +250,4 @@ function useEscapeToClear(active: boolean, clear: () => void) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [active]);
-}
-
-/** Refreshes the page's data while a build or a priority run runs. */
-function useBuildPolling(building: boolean) {
-  const router = useRouter();
-  useEffect(() => {
-    if (!building) return;
-    const timer = setInterval(() => router.refresh(), BUILD_POLL_MS);
-    return () => clearInterval(timer);
-  }, [building, router]);
 }

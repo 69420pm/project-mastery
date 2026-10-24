@@ -24,6 +24,10 @@ _Avoid_: Preferences, intake form, onboarding
 What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
+**Course map**:
+The Course's home: its Topics on its Big ideas, with the arrows between Topics that their KCs' Prerequisites imply. It shows the Knowledge map at Topic level.
+_Avoid_: Dashboard, overview, home page
+
 **Big idea**:
 One of the few main themes of a Course's Knowledge map, which groups its Knowledge components and Topics.
 _Avoid_: Theme, chapter, module

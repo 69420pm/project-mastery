@@ -90,7 +90,7 @@ test("after an answered card, End session makes the Chat read-only and schedules
   student,
   course,
 }) => {
-  const kcName = await seedKc(student.id, course.id);
+  await seedKc(student.id, course.id);
   await page.goto(course.chatPath);
 
   const message = page.getByRole("textbox", { name: "Message" });
@@ -121,17 +121,4 @@ test("after an answered card, End session makes the Chat read-only and schedules
   await ended.getByRole("link", { name: "Start new session" }).click();
   await expect(page).toHaveURL(new RegExp(`${course.chatPath}$`));
   await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
-
-  // The ended session created the KC's card: the map shows its next review.
-  await page.goto(`/courses/${course.id}/map`);
-  await page
-    .getByRole("application", { name: "Knowledge map graph" })
-    .getByRole("button", { name: new RegExp(`^${kcName}`) })
-    .first()
-    .click();
-  await expect(
-    page
-      .getByLabel("KC details", { exact: true })
-      .getByRole("region", { name: "Learning" }),
-  ).toContainText("Next review");
 });

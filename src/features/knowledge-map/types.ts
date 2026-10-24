@@ -173,6 +173,16 @@ export type MapKcLearning = Record<
   }
 >;
 
+/** A stored Topic as the Course map shows it, in Course order. */
+export type MapTopic = {
+  id: string;
+  bigIdeaId: string;
+  name: string;
+  centralQuestion: string;
+  /** In teaching order. */
+  kcs: Array<{ id: string; name: string }>;
+};
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;
