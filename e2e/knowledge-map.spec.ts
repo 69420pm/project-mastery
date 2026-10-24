@@ -55,6 +55,22 @@ test("a parsed Material is built into a Course map of Topics", async ({
     `/courses/${course.id}/chat`,
   );
 
+  // Skipping the next Topic on its page makes the card name another.
+  const nextLink = today.getByRole("link", {
+    name: /^Mock text from the mock AI/,
+  });
+  const nextHref = await nextLink.getAttribute("href");
+  await nextLink.click();
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Unskip" })).toBeVisible();
+  await expect(page.getByLabel("Plan")).toContainText("skipped");
+  await page.goto(`/courses/${course.id}/map`);
+  await expect(
+    page
+      .getByRole("region", { name: "Today" })
+      .getByRole("link", { name: /^Mock text from the mock AI/ }),
+  ).not.toHaveAttribute("href", nextHref!);
+
   // The mock names every Topic with its text.
   const graph = page.getByRole("application", { name: "Course map graph" });
   const card = graph

@@ -1590,6 +1590,43 @@ export type Database = {
           },
         ];
       };
+      topic_choices: {
+        Row: {
+          choice: string;
+          created_at: string;
+          owner: string;
+          topic_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          choice: string;
+          created_at?: string;
+          owner?: string;
+          topic_id: string;
+        };
+        Update: {
+          choice?: string;
+          created_at?: string;
+          owner?: string;
+          topic_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_choices_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topic_choices_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       topic_kcs: {
         Row: {
           kc_id: string;

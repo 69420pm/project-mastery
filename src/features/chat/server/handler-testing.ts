@@ -84,10 +84,12 @@ function createDb() {
       memories: [],
       topics: [],
       topic_kcs: [],
+      topic_choices: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
       topic_kcs: { topic_id: "topics" },
+      topic_choices: { topic_id: "topics" },
       questions: { session_id: "study_sessions" },
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
@@ -184,7 +186,7 @@ function createDb() {
             question.id === row.question_id && question.owner === signedIn,
         );
       }
-      if (table === "topic_kcs") {
+      if (table === "topic_kcs" || table === "topic_choices") {
         return tables.topics.some(
           (topic) =>
             topic.id === row.topic_id &&

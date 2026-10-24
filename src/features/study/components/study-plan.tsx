@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Markdown } from "@/components/markdown";
-import { Badge } from "@/components/ui/badge";
 import {
   fitText,
   PHASE_NAMES,
@@ -78,14 +77,5 @@ export function FitLine({
     <p aria-label="Study plan" className="text-sm text-muted-foreground">
       {line}
     </p>
-  );
-}
-
-/** Marks a KC of a Topic that won't fit before the final week. */
-export function LeftOutBadge() {
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      won&apos;t fit
-    </Badge>
   );
 }

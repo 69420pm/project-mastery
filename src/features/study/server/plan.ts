@@ -16,6 +16,7 @@ import type { KcSchedule } from "@/features/study/domain/replay";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import { planToday, type TodayPlan } from "@/features/study/domain/today";
 import { loadSchedules } from "@/features/study/server/attempts";
+import { loadTopicChoices } from "@/features/study/server/choices";
 import { loadPace } from "@/features/study/server/pace";
 import type { StudyPlan } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
@@ -36,8 +37,8 @@ const NO_PLAN: StudyPlan = {
 /**
  * A Course's plan over its stored Topics (`planStudy`) at the Student's
  * measured pace (`loadPace`), read with `supabase`, from what the caller
- * already loaded, with the pace it used and today's work (`planToday`). No
- * Topic is pinned or skipped yet.
+ * already loaded and the Student's pins and skips, with the pace it used and
+ * today's work (`planToday`).
  */
 export async function loadPlan(
   supabase: Supabase,
@@ -52,12 +53,13 @@ export async function loadPlan(
   },
   now: Date,
 ): Promise<Plan & { pace: Pace; today: TodayPlan }> {
-  const [topics, pace] = await Promise.all([
+  const [topics, pace, choices] = await Promise.all([
     loadStoredTopics(supabase, courseId),
     loadPace(supabase, courseId, now),
+    loadTopicChoices(supabase, courseId),
   ]);
   const plan = {
-    ...planStudy({ ...loaded, topics, choices: [], pace, now }),
+    ...planStudy({ ...loaded, topics, choices, pace, now }),
     pace,
   };
   const today = planToday(plan, {

@@ -51,17 +51,12 @@ export function KcPanel({
   map,
   learning,
   priorities,
-  leftOut,
-  leftOutBadge,
   onSelect,
 }: {
   kc: KcView;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
-  leftOut: boolean;
-  /** Shown beside the Priority when the KC is left out of the study plan. */
-  leftOutBadge: ReactNode;
   onSelect: (kcId: string) => void;
 }) {
   const kcs = new Map(
@@ -148,14 +143,10 @@ export function KcPanel({
           <>
             <div className="flex flex-wrap gap-1.5">
               <PriorityBadge priority={priority} />
-              {leftOut && leftOutBadge}
             </div>
             <dl className="flex flex-col gap-1">
               <Fact label="Value">{priority.value.toFixed(2)}</Fact>
               <Fact label="Multiplier">×{priority.multiplier}</Fact>
-              <Fact label="Study plan">
-                {leftOut ? "Left out: it won't fit" : "In the plan"}
-              </Fact>
             </dl>
             <PriorityReasons priority={priority} />
           </>

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { TopicChoice } from "@/features/study/domain/plan";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
@@ -101,6 +102,13 @@ vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
       : [],
 }));
 
+// The Student's pins and skips; RLS (`topic_choices.test.sql`) keeps another
+// Student's out.
+let choices: TopicChoice[] = [];
+vi.mock("@/features/study/server/choices", () => ({
+  loadTopicChoices: async () => choices,
+}));
+
 const { getKcLearning, getKcStates, getPlan, getTopicStates } =
   await import("@/features/study/server");
 
@@ -118,6 +126,7 @@ const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
 
 beforeEach(() => {
   signedIn = true;
+  choices = [];
   map = MAP;
   db = createDb();
   // Stored newest first: the readers order them by time. The session's last
@@ -284,6 +293,23 @@ describe("getPlan", () => {
       { id: "t1", priority: 0.8, untaught: [EFFICIENCY], fits: true },
       { id: "t2", priority: 0.1, untaught: [NOZZLE], fits: true },
     ]);
+  });
+
+  test("reads the Student's skips and pins", async () => {
+    brief("10");
+    choices = [
+      { topicId: "t1", choice: "skipped", createdAt: at(-1) },
+      { topicId: "t2", choice: "pinned", createdAt: at(-1) },
+    ];
+
+    const plan = await getPlan(COURSE);
+    expect(plan.order).toEqual(["t2"]);
+    expect(plan.topics).toMatchObject([
+      { id: "t1", status: "skipped" },
+      { id: "t2", status: "in_plan", pinned: true },
+    ]);
+    // The Today card names the pinned Topic, not the skipped one.
+    expect(plan.today.next?.id).toBe("t2");
   });
 
   test("leaves out what the weekly hours don't fit", async () => {
