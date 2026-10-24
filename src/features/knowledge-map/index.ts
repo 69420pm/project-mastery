@@ -14,6 +14,7 @@ export type {
   MapPriorities,
   MapTopic,
   MapTopicDetail,
-  MapTopicProgress,
+  MapTopicState,
+  MapTopicStates,
   ReviewFinding,
 } from "./types";

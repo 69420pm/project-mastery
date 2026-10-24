@@ -10,10 +10,10 @@ import type {
   MapPriorities,
   MapTopic,
   MapTopicDetail,
-  MapTopicProgress,
+  MapTopicState,
 } from "@/features/knowledge-map/types";
 import { KnowledgeMap } from "./knowledge-map";
-import { RecallBar, TopicStateBadge } from "./topic-progress";
+import { RecallBar, TopicStateBadge } from "./topic-state";
 
 /**
  * A Topic's page: its name, Big idea, Topic state and recall today, central
@@ -34,12 +34,12 @@ export function TopicDetail({
   learning,
   leftOut,
   leftOutBadge,
-  progress,
+  topicState,
 }: {
   courseId: string;
   topic: MapTopicDetail;
   /** The Topic's state and recall today; undefined while it is new. */
-  progress?: MapTopicProgress[string];
+  topicState?: MapTopicState;
   topics: MapTopic[];
   map: KnowledgeMapView;
   priorities: MapPriorities;
@@ -61,9 +61,9 @@ export function TopicDetail({
         description={bigIdea && `Big idea: ${bigIdea.name}`}
       />
       <div className="flex max-w-sm items-end gap-3">
-        <TopicStateBadge progress={progress} />
+        <TopicStateBadge topicState={topicState} />
         <div className="flex-1">
-          <RecallBar progress={progress} />
+          <RecallBar topicState={topicState} />
         </div>
       </div>
 

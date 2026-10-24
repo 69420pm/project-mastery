@@ -126,7 +126,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       learning={{}}
       leftOut={[]}
       leftOutBadge={null}
-      progress={{ state: "solid", recall: 0.91 }}
+      topicState={{ state: "solid", recall: 0.91 }}
     />,
   );
 

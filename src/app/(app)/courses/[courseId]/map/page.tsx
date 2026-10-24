@@ -12,7 +12,7 @@ import { PlanLine } from "@/features/study";
 import {
   getKcLearning,
   getPlan,
-  getTopicProgress,
+  getTopicStates,
 } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -31,14 +31,14 @@ export default async function CourseMapPage({
   const { courseId } = await params;
   await requireUser(courseMapPath(courseId));
   await ensurePriorities(courseId);
-  const [course, map, topics, priorities, learning, progress, plan] =
+  const [course, map, topics, priorities, learning, topicStates, plan] =
     await Promise.all([
       getCourse(courseId),
       getKnowledgeMap(courseId),
       loadCourseTopics(courseId),
       getPriorities(courseId),
       getKcLearning(courseId),
-      getTopicProgress(courseId),
+      getTopicStates(courseId),
       getPlan(courseId),
     ]);
   if (!course) notFound();
@@ -55,7 +55,7 @@ export default async function CourseMapPage({
       }))}
       priorities={priorities}
       learning={learning}
-      progress={progress}
+      topicStates={topicStates}
       planLine={<PlanLine plan={plan} briefHref={briefPath(courseId)} />}
     />
   );

@@ -90,13 +90,8 @@ vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
       : [],
 }));
 
-const {
-  getKcLearning,
-  getKcStates,
-  getOpeningLine,
-  getPlan,
-  getTopicProgress,
-} = await import("@/features/study/server");
+const { getKcLearning, getKcStates, getOpeningLine, getPlan, getTopicStates } =
+  await import("@/features/study/server");
 
 /** A stored `learn` attempt on a KC `days` from now, in the ended session. */
 const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
@@ -128,7 +123,7 @@ describe.each([
 
     expect(await getKcLearning(courseId)).toEqual({});
     expect(await getKcStates(courseId)).toEqual({});
-    expect(await getTopicProgress(courseId)).toEqual({});
+    expect(await getTopicStates(courseId)).toEqual({});
     expect(await getPlan(courseId)).toEqual({
       phase: null,
       share: null,
@@ -251,9 +246,9 @@ describe("getKcStates", () => {
   });
 });
 
-describe("getTopicProgress", () => {
+describe("getTopicStates", () => {
   test("gives each Topic its state and recall today", async () => {
-    expect(await getTopicProgress(COURSE)).toEqual({
+    expect(await getTopicStates(COURSE)).toEqual({
       // The taught KC's recall, with the untaught one counting as 0.
       t1: { state: "in_progress", recall: expect.closeTo(0.85 / 2, 1) },
       t2: { state: "new", recall: 0 },
@@ -262,7 +257,7 @@ describe("getTopicProgress", () => {
 
   test("is empty for another Student's Course", async () => {
     expect(
-      await getTopicProgress("bbbbbbbb-c000-4000-8000-000000000001"),
+      await getTopicStates("bbbbbbbb-c000-4000-8000-000000000001"),
     ).toEqual({});
   });
 });

@@ -12,7 +12,7 @@ import { LeftOutBadge } from "@/features/study";
 import {
   getKcLearning,
   getPlan,
-  getTopicProgress,
+  getTopicStates,
 } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -29,16 +29,15 @@ export default async function TopicPage({
 }: PageProps<"/courses/[courseId]/map/[topicId]">) {
   const { courseId, topicId } = await params;
   await requireUser(topicPath(courseId, topicId));
-  const [map, topics, priorities, learning, progress, plan] = await Promise.all(
-    [
+  const [map, topics, priorities, learning, topicStates, plan] =
+    await Promise.all([
       getKnowledgeMap(courseId),
       loadCourseTopics(courseId),
       getPriorities(courseId),
       getKcLearning(courseId),
-      getTopicProgress(courseId),
+      getTopicStates(courseId),
       getPlan(courseId),
-    ],
-  );
+    ]);
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic) notFound();
 
@@ -72,7 +71,7 @@ export default async function TopicPage({
       learning={learning}
       leftOut={plan.leftOut.map((kc) => kc.id)}
       leftOutBadge={<LeftOutBadge />}
-      progress={progress[topic.id]}
+      topicState={topicStates[topic.id]}
     />
   );
 }

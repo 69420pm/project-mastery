@@ -1,7 +1,7 @@
 import { createEmptyCard, State, type Card } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import { retrievability, type KcSchedule } from "./replay";
-import { topicProgress } from "./topic-progress";
+import { topicState } from "./topic-state";
 
 const now = new Date("2026-10-10T12:00:00Z");
 const options = {
@@ -23,11 +23,11 @@ const card = (stability: number, daysAgo: number, lapses = 0): KcSchedule => ({
 const strong = card(100, 1);
 const weak = card(1, 10);
 
-const progress = (
+const stateOf = (
   schedules: Record<string, KcSchedule>,
   extra: Partial<typeof options> = {},
 ) =>
-  topicProgress(["a", "b"], new Map(Object.entries(schedules)), {
+  topicState(["a", "b"], new Map(Object.entries(schedules)), {
     ...options,
     ...extra,
   });
@@ -60,19 +60,19 @@ describe("topic state", () => {
       "needs_work",
     ],
   ])("%s: %s", (_, schedules, state) => {
-    expect(progress(schedules).state).toBe(state);
+    expect(stateOf(schedules).state).toBe(state);
   });
 
   test("solid reads the recall on the exam date while it is ahead", () => {
     const fading = card(20, 1);
-    expect(progress({ a: fading, b: fading }).state).toBe("solid");
+    expect(stateOf({ a: fading, b: fading }).state).toBe("solid");
     expect(
-      progress({ a: fading, b: fading }, { examDate: "2026-11-30" }).state,
+      stateOf({ a: fading, b: fading }, { examDate: "2026-11-30" }).state,
     ).toBe("learned");
   });
 
   test("a Topic without KCs is new", () => {
-    expect(topicProgress([], new Map(), options)).toEqual({
+    expect(topicState([], new Map(), options)).toEqual({
       state: "new",
       recall: 0,
     });
@@ -82,13 +82,13 @@ describe("topic state", () => {
 test("recall is today's mean, counting a KC without a card as 0", () => {
   const today = retrievability(strong.card!, now);
 
-  expect(progress({ a: strong, b: strong }).recall).toBeCloseTo(today);
-  expect(progress({ a: strong }).recall).toBeCloseTo(today / 2);
-  expect(progress({ a: strong, b: { card: null } }).recall).toBeCloseTo(
+  expect(stateOf({ a: strong, b: strong }).recall).toBeCloseTo(today);
+  expect(stateOf({ a: strong }).recall).toBeCloseTo(today / 2);
+  expect(stateOf({ a: strong, b: { card: null } }).recall).toBeCloseTo(
     today / 2,
   );
   // The exam date doesn't move today's recall.
-  expect(
-    progress({ a: strong }, { examDate: "2026-11-30" }).recall,
-  ).toBeCloseTo(today / 2);
+  expect(stateOf({ a: strong }, { examDate: "2026-11-30" }).recall).toBeCloseTo(
+    today / 2,
+  );
 });

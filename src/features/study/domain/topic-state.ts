@@ -1,6 +1,6 @@
 /**
- * A Topic's progress (#176): its Topic state and today's recall, from its
- * KCs' replayed schedules. Pure, like the replay it reads.
+ * A Topic's Topic state and today's recall (#176), from its KCs' replayed
+ * schedules. Pure, like the replay it reads.
  */
 import type { Card } from "ts-fsrs";
 import {
@@ -14,7 +14,7 @@ export type TopicStateName =
   "new" | "in_progress" | "learned" | "solid" | "needs_work";
 
 /** A Topic's state, and the mean of its KCs' recall today, 0 to 1. */
-export type TopicProgress = { state: TopicStateName; recall: number };
+export type TopicState = { state: TopicStateName; recall: number };
 
 /** Lapses from which a KC's card makes its Topic need work. */
 const NEEDS_WORK_LAPSES = 3;
@@ -22,15 +22,15 @@ const NEEDS_WORK_LAPSES = 3;
 type Options = { now: Date; examDate: string | null; retention: number };
 
 /**
- * A Topic's progress from its KCs' schedules (a KC is taught when it has
- * one). `recall` counts a KC without a card as 0. A Topic without KCs is
+ * A Topic's state and recall from its KCs' schedules (a KC is taught when it
+ * has one). `recall` counts a KC without a card as 0. A Topic without KCs is
  * new.
  */
-export function topicProgress(
+export function topicState(
   kcIds: string[],
   schedules: Map<string, KcSchedule>,
   options: Options,
-): TopicProgress {
+): TopicState {
   const cards = kcIds.flatMap((id) => {
     const card = schedules.get(id)?.card;
     return card ? [card] : [];
@@ -44,7 +44,7 @@ export function topicProgress(
         ) / kcIds.length;
   const taught = kcIds.filter((id) => schedules.has(id)).length;
   return {
-    state: topicState(kcIds.length, taught, cards, options),
+    state: stateName(kcIds.length, taught, cards, options),
     recall,
   };
 }
@@ -55,7 +55,7 @@ export function topicProgress(
  * retention; `learned` when every KC is taught; `in_progress` when some is;
  * else `new`.
  */
-function topicState(
+function stateName(
   kcs: number,
   taught: number,
   cards: Card[],

@@ -25,15 +25,16 @@ import { useGraphLayout } from "@/features/knowledge-map/hooks/use-graph-layout"
 import type {
   KnowledgeMapView,
   MapTopic,
-  MapTopicProgress,
+  MapTopicState,
+  MapTopicStates,
 } from "@/features/knowledge-map/types";
-import { RecallBar, TopicStateBadge } from "./topic-progress";
+import { RecallBar, TopicStateBadge } from "./topic-state";
 import { ZoomControls } from "./zoom-controls";
 
 type TopicNodeData = {
   topic: MapTopic;
   href: string;
-  progress?: MapTopicProgress[string];
+  topicState?: MapTopicState;
 };
 type BigIdeaNodeData = { name: string };
 type TopicNode = Node<TopicNodeData, "topic">;
@@ -44,7 +45,7 @@ type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
  * opening the Topic page.
  */
 function TopicNodeView({ data }: NodeProps<TopicNode>) {
-  const { topic, href, progress } = data;
+  const { topic, href, topicState } = data;
   return (
     <>
       <Handle
@@ -67,9 +68,9 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
           <Markdown>{topic.centralQuestion}</Markdown>
         </div>
         <div className="mt-auto flex items-end gap-3">
-          <TopicStateBadge progress={progress} />
+          <TopicStateBadge topicState={topicState} />
           <div className="flex-1">
-            <RecallBar progress={progress} />
+            <RecallBar topicState={topicState} />
           </div>
         </div>
       </Link>
@@ -105,11 +106,11 @@ const nodeTypes = { topic: TopicNodeView, bigIdea: BigIdeaNodeView };
 export function CourseMapGraph({
   map,
   topics,
-  progress,
+  topicStates,
 }: {
   map: KnowledgeMapView;
   topics: MapTopic[];
-  progress: MapTopicProgress;
+  topicStates: MapTopicStates;
 }) {
   const graph = useMemo(() => buildTopicGraph(topics, map), [topics, map]);
   const elkGraph = useMemo(() => toElkTopicGraph(graph), [graph]);
@@ -144,7 +145,7 @@ export function CourseMapGraph({
               data: {
                 topic: node.topic,
                 href: topicPath(map.courseId, node.id),
-                progress: progress[node.id],
+                topicState: topicStates[node.id],
               },
             },
       );
@@ -157,7 +158,7 @@ export function CourseMapGraph({
         markerEnd: { type: MarkerType.ArrowClosed },
       }));
     return { nodes, edges };
-  }, [graph, laidOut, map.courseId, progress]);
+  }, [graph, laidOut, map.courseId, topicStates]);
 
   if (failed) {
     return (

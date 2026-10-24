@@ -103,7 +103,7 @@ const renderMap = (
       topics={mapTopics}
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
-      progress={{ t1: { state: "needs_work", recall: 0.426 } }}
+      topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       planLine={<PlanLine plan={studyPlan} briefHref="/brief" />}
     />,
   );
@@ -127,7 +127,7 @@ test("each card shows its Topic state and recall today", async () => {
   const card = await screen.findByRole("link", { name: "Momentum" });
   expect(within(card).getByLabelText("Topic state: Needs work")).toBeVisible();
   expect(card).toHaveTextContent("Recall today 43%");
-  // A Topic without progress is new.
+  // A Topic without a Topic state is new.
   const other = screen.getByRole("link", { name: "Nozzles" });
   expect(within(other).getByLabelText("Topic state: New")).toBeVisible();
   expect(other).toHaveTextContent("Recall today 0%");
