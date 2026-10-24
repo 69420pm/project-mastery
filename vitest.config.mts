@@ -9,6 +9,9 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
+    // A file's first test pays for importing its modules, about 1.4s on the
+    // chat handler alone, and goes over 5s when the machine is busy.
+    testTimeout: 15_000,
     include: [
       "src/**/*.test.{ts,tsx}",
       "tools/**/*.test.ts",
