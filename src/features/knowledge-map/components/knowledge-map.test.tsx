@@ -5,10 +5,10 @@ import type {
   KnowledgeMapView,
   MapKcLearning,
 } from "@/features/knowledge-map/types";
-import { LeftOutBadge, type StudyPlan } from "@/features/study";
+import { LeftOutBadge } from "@/features/study";
 
-/** The study plan with left-out KCs by id, as the map takes them. */
-type MapPlan = Omit<StudyPlan, "leftOut"> & { leftOut: string[] };
+/** The left-out KCs by id, as the map takes them. */
+type MapPlan = { leftOut: string[] };
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -94,10 +94,7 @@ const map: KnowledgeMapView = {
 };
 
 const plan = (overrides: Partial<MapPlan>): MapPlan => ({
-  phase: "build",
-  share: 100,
   leftOut: [],
-  hoursPerWeek: 5,
   ...overrides,
 });
 
@@ -125,7 +122,7 @@ const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
 
 test("clicking a KC node opens its panel", async () => {
   renderMap(
-    { share: 50, leftOut: ["k2"] },
+    { leftOut: ["k2"] },
     {
       k2: {
         state: "learning",

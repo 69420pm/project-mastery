@@ -1,22 +1,22 @@
 import Link from "next/link";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
-import { type Phase, PHASE_NAMES } from "@/features/study/domain/plan";
+import {
+  fitText,
+  PHASE_NAMES,
+  phaseHeading,
+} from "@/features/study/domain/plan";
 import type { StudyPlan } from "@/features/study/types";
-
-/** A Phase as a heading: "Build phase", "Deepen phase" or "Final week". */
-const phaseHeading = (phase: Phase) =>
-  phase === "final_week" ? PHASE_NAMES[phase] : `${PHASE_NAMES[phase]} phase`;
 
 /**
  * The study plan as the Brief's panel lists it: the Phase, the weekly hours,
- * the share of the KCs that matter that fit and the names of those that
- * won't.
+ * the fit line and the names of the in-plan Topics that won't fit.
  */
 export function StudyPlanFacts({ plan }: { plan: StudyPlan }) {
   if (plan.phase === null) {
     return <p className="text-sm text-muted-foreground">No exam date</p>;
   }
+  const wontFit = plan.topics.filter((topic) => topic.fits === false);
   return (
     <div className="flex flex-col gap-1 text-sm">
       <p>{phaseHeading(plan.phase)}</p>
@@ -24,21 +24,14 @@ export function StudyPlanFacts({ plan }: { plan: StudyPlan }) {
         <span className="text-muted-foreground">Weekly hours:</span>{" "}
         {plan.hoursPerWeek === null ? "Not set" : `${plan.hoursPerWeek} h`}
       </p>
-      {plan.share !== null && (
-        <p>
-          <span className="text-muted-foreground">
-            KCs that matter and fit before the final week:
-          </span>{" "}
-          {plan.share}%
-        </p>
-      )}
-      {plan.leftOut.length > 0 && (
+      {plan.fit !== null && <p>{fitText(plan.phase, plan.fit)}</p>}
+      {wontFit.length > 0 && (
         <div>
-          <p className="text-muted-foreground">Left out:</p>
-          <ul aria-label="Left-out KCs" className="list-disc pl-5">
-            {plan.leftOut.map((kc) => (
-              <li key={kc.id}>
-                <Markdown>{kc.name}</Markdown>
+          <p className="text-muted-foreground">Won&apos;t fit:</p>
+          <ul aria-label="Topics that won't fit" className="list-disc pl-5">
+            {wontFit.map((topic) => (
+              <li key={topic.id}>
+                <Markdown>{topic.name}</Markdown>
               </li>
             ))}
           </ul>
@@ -49,11 +42,10 @@ export function StudyPlanFacts({ plan }: { plan: StudyPlan }) {
 }
 
 /**
- * The plan in one line, as the map shows it: the Phase and how much of what
- * matters fits the weekly hours, or what to add in the Brief (`briefHref`)
- * to see it.
+ * The plan in one line, as the map shows it: the fit line, or what to add
+ * in the Brief (`briefHref`) to see it.
  */
-export function PlanLine({
+export function FitLine({
   plan,
   briefHref,
 }: {
@@ -72,7 +64,7 @@ export function PlanLine({
     );
   } else if (plan.phase === "final_week") {
     line = `${PHASE_NAMES.final_week}: review what you've learned.`;
-  } else if (plan.share === null || plan.hoursPerWeek === null) {
+  } else if (plan.fit === null) {
     line = (
       <>
         {phaseHeading(plan.phase)}.{" "}
@@ -80,12 +72,7 @@ export function PlanLine({
       </>
     );
   } else {
-    const count = plan.leftOut.length;
-    const fit =
-      count === 0
-        ? "all KCs that matter fit."
-        : `about ${plan.share}% of the KCs that matter fit; ${count} lowest-Priority ${count === 1 ? "KC won't" : "KCs won't"}.`;
-    line = `${phaseHeading(plan.phase)}. At ${plan.hoursPerWeek} h/week until the final week, ${fit}`;
+    line = fitText(plan.phase, plan.fit);
   }
   return (
     <p aria-label="Study plan" className="text-sm text-muted-foreground">
@@ -94,7 +81,7 @@ export function PlanLine({
   );
 }
 
-/** Marks a KC the weekly hours won't fit before the final week. */
+/** Marks a KC of a Topic that won't fit before the final week. */
 export function LeftOutBadge() {
   return (
     <Badge variant="outline" className="text-muted-foreground">

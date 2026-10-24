@@ -84,8 +84,8 @@ vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
   loadStoredTopics: async (_: unknown, courseId: string) =>
     courseId === COURSE
       ? [
-          { id: "t1", kcs: [THRUST, EFFICIENCY] },
-          { id: "t2", kcs: [NOZZLE] },
+          { id: "t1", name: "Thrust", kcs: [THRUST, EFFICIENCY] },
+          { id: "t2", name: "Nozzles", kcs: [NOZZLE] },
         ]
       : [],
 }));
@@ -126,8 +126,9 @@ describe.each([
     expect(await getTopicStates(courseId)).toEqual({});
     expect(await getPlan(courseId)).toEqual({
       phase: null,
-      share: null,
-      leftOut: [],
+      topics: [],
+      order: [],
+      fit: null,
       hoursPerWeek: null,
     });
   });
@@ -263,25 +264,49 @@ describe("getTopicStates", () => {
 });
 
 describe("getPlan", () => {
-  test("gives the Phase, the share, the left-out names and the weekly hours", async () => {
-    // Half an hour before the final week: one of the two untaught KCs fits.
+  const brief = (hoursPerWeek: string) =>
     db.tables.briefs.push({
       course_id: COURSE,
       exam_date: day(21),
-      hours_per_week: "0.25",
+      hours_per_week: hoursPerWeek,
       goal: null,
     });
 
-    expect(await getPlan(COURSE)).toEqual({
+  test("gives the Topic plan with its fit and the weekly hours", async () => {
+    brief("10");
+
+    const plan = await getPlan(COURSE);
+    expect(plan).toMatchObject({
       phase: "build",
-      share: 66,
-      leftOut: [{ id: EFFICIENCY, name: "Propulsive efficiency" }],
-      hoursPerWeek: 0.25,
+      // t1 is in progress, with Thrust taught.
+      order: ["t1", "t2"],
+      fit: { fitting: 2, inPlan: 2, examWeight: 100 },
+      hoursPerWeek: 10,
+    });
+    expect(plan.topics).toMatchObject([
+      { id: "t1", priority: 0.8, untaught: [EFFICIENCY], fits: true },
+      { id: "t2", priority: 0.1, untaught: [NOZZLE], fits: true },
+    ]);
+  });
+
+  test("leaves out what the weekly hours don't fit", async () => {
+    brief("0.01");
+
+    expect((await getPlan(COURSE)).fit).toEqual({
+      fitting: 0,
+      inPlan: 2,
+      examWeight: 0,
     });
   });
 
   test("has no Phase without an exam date", async () => {
-    expect(await getPlan(COURSE)).toMatchObject({ phase: null, share: null });
+    expect(await getPlan(COURSE)).toMatchObject({ phase: null, fit: null });
+  });
+
+  test("is empty for another Student's Course", async () => {
+    expect(await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).toMatchObject(
+      { phase: null, topics: [], order: [], fit: null },
+    );
   });
 });
 

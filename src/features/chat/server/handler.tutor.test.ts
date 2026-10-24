@@ -137,7 +137,7 @@ describe("the instructions", () => {
     );
   });
 
-  test("give the goal, the Phase and the left-out count when the plan has pacing", async () => {
+  test("give the goal, the Phase and the won't-fit count when the plan has a fit", async () => {
     const model = mockTextModel("Let's go.");
     useMockModels({ chat: model });
     seedMap();
@@ -154,8 +154,9 @@ describe("the instructions", () => {
     const prompt = promptOf(model, 0);
     expect(prompt).toContain("Study phase: build.");
     expect(prompt).toContain("goal is a good grade");
-    expect(prompt).toContain("about 50% of the KCs that matter fit");
-    expect(prompt).toContain("1 lowest-Priority KCs won't");
+    // Half an hour fits neither of the Topic's two KCs.
+    expect(prompt).toContain("cover about 0% of the exam weight");
+    expect(prompt).toContain("1 Topics in the plan won't fit");
   });
 
   test("guide the final week to review, and add no plan without an exam date", async () => {

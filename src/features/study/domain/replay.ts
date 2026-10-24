@@ -79,7 +79,8 @@ export const utcDay = (timestamp: string | Date) =>
 export const daysBetween = (from: string, to: string) =>
   Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
 
-const addDays = (day: string, days: number) =>
+/** The day `days` after a YYYY-MM-DD day, before it when negative. */
+export const addDays = (day: string, days: number) =>
   utcDay(new Date(Date.parse(day) + days * DAY_MS));
 
 /**
@@ -325,6 +326,48 @@ export function finalWeekSweep(
     swept.set(kcId, { card: { ...card, due: new Date(sweepDay) } });
   }
   return swept;
+}
+
+/** The most reviews a forecast counts, a guard against a stuck card. */
+const MAX_FORECAST_REVIEWS = 1000;
+
+/**
+ * The reviews a card gets before the day `until` (YYYY-MM-DD) if every one
+ * is Good, through the replay's scheduler and exam cap: from its due date,
+ * or `now` when it is overdue. Without `card`, a fresh card taught with
+ * Good at `now`, whose teaching is not a review.
+ */
+export function forecastReviews(
+  card: Card | null,
+  {
+    now,
+    until,
+    examDate,
+    retention,
+  }: { now: Date; until: string; examDate: string | null; retention: number },
+): number {
+  const f = scheduler(retention);
+  const good = (at: Date): ReplayAttempt => ({
+    kcId: "",
+    sessionId: "",
+    createdAt: at.toISOString(),
+    kind: "learn",
+    result: "full",
+    help: "none",
+    questionId: "",
+    confidence: null,
+    seconds: null,
+  });
+  let current =
+    card ?? review(f, createEmptyCard(now), good(now), examDate, {});
+  let reviews = 0;
+  while (reviews < MAX_FORECAST_REVIEWS) {
+    const at = new Date(Math.max(current.due.getTime(), now.getTime()));
+    if (utcDay(at) >= until) break;
+    current = review(f, current, good(at), examDate, {});
+    reviews++;
+  }
+  return reviews;
 }
 
 /** Whether a card is due on `today` (YYYY-MM-DD): its due day or later. */

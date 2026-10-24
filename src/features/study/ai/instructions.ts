@@ -122,8 +122,8 @@ function describePlan(context: TutorContext): string[] {
   if (share !== null && leftOutCount !== null) {
     lines.push(
       leftOutCount === 0
-        ? "At the Student's weekly hours, all KCs that matter fit before the final week."
-        : `At the Student's weekly hours, about ${share}% of the KCs that matter fit before the final week; ${leftOutCount} lowest-Priority KCs won't. Mention it only when the Student asks about time.`,
+        ? "At the Student's pace and weekly hours, every Topic in the plan fits before the final week."
+        : `At the Student's pace and weekly hours, the Topics that fit before the final week cover about ${share}% of the exam weight; ${leftOutCount} Topics in the plan won't fit. Mention it only when the Student asks about time.`,
     );
   }
   return [lines.join("\n")];

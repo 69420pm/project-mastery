@@ -8,7 +8,7 @@ import {
 } from "@/features/knowledge-map/server";
 import { chunkAnchor } from "@/features/ingestion/server";
 import { getPriorities } from "@/features/priorities/server";
-import { LeftOutBadge } from "@/features/study";
+import { LeftOutBadge, topicBadges } from "@/features/study";
 import {
   getKcLearning,
   getPlan,
@@ -40,6 +40,7 @@ export default async function TopicPage({
     ]);
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic) notFound();
+  const topicPlan = plan.topics.find(({ id }) => id === topicId);
 
   return (
     <TopicDetail
@@ -69,9 +70,10 @@ export default async function TopicPage({
       map={map}
       priorities={priorities}
       learning={learning}
-      leftOut={plan.leftOut.map((kc) => kc.id)}
+      leftOut={plan.topics.flatMap((t) => (t.fits === false ? t.untaught : []))}
       leftOutBadge={<LeftOutBadge />}
       topicState={topicStates[topic.id]}
+      badges={topicPlan ? topicBadges(topicPlan) : []}
     />
   );
 }

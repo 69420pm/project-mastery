@@ -13,7 +13,7 @@ import type {
   MapTopicState,
 } from "@/features/knowledge-map/types";
 import { KnowledgeMap } from "./knowledge-map";
-import { RecallBar, TopicStateBadge } from "./topic-state";
+import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
 
 /**
  * A Topic's page: its name, Big idea, Topic state and recall today, central
@@ -35,11 +35,14 @@ export function TopicDetail({
   leftOut,
   leftOutBadge,
   topicState,
+  badges,
 }: {
   courseId: string;
   topic: MapTopicDetail;
   /** The Topic's state and recall today; undefined while it is new. */
   topicState?: MapTopicState;
+  /** The study plan's badges of the Topic, such as "won't fit". */
+  badges?: string[];
   topics: MapTopic[];
   map: KnowledgeMapView;
   priorities: MapPriorities;
@@ -62,6 +65,7 @@ export function TopicDetail({
       />
       <div className="flex max-w-sm items-end gap-3">
         <TopicStateBadge topicState={topicState} />
+        <PlanBadges badges={badges} />
         <div className="flex-1">
           <RecallBar topicState={topicState} />
         </div>

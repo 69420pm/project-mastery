@@ -4,7 +4,7 @@ import type {
   KnowledgeMapView,
   MapTopic,
 } from "@/features/knowledge-map/types";
-import { PlanLine, type StudyPlan } from "@/features/study";
+import { FitLine, type StudyPlan } from "@/features/study";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -87,8 +87,9 @@ const topics: MapTopic[] = [
 
 const plan: StudyPlan = {
   phase: "build",
-  share: 100,
-  leftOut: [],
+  topics: [],
+  order: [],
+  fit: { fitting: 9, inPlan: 12, examWeight: 84 },
   hoursPerWeek: 5,
 };
 
@@ -104,9 +105,18 @@ const renderMap = (
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
-      planLine={<PlanLine plan={studyPlan} briefHref="/brief" />}
+      topicBadges={{ t2: ["won't fit"] }}
+      planLine={<FitLine plan={studyPlan} briefHref="/brief" />}
     />,
   );
+
+test("a card shows its plan badges", async () => {
+  renderMap(map, topics);
+  const card = await screen.findByRole("link", { name: "Nozzles" });
+  expect(within(card).getByLabelText("Plan")).toHaveTextContent("won't fit");
+  const other = screen.getByRole("link", { name: "Momentum" });
+  expect(within(other).queryByLabelText("Plan")).toBeNull();
+});
 
 test("each Topic is a card opening its Topic page", async () => {
   renderMap(map, topics);
@@ -157,29 +167,23 @@ describe("the plan line", () => {
 
   test.each<[string, Partial<StudyPlan>, string]>([
     [
-      "left-out KCs",
-      {
-        share: 70,
-        leftOut: [
-          { id: "k1", name: "k1" },
-          { id: "k2", name: "k2" },
-        ],
-      },
-      "Build phase. At 5 h/week until the final week, about 70% of the KCs that matter fit; 2 lowest-Priority KCs won't.",
+      "the fit",
+      {},
+      "Build phase. At your pace, 9 of 12 Topics fit, covering 84% of exam weight.",
     ],
     [
-      "everything fitting",
-      { phase: "deepen" },
-      "Deepen phase. At 5 h/week until the final week, all KCs that matter fit.",
+      "the fit without exam weight",
+      { phase: "deepen", fit: { fitting: 1, inPlan: 1, examWeight: null } },
+      "Deepen phase. At your pace, 1 of 1 Topic fit.",
     ],
     [
       "the final week",
-      { phase: "final_week", share: null },
+      { phase: "final_week", fit: null },
       "Final week: review what you've learned.",
     ],
     [
       "no hours",
-      { share: null, hoursPerWeek: null },
+      { fit: null, hoursPerWeek: null },
       "Build phase. Add your weekly hours in the Brief to see your pace.",
     ],
   ])("shows %s", (_, overrides, text) => {
@@ -191,7 +195,7 @@ describe("the plan line", () => {
     renderMap(map, topics, {
       ...plan,
       phase: null,
-      share: null,
+      fit: null,
       hoursPerWeek: null,
     });
     expect(

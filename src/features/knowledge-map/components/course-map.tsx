@@ -14,6 +14,7 @@ import type {
   MapKcLearning,
   MapPriorities,
   MapTopic,
+  MapTopicBadges,
   MapTopicStates,
 } from "@/features/knowledge-map/types";
 import { CourseMapGraph } from "./course-map-graph";
@@ -32,8 +33,9 @@ const BUILD_POLL_MS = 2000;
  * map, the Priorities' state, the reviews due and the study plan's line
  * (`planLine`, a slot, since the study feature that owns the plan depends on
  * this one), then its Topics on its Big ideas as a graph filling the rest of
- * the page, each with its Topic state and recall today from `topicStates`,
- * which the page passes in since the study feature computes them. The page
+ * the page, each with its Topic state and recall today from `topicStates`
+ * and its plan badges from `topicBadges`, which the page passes in since
+ * the study feature computes them. The page
  * refreshes itself while a build or a priority run runs.
  */
 export function CourseMap({
@@ -42,6 +44,7 @@ export function CourseMap({
   priorities,
   learning,
   topicStates,
+  topicBadges,
   planLine,
 }: {
   map: KnowledgeMapView;
@@ -50,6 +53,7 @@ export function CourseMap({
   priorities: MapPriorities;
   learning: MapKcLearning;
   topicStates: MapTopicStates;
+  topicBadges: MapTopicBadges;
   planLine: ReactNode;
 }) {
   const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
@@ -101,7 +105,12 @@ export function CourseMap({
         </div>
       ) : (
         <div className="min-h-96 flex-1">
-          <CourseMapGraph map={map} topics={topics} topicStates={topicStates} />
+          <CourseMapGraph
+            map={map}
+            topics={topics}
+            topicStates={topicStates}
+            topicBadges={topicBadges}
+          />
         </div>
       )}
     </div>

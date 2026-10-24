@@ -8,7 +8,7 @@ import {
   loadCourseTopics,
 } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
-import { PlanLine } from "@/features/study";
+import { FitLine, topicBadges } from "@/features/study";
 import {
   getKcLearning,
   getPlan,
@@ -56,7 +56,10 @@ export default async function CourseMapPage({
       priorities={priorities}
       learning={learning}
       topicStates={topicStates}
-      planLine={<PlanLine plan={plan} briefHref={briefPath(courseId)} />}
+      topicBadges={Object.fromEntries(
+        plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
+      )}
+      planLine={<FitLine plan={plan} briefHref={briefPath(courseId)} />}
     />
   );
 }

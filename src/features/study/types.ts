@@ -5,7 +5,7 @@ import type {
   KcState,
   KcStateName,
 } from "@/features/study/domain/replay";
-import type { Phase } from "@/features/study/domain/plan";
+import type { Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
 export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
@@ -24,9 +24,9 @@ export type TutorContext = {
   hasMap: boolean;
   /** Where the study stands (`planStudy`); null without a running exam date. */
   phase: Phase | null;
-  /** The whole percent of relevant KCs that fit; null without pacing. */
+  /** The fit's exam weight, a whole percent; null without one. */
   share: number | null;
-  /** How many relevant KCs won't fit; null without pacing. */
+  /** How many in-plan Topics won't fit; null without a fit. */
   leftOutCount: number | null;
   /** The Student's goal from the Brief; null until answered. */
   goal: "pass" | "good_grade" | "master_everything" | null;
@@ -41,18 +41,10 @@ export type TutorContext = {
 };
 
 /**
- * A Course's study plan as the map page shows it (`planStudy`): no Phase
- * without an exam date or once it has passed; share and left-out KCs only
- * with pacing.
+ * A Course's study plan over its Topics as the map and the Brief show it
+ * (`planStudy`), with the Brief's weekly hours.
  */
-export type StudyPlan = {
-  phase: Phase | null;
-  /** The whole percent of relevant KCs that fit; null without pacing. */
-  share: number | null;
-  /** The relevant KCs that won't fit. */
-  leftOut: Array<{ id: string; name: string }>;
-  hoursPerWeek: number | null;
-};
+export type StudyPlan = Plan & { hoursPerWeek: number | null };
 
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {

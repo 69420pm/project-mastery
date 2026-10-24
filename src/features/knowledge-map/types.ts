@@ -198,6 +198,12 @@ export type MapTopicState = {
  */
 export type MapTopicStates = Record<string, MapTopicState>;
 
+/**
+ * The study plan's badges of each Topic, such as "won't fit", which the
+ * page passes in, by Topic id. A Topic missing here has none.
+ */
+export type MapTopicBadges = Record<string, string[]>;
+
 /** A Topic as its page shows it, with what a Student reads around it. */
 export type MapTopicDetail = MapTopic & {
   whyItMatters: string;

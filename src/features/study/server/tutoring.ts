@@ -32,7 +32,7 @@ import {
   saveAttempts,
 } from "@/features/study/server/questions";
 import { getSessionEnd } from "@/features/study/server/sessions";
-import { planStudy } from "@/features/study/domain/plan";
+import { loadPlan } from "@/features/study/server/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import type { TutorContext } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
@@ -66,21 +66,21 @@ export async function startTutoring(
   const hasMap = map.kcs.length > 0;
   const today = utcDay(now);
   const taught = new Set(schedules.keys());
-  const { phase, pacing } = planStudy({
-    kcs: map.kcs,
-    priorities,
-    taught,
-    exam,
-    today,
-  });
+  const { phase, topics, fit } = await loadPlan(
+    supabase,
+    courseId,
+    { prerequisites: map.prerequisites, priorities, exam, schedules },
+    now,
+  );
   return {
     context: {
       today,
       examDate,
       hasMap,
       phase,
-      share: pacing?.share ?? null,
-      leftOutCount: pacing?.leftOut.length ?? null,
+      share: fit?.examWeight ?? null,
+      leftOutCount:
+        fit === null ? null : topics.filter((t) => t.fits === false).length,
       goal: exam.goal,
       memory,
       mapPath: courseMapPath(courseId),

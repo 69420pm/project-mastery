@@ -26,6 +26,20 @@ export function TopicStateBadge({
   );
 }
 
+/** A Topic's study plan badges, such as "won't fit"; nothing without. */
+export function PlanBadges({ badges = [] }: { badges?: string[] }) {
+  if (badges.length === 0) return null;
+  return (
+    <div aria-label="Plan" className="flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <Badge key={badge} variant="outline" className="text-muted-foreground">
+          {badge}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 /** A Topic's recall today as a labelled bar; 0 without a Topic state. */
 export function RecallBar({ topicState }: { topicState?: MapTopicState }) {
   const percent = Math.round((topicState?.recall ?? 0) * 100);

@@ -19,18 +19,19 @@ FSRS scheduling is not a part of its own: code replays each KC's card from the a
 
 1. The role, three rules, the tutoring guidance, the Memory guidance, the scope and the format. The rules are: never give a solution before the Student has tried; every activity asks the Student to produce something; claims about the course cite the Material and page.
 2. Today's date, the exam date, and the Memory in full when there is one.
-3. The plan: the Phase, the goal, the guidance for the Phase, and the share of relevant KCs that fit the weekly hours.
+3. The plan: the Phase, the goal, the guidance for the Phase, and the exam weight that fits the weekly hours.
 4. The due reviews, when the Course has a map.
 5. The candidates, grouped by big idea with their anchors. Without a map, a note says so and points to the map page.
 
-### Plan (#106)
+### Plan over Topics (#177)
 
-`planStudy` (`src/features/study/domain/plan.ts`) is pure code on UTC days. A relevant KC is one that is not prior knowledge and has a Priority above 0, or no Priority yet.
+`planStudy` (`src/features/study/domain/plan.ts`) is pure code on UTC days over the stored Topics. A Topic's priority is the sum of its KCs' Priorities, a missing one counting as 0.
 
-- **Phase.** _Final week_ when the exam is within 7 days. _Deepen_ when every relevant KC is taught. _Build_ otherwise, including before the map is built. There is no Phase without an exam date, or after it has passed.
-- **Pacing.** Only with weekly hours and outside the final week. The hours until the final week are the weekly hours times (days left − 7) ÷ 7. At a fixed 30 minutes per KC, that many untaught relevant KCs fit, highest Priority first and then by name. The share is the taught and fitting KCs as a whole percent of the relevant ones, and the rest are left out.
-- **Where it shows.** The map page's plan line, with a "won't fit" badge on each left-out KC. The AI gets the same figures as one line, and mentions them only when the Student asks about time.
-- **Goal.** "to pass", "a good grade" or "to master everything" tells the AI how to weigh breadth against depth. It moves no KC.
+- **Topics in the plan.** _To pass_ takes Topics by priority until their sum reaches 80% of the total, the crossing Topic included. _A good grade_ and no goal take every Topic with priority above 0, _to master everything_ every Topic. Before any Priority, every Topic is in. The rest are _if time allows_. A pin always adds a Topic and a skip always removes it.
+- **Phase.** _Final week_ when the exam is within 7 days. _Deepen_ when every in-plan Topic is learned, solid or needs work. _Build_ otherwise. There is no Phase without an exam date, or after it has passed.
+- **Order.** The in-plan Topics that are new or in progress: pinned first, then in progress, then by priority per estimated minute, ties in Course order. A Topic never comes before one that reaches it over the Topic arrows, unless both are on a cycle.
+- **Fit.** Only with weekly hours and outside the final week. The budget is the weekly hours times the days until the final week ÷ 7, minus the review minutes of the existing cards, each reviewed Good through the replay's scheduler and exam cap until the final week (`forecastReviews`). Each Topic in order costs its untaught KCs × (minutes per KC + a fresh card's review minutes); from the first that doesn't fit, none fits. The pace is a fixed 30 minutes per KC and 2 per review until it is measured.
+- **Where it shows.** The fit line on the map ("Build phase. At your pace, 9 of 12 Topics fit, covering 84% of exam weight.") and in the Brief with the Topics that won't fit, and the badges _pinned_, _skipped_, _won't fit_ and _if time allows_ on the cards and the Topic page. The AI gets the exam weight and the count of Topics that won't fit as one line, and mentions them only when the Student asks about time.
 
 ### Due reviews and candidates
 

@@ -38,6 +38,7 @@ const COURSE_TABLES = [
   "briefs",
   "chunks",
   "memories",
+  "topics",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -81,9 +82,12 @@ function createDb() {
       question_kcs: [],
       attempts: [],
       memories: [],
+      topics: [],
+      topic_kcs: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
+      topic_kcs: { topic_id: "topics" },
       questions: { session_id: "study_sessions" },
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
@@ -178,6 +182,16 @@ function createDb() {
         return tables.questions.some(
           (question) =>
             question.id === row.question_id && question.owner === signedIn,
+        );
+      }
+      if (table === "topic_kcs") {
+        return tables.topics.some(
+          (topic) =>
+            topic.id === row.topic_id &&
+            tables.courses.some(
+              (course) =>
+                course.id === topic.course_id && course.owner === signedIn,
+            ),
         );
       }
       if ((COURSE_TABLES as readonly string[]).includes(table)) {
@@ -322,6 +336,8 @@ export const MAP = {
   thrust: "aaaaaaaa-0000-4000-8000-000000000002",
   /** Propulsive efficiency, which needs thrust first. */
   efficiency: "aaaaaaaa-0000-4000-8000-000000000003",
+  /** The one Topic, holding thrust then efficiency. */
+  topic: "aaaaaaaa-7000-4000-8000-000000000001",
   material: "aaaaaaaa-a000-4000-8000-000000000001",
   chunks: [
     "aaaaaaaa-c400-4000-8000-000000000001",
@@ -366,6 +382,19 @@ export function seedMap() {
       { ...owned, id: 1, from_kc: MAP.prior, to_kc: MAP.thrust },
       { ...owned, id: 2, from_kc: MAP.thrust, to_kc: MAP.efficiency },
     ].map((link) => ({ ...link, extraction_confidence: 1 })),
+  );
+  db.tables.topics.push({
+    course_id: COURSE,
+    id: MAP.topic,
+    big_idea_id: MAP.bigIdea,
+    position: 0,
+    name: "Thrust",
+    central_question: "How does an engine make thrust?",
+    why_it_matters: "Every engine question starts here.",
+  });
+  db.tables.topic_kcs.push(
+    { topic_id: MAP.topic, kc_id: MAP.thrust, position: 0 },
+    { topic_id: MAP.topic, kc_id: MAP.efficiency, position: 1 },
   );
   db.tables.kc_priorities.push({
     ...owned,
