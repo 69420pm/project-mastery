@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(12);
 
 insert into auth.users (id, email)
 values
@@ -99,6 +99,25 @@ select throws_ok(
   $$select public.replace_reading_sections('aaaaaaaa-0000-0000-0000-000000000001', '[]')$$,
   '42501', null, 'a Student cannot call replace_reading_sections');
 reset role;
+
+-- A build that reached its Daily limit stores what it judged and stays building.
+update public.knowledge_map_builds set status = 'building'
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+set local role service_role;
+select replace_reading_sections('aaaaaaaa-0000-0000-0000-000000000001', '[]', false);
+reset role;
+select is((select status from public.knowledge_map_builds
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  'building', 'a partial store leaves the build running');
+
+-- The mode and its text go together.
+select throws_ok(
+  $$insert into public.reading_sections (owner, course_id, topic_id, material_id, position,
+      page_from, page_to, chunk_ids, mode, reason)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
+      'dddddddd-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001', 5,
+      1, 1, '{cccccccc-0000-0000-0000-000000000001}', 'annotated', 'Gaps.')$$,
+  '23514', null, 'an annotated section needs its notes');
 
 select * from finish();
 rollback;

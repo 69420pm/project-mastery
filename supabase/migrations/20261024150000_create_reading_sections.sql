@@ -24,6 +24,10 @@ create table public.reading_sections (
   -- Null, or Markdown.
   study_text text,
   generated_at timestamptz not null default now(),
+  -- An annotated section has notes, a study-text section its text, an
+  -- original one neither.
+  check ((mode = 'annotated') = (annotations is not null)
+    and (mode = 'study_text') = (study_text is not null)),
   unique (topic_id, position) deferrable initially deferred
 );
 
@@ -43,14 +47,18 @@ using ((select auth.uid()) = owner);
 revoke all on table public.reading_sections from anon, authenticated;
 grant select on table public.reading_sections to authenticated;
 
--- Makes the Course's Reading sections the given ones and marks the running
--- build built. Each is a JSON object { id, topic, material, position,
+-- Makes the Course's Reading sections the given ones and, unless
+-- p_mark_built is false, marks the running build built. A build that reached
+-- its Daily limit stores the sections it judged with p_mark_built false and
+-- then fails. Each is a JSON object { id, topic, material, position,
 -- pageFrom, pageTo, chunkIds, mode, reason, annotations, studyText }. A
 -- stored section named by its id keeps its row, mode and texts and takes
 -- only the position and pages; a null or unknown id inserts. Stored sections
 -- left out go. Topics and Materials of another Course are skipped. Does
 -- nothing when no build runs.
-create function public.replace_reading_sections(p_course_id uuid, p_sections jsonb)
+create function public.replace_reading_sections(
+  p_course_id uuid, p_sections jsonb, p_mark_built boolean default true
+)
 returns boolean
 language plpgsql
 security invoker
@@ -100,20 +108,22 @@ begin
     page_from = excluded.page_from,
     page_to = excluded.page_to;
 
-  update public.knowledge_map_builds
-  set status = 'built', failure_reason = null, finished_at = now()
-  where course_id = p_course_id;
+  if p_mark_built then
+    update public.knowledge_map_builds
+    set status = 'built', failure_reason = null, finished_at = now()
+    where course_id = p_course_id;
+  end if;
 
   return true;
 end;
 $$;
 
-comment on function public.replace_reading_sections(uuid, jsonb) is
-  'Makes a Course''s stored Reading sections the given ones, keeping the rows of stored sections it names, and marks the running build built, in one transaction. Build workflow (service role) only.';
+comment on function public.replace_reading_sections(uuid, jsonb, boolean) is
+  'Makes a Course''s stored Reading sections the given ones, keeping the rows of stored sections it names, and unless p_mark_built is false marks the running build built, in one transaction. Build workflow (service role) only.';
 
-revoke execute on function public.replace_reading_sections(uuid, jsonb)
+revoke execute on function public.replace_reading_sections(uuid, jsonb, boolean)
   from public, anon, authenticated;
-grant execute on function public.replace_reading_sections(uuid, jsonb) to service_role;
+grant execute on function public.replace_reading_sections(uuid, jsonb, boolean) to service_role;
 
 -- `replace_topics` no longer marks the build built: it stays `building`
 -- until `replace_reading_sections`. This definition is the one of

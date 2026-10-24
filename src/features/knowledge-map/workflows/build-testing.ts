@@ -11,7 +11,8 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
  * of KCs or big ideas that go go with them. `replace_topics` makes the
  * stored Topics the given ones, keeping stored ids, and
  * `replace_reading_sections` makes the stored Reading sections the given
- * ones, keeping stored rows, and marks the build built.
+ * ones, keeping stored rows, and marks the build built unless
+ * `p_mark_built` is false.
  */
 export function createMapDb(courseId: string) {
   return fakeSupabase({
@@ -79,6 +80,7 @@ export function createMapDb(courseId: string) {
             study_text: kept ? kept.study_text : section.studyText,
           };
         });
+        if (args.p_mark_built === false) return true;
         Object.assign(build, {
           status: "built",
           failure_reason: null,

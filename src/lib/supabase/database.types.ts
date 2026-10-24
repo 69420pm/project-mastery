@@ -1870,7 +1870,11 @@ export type Database = {
         Returns: undefined;
       };
       replace_reading_sections: {
-        Args: { p_course_id: string; p_sections: Json };
+        Args: {
+          p_course_id: string;
+          p_mark_built?: boolean;
+          p_sections: Json;
+        };
         Returns: boolean;
       };
       replace_topics: {

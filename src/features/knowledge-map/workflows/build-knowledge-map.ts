@@ -116,8 +116,9 @@ import {
  * fails the build with a reason: before the map is stored, it leaves the
  * stored map and its chunks new; in the Topics stage, the map stays stored
  * and the next update runs the Topics stage again; in the Reading stage, the
- * Topics stay stored. A failed `reading` call only leaves its section
- * `original`. A deleted Course stops it quietly.
+ * Topics and the sections judged so far are stored, and the next update
+ * judges the rest. A failed `reading` call only leaves its section
+ * `original`, for good. A deleted Course stops it quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -319,8 +320,10 @@ async function buildTopics(courseId: string): Promise<StepOutcome<null>> {
  * Stage 2c, Reading (#178), on the stored Topics: cuts each Topic's Reading
  * sections from the chunks its KCs cite and keeps the stored sections with
  * the same chunks. Each new section gets a mode call and, unless it stays
- * `original`, a writing call (`judgeSection`), all sections at once. Storing
- * the sections marks the build built; a reached Daily limit stores none.
+ * `original`, a writing call (`judgeSection`), `READING_BATCH` sections at a
+ * time. Storing the sections marks the build built. A reached Daily limit
+ * starts no further batch and stores the kept and judged sections without
+ * marking the build built, so the next build judges only the missing ones.
  */
 async function buildReading(courseId: string): Promise<StepOutcome<null>> {
   const input = await loadReadingInput(courseId);
@@ -344,30 +347,47 @@ async function buildReading(courseId: string): Promise<StepOutcome<null>> {
           fresh.flatMap((section) => section.cut.chunkIds),
         )
       : {};
-  const judged = await Promise.all(
-    fresh.map((section) => {
-      const topic = input.topics.find((item) => item.id === section.topicId);
-      if (!topic) throw new Error(`Unknown topic ${section.topicId}.`);
-      return judgeSection(
-        input.studentId,
-        readingCallInput(topic, section.cut, input.kcs, chunks),
-      );
-    }),
-  );
-  const failure = judged.find((outcome) => !outcome.ok);
-  if (failure) return failure;
-  const texts = new Map(
-    fresh.map((section, index) => {
-      const outcome = judged[index];
-      return [section, outcome?.ok ? outcome.value : null];
-    }),
-  );
+  const texts = new Map<
+    (typeof fresh)[number],
+    Pick<ReadingSection, "mode" | "reason" | "annotations" | "studyText">
+  >();
+  let failure: { ok: false; reason: string } | null = null;
+  for (let start = 0; start < fresh.length; start += READING_BATCH) {
+    const batch = fresh.slice(start, start + READING_BATCH);
+    const judged = await Promise.all(
+      batch.map((section) => {
+        const topic = input.topics.find((item) => item.id === section.topicId);
+        if (!topic) throw new Error(`Unknown topic ${section.topicId}.`);
+        return judgeSection(
+          input.studentId,
+          readingCallInput(topic, section.cut, input.kcs, chunks),
+        );
+      }),
+    );
+    for (const [index, outcome] of judged.entries()) {
+      const section = batch[index];
+      if (outcome.ok && section) texts.set(section, outcome.value);
+      else if (!outcome.ok) failure ??= outcome;
+    }
+    if (failure) break;
+  }
   await storeReadingSections(
     courseId,
-    sections.map((section) => ({ ...section, ...texts.get(section) })),
+    sections.flatMap((section) => {
+      if (section.id !== null) return [section];
+      const judged = texts.get(section);
+      return judged ? [{ ...section, ...judged }] : [];
+    }),
+    failure === null,
   );
-  return { ok: true, value: null };
+  return failure ?? { ok: true, value: null };
 }
+
+/**
+ * The most new sections whose `reading` calls run at once. The Daily limit
+ * is checked per call, so this bounds how far a build overshoots it.
+ */
+const READING_BATCH = 4;
 
 /**
  * A new section's mode and texts: the mode call, then for an `annotated` or

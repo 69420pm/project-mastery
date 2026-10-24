@@ -155,17 +155,21 @@ export async function writeReading(
 }
 
 /**
- * Makes the stored Reading sections these and marks the build built, in one
- * transaction. A section with an id keeps its stored mode and texts; a new
- * one is stored with its own. Does nothing when no build runs any more.
+ * Makes the stored Reading sections these and, when `complete`, marks the
+ * build built, in one transaction. A section with an id keeps its stored
+ * mode and texts; a new one is stored with its own. A build that reached its
+ * Daily limit stores the sections it judged with `complete` false, so the
+ * next build judges only the rest. Does nothing when no build runs any more.
  */
 export async function storeReadingSections(
   courseId: string,
   sections: SectionToStore[],
+  complete = true,
 ): Promise<void> {
   "use step";
   const { error } = await createAdminClient().rpc("replace_reading_sections", {
     p_course_id: courseId,
+    p_mark_built: complete,
     p_sections: sections.map(({ id, topicId, position, cut, ...rest }) => ({
       id,
       topic: topicId,

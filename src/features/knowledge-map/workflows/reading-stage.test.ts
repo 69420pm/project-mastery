@@ -179,6 +179,52 @@ describe("the Reading stage", () => {
     expect(db.tables.reading_sections).toEqual([]);
   });
 
+  test("a Daily limit reached mid-stage stores the judged sections, and the next build judges only the rest", async () => {
+    let spent = false;
+    const { models, sent } = course((input) => {
+      const { pageFrom } = input.section as { pageFrom: number };
+      if (pageFrom === 1) return { mode: "original", reason: "Reads well." };
+      if ("mode" in input) return { text: "Thrust. [p. 4]" };
+      if (spent) return { mode: "study_text", reason: "Terse." };
+      // The second section's first mode call spends past the limit, so its
+      // writing call stops.
+      spent = true;
+      vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+      db.tables.ai_usage.push({
+        owner: STUDENT,
+        task: "chat",
+        cost_usd: 5,
+        created_at: new Date().toISOString(),
+      });
+      return { mode: "study_text", reason: "Terse." };
+    });
+    useMockModels(models);
+
+    expect(await update()).toBe("failed");
+    expect(db.tables.knowledge_map_builds[0]?.failure_reason).toBe(
+      "Daily limit reached",
+    );
+    expect(stored()).toEqual([
+      expect.objectContaining({ pages: [1, 3], reason: "Reads well." }),
+    ]);
+
+    // The next day: the spend no longer counts.
+    db.tables.ai_usage = db.tables.ai_usage.filter(
+      (row) => row.task !== "chat",
+    );
+    const before = sent.filter(isReadingCall).length;
+    expect(await update()).toBe("built");
+    const rerun = sent.filter(isReadingCall).slice(before);
+    expect(rerun.map((input) => input.section)).toEqual([
+      expect.objectContaining({ pageFrom: 4 }),
+      expect.objectContaining({ pageFrom: 4 }),
+    ]);
+    expect(stored()).toEqual([
+      expect.objectContaining({ pages: [1, 3], reason: "Reads well." }),
+      expect.objectContaining({ pages: [4, 5], mode: "study_text" }),
+    ]);
+  });
+
   test("a rerun keeps the stored sections with their modes and makes no call", async () => {
     const { models, sent } = course();
     useMockModels(models);
