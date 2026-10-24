@@ -18,6 +18,8 @@ const goldSchema = z.object({
       bloom: z.string().nullable(),
       bigIdea: z.string().nullable(),
       origin: z.string(),
+      /** Positions in `chunks.json`. */
+      sources: z.array(z.number()),
     }),
   ),
   prerequisites: z.array(

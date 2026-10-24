@@ -96,7 +96,10 @@ describe("updating a Knowledge map", () => {
       { id: expect.any(String), name: "Drag" },
     ]);
     expect(db.tables.exercises.map((row) => row.id)).toEqual([exercise]);
-    const secondCalls = sent.slice(firstCalls);
+    // The map's calls, without the Reading stage's.
+    const secondCalls = sent
+      .slice(firstCalls)
+      .filter((input) => !("section" in input));
     expect(secondCalls.flatMap((input) => input.chunks ?? [])).toEqual([
       { id: "c1", label: "content", markdown: "Drag opposes motion." },
     ]);

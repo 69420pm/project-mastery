@@ -33,8 +33,17 @@ import {
   type Prerequisite,
 } from "@/features/knowledge-map/domain/links";
 import {
+  MODE_CALL_FAILED_REASON,
+  WRITING_CALL_FAILED_REASON,
+} from "@/features/knowledge-map/domain/reading-checks";
+import {
+  readingCallInput,
+  type ReadingCallInput,
+} from "@/features/knowledge-map/domain/reading-input";
+import {
   readingSections,
   sectionsToStore,
+  type ReadingSection,
 } from "@/features/knowledge-map/domain/topic-reading";
 import {
   topicsOnMap,
@@ -64,8 +73,11 @@ import {
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 import {
+  chooseReadingMode,
+  loadReadingChunks,
   loadReadingInput,
   storeReadingSections,
+  writeReading,
 } from "@/features/knowledge-map/workflows/reading-steps";
 import {
   groupTopics,
@@ -97,13 +109,15 @@ import {
  * stored with its check report, keeping the ids of its stored rows, and the
  * new chunks are recorded as processed. (2b) The Topics stage then groups
  * the stored map's unplaced KCs into Topics (`buildTopics`). (2c) The Reading
- * stage then cuts each Topic's Reading sections (`buildReading`), and
- * storing them marks the build built. With nothing new and every KC placed,
- * the update makes no model call. A step that fails for good, or a reached
- * Daily limit, fails the build with a reason: before the map is stored, it
- * leaves the stored map and its chunks new; in the Topics stage, the map
- * stays stored and the next update runs the Topics stage again. A deleted
- * Course stops it quietly.
+ * stage then cuts each Topic's Reading sections and gives each new one a
+ * reading mode and texts (`buildReading`), and storing them marks the build
+ * built. With nothing new, every KC placed and no new section, the update
+ * makes no model call. A step that fails for good, or a reached Daily limit,
+ * fails the build with a reason: before the map is stored, it leaves the
+ * stored map and its chunks new; in the Topics stage, the map stays stored
+ * and the next update runs the Topics stage again; in the Reading stage, the
+ * Topics stay stored. A failed `reading` call only leaves its section
+ * `original`. A deleted Course stops it quietly.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -261,7 +275,8 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       await failBuild(courseId, topics.reason);
       return;
     }
-    await buildReading(courseId);
+    const reading = await buildReading(courseId);
+    if (!reading.ok) await failBuild(courseId, reading.reason);
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);
@@ -302,26 +317,98 @@ async function buildTopics(courseId: string): Promise<StepOutcome<null>> {
 
 /**
  * Stage 2c, Reading (#178), on the stored Topics: cuts each Topic's Reading
- * sections from the chunks its KCs cite, keeps the stored sections with the
- * same chunks and stores the rest as new `original` sections, which marks
- * the build built. Makes no model call yet.
+ * sections from the chunks its KCs cite and keeps the stored sections with
+ * the same chunks. Each new section gets a mode call and, unless it stays
+ * `original`, a writing call (`judgeSection`), all sections at once. Storing
+ * the sections marks the build built; a reached Daily limit stores none.
  */
-async function buildReading(courseId: string): Promise<void> {
+async function buildReading(courseId: string): Promise<StepOutcome<null>> {
   const input = await loadReadingInput(courseId);
-  if (!input) return;
+  if (!input) return { ok: true, value: null };
+  const sections = sectionsToStore(
+    input.topics.map((topic) => ({
+      topicId: topic.id,
+      sections: readingSections(
+        topic.kcs.flatMap(
+          (id) => input.kcs.find((kc) => kc.id === id)?.sources ?? [],
+        ),
+        input.spans,
+      ),
+    })),
+    input.stored,
+  );
+  const fresh = sections.filter((section) => section.id === null);
+  const chunks =
+    fresh.length > 0
+      ? await loadReadingChunks(
+          fresh.flatMap((section) => section.cut.chunkIds),
+        )
+      : {};
+  const judged = await Promise.all(
+    fresh.map((section) => {
+      const topic = input.topics.find((item) => item.id === section.topicId);
+      if (!topic) throw new Error(`Unknown topic ${section.topicId}.`);
+      return judgeSection(
+        input.studentId,
+        readingCallInput(topic, section.cut, input.kcs, chunks),
+      );
+    }),
+  );
+  const failure = judged.find((outcome) => !outcome.ok);
+  if (failure) return failure;
+  const texts = new Map(
+    fresh.map((section, index) => {
+      const outcome = judged[index];
+      return [section, outcome?.ok ? outcome.value : null];
+    }),
+  );
   await storeReadingSections(
     courseId,
-    sectionsToStore(
-      input.topics.map((topic) => ({
-        topicId: topic.id,
-        sections: readingSections(
-          topic.kcs.flatMap((id) => input.kcSources[id] ?? []),
-          input.spans,
-        ),
-      })),
-      input.stored,
-    ),
+    sections.map((section) => ({ ...section, ...texts.get(section) })),
   );
+  return { ok: true, value: null };
+}
+
+/**
+ * A new section's mode and texts: the mode call, then for an `annotated` or
+ * `study_text` mode the writing call. A call that fails for good leaves the
+ * section `original` with the reason; a reached Daily limit stops the build.
+ */
+async function judgeSection(
+  studentId: string,
+  input: ReadingCallInput,
+): Promise<
+  StepOutcome<
+    Pick<ReadingSection, "mode" | "reason" | "annotations" | "studyText">
+  >
+> {
+  const original = (reason: string) => ({
+    ok: true as const,
+    value: {
+      mode: "original" as const,
+      reason,
+      annotations: null,
+      studyText: null,
+    },
+  });
+  let judged: Awaited<ReturnType<typeof chooseReadingMode>>;
+  try {
+    judged = await chooseReadingMode(studentId, input);
+  } catch (error) {
+    console.error("The mode call failed:", error);
+    return original(MODE_CALL_FAILED_REASON);
+  }
+  if (!judged.ok) return judged;
+  const { mode, reason } = judged.value;
+  if (mode === "original") return original(reason);
+  try {
+    const written = await writeReading(studentId, input, { mode, reason });
+    if (!written.ok) return written;
+    return { ok: true, value: { mode, reason, ...written.value } };
+  } catch (error) {
+    console.error("The writing call failed:", error);
+    return original(WRITING_CALL_FAILED_REASON);
+  }
 }
 
 /**

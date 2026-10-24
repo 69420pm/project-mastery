@@ -382,6 +382,8 @@ export function mapModel(answers: {
   scope?: (input: Sent) => unknown;
   /** A topic call's answer; by default the new KCs in one new Topic. */
   topic?: (input: Sent) => unknown;
+  /** A reading call's answer; by default the mode `original`. */
+  reading?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
   const embedded: string[][] = [];
@@ -419,7 +421,13 @@ export function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("storedTopics" in input) {
+      if ("section" in input) {
+        // A reading call: the mode call ("mode" not sent) keeps `original`.
+        answer = answers.reading?.(input) ?? {
+          mode: "original",
+          reason: "Reads well.",
+        };
+      } else if ("storedTopics" in input) {
         const kcs = input.kcs as unknown as Array<{
           id: string;
           status: string;
@@ -523,6 +531,12 @@ export function mapModel(answers: {
     model,
     sent,
     embedded,
-    models: { map: model, exercise: model, topic: model, embed },
+    models: {
+      map: model,
+      exercise: model,
+      topic: model,
+      reading: model,
+      embed,
+    },
   };
 }

@@ -11,6 +11,8 @@ export {
   loadCourseChunks,
   type ChunkSpan,
   loadChunkSources,
+  loadChunkTexts,
+  type ChunkText,
   loadExerciseSolutions,
   type ChunkPoints,
 } from "./server/course-chunks";

@@ -145,6 +145,52 @@ export async function loadExerciseSolutions(
   return pairs;
 }
 
+/** A chunk's text as a Reading section shows it. */
+export type ChunkText = {
+  id: string;
+  pageFrom: number;
+  pageTo: number;
+  label: ChunkLabel;
+  markdown: string;
+  /** What its figure shows; null without one. */
+  figureDescription: string | null;
+};
+
+const figureSchema = z.object({ description: z.string() }).nullable();
+
+/**
+ * The texts of the chunks among `chunkIds` that `supabase` may read, by id;
+ * deleted ones are missing. Reads on the admin client, or on a Student's
+ * session client, where Row Level Security scopes it.
+ */
+export async function loadChunkTexts(
+  supabase: Supabase,
+  chunkIds: string[],
+): Promise<Record<string, ChunkText>> {
+  const ids = [...new Set(chunkIds)];
+  const texts: Record<string, ChunkText> = {};
+  // Ids go in the query string, so long lists are read in slices.
+  for (let start = 0; start < ids.length; start += ID_SLICE) {
+    const { data, error } = await supabase
+      .from("chunks")
+      .select("id, page_from, page_to, label, markdown, figure")
+      .in("id", ids.slice(start, start + ID_SLICE));
+    if (error) failed("Loading the chunks", error);
+    for (const chunk of data) {
+      texts[chunk.id] = {
+        id: chunk.id,
+        pageFrom: chunk.page_from,
+        pageTo: chunk.page_to,
+        label: z.enum(CHUNK_LABELS).parse(chunk.label),
+        markdown: chunk.markdown,
+        figureDescription:
+          figureSchema.safeParse(chunk.figure).data?.description ?? null,
+      };
+    }
+  }
+  return texts;
+}
+
 /** Chunk ids per `in` filter, which keeps the query string short. */
 const ID_SLICE = 100;
 

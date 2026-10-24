@@ -4,9 +4,9 @@ import { z } from "zod";
 import { buildKnowledgeMap } from "@/features/knowledge-map/server";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke-check";
 
-const CHUNKS_FILE = "evals/gold/jet-engines/chunks.json";
+export const CHUNKS_FILE = "evals/gold/jet-engines/chunks.json";
 
-const fixtureSchema = z.array(
+export const fixtureSchema = z.array(
   z.object({
     position: z.number(),
     page_from: z.number(),
@@ -183,7 +183,7 @@ export const mapSmoke: SmokeCheck = {
  * A parsed Material of these fixture chunks, positions counted from its
  * first; returns the chunk ids by fixture position.
  */
-async function insertMaterial(
+export async function insertMaterial(
   supabase: Supabase,
   {
     studentId,
