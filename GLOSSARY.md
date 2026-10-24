@@ -92,6 +92,22 @@ _Avoid_: Score, grade, prediction
 Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
 _Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
 
+**If time allows**:
+A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
+_Avoid_: Optional, left out, out of scope
+
+**Won't fit**:
+An untaught Topic of the study plan that the Student's weekly hours, at their measured pace and after the review load, leave no time for before the final week, with every Topic after it in the plan order.
+_Avoid_: Left out, cut, overflow
+
+**Topic choice**:
+A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Memory.
+_Avoid_: Favourite, hide, exclude (an excluded Material is something else)
+
+**Today card**:
+What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and one Start button.
+_Avoid_: Dashboard, daily plan, agenda
+
 **AI**:
 The tutoring intelligence a Student studies with: it explains, asks and gives feedback.
 _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.
