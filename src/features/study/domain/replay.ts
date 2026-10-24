@@ -209,10 +209,39 @@ function review(
 }
 
 /**
+ * One KC's attempts as the replay schedules them; null without a non-`pre`
+ * attempt. `first` is the first session with one, which teaches the KC.
+ * `reviews` are the first attempt of each later session, oldest first,
+ * leaving out a session that ran alongside the first one and started
+ * before its last attempt.
+ */
+export function schedulingAttempts(attempts: ReplayAttempt[]): {
+  firstId: string;
+  first: ReplayAttempt[];
+  reviews: ReplayAttempt[];
+} | null {
+  const scheduling = attempts
+    .filter((attempt) => attempt.kind !== "pre")
+    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
+  if (sessions.length === 0) return null;
+  const [[firstId, first], ...later] = sessions as [
+    [string, ReplayAttempt[]],
+    ...Array<[string, ReplayAttempt[]]>,
+  ];
+  const createdAt = Date.parse(first.at(-1)!.createdAt);
+  const reviews = later
+    .map(([, inSession]) => inSession[0]!)
+    .filter((attempt) => Date.parse(attempt.createdAt) >= createdAt);
+  return { firstId, first, reviews };
+}
+
+/**
  * Replays one KC's attempts into its schedule; null without a non-`pre`
  * attempt. The first session with one creates the card once it has ended,
  * rated by its last attempt there and dated at it. In every later session,
- * only the first attempt is a review; the rest don't schedule.
+ * only the first attempt is a review; the rest don't schedule
+ * (`schedulingAttempts`).
  */
 export function replayKc(
   attempts: ReplayAttempt[],
@@ -228,18 +257,11 @@ export function replayKc(
     medians?: MedianSeconds;
   },
 ): KcSchedule | null {
-  const scheduling = attempts
-    .filter((attempt) => attempt.kind !== "pre")
-    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-  const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
-  if (sessions.length === 0) return null;
-  const [[firstId, first], ...later] = sessions as [
-    [string, ReplayAttempt[]],
-    ...Array<[string, ReplayAttempt[]]>,
-  ];
-  if (!ended(firstId)) return { card: null };
+  const split = schedulingAttempts(attempts);
+  if (split === null) return null;
+  if (!ended(split.firstId)) return { card: null };
   const f = scheduler(retention);
-  const created = first.at(-1)!;
+  const created = split.first.at(-1)!;
   let card = review(
     f,
     createEmptyCard(created.createdAt),
@@ -247,10 +269,7 @@ export function replayKc(
     examDate,
     medians,
   );
-  for (const [, inSession] of later) {
-    const attempt = inSession[0]!;
-    // A session that ran alongside the first one can predate its card.
-    if (Date.parse(attempt.createdAt) < card.last_review!.getTime()) continue;
+  for (const attempt of split.reviews) {
     card = review(f, card, attempt, examDate, medians);
   }
   return { card };

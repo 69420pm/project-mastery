@@ -8,11 +8,13 @@ import {
 import { loadKcPriorities } from "@/features/priorities/server";
 import {
   DEFAULT_PACE,
+  type Pace,
   type Plan,
   planStudy,
 } from "@/features/study/domain/plan";
 import type { KcSchedule } from "@/features/study/domain/replay";
 import { loadSchedules } from "@/features/study/server/attempts";
+import { loadPace } from "@/features/study/server/pace";
 import type { StudyPlan } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -24,12 +26,13 @@ const NO_PLAN: StudyPlan = {
   order: [],
   fit: null,
   hoursPerWeek: null,
+  pace: DEFAULT_PACE,
 };
 
 /**
- * A Course's plan over its stored Topics (`planStudy`), read with
- * `supabase`, from what the caller already loaded. The pace is the fixed
- * default and no Topic is pinned or skipped yet.
+ * A Course's plan over its stored Topics (`planStudy`) at the Student's
+ * measured pace (`loadPace`), read with `supabase`, from what the caller
+ * already loaded, with the pace it used. No Topic is pinned or skipped yet.
  */
 export async function loadPlan(
   supabase: Supabase,
@@ -41,15 +44,13 @@ export async function loadPlan(
     schedules: Map<string, KcSchedule>;
   },
   now: Date,
-): Promise<Plan> {
-  const topics = await loadStoredTopics(supabase, courseId);
-  return planStudy({
-    ...loaded,
-    topics,
-    choices: [],
-    pace: DEFAULT_PACE,
-    now,
-  });
+): Promise<Plan & { pace: Pace }> {
+  const [topics, pace] = await Promise.all([
+    loadStoredTopics(supabase, courseId),
+    loadPace(supabase, courseId, now),
+  ]);
+  const plan = planStudy({ ...loaded, topics, choices: [], pace, now });
+  return { ...plan, pace };
 }
 
 /**

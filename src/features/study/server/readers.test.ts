@@ -63,6 +63,7 @@ function createDb() {
         { id: OPEN_SESSION, course_id: COURSE, chat_id: CHAT, ended_at: null },
       ] as FakeRow[],
       chats: [{ id: CHAT, last_message_at: at(0) }],
+      chat_messages: [] as FakeRow[],
       questions: [{ id: QUESTION, session_id: SESSION, exercise_id: null }],
       attempts: [] as FakeRow[],
     },
@@ -130,6 +131,7 @@ describe.each([
       order: [],
       fit: null,
       hoursPerWeek: null,
+      pace: { minutesPerKc: 30, minutesPerReview: 2 },
     });
   });
 });
@@ -296,6 +298,45 @@ describe("getPlan", () => {
       fitting: 0,
       inPlan: 2,
       examWeight: 0,
+    });
+  });
+
+  test("measures the pace from 3 ended teaching sessions' messages", async () => {
+    // Six active minutes each, teaching one KC: 4 between the Student's
+    // messages and 2 to the AI's last reply.
+    [PRIOR, EFFICIENCY, NOZZLE].forEach((kcId, i) => {
+      const [session, chat] = [`s${i}`, `c${i}`];
+      const start = -3 + i;
+      db.tables.study_sessions.push({
+        id: session,
+        course_id: COURSE,
+        chat_id: chat,
+        ended_at: at(start + 0.1),
+      });
+      db.tables.questions.push({ id: `q${i}`, session_id: session });
+      db.tables.attempts.push({
+        ...attempt(kcId, start),
+        question_id: `q${i}`,
+        session_id: session,
+      });
+      db.tables.chat_messages.push(
+        ...[
+          ["user", 0],
+          ["assistant", 1],
+          ["user", 4],
+          ["assistant", 6],
+        ].map(([role, minutes]) => ({
+          id: randomUUID(),
+          chat_id: chat,
+          role,
+          created_at: at(start + (minutes as number) / 1440),
+        })),
+      );
+    });
+
+    expect((await getPlan(COURSE)).pace).toEqual({
+      minutesPerKc: expect.closeTo(6, 5),
+      minutesPerReview: 2,
     });
   });
 

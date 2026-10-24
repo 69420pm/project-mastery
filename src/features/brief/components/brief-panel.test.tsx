@@ -32,6 +32,7 @@ const plan: StudyPlan = {
   order: [],
   fit: null,
   hoursPerWeek: null,
+  pace: { minutesPerKc: 30, minutesPerReview: 2 },
 };
 
 const renderPanel = (

@@ -5,7 +5,7 @@ import type {
   KcState,
   KcStateName,
 } from "@/features/study/domain/replay";
-import type { Phase, Plan } from "@/features/study/domain/plan";
+import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
 export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
@@ -42,9 +42,10 @@ export type TutorContext = {
 
 /**
  * A Course's study plan over its Topics as the map and the Brief show it
- * (`planStudy`), with the Brief's weekly hours.
+ * (`planStudy`), with the Brief's weekly hours and the measured pace it
+ * used.
  */
-export type StudyPlan = Plan & { hoursPerWeek: number | null };
+export type StudyPlan = Plan & { hoursPerWeek: number | null; pace: Pace };
 
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {
