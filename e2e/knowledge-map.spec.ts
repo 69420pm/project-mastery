@@ -55,21 +55,20 @@ test("a parsed Material is built into a Course map of Topics", async ({
     `/courses/${course.id}/chat`,
   );
 
-  // Skipping the next Topic on its page makes the card name another.
-  const nextLink = today.getByRole("link", {
-    name: /^Mock text from the mock AI/,
-  });
-  const nextHref = await nextLink.getAttribute("href");
-  await nextLink.click();
+  // Skipping the next Topic on its page takes it off the card. The mock
+  // builds a single Topic, so nothing is left to plan.
+  await today
+    .getByRole("link", { name: /^Mock text from the mock AI/ })
+    .click();
   await page.getByRole("button", { name: "Skip", exact: true }).click();
   await expect(page.getByRole("button", { name: "Unskip" })).toBeVisible();
   await expect(page.getByLabel("Plan")).toContainText("skipped");
   await page.goto(`/courses/${course.id}/map`);
+  const todayAfterSkip = page.getByRole("region", { name: "Today" });
+  await expect(todayAfterSkip).toContainText("Nothing planned for today.");
   await expect(
-    page
-      .getByRole("region", { name: "Today" })
-      .getByRole("link", { name: /^Mock text from the mock AI/ }),
-  ).not.toHaveAttribute("href", nextHref!);
+    todayAfterSkip.getByRole("link", { name: /^Mock text from the mock AI/ }),
+  ).toHaveCount(0);
 
   // The mock names every Topic with its text.
   const graph = page.getByRole("application", { name: "Course map graph" });
