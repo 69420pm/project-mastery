@@ -45,7 +45,7 @@ Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS
 _Avoid_: Topic status, Topic progress
 
 **Reading section**:
-A part of a Topic's source pages, about one to three pages in Material order, that a Student reads as the original pages, annotated pages or a study text written from them.
+A part of a Topic's source pages, about one to three pages in Material order, stored per Course with a reading mode: `original` (the pages as they are), `annotated` (the pages with notes on their gaps) or `study_text` (a text written from them).
 _Avoid_: Passage, excerpt, reading
 
 **Prerequisite**:

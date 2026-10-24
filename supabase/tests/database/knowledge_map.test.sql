@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(27);
+select plan(28);
 
 insert into auth.users (id, email)
 values
@@ -109,16 +109,18 @@ select results_eq(
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('building', null::text, '{"uncoveredChunks": []}'::jsonb, false)$$,
   'the build stores its report and runs on to the Topics');
--- Storing the Topics ends the build.
+-- Storing the Reading sections ends the build.
 set local role service_role;
 select is(public.replace_topics('aaaaaaaa-0000-0000-0000-000000000001', '[]'), true,
   'the build stores its Topics');
+select is(public.replace_reading_sections('aaaaaaaa-0000-0000-0000-000000000001', '[]'), true,
+  'the build stores its Reading sections');
 reset role;
 select results_eq(
   $$select status, finished_at is not null from public.knowledge_map_builds
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('built', true)$$,
-  'storing the Topics marks the build built');
+  'storing the Reading sections marks the build built');
 
 -- An update without a running build writes nothing.
 set local role service_role;

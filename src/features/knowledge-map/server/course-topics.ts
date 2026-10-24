@@ -1,12 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import { loadCourseChunkSpans } from "@/features/ingestion/server";
 import {
-  readingSections,
   topicAnchors,
   type ReadingSection,
 } from "@/features/knowledge-map/domain/topic-reading";
 import { loadStoredMap } from "@/features/knowledge-map/server/stored-map";
+import { loadStoredReadingSections } from "@/features/knowledge-map/server/stored-reading-sections";
 import { loadStoredTopics } from "@/features/knowledge-map/server/stored-topics";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -26,14 +25,15 @@ export type CourseTopic = {
   kcs: TopicKc[];
   /** Prerequisites from outside the Topic, prior KCs included, in map order. */
   anchors: TopicKc[];
-  /** The Topic's source chunks, in Material order, cut into short sections. */
+  /** The Topic's stored Reading sections, in order. */
   readingSections: ReadingSection[];
 };
 
 /**
  * The Course's Topics in Course order, each with its KCs in teaching order,
- * its anchors and its Reading sections, which are derived on read (ADR
- * 0020). Empty before a build stored Topics. Reads for the signed-in
+ * its anchors, derived on read, and its stored Reading sections (ADR 0020).
+ * Empty before a build stored Topics; a Topic has no sections before a
+ * build stored them. Reads for the signed-in
  * Student, where Row Level Security leaves another Student's Course empty,
  * or on `client` when given, such as the admin client of a workflow.
  */
@@ -47,9 +47,9 @@ export async function loadCourseTopics(
   const supabase = client ?? (await createClient());
   const topics = await loadStoredTopics(supabase, courseId);
   if (topics.length === 0) return [];
-  const [map, spans] = await Promise.all([
+  const [map, sections] = await Promise.all([
     loadStoredMap(supabase, courseId),
-    loadCourseChunkSpans(supabase, courseId),
+    loadStoredReadingSections(supabase, courseId),
   ]);
   const kcs = new Map(map.kcs.map((kc) => [kc.id, kc]));
   const listed = (id: string): TopicKc => ({
@@ -64,9 +64,6 @@ export async function loadCourseTopics(
     whyItMatters: topic.whyItMatters,
     kcs: topic.kcs.map(listed),
     anchors: topicAnchors(topic.kcs, map),
-    readingSections: readingSections(
-      topic.kcs.flatMap((id) => kcs.get(id)?.sources ?? []),
-      spans,
-    ),
+    readingSections: sections.get(topic.id) ?? [],
   }));
 }

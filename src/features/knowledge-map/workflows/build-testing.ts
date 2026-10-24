@@ -9,8 +9,9 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
  * the map's, keeping rows whose ids the map names and giving new ones random
  * ids, records the processed chunks and stores the check report, and Topics
  * of KCs or big ideas that go go with them. `replace_topics` makes the
- * stored Topics the given ones, keeping stored ids, and marks the build
- * built.
+ * stored Topics the given ones, keeping stored ids, and
+ * `replace_reading_sections` makes the stored Reading sections the given
+ * ones, keeping stored rows, and marks the build built.
  */
 export function createMapDb(courseId: string) {
   return fakeSupabase({
@@ -31,11 +32,60 @@ export function createMapDb(courseId: string) {
       finding_sources: [] as FakeRow[],
       topics: [] as FakeRow[],
       topic_kcs: [] as FakeRow[],
+      reading_sections: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
     defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
-    foreignKeys: { topic_kcs: { topic_id: "topics" } },
+    foreignKeys: {
+      topic_kcs: { topic_id: "topics" },
+      reading_sections: { material_id: "materials" },
+    },
     functions: {
+      replace_reading_sections: (args, tables) => {
+        const build = tables.knowledge_map_builds.find(
+          (row) =>
+            row.course_id === args.p_course_id && row.status === "building",
+        );
+        if (!build) return false;
+        const sections = args.p_sections as Array<{
+          id: string | null;
+          topic: string;
+          material: string;
+          position: number;
+          pageFrom: number;
+          pageTo: number;
+          chunkIds: string[];
+          mode: string;
+          reason: string;
+          annotations: unknown;
+          studyText: string | null;
+        }>;
+        const stored = new Map(tables.reading_sections.map((r) => [r.id, r]));
+        tables.reading_sections = sections.map((section) => {
+          const kept = section.id ? stored.get(section.id) : undefined;
+          return {
+            ...kept,
+            id: kept?.id ?? crypto.randomUUID(),
+            course_id: courseId,
+            topic_id: section.topic,
+            material_id: section.material,
+            position: section.position,
+            page_from: section.pageFrom,
+            page_to: section.pageTo,
+            chunk_ids: section.chunkIds,
+            mode: kept?.mode ?? section.mode,
+            reason: kept?.reason ?? section.reason,
+            annotations: kept ? kept.annotations : section.annotations,
+            study_text: kept ? kept.study_text : section.studyText,
+          };
+        });
+        Object.assign(build, {
+          status: "built",
+          failure_reason: null,
+          finished_at: new Date().toISOString(),
+        });
+        return true;
+      },
       replace_topics: (args, tables) => {
         const build = tables.knowledge_map_builds.find(
           (row) =>
@@ -72,11 +122,9 @@ export function createMapDb(courseId: string) {
             position,
           })),
         );
-        Object.assign(build, {
-          status: "built",
-          failure_reason: null,
-          finished_at: new Date().toISOString(),
-        });
+        tables.reading_sections = tables.reading_sections.filter((row) =>
+          ids.includes(String(row.topic_id)),
+        );
         return true;
       },
       apply_knowledge_map_update: (args, tables) => {
@@ -232,6 +280,9 @@ export function createMapDb(courseId: string) {
         tables.topic_kcs = tables.topic_kcs.filter(
           (row) => topicIds.has(row.topic_id) && kcIds.has(row.kc_id),
         );
+        tables.reading_sections = tables.reading_sections.filter((row) =>
+          topicIds.has(row.topic_id),
+        );
         build.check_report = args.p_check_report;
         return true;
       },
@@ -272,6 +323,7 @@ export function seedMaterial(
       course_id: courseId,
       position,
       page_from: position + 1,
+      page_to: position + 1,
       label,
       markdown,
       exercise_number: exerciseNumber,

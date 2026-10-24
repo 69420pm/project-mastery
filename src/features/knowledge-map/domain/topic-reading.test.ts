@@ -1,5 +1,103 @@
 import { describe, expect, test } from "vitest";
-import { readingSections, topicAnchors, type ChunkSpan } from "./topic-reading";
+import {
+  matchSections,
+  NOT_JUDGED_REASON,
+  readingSections,
+  sectionsToStore,
+  topicAnchors,
+  type ChunkSpan,
+  type ReadingSection,
+  type SectionCut,
+} from "./topic-reading";
+
+const cut = (...chunkIds: string[]): SectionCut => ({
+  materialId: "m1",
+  materialName: "Material m1",
+  pageFrom: 1,
+  pageTo: 1,
+  chunkIds,
+});
+
+describe("matchSections", () => {
+  test("keeps a stored section of the same Topic with the same chunks, new for the rest", () => {
+    const { plan, deleted } = matchSections(
+      [{ topicId: "t1", sections: [cut("a"), cut("b", "c")] }],
+      [{ id: "s1", topicId: "t1", chunkIds: ["b", "c"] }],
+    );
+    expect(plan.map(({ id, position }) => [id, position])).toEqual([
+      [null, 0],
+      ["s1", 1],
+    ]);
+    expect(deleted).toEqual([]);
+  });
+
+  test("deletes stored sections no cut matches, also with other chunks or another Topic", () => {
+    const { plan, deleted } = matchSections(
+      [{ topicId: "t1", sections: [cut("a")] }],
+      [
+        { id: "s1", topicId: "t1", chunkIds: ["a", "b"] },
+        { id: "s2", topicId: "t2", chunkIds: ["a"] },
+        { id: "s3", topicId: "t1", chunkIds: ["a"] },
+      ],
+    );
+    expect(plan.map(({ id }) => id)).toEqual(["s3"]);
+    expect(deleted).toEqual(["s1", "s2"]);
+  });
+
+  test("moves a kept section to its new position, per Topic", () => {
+    const { plan } = matchSections(
+      [
+        { topicId: "t1", sections: [cut("b"), cut("a")] },
+        { topicId: "t2", sections: [cut("c")] },
+      ],
+      [
+        { id: "s1", topicId: "t1", chunkIds: ["a"] },
+        { id: "s2", topicId: "t1", chunkIds: ["b"] },
+        { id: "s3", topicId: "t2", chunkIds: ["c"] },
+      ],
+    );
+    expect(
+      plan.map(({ id, topicId, position }) => [id, topicId, position]),
+    ).toEqual([
+      ["s2", "t1", 0],
+      ["s1", "t1", 1],
+      ["s3", "t2", 0],
+    ]);
+  });
+});
+
+describe("sectionsToStore", () => {
+  test("gives a new section the original mode and a kept one its stored mode and texts", () => {
+    const stored: ReadingSection & { topicId: string } = {
+      ...cut("a"),
+      id: "s1",
+      topicId: "t1",
+      mode: "study_text",
+      reason: "Dense.",
+      annotations: null,
+      studyText: "Text. [p. 1]",
+    };
+    const sections = sectionsToStore(
+      [{ topicId: "t1", sections: [cut("a"), cut("b")] }],
+      [stored],
+    );
+    expect(sections).toEqual([
+      expect.objectContaining({
+        id: "s1",
+        mode: "study_text",
+        reason: "Dense.",
+        studyText: "Text. [p. 1]",
+      }),
+      expect.objectContaining({
+        id: null,
+        mode: "original",
+        reason: NOT_JUDGED_REASON,
+        annotations: null,
+        studyText: null,
+      }),
+    ]);
+  });
+});
 
 const span = (
   id: string,
