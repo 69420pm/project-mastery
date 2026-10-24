@@ -141,7 +141,7 @@ function createDb() {
         answered_at: null,
         graded_at: null,
       }),
-      // Recorded now, as in the database, so the ladder replays it today.
+      // Recorded now, as in the database, so the FSRS replay reads it today.
       attempts: () => ({
         owner: signedIn,
         check: null,

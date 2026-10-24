@@ -8,7 +8,7 @@ import type {
 import type {
   AttemptHelp,
   AttemptResult,
-} from "@/features/study/domain/ladder";
+} from "@/features/study/domain/replay";
 import type { QuestionKind } from "@/features/study/types";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";

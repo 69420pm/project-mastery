@@ -11,7 +11,7 @@ How a Chat tutors a Student from the Course's Knowledge map: what code computes 
 | Opening line | A new Chat opens                                 | Code, with no model call                   | The map and the KC states                                       | Nothing                 |
 | Reply        | Each message from the Student                    | The AI, with its tools and at most 5 steps | KC sources and Exercises, through `readKcs` and `findExercises` | `memories` (`remember`) |
 
-The review ladder is not a part of its own: code replays it from the attempts on every read, and it sets the KC states and the due reviews.
+FSRS scheduling is not a part of its own: code replays each KC's card from the attempts on every read, and it sets the KC states and the due reviews.
 
 ## Context on every reply
 
@@ -53,18 +53,18 @@ A solution's status says where it comes from: `from the Materials`, `verified` w
 
 The guidance is prompt text, not code. The AI starts with due reviews, then picks a handful of candidates, then docks, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems of the same task type in a row, and it keeps an Exercise's solution back until the Student has tried.
 
-## Evidence and the review ladder (#103)
+## Evidence and FSRS replay (#103, #174)
 
 Every Chat is a Study session: the database starts a `learn` session (`study_sessions`) with each new Chat, and a deleted Chat leaves its session. Each attempt (`attempts`) is the grade of one Question (`questions`, with its KCs in `question_kcs`) on one of its KCs: `full`, `partial` or `wrong`, with the help given and, for a numeric final answer, how it compared with the Exercise's key. The database refuses an attempt on a KC its question does not test. A Course's attempts are read through their sessions ([ADR 0018](../adr/0018-questions-as-first-class-objects.md)).
 
-`replayLadder` (`src/features/study/domain/ladder.ts`) replays a KC's attempts in time order, on UTC days. Until FSRS replaces it, only a `full` result counts as correct; `partial` and `wrong` count as wrong.
+`replayCourse` (`src/features/study/domain/replay.ts`) replays each KC's attempts into an FSRS card with `ts-fsrs`, on UTC days, as [ADR 0019](../adr/0019-fsrs-replay.md) records:
 
-- The first attempt teaches the KC at level 1, due the next day, whatever its outcome.
-- On or after the due day, a correct attempt without help climbs a level (up to 5), one with help keeps its level, and a wrong one or one with the solution shown drops it to level 1, due the next day.
-- Before the due day, a wrong attempt drops it to level 1 and correct ones change nothing. Cramming earns no levels.
-- The intervals for levels 1 to 5 are 1, 3, 7, 14 and 30 days. With an exam after the day, an interval is at most a quarter of the days left, rounded down, and at least 1 day. It is computed on read, so a changed exam date applies at once.
+- Wrong or with the solution shown rates Again, partial or with some help Hard, full without help Good. The desired retention follows the Brief's goal.
+- Prequestion attempts never schedule. The KC's first session with another attempt creates its card once the session has ended, rated by the last attempt there. Each later session reviews it once, with its first attempt.
+- A session ends with `ended_at`, or 2 hours after its Chat's newest message.
+- With an exam after a review's day, the due date is at most half the days left away, and the final-week sweep brings the top half of the KCs by Priority due 3 days before the exam.
 
-`kcState` gives each KC's state: _new_ (no attempts), _due_ (next review today or earlier), _known_ (level 2 or more, not due) or _learning_ (level 1, not due). The map page shows each KC's state and the number of reviews due.
+`kcState` gives each KC's state: _new_ (no attempts besides prequestions), _learning_ (first session still open, or stability under 7 days and not due), _due_ (next review today or earlier) or _known_, with its next review and today's recall. The map page shows each KC's state, recall and next review, and the number of reviews due.
 
 `openingLine` (`src/features/study/domain/opening.ts`) writes a new Chat's empty state from code, with no model call. Without a map it asks the Student to build one. With no review due it says nothing is due. Otherwise it says how many reviews are due, then something new.
 
@@ -75,7 +75,7 @@ The Memory is one text per Course in `memories`, at most 4,000 characters, creat
 - **The AI** adds a dated line through `remember`, which calls `append_memory`. That is one statement, so concurrent lines keep each other. At the limit the call is refused.
 - **The Student** edits the whole text on the Brief page (`src/features/study/components/memory-card.tsx`). Saving replaces it, and empty text clears it. A save overwrites any line the AI added after the page loaded.
 - **Use.** The full text goes into the instructions on every reply. The Brief's own AI does not read it.
-- **Rules.** The Memory holds what helps tutoring, never mastery, which the attempts hold. When a note and the Student's answers disagree, the answers win. Notes never set KC states, since the ladder reads only attempts.
+- **Rules.** The Memory holds what helps tutoring, never mastery, which the attempts hold. When a note and the Student's answers disagree, the answers win. Notes never set KC states, since the replay reads only attempts.
 
 ## Daily limit
 
@@ -99,7 +99,7 @@ Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memorie
 
 ## Checks
 
-- `pnpm test:run` covers the pure rules (ladder, candidates, reviews, plan, Exercises, opening line), the Memory save action, and the Chat handler tests (`handler.tutor`, `handler.attempts`, `handler.memory`). The handler tests run replies in-process, with mock models and a fake Supabase.
+- `pnpm test:run` covers the pure rules (FSRS replay, candidates, reviews, plan, Exercises, opening line), the Memory save action, and the Chat handler tests (`handler.tutor`, `handler.attempts`, `handler.memory`). The handler tests run replies in-process, with mock models and a fake Supabase.
 - `pnpm db:test` covers the policies, grants and cascades of `attempts` and `memories`, and `append_memory` (`attempts.test.sql`, `memories.test.sql`).
 - `pnpm test:e2e` covers `e2e/memory.spec.ts`, the Memory on the Brief page.
 - `pnpm smoke tutor` runs one real exchange through the Chat handler on the jet-engines gold map, with stand-in sources and two KCs due. It sends a greeting, a plausible answer and a learning preference, then checks that the first reply reads a due KC and ends with a question, that the answer records an attempt on a KC of the Course, that the preference adds a Memory line, and that no ids or tool names appear in the text. It calls a live model, so [live-ai.md](../agents/live-ai.md) applies.

@@ -486,6 +486,20 @@ describe("a question on a question card", () => {
         result: "partial",
       }),
     ]);
+    // Taught in this open session: its first review comes when it ends.
+    const gradePart = db.tables.chat_messages
+      .flatMap((row) => row.parts as Array<{ type: string; output?: unknown }>)
+      .find((part) => part.type === "tool-grade");
+    expect(gradePart?.output).toMatchObject({
+      kcs: [
+        {
+          id: MAP.thrust,
+          state: "learning",
+          nextReview: null,
+          retrievability: null,
+        },
+      ],
+    });
 
     // Graded, the card takes no more answers.
     const late = await send({

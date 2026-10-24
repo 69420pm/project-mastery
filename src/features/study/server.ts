@@ -2,7 +2,7 @@
 // tutor a Student in a Chat. It reads the Knowledge map through the
 // knowledge-map feature, Priorities through priorities, the exam facts
 // through brief and chunks through ingestion. It owns the attempts log, the
-// review ladder replayed from it, the study plan (Phase and pacing)
+// FSRS cards replayed from it, the study plan (Phase and pacing)
 // derived on read, and the Memory the AI keeps per Course. The instructions, which are
 // pure, live in `index.ts`.
 import "server-only";
@@ -28,6 +28,7 @@ export {
 } from "./server/questions";
 export { startTutoring } from "./server/tutoring";
 export type {
+  GradedKc,
   KcState,
   KcStateName,
   Phase,

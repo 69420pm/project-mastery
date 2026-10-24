@@ -18,8 +18,8 @@ const entry = (
   attempts: MapAttempt[],
 ): MapKcLearning[string] => ({
   state,
-  level: 1,
   nextReview: null,
+  retrievability: null,
   attempts,
   candidate: false,
   anchors: [],

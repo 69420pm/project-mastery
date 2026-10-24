@@ -29,7 +29,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * earlier session in the Course, on `exerciseId` when given.
  */
 function attempt(kcId: string, createdAt: string, exerciseId?: string) {
-  const session = { id: randomUUID(), owner: STUDENT, course_id: COURSE };
+  // A session ended without its Chat, so the attempt creates the KC's card.
+  const session = {
+    id: randomUUID(),
+    owner: STUDENT,
+    course_id: COURSE,
+    chat_id: null,
+    ended_at: createdAt,
+  };
   const question = {
     id: randomUUID(),
     owner: STUDENT,
@@ -114,14 +121,16 @@ describe("the instructions", () => {
     const model = mockTextModel("What is the thrust equation?");
     useMockModels({ chat: model });
     seedMap();
-    // Taught four days ago, so due since three days.
+    // Good four days ago, so due since a day.
     attempt(MAP.thrust, new Date(Date.now() - 4 * DAY_MS).toISOString());
 
     await send(firstMessage());
 
     const prompt = promptOf(model, 0);
-    expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}, procedure; level 1, overdue by 3 days)`,
+    expect(prompt).toMatch(
+      new RegExp(
+        `- Thrust equation \\(id ${MAP.thrust}, procedure; recall today \\d+%\\)`,
+      ),
     );
     expect(prompt).toContain(
       `- Propulsive efficiency (id ${MAP.efficiency}, concept; anchors: Thrust equation (id ${MAP.thrust}))`,

@@ -268,8 +268,10 @@ async function gradeTask(item: Input): Promise<string> {
         id: kcId,
         name: gold.kcs.find((kc) => kc.id === kcId)?.name ?? kcId,
         result,
-        level: result === "full" ? 2 : 1,
-        nextReview: "2026-11-03",
+        // First taught in this session, which is still open.
+        state: "learning" as const,
+        nextReview: null,
+        retrievability: null,
       }));
     },
   };

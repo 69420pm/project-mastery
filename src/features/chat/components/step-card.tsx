@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { ReplyStep, StepDetail } from "@/features/chat/domain/reply-steps";
+import { scheduleText } from "@/features/study";
 import { cn } from "@/lib/utils";
 
 /**
@@ -122,7 +123,7 @@ function StepDetails({ detail }: { detail: StepDetail }) {
             <li key={kc.id}>
               <span className="font-medium">{kc.name}</span>{" "}
               <span className="text-muted-foreground">
-                · {kc.result} · level {kc.level}, next review {kc.nextReview}
+                · {kc.result} · {scheduleText(kc)}
               </span>
             </li>
           ))}

@@ -2,12 +2,13 @@ import type { CandidateGroup } from "@/features/study/domain/candidates";
 import type {
   AttemptHelp,
   AttemptResult,
+  KcState,
   KcStateName,
-} from "@/features/study/domain/ladder";
+} from "@/features/study/domain/replay";
 import type { Phase } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 
-export type { AttemptHelp, AttemptResult, KcStateName, Phase };
+export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -53,18 +54,6 @@ export type StudyPlan = {
   hoursPerWeek: number | null;
 };
 
-/**
- * A KC's place on the review ladder, replayed from its attempts on every
- * read. Level and next review are null for a new KC.
- */
-export type KcState = {
-  state: KcStateName;
-  /** 1 to 5. */
-  level: number | null;
-  /** As YYYY-MM-DD. */
-  nextReview: string | null;
-};
-
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {
   material: string;
@@ -101,16 +90,15 @@ export type ExerciseView = {
 export type QuestionKind =
   "prequestion" | "recall" | "question" | "problem" | "rebuild" | "mock_item";
 
-/** A KC of a graded Question as `grade` returns it, with its new state. */
+/**
+ * A KC of a graded Question as `grade` returns it, with its new state: no
+ * next review or recall while its first session runs.
+ */
 export type GradedKc = {
   id: string;
   name: string;
   result: AttemptResult;
-  /** 1 to 5. */
-  level: number;
-  /** As YYYY-MM-DD. */
-  nextReview: string;
-};
+} & KcState;
 
 /** A KC as `readKcs` returns it. */
 export type KcReading = {

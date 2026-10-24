@@ -36,8 +36,14 @@ const MAP = {
   exercises: [],
 };
 const SESSION = "aaaaaaaa-5000-4000-8000-000000000001";
+const OPEN_SESSION = "aaaaaaaa-5000-4000-8000-000000000002";
+const CHAT = "aaaaaaaa-c400-4000-8000-000000000001";
 const QUESTION = "aaaaaaaa-9000-4000-8000-000000000001";
 const EMPTY_MAP = { bigIdeas: [], kcs: [], prerequisites: [], exercises: [] };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const at = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
+const day = (days: number) => at(days).slice(0, 10);
 
 let signedIn = true;
 let map: typeof MAP | typeof EMPTY_MAP = MAP;
@@ -51,7 +57,12 @@ function createDb() {
         { course_id: COURSE, kc_id: THRUST, priority: "0.8" },
         { course_id: COURSE, kc_id: NOZZLE, priority: "0.1" },
       ] as FakeRow[],
-      study_sessions: [{ id: SESSION, course_id: COURSE }] as FakeRow[],
+      study_sessions: [
+        // Ended four days ago; the other one's Chat had a message just now.
+        { id: SESSION, course_id: COURSE, chat_id: null, ended_at: at(-4) },
+        { id: OPEN_SESSION, course_id: COURSE, chat_id: CHAT, ended_at: null },
+      ] as FakeRow[],
+      chats: [{ id: CHAT, last_message_at: at(0) }],
       questions: [{ id: QUESTION, session_id: SESSION, exercise_id: null }],
       attempts: [] as FakeRow[],
     },
@@ -74,16 +85,13 @@ vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
 const { getKcLearning, getKcStates, getOpeningLine, getPlan } =
   await import("@/features/study/server");
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const at = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
-const day = (days: number) => at(days).slice(0, 10);
-
-/** A stored attempt on a KC `days` from now. */
+/** A stored `learn` attempt on a KC `days` from now, in the ended session. */
 const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
   id: randomUUID(),
   question_id: QUESTION,
   session_id: SESSION,
   kc_id: kcId,
+  kind: "learn",
   result: correct ? "full" : "wrong",
   help: "none",
   created_at: at(days),
@@ -93,9 +101,9 @@ beforeEach(() => {
   signedIn = true;
   map = MAP;
   db = createDb();
-  // Stored newest first: the readers order them by time. Two correct answers
-  // a day apart climb to level 2, due three days later.
-  db.tables.attempts.push(attempt(THRUST, -5), attempt(THRUST, -6));
+  // Stored newest first: the readers order them by time. The session's last
+  // answer, a Good, creates the card due three days later.
+  db.tables.attempts.push(attempt(THRUST, -5), attempt(THRUST, -6, false));
 });
 
 describe.each([
@@ -122,11 +130,11 @@ describe("getKcLearning", () => {
 
     expect(learning[THRUST]).toEqual({
       state: "due",
-      level: 2,
       nextReview: day(-2),
+      retrievability: expect.closeTo(0.85, 1),
       attempts: db.tables.attempts.map((row) => ({
         createdAt: row.created_at,
-        result: "full",
+        result: row.result,
         help: "none",
         exerciseId: null,
       })),
@@ -135,18 +143,57 @@ describe("getKcLearning", () => {
     });
   });
 
-  test("reads only the Course's sessions, and a partial answer as wrong", async () => {
-    db.tables.study_sessions.push({ id: "other", course_id: "other-course" });
+  test("reads only the Course's sessions, and a partial answer as Hard", async () => {
+    db.tables.study_sessions.push({
+      id: "other",
+      course_id: "other-course",
+      ended_at: at(-1),
+    });
     db.tables.questions.push({ id: "q2", session_id: "other" });
     db.tables.attempts.push(
       { ...attempt(NOZZLE, -1), question_id: "q2", session_id: "other" },
-      { ...attempt(THRUST, -1), result: "partial" },
+      { ...attempt(THRUST, -4.5), result: "partial" },
     );
 
     const learning = await getKcLearning(COURSE);
 
     expect(learning[NOZZLE]).toMatchObject({ state: "new", attempts: [] });
-    expect(learning[THRUST]).toMatchObject({ level: 1, nextReview: day(0) });
+    // Hard on a new card gives two days.
+    expect(learning[THRUST]).toMatchObject({ nextReview: day(-2.5) });
+  });
+
+  test("keeps a KC learning without a next review while its first session runs", async () => {
+    db.tables.attempts.push({
+      ...attempt(EFFICIENCY, 0),
+      session_id: OPEN_SESSION,
+    });
+    // A prequestion leaves a KC new, and a candidate.
+    db.tables.attempts.push({ ...attempt(NOZZLE, -1), kind: "pre" });
+
+    const learning = await getKcLearning(COURSE);
+
+    expect(learning[EFFICIENCY]).toMatchObject({
+      state: "learning",
+      nextReview: null,
+      retrievability: null,
+    });
+    expect(learning[NOZZLE]).toMatchObject({
+      state: "new",
+      candidate: true,
+      attempts: [expect.objectContaining({ result: "full" })],
+    });
+  });
+
+  test("ends a session after 2 hours without a message", async () => {
+    db.tables.chats[0]!.last_message_at = at(-0.1);
+    db.tables.attempts.push({
+      ...attempt(EFFICIENCY, -0.11),
+      session_id: OPEN_SESSION,
+    });
+
+    const learning = await getKcLearning(COURSE);
+
+    expect(learning[EFFICIENCY]).toMatchObject({ nextReview: day(2.89) });
   });
 
   test("lists unattempted candidates with their anchors, and nothing else", async () => {
@@ -154,8 +201,8 @@ describe("getKcLearning", () => {
 
     expect(learning[EFFICIENCY]).toEqual({
       state: "new",
-      level: null,
       nextReview: null,
+      retrievability: null,
       attempts: [],
       candidate: true,
       anchors: [{ id: THRUST, name: "Thrust equation" }],
@@ -170,11 +217,22 @@ describe("getKcLearning", () => {
 
 describe("getKcStates", () => {
   test("gives each taught KC its replayed state", async () => {
-    db.tables.attempts.push(attempt(EFFICIENCY, 0, false));
+    db.tables.attempts.push({
+      ...attempt(EFFICIENCY, 0, false),
+      session_id: OPEN_SESSION,
+    });
 
     expect(await getKcStates(COURSE)).toEqual({
-      [THRUST]: { state: "due", level: 2, nextReview: day(-2) },
-      [EFFICIENCY]: { state: "learning", level: 1, nextReview: day(1) },
+      [THRUST]: {
+        state: "due",
+        nextReview: day(-2),
+        retrievability: expect.any(Number),
+      },
+      [EFFICIENCY]: {
+        state: "learning",
+        nextReview: null,
+        retrievability: null,
+      },
     });
   });
 });

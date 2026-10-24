@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { respondInChat } from "@/features/chat/server";
-import { startTutoring } from "@/features/study/server";
+import { startTutoring, type GradedKc } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { Supabase } from "@/lib/supabase/types";
 import { insertGoldMap } from "./gold-map";
@@ -86,7 +86,12 @@ async function sendMessage(
   text: string,
   /** The question it answers on its question card. */
   questionId?: string,
-): Promise<{ calls: ToolCall[]; text: string; questionIds: string[] }> {
+): Promise<{
+  calls: ToolCall[];
+  text: string;
+  questionIds: string[];
+  graded: GradedKc[];
+}> {
   console.info(`Student: ${text}`);
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
@@ -113,7 +118,20 @@ async function sendMessage(
 
   const calls: ToolCall[] = [];
   const questionIds: string[] = [];
+  const graded: GradedKc[] = [];
+  const toolNames = new Map<string, string>();
   for (const part of chunks) {
+    if (part.type === "tool-input-available") {
+      toolNames.set(part.toolCallId, part.toolName);
+    }
+    if (
+      part.type === "tool-output-available" &&
+      toolNames.get(part.toolCallId) === "grade" &&
+      Array.isArray(part.output?.kcs)
+    ) {
+      graded.push(...part.output.kcs);
+      console.info(`  graded ${JSON.stringify(part.output.kcs)}`);
+    }
     if (
       part.type === "tool-output-available" &&
       typeof part.output?.questionId === "string"
@@ -148,7 +166,7 @@ async function sendMessage(
     .map((part) => part.delta)
     .join("");
   console.info(`AI: ${reply}`);
-  return { calls, text: reply, questionIds };
+  return { calls, text: reply, questionIds, graded };
 }
 
 /**
@@ -281,7 +299,13 @@ export const tutorSmoke: SmokeCheck = {
     ).toISOString();
     const session = { id: randomUUID(), owner: studentId };
     await insertRows(supabase, "study_sessions", [
-      { ...owned, ...session, mode: "learn", started_at: taughtAt },
+      {
+        ...owned,
+        ...session,
+        mode: "learn",
+        started_at: taughtAt,
+        ended_at: taughtAt,
+      },
     ]);
     const question = { id: randomUUID(), owner: studentId };
     await insertRows(supabase, "questions", [
@@ -409,6 +433,18 @@ export const tutorSmoke: SmokeCheck = {
     // The KCs the question tests show what it was about, so a reply that
     // reads a due KC and then asks about a new one fails.
     const dueAsked = askedKcs.filter((kc) => due.has(kc));
+    // While its session is open, a KC first taught in it has no card yet; a
+    // review of one taught before gets its next review at once.
+    const earlier = new Set(taught);
+    const states = [second, fifth].flatMap(({ graded }) => {
+      const checked = graded.map((kc) =>
+        earlier.has(kc.id)
+          ? kc.nextReview !== null
+          : kc.state === "learning" && kc.nextReview === null,
+      );
+      for (const kc of graded) earlier.add(kc.id);
+      return checked;
+    });
     return [
       result(
         "the first reply asked a question on a due KC through ask",
@@ -426,6 +462,15 @@ export const tutorSmoke: SmokeCheck = {
           recorded.length === askedKcs.length &&
           askedKcs.every((kc) => recorded.some(({ kc_id }) => kc_id === kc)),
         `${recorded.length} attempts for ${askedKcs.length} KCs; ${describe(second.calls)}`,
+      ),
+      result(
+        "grade gave a new KC learning without a next review, a review one",
+        states.length > 0 && states.every(Boolean),
+        JSON.stringify(
+          [...second.graded, ...fifth.graded].map(
+            ({ id, state, nextReview }) => ({ id, state, nextReview }),
+          ),
+        ),
       ),
       result(
         "the preference's turn added a line to the Memory",

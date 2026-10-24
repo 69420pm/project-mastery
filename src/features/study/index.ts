@@ -10,6 +10,7 @@ export {
   StudyPlanFacts,
 } from "./components/study-plan";
 export { PHASE_NAMES } from "./domain/plan";
+export { recallText, scheduleText } from "./domain/schedule-text";
 export type {
   ExerciseView,
   GradedKc,

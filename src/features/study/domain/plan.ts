@@ -1,10 +1,10 @@
 /**
  * The study plan of a Course, derived on every read (#106): its Phase before
  * the exam and whether the Student's weekly hours cover the KCs that matter
- * before the final week. Pure code on UTC days, like the ladder; nothing
+ * before the final week. Pure code on UTC days, like the FSRS replay; nothing
  * about it is stored.
  */
-import { daysBetween } from "@/features/study/domain/ladder";
+import { daysBetween } from "@/features/study/domain/replay";
 
 /** Where a Course's study stands before its exam. */
 export type Phase = "build" | "deepen" | "final_week";

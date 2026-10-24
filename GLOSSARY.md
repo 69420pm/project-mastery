@@ -73,7 +73,7 @@ Asking about a due KC again, to schedule its next one further out when the Stude
 _Avoid_: Revision, repetition, quiz
 
 **KC state**:
-Where a KC stands for a Student, from its attempts: _new_ (no attempts), _learning_ (level 1, not due), _due_ (its next review is today or earlier) or _known_ (level 2 or higher, not due).
+Where a KC stands for a Student, from its FSRS card replayed from its attempts: _new_ (no attempts besides prequestions), _learning_ (its first Study session is still open, or its card's stability is under 7 days and it isn't due), _due_ (its next review is today or earlier) or _known_ (any other KC with a card).
 _Avoid_: Mastered, mastery level, status
 
 **Readiness**:

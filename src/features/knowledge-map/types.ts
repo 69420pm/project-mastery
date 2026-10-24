@@ -153,7 +153,7 @@ export type MapAttempt = {
 
 /**
  * What the Student has learned of each KC, which the page passes in, by KC
- * id: its state and place on the review ladder, its attempts newest first,
+ * id: its state, next review and today's recall, its attempts newest first,
  * and whether the AI would propose it next, with the KCs it docks onto. A
  * KC missing here is new, without attempts, and no candidate.
  */
@@ -161,10 +161,10 @@ export type MapKcLearning = Record<
   string,
   {
     state: "new" | "learning" | "due" | "known";
-    /** 1 to 5; null for a new KC. */
-    level: number | null;
-    /** As YYYY-MM-DD; null for a new KC. */
+    /** As YYYY-MM-DD; null without an FSRS card. */
     nextReview: string | null;
+    /** Today's FSRS recall, 0 to 1; null without an FSRS card. */
+    retrievability: number | null;
     attempts: MapAttempt[];
     /** Among the AI's top candidates to learn next. */
     candidate: boolean;

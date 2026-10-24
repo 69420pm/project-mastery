@@ -20,13 +20,13 @@ import {
 import { selectCandidates } from "@/features/study/domain/candidates";
 import {
   loadAttemptedExercises,
-  loadLadder,
+  loadSchedules,
 } from "@/features/study/server/attempts";
 import {
   rankExercises,
   solutionLabel,
 } from "@/features/study/domain/exercises";
-import { utcDay } from "@/features/study/domain/ladder";
+import { kcState, utcDay } from "@/features/study/domain/replay";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
   findSessionQuestion,
@@ -55,22 +55,23 @@ export async function startTutoring(
   courseId: string,
   chatId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, memory, [exam, ladder]] = await Promise.all([
+  const [map, priorities, memory, exam] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
     loadMemory(supabase, courseId),
-    getExamFacts(supabase, courseId).then(
-      async (facts) =>
-        [facts, await loadLadder(supabase, courseId, facts.examDate)] as const,
-    ),
+    getExamFacts(supabase, courseId),
   ]);
   const { examDate } = exam;
+  const facts = { examDate, goal: exam.goal, priorities };
+  const now = new Date();
+  const schedules = await loadSchedules(supabase, courseId, facts, now);
   const hasMap = map.kcs.length > 0;
-  const today = utcDay(new Date());
+  const today = utcDay(now);
+  const taught = new Set(schedules.keys());
   const { phase, pacing } = planStudy({
     kcs: map.kcs,
     priorities,
-    taught: new Set(ladder.keys()),
+    taught,
     exam,
     today,
   });
@@ -85,13 +86,11 @@ export async function startTutoring(
       goal: exam.goal,
       memory,
       mapPath: knowledgeMapPath(courseId),
-      dueReviews: selectDueReviews(map.kcs, ladder, priorities, today),
-      candidates: hasMap
-        ? selectCandidates(map, priorities, new Set(ladder.keys()))
-        : [],
+      dueReviews: selectDueReviews(map.kcs, schedules, priorities, now),
+      candidates: hasMap ? selectCandidates(map, priorities, taught) : [],
     },
     tools: tutorTools(
-      tutorToolActions(supabase, { courseId, chatId, examDate, map }),
+      tutorToolActions(supabase, { courseId, chatId, facts, map }),
     ),
   };
 }
@@ -104,12 +103,12 @@ function tutorToolActions(
   {
     courseId,
     chatId,
-    examDate,
+    facts,
     map,
   }: {
     courseId: string;
     chatId: string;
-    examDate: string | null;
+    facts: Parameters<typeof loadSchedules>[2];
     map: KnowledgeMap;
   },
 ): TutorToolActions {
@@ -222,13 +221,14 @@ function tutorToolActions(
         check,
       });
       if (!saved) return null;
-      const kcIds = results.map(({ kcId }) => kcId);
-      const ladder = await loadLadder(supabase, courseId, examDate, kcIds);
+      // The whole Course, since the final-week sweep ranks all its cards.
+      const now = new Date();
+      const schedules = await loadSchedules(supabase, courseId, facts, now);
       return results.map(({ kcId, result }) => ({
         id: kcId,
         name: kcById.get(kcId)?.name ?? kcId,
         result,
-        ...ladder.get(kcId)!,
+        ...kcState(schedules.get(kcId), now),
       }));
     },
     async remember(text) {

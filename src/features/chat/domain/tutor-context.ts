@@ -1,4 +1,4 @@
-import { PHASE_NAMES, type TutorContext } from "@/features/study";
+import { PHASE_NAMES, recallText, type TutorContext } from "@/features/study";
 
 const GOALS = {
   pass: "Pass",
@@ -25,8 +25,12 @@ export function pacingText({
   return `${share}% fit, ${leftOutCount} left out`;
 }
 
-/** How overdue a review is, such as "due today" or "2 days overdue". */
-export function overdueText(daysOverdue: number): string {
-  if (daysOverdue === 0) return "due today";
-  return `${daysOverdue} day${daysOverdue === 1 ? "" : "s"} overdue`;
+/**
+ * A due review with today's recall, such as "due · Recall today 84%".
+ * Contexts stored before FSRS (#174) have no recall.
+ */
+export function dueReviewText(kc: { retrievability?: number }): string {
+  return kc.retrievability === undefined
+    ? "due"
+    : `due · ${recallText(kc.retrievability)}`;
 }

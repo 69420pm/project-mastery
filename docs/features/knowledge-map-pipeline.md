@@ -48,7 +48,7 @@ The Brief is a conversation, not a workflow. The AI asks five fixed questions in
 - **Multiplier.** 0 when all source chunks of a non-prior KC come from Materials the Brief excludes. Otherwise the model's adjustment (`priority`), clamped to 0–2, defaulting to 1. The model is asked only when there are notes or answered Findings and something changed since its last call; otherwise the stored adjustment is reused.
 - **Result.** Priority = base × multiplier, with a reason per factor. `replace_kc_priorities` swaps the Course's priorities in one transaction; a failed run keeps the old ones.
 
-Not built: neither the Brief's goal nor a KC's attempts affect priorities. Attempts and their review ladder exist (`study`, [ADR 0010](../adr/0010-fsrs-for-spaced-repetition.md)) but only order tutoring; the diagnostic (#51, step 5) has no code yet.
+Not built: neither the Brief's goal nor a KC's attempts affect priorities. Attempts and their FSRS replay exist (`study`, [ADR 0019](../adr/0019-fsrs-replay.md)) but only order tutoring; the diagnostic (#51, step 5) has no code yet.
 
 ## Daily limit
 

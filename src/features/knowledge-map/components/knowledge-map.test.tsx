@@ -177,8 +177,8 @@ test("clicking a KC node opens its panel", async () => {
     {
       k2: {
         state: "learning",
-        level: 2,
         nextReview: "2026-10-20",
+        retrievability: 0.934,
         attempts: [
           {
             createdAt: "2026-10-15T10:00:00Z",
@@ -197,7 +197,8 @@ test("clicking a KC node opens its panel", async () => {
   const panel = screen.getByRole("complementary", { name: "KC details" });
   const section = (name: string) => within(panel).getByRole("region", { name });
   expect(section("Overview")).toHaveTextContent("About Nozzles.");
-  expect(section("Learning")).toHaveTextContent("2 of 5");
+  expect(section("Learning")).toHaveTextContent("Recall today93%");
+  expect(section("Learning")).toHaveTextContent("Next review");
   expect(section("Learning")).toHaveTextContent("Fullsome help");
   expect(section("Priority")).toHaveTextContent("won't fit");
   expect(section("Priority")).toHaveTextContent("0.80");
@@ -217,8 +218,8 @@ test("an Exercise node shows its solution status and opens its panel", async () 
     {
       k2: {
         state: "learning",
-        level: 1,
         nextReview: null,
+        retrievability: null,
         attempts: [
           {
             createdAt: "2026-10-15T10:00:00Z",
