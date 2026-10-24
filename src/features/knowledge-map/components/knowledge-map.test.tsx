@@ -5,7 +5,7 @@ import type {
   KnowledgeMapView,
   MapKcLearning,
 } from "@/features/knowledge-map/types";
-import { LeftOutBadge, PlanLine, type StudyPlan } from "@/features/study";
+import { LeftOutBadge, type StudyPlan } from "@/features/study";
 
 /** The study plan with left-out KCs by id, as the map takes them. */
 type MapPlan = Omit<StudyPlan, "leftOut"> & { leftOut: string[] };
@@ -101,17 +101,8 @@ const plan = (overrides: Partial<MapPlan>): MapPlan => ({
   ...overrides,
 });
 
-/** The plan slots the map page passes in. */
+/** The plan slots the page passes in. */
 const planSlots = (mapPlan: MapPlan) => ({
-  planLine: (
-    <PlanLine
-      plan={{
-        ...mapPlan,
-        leftOut: mapPlan.leftOut.map((id) => ({ id, name: id })),
-      }}
-      briefHref="/brief"
-    />
-  ),
   leftOut: mapPlan.leftOut,
   leftOutBadge: <LeftOutBadge />,
 });
@@ -131,45 +122,6 @@ const renderMap = (overrides: Partial<MapPlan>, learning: MapKcLearning = {}) =>
       {...planSlots(plan(overrides))}
     />,
   );
-
-const planLine = () => screen.getByLabelText("Study plan");
-
-describe("the plan line", () => {
-  test.each<[string, Partial<MapPlan>, string]>([
-    [
-      "left-out KCs",
-      { share: 70, leftOut: ["k1", "k2"] },
-      "Build phase. At 5 h/week until the final week, about 70% of the KCs that matter fit; 2 lowest-Priority KCs won't.",
-    ],
-    [
-      "everything fitting",
-      { phase: "deepen" },
-      "Deepen phase. At 5 h/week until the final week, all KCs that matter fit.",
-    ],
-    [
-      "the final week",
-      { phase: "final_week", share: null },
-      "Final week: review what you've learned.",
-    ],
-    [
-      "no hours",
-      { share: null, hoursPerWeek: null },
-      "Build phase. Add your weekly hours in the Brief to see your pace.",
-    ],
-  ])("shows %s", (_, overrides, text) => {
-    renderMap(overrides);
-    expect(planLine()).toHaveTextContent(text);
-  });
-
-  test("links to the Brief without a Phase", () => {
-    renderMap({ phase: null, share: null, hoursPerWeek: null });
-    expect(
-      within(planLine()).getByRole("link", {
-        name: "Add your exam date and weekly hours in the Brief to see your pace.",
-      }),
-    ).toHaveAttribute("href", "/brief");
-  });
-});
 
 test("clicking a KC node opens its panel", async () => {
   renderMap(

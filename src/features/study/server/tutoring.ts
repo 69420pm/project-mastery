@@ -6,10 +6,7 @@ import {
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
-import {
-  knowledgeMapPath,
-  loadStoredMap,
-} from "@/features/knowledge-map/server";
+import { courseMapPath, loadStoredMap } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import {
   TutorToolError,
@@ -86,7 +83,7 @@ export async function startTutoring(
       leftOutCount: pacing?.leftOut.length ?? null,
       goal: exam.goal,
       memory,
-      mapPath: knowledgeMapPath(courseId),
+      mapPath: courseMapPath(courseId),
       dueReviews: selectDueReviews(map.kcs, schedules, priorities, now),
       candidates: hasMap ? selectCandidates(map, priorities, taught) : [],
     },

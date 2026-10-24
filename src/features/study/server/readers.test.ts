@@ -80,9 +80,17 @@ vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   loadStoredMap: async () => map,
+  // Row Level Security leaves another Student's Topics out.
+  loadStoredTopics: async (_: unknown, courseId: string) =>
+    courseId === COURSE
+      ? [
+          { id: "t1", kcs: [THRUST, EFFICIENCY] },
+          { id: "t2", kcs: [NOZZLE] },
+        ]
+      : [],
 }));
 
-const { getKcLearning, getKcStates, getOpeningLine, getPlan } =
+const { getKcLearning, getKcStates, getOpeningLine, getPlan, getTopicStates } =
   await import("@/features/study/server");
 
 /** A stored `learn` attempt on a KC `days` from now, in the ended session. */
@@ -115,6 +123,7 @@ describe.each([
 
     expect(await getKcLearning(courseId)).toEqual({});
     expect(await getKcStates(courseId)).toEqual({});
+    expect(await getTopicStates(courseId)).toEqual({});
     expect(await getPlan(courseId)).toEqual({
       phase: null,
       share: null,
@@ -234,6 +243,22 @@ describe("getKcStates", () => {
         retrievability: null,
       },
     });
+  });
+});
+
+describe("getTopicStates", () => {
+  test("gives each Topic its state and recall today", async () => {
+    expect(await getTopicStates(COURSE)).toEqual({
+      // The taught KC's recall, with the untaught one counting as 0.
+      t1: { state: "in_progress", recall: expect.closeTo(0.85 / 2, 1) },
+      t2: { state: "new", recall: 0 },
+    });
+  });
+
+  test("is empty for another Student's Course", async () => {
+    expect(
+      await getTopicStates("bbbbbbbb-c000-4000-8000-000000000001"),
+    ).toEqual({});
   });
 });
 

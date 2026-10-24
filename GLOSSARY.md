@@ -24,6 +24,10 @@ _Avoid_: Preferences, intake form, onboarding
 What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
+**Course map**:
+The Course's home: its Topics on its Big ideas, with the arrows between Topics that their KCs' Prerequisites imply. It shows the Knowledge map at Topic level.
+_Avoid_: Dashboard, overview, home page
+
 **Big idea**:
 One of the few main themes of a Course's Knowledge map, which groups its Knowledge components and Topics.
 _Avoid_: Theme, chapter, module
@@ -35,6 +39,10 @@ _Avoid_: Skill, learning objective, concept, node
 **Topic**:
 A named unit of a few KCs of one Big idea that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates.
 _Avoid_: Chapter, unit, lesson, module
+
+**Topic state**:
+Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS card has lapsed 3 or more times), solid (every KC has a card whose recall on the exam date, or today without an exam ahead, reaches the goal's retention), learned (every KC is taught), in progress (some KC is taught) or new.
+_Avoid_: Topic status, Topic progress
 
 **Reading section**:
 A part of a Topic's source pages, about one to three pages in Material order, that a Student reads as the original pages, annotated pages or a study text written from them.

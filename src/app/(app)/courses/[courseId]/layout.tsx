@@ -19,13 +19,18 @@ import {
   materialsPath,
 } from "@/features/courses";
 import { getCourse, getCourseList } from "@/features/courses/server";
-import { KnowledgeMapLink, knowledgeMapPath } from "@/features/knowledge-map";
+import {
+  CourseMapLink,
+  TopicTitle,
+  courseMapPath,
+} from "@/features/knowledge-map";
+import { getTopicNames } from "@/features/knowledge-map/server";
 import { getUser } from "@/lib/auth/user";
 import { isSidebarOpen } from "@/lib/sidebar-state";
 
 /**
  * Shell inside a Course: the sidebar shows the Course switcher, New chat,
- * Materials, the Brief, the Knowledge map and the Course's Chats, and the top
+ * Materials, the Brief, the Course map and the Course's Chats, and the top
  * bar where in the Course the page is. An unknown or another Student's
  * Course is not found.
  *
@@ -38,13 +43,15 @@ export default async function CourseLayout({
   params,
 }: LayoutProps<"/courses/[courseId]">) {
   const { courseId } = await params;
-  const [user, course, courses, chats, cookieStore] = await Promise.all([
-    getUser(),
-    getCourse(courseId),
-    getCourseList(),
-    getChatList(courseId),
-    cookies(),
-  ]);
+  const [user, course, courses, chats, topicNames, cookieStore] =
+    await Promise.all([
+      getUser(),
+      getCourse(courseId),
+      getCourseList(),
+      getChatList(courseId),
+      getTopicNames(courseId),
+      cookies(),
+    ]);
   // Signed out, the page sends the Student to sign in instead.
   if (user && !course) notFound();
 
@@ -60,7 +67,7 @@ export default async function CourseLayout({
               <NewChatLink />
               <MaterialsLink courseId={course.id} />
               <BriefLink courseId={course.id} />
-              <KnowledgeMapLink courseId={course.id} />
+              <CourseMapLink courseId={course.id} />
             </>
           )
         }
@@ -70,7 +77,7 @@ export default async function CourseLayout({
             <PathBreadcrumb
               trail={[
                 { href: COURSE_LIST_PATH, label: "Courses" },
-                { href: newChatPath(course.id), label: course.name },
+                { href: courseMapPath(course.id), label: course.name },
               ]}
               sections={[
                 {
@@ -85,7 +92,14 @@ export default async function CourseLayout({
                   href: materialsPath(course.id),
                 },
                 { path: briefPath(course.id), label: "Brief" },
-                { path: knowledgeMapPath(course.id), label: "Knowledge map" },
+                {
+                  path: courseMapPath(course.id),
+                  label: "Course map",
+                  href: courseMapPath(course.id),
+                  detail: (
+                    <TopicTitle courseId={course.id} topics={topicNames} />
+                  ),
+                },
               ]}
             />
           )

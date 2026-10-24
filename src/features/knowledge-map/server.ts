@@ -5,16 +5,18 @@ import "server-only";
 
 // Also in `index.ts`: `index.ts` loads React components, which fail outside
 // Next.js, so server code that smoke checks load imports it from here.
-export { knowledgeMapPath } from "./domain/map-paths";
+export { courseMapPath, topicPath } from "./domain/map-paths";
 export { finalAnswerSchema } from "./schemas";
 export { getChunkFindings } from "./server/chunk-findings";
 export { loadCourseTopics, type CourseTopic } from "./server/course-topics";
 export { getFindings } from "./server/findings";
 export { getKnowledgeMap } from "./server/queries";
+export { getTopicNames } from "./server/topic-names";
 export {
   answerFinding,
   getOpenFindings,
   markFindingAsked,
 } from "./server/review";
 export { loadStoredMap } from "./server/stored-map";
+export { loadStoredTopics } from "./server/stored-topics";
 export { buildKnowledgeMap } from "./workflows/build-knowledge-map";

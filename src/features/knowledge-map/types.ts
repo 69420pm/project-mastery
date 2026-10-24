@@ -173,6 +173,40 @@ export type MapKcLearning = Record<
   }
 >;
 
+/** A stored Topic as the Course map shows it, in Course order. */
+export type MapTopic = {
+  id: string;
+  bigIdeaId: string;
+  name: string;
+  centralQuestion: string;
+  /** In teaching order. */
+  kcs: Array<{ id: string; name: string }>;
+};
+
+/**
+ * Where the Student stands on a Topic: its Topic state and the mean of its
+ * KCs' recall today, 0 to 1.
+ */
+export type MapTopicState = {
+  state: "new" | "in_progress" | "learned" | "solid" | "needs_work";
+  recall: number;
+};
+
+/**
+ * Each Topic's `MapTopicState`, which the page passes in, by Topic id. A
+ * Topic missing here is new, with no recall.
+ */
+export type MapTopicStates = Record<string, MapTopicState>;
+
+/** A Topic as its page shows it, with what a Student reads around it. */
+export type MapTopicDetail = MapTopic & {
+  whyItMatters: string;
+  /** Prerequisites from outside the Topic, prior KCs included. */
+  anchors: Array<{ id: string; name: string }>;
+  /** Such as "Lecture 1, pp. 3–5", linking to the section's first chunk. */
+  readingSections: Array<{ label: string; href: string }>;
+};
+
 /** Everything the map page shows of a Course. */
 export type KnowledgeMapView = {
   courseId: string;

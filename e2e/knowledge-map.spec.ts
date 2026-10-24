@@ -12,7 +12,7 @@ const PDF = path.join(
   "two-page-lecture.pdf",
 );
 
-test("a parsed Material is built into a Knowledge map of big ideas and KCs", async ({
+test("a parsed Material is built into a Course map of Topics", async ({
   page,
   course,
 }) => {
@@ -22,7 +22,13 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
     timeout: 30_000,
   });
 
-  await page.goto(`/courses/${course.id}/map`);
+  // Opening the Course lands on its Course map.
+  await page.goto("/courses");
+  await page
+    .getByRole("list", { name: "Courses" })
+    .getByRole("link", { name: course.name })
+    .click();
+  await expect(page).toHaveURL(`/courses/${course.id}/map`);
   await expect(page.getByRole("status", { name: "Build status" })).toHaveText(
     "Not built yet.",
   );
@@ -36,8 +42,39 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
     page.getByRole("status", { name: "Build status" }),
   ).toContainText("Last built");
 
+  // The mock names every Topic with its text.
+  const graph = page.getByRole("application", { name: "Course map graph" });
+  const card = graph
+    .getByRole("link", { name: /^Mock text from the mock AI/ })
+    .first();
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute(
+    "href",
+    new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
+  );
+
+  // Opening a Topic shows its detail and its KC graph.
+  await card.click();
+  await expect(page).toHaveURL(
+    new RegExp(`^.*/courses/${course.id}/map/[0-9a-f-]{36}$`),
+  );
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "Mock text from the mock AI",
+  );
+  await expect(
+    page.getByRole("region", { name: "Central question" }),
+  ).toBeVisible();
+  // The breadcrumb reads Course map › Topic name.
+  const breadcrumb = page.getByRole("navigation", { name: "breadcrumb" });
+  await expect(
+    breadcrumb.getByRole("link", { name: "Course map" }),
+  ).toBeVisible();
+  await expect(breadcrumb).toContainText("Mock text from the mock AI");
+
   // The mock names every KC with its text and teaches it on pages 1–2.
-  const graph = page.getByRole("application", { name: "Knowledge map graph" });
+  const kcGraph = page.getByRole("application", {
+    name: "Knowledge map graph",
+  });
   // Without Big-idea groups the KCs are laid out again, flat.
   await page.getByRole("button", { name: "Layers" }).click();
   await page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }).click();
@@ -45,7 +82,7 @@ test("a parsed Material is built into a Knowledge map of big ideas and KCs", asy
     page.getByRole("menuitemcheckbox", { name: "Big-idea groups" }),
   ).not.toBeChecked();
   await page.keyboard.press("Escape");
-  await graph
+  await kcGraph
     .getByRole("button", { name: /^Mock text from the mock AI/ })
     .first()
     .click();

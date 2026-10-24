@@ -11,7 +11,7 @@ const MATERIAL = "bbbbbbbb-0000-4000-8000-000000000002";
 
 test.each([
   ["the Course list", COURSE_LIST_PATH, "/courses"],
-  ["a Course", coursePath(COURSE), `/courses/${COURSE}/chat`],
+  ["a Course", coursePath(COURSE), `/courses/${COURSE}/map`],
   ["its Materials", materialsPath(COURSE), `/courses/${COURSE}/materials`],
   [
     "a Material's chunks",

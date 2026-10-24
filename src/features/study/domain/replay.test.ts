@@ -5,9 +5,11 @@ import {
   finalWeekSweep,
   kcState,
   medianSeconds,
+  projectedRecall,
   rateAttempt,
   replayCourse,
   replayKc,
+  retrievability,
   sessionEnd,
   type AttemptHelp,
   type AttemptResult,
@@ -351,6 +353,30 @@ describe("kcState", () => {
     expect(kc.nextReview).toBe(due.slice(0, 10));
     expect(kc.retrievability).toBeGreaterThan(0);
     expect(kc.retrievability).toBeLessThan(1);
+  });
+});
+
+describe("projectedRecall", () => {
+  const now = new Date("2026-10-10T12:00:00Z");
+  const card = replayKc(
+    [attempt("s1", "2026-10-01T10:00:00Z")],
+    ALL_ENDED,
+  )!.card!;
+  const today = retrievability(card, now);
+
+  test("is the recall on the exam date while the exam is ahead", () => {
+    const projected = projectedRecall(card, now, "2026-10-20");
+
+    expect(projected).toBe(retrievability(card, new Date("2026-10-20")));
+    expect(projected).toBeLessThan(today);
+  });
+
+  test.each([
+    ["no exam", null],
+    ["an exam today", "2026-10-10"],
+    ["a past exam", "2026-10-01"],
+  ])("is today's recall with %s", (_, examDate) => {
+    expect(projectedRecall(card, now, examDate)).toBe(today);
   });
 });
 

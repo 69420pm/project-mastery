@@ -13,28 +13,28 @@ window.matchMedia = (query: string) =>
     removeEventListener() {},
   }) as unknown as MediaQueryList;
 
-const { KnowledgeMapLink } = await import("./knowledge-map-link");
+const { CourseMapLink } = await import("./course-map-link");
 
 const renderLink = () =>
   render(
     <SidebarProvider>
-      <KnowledgeMapLink courseId={COURSE} />
+      <CourseMapLink courseId={COURSE} />
     </SidebarProvider>,
   );
 
-test("links to the Course's Knowledge map, marked current on that page", () => {
+test("links to the Course map, marked current on that page", () => {
   pathname = `/courses/${COURSE}/map`;
   renderLink();
 
-  const link = screen.getByRole("link", { name: "Knowledge map" });
+  const link = screen.getByRole("link", { name: "Course map" });
   expect(link).toHaveAttribute("href", `/courses/${COURSE}/map`);
   expect(link).toHaveAttribute("aria-current", "page");
 });
 
 test("is not current on another page of the Course", () => {
-  pathname = `/courses/${COURSE}`;
+  pathname = `/courses/${COURSE}/materials`;
   renderLink();
-  expect(
-    screen.getByRole("link", { name: "Knowledge map" }),
-  ).not.toHaveAttribute("aria-current");
+  expect(screen.getByRole("link", { name: "Course map" })).not.toHaveAttribute(
+    "aria-current",
+  );
 });

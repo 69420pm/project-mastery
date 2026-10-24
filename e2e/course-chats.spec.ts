@@ -24,7 +24,7 @@ async function storedChatIds(courseId: string) {
   return data.map((chat) => chat.id);
 }
 
-test("opening a Course starts a Chat in it, the sidebar shows only its Chats, and the switcher changes Course", async ({
+test("opening a Course lands on its Course map, a Chat starts from New chat, the sidebar shows only its Chats, and the switcher changes Course", async ({
   page,
   student,
   course,
@@ -45,12 +45,12 @@ test("opening a Course starts a Chat in it, the sidebar shows only its Chats, an
     .getByRole("link", { name: "Calculus" })
     .click();
 
-  await expect(page).toHaveURL(course.chatPath);
+  await expect(page).toHaveURL(`/courses/${course.id}/map`);
   await expect(
     (await openSidebar(page)).getByText("No chats yet."),
   ).toBeVisible();
-  if (test.info().project.name === "mobile")
-    await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "New chat" }).click();
+  await expect(page).toHaveURL(course.chatPath);
 
   await messageInput(page).fill("What is a limit?");
   await messageInput(page).press("Enter");
@@ -71,7 +71,7 @@ test("opening a Course starts a Chat in it, the sidebar shows only its Chats, an
   await page.getByRole("button", { name: /Switch course/ }).click();
   await page.getByRole("menuitem", { name: "Biology" }).click();
 
-  await expect(page).toHaveURL(biology.chatPath);
+  await expect(page).toHaveURL(`/courses/${biology.id}/map`);
   await expect((await openSidebar(page)).getByRole("link")).toHaveText([
     "What does a cell wall do?",
   ]);

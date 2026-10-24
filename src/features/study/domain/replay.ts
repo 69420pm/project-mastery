@@ -335,6 +335,20 @@ export const retrievability = (card: Card, now: Date) =>
   scheduler(desiredRetention(null)).get_retrievability(card, now, false);
 
 /**
+ * A card's projected recall: its recall on the exam date (YYYY-MM-DD) while
+ * the exam is still ahead of `now`'s day, otherwise today's.
+ */
+export function projectedRecall(
+  card: Card,
+  now: Date,
+  examDate: string | null,
+): number {
+  return examDate !== null && examDate > utcDay(now)
+    ? retrievability(card, new Date(examDate))
+    : retrievability(card, now);
+}
+
+/**
  * A KC's state at `now` from its schedule (undefined for a KC without
  * non-`pre` attempts): `new` without one, `due` when its card is, `learning`
  * while its first session runs or its stability is under 7 days, else
