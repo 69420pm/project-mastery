@@ -1,6 +1,5 @@
-import type { CandidateGroup } from "@/features/study/domain/candidates";
 import type { DueReviews } from "@/features/study/domain/reviews";
-import type { TutorContext } from "@/features/study/types";
+import type { TutorContext, TutorToday } from "@/features/study/types";
 
 /**
  * The AI's instructions in a Chat (#102): it tutors the Student from the
@@ -17,7 +16,7 @@ const RULES = `Rules you always follow:
 
 const GUIDANCE = `How you tutor:
 - Reviews first: when the Student greets you or wants to study without saying what, do not ask them to choose. If reviews are due (listed below), start with them: your first action is a readKcs call for the top due KCs, before you write any text; then ask one review question, combining related due KCs into one question. Go through the due reviews this way, then move on to something new.
-- What to learn next: the candidates below are what the Student can learn now, ranked by how much they matter for the exam. When nothing is due, or after the reviews, pick a connected handful of candidates yourself, usually the top ones of one big idea, and call readKcs for them before you write any text; only after its result, name in a sentence what you will learn together and start with the dock. When few reviews are due, review the anchors of what comes next as part of the dock.
+- What to learn next: the next Topic below is what the Student works on now, chosen by their study plan. When nothing is due, or after the reviews, work on it: call readKcs for its KCs not taught yet, the first few in their order (its taught KCs when all are taught), before you write any text; only after its result, name the Topic and its central question in a sentence and start with the dock on its anchors, then teach its KCs in their order. When few reviews are due, review the anchors as part of the dock.
 - After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems of the same task type in a row.
 - Teach from the course: before you teach or ask about a KC, call readKcs with its id first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.
@@ -48,21 +47,16 @@ const FORMAT = `Language and format:
 - Format answers in Markdown.
 - Write all mathematics in LaTeX: inline math between single dollar signs, like $f'(x) = 2x$, and displayed equations between double dollar signs on their own lines, like $$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$$. Never write math as plain text or Unicode symbols, and never use \\( \\) or \\[ \\] delimiters.`;
 
-function describeCandidates(groups: CandidateGroup[]): string {
-  return groups
-    .map(({ bigIdea, kcs }) =>
-      [
-        `Big idea: ${bigIdea}`,
-        ...kcs.map(({ id, name, type, anchors }) => {
-          const docks =
-            anchors.length === 0
-              ? "no anchors"
-              : `anchors: ${anchors.map((a) => `${a.name} (id ${a.id})`).join(", ")}`;
-          return `- ${name} (id ${id}, ${type}; ${docks})`;
-        }),
-      ].join("\n"),
-    )
-    .join("\n\n");
+function describeTopic(next: NonNullable<TutorToday["next"]>): string {
+  const anchors =
+    next.anchors.length === 0
+      ? "Anchors: none."
+      : `Anchors (the prior knowledge and KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
+  return [
+    `Next Topic: ${next.name}. Central question: ${next.centralQuestion}`,
+    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
+    anchors,
+  ].join("\n");
 }
 
 function describeReviews({ kcs, more }: DueReviews): string {
@@ -88,12 +82,15 @@ function describeReviews({ kcs, more }: DueReviews): string {
 
 function describeMap(context: TutorContext): string {
   if (!context.hasMap) {
-    return `The Course has no Knowledge map yet, so you have no candidates. Tutor without them, and suggest that the Student builds the map on the map page ([Knowledge map](${context.mapPath})) so you can plan what to learn.`;
+    return `The Course has no Knowledge map yet, so you have no next Topic. Tutor without one, and suggest that the Student builds the map on the map page ([Course map](${context.mapPath})) so you can plan what to learn.`;
   }
-  if (context.candidates.length === 0) {
-    return "The Knowledge map lists no candidates right now. Ask the Student what they want to work on.";
+  // Contexts stored before #177, which the Context sheet re-renders, have
+  // no Today plan.
+  const next = (context.todayPlan as TutorToday | undefined)?.next ?? null;
+  if (next === null) {
+    return "The study plan has no next Topic right now. Ask the Student what they want to work on.";
   }
-  return `Candidates, best first, grouped by big idea (anchors are the prior knowledge or taught KCs each docks onto):\n\n${describeCandidates(context.candidates)}`;
+  return describeTopic(next);
 }
 
 const GOALS = {
@@ -109,8 +106,9 @@ const PHASE_GUIDANCE = {
 } as const;
 
 function describePlan(context: TutorContext): string[] {
-  const { phase, goal, share, leftOutCount } = context;
+  const { phase, goal } = context;
   if (phase === null) return [];
+  const today = context.todayPlan as TutorToday | undefined;
   const lines = [`Study phase: ${phase.replace("_", " ")}.`];
   if (goal !== null) {
     lines.push(
@@ -119,11 +117,11 @@ function describePlan(context: TutorContext): string[] {
   }
   const guidance = PHASE_GUIDANCE[phase];
   if (guidance !== null) lines.push(guidance);
-  if (share !== null && leftOutCount !== null) {
+  if (today?.hint)
+    lines.push(`Today's suggestion for the Student: ${today.hint}.`);
+  if (today?.fitLine) {
     lines.push(
-      leftOutCount === 0
-        ? "At the Student's pace and weekly hours, every Topic in the plan fits before the final week."
-        : `At the Student's pace and weekly hours, the Topics that fit before the final week cover about ${share}% of the exam weight; ${leftOutCount} Topics in the plan won't fit. Mention it only when the Student asks about time.`,
+      `The study plan: ${today.fitLine} Mention it only when the Student asks about time.`,
     );
   }
   return [lines.join("\n")];

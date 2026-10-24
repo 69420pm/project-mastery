@@ -43,7 +43,7 @@ function KcButton({
 /**
  * Every stat about one KC: what it is, what the Student has learned of it,
  * its Priority, its links, the chunks that teach it, the Exercises that test
- * it and what the checks and the AI's candidates say about it. Clicking a
+ * it and what the checks say about it. Clicking a
  * linked KC or an Exercise calls `onSelect` with its id.
  */
 export function KcPanel({
@@ -272,24 +272,6 @@ export function KcPanel({
       </Section>
 
       <Section title="Flags">
-        <dl className="flex flex-col gap-1">
-          <Fact label="Next to learn">
-            {learned?.candidate
-              ? "Among the AI's candidates"
-              : "Not a candidate now"}
-          </Fact>
-          {learned?.candidate && learned.anchors.length > 0 && (
-            <Fact label="Anchors">
-              <ul>
-                {learned.anchors.map((anchor) => (
-                  <li key={anchor.id}>
-                    <KcButton kc={kcs.get(anchor.id)} onSelect={onSelect} />
-                  </li>
-                ))}
-              </ul>
-            </Fact>
-          )}
-        </dl>
         {flags.length > 0 ? (
           <ul aria-label="Check flags" className="flex flex-wrap gap-1.5">
             {flags.map((flag) => (

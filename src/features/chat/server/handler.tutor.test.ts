@@ -69,7 +69,7 @@ const promptOf = (
 ): string => JSON.stringify(model.doStreamCalls[call]!.prompt);
 
 describe("the instructions", () => {
-  test("hold the rules, the dates and the candidates with their anchors", async () => {
+  test("hold the rules, the dates and the next Topic with its KCs and anchors", async () => {
     const model = mockTextModel("What do you remember of Newton's law?");
     useMockModels({ chat: model });
     seedMap();
@@ -89,12 +89,13 @@ describe("the instructions", () => {
       `Today is ${new Date().toISOString().slice(0, 10)}`,
     );
     expect(prompt).toContain("The exam date: 2026-12-03.");
-    expect(prompt).toContain("Big idea: Thrust generation");
     expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}, procedure; anchors: Newton's second law (id ${MAP.prior}))`,
+      "Next Topic: Thrust. Central question: How does an engine make thrust?",
     );
-    // Its Prerequisite is not prior knowledge.
-    expect(prompt).not.toContain("Propulsive efficiency");
+    expect(prompt).toContain(
+      `- Thrust equation (id ${MAP.thrust}, procedure; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
+    );
+    expect(prompt).toContain(`- Newton's second law (id ${MAP.prior})`);
   });
 
   test("come from the context sent on the reply's start and saved with it", async () => {
@@ -108,7 +109,9 @@ describe("the instructions", () => {
     expect(context).toMatchObject({
       today: new Date().toISOString().slice(0, 10),
       hasMap: true,
-      candidates: [expect.objectContaining({ bigIdea: "Thrust generation" })],
+      todayPlan: {
+        next: expect.objectContaining({ id: MAP.topic, name: "Thrust" }),
+      },
     });
     const [studentRow, replyRow] = db.tables.chat_messages.filter(
       (row) => row.chat_id === body.chatId,
@@ -117,7 +120,7 @@ describe("the instructions", () => {
     expect(replyRow?.tutor_context).toEqual(context);
   });
 
-  test("list the due reviews, and admit candidates whose Prerequisites are taught", async () => {
+  test("list the due reviews, and mark the next Topic's taught KCs", async () => {
     const model = mockTextModel("What is the thrust equation?");
     useMockModels({ chat: model });
     seedMap();
@@ -133,11 +136,11 @@ describe("the instructions", () => {
       ),
     );
     expect(prompt).toContain(
-      `- Propulsive efficiency (id ${MAP.efficiency}, concept; anchors: Thrust equation (id ${MAP.thrust}))`,
+      `- Thrust equation (id ${MAP.thrust}, procedure; taught)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
     );
   });
 
-  test("give the goal, the Phase and the won't-fit count when the plan has a fit", async () => {
+  test("give the goal, the Phase and the fit line when the plan has a fit", async () => {
     const model = mockTextModel("Let's go.");
     useMockModels({ chat: model });
     seedMap();
@@ -155,8 +158,9 @@ describe("the instructions", () => {
     expect(prompt).toContain("Study phase: build.");
     expect(prompt).toContain("goal is a good grade");
     // Half an hour fits neither of the Topic's two KCs.
-    expect(prompt).toContain("cover about 0% of the exam weight");
-    expect(prompt).toContain("1 Topics in the plan won't fit");
+    expect(prompt).toContain(
+      "The study plan: Build phase. At your pace, 0 of 1 Topic fit, covering 0% of exam weight.",
+    );
   });
 
   test("guide the final week to review, and add no plan without an exam date", async () => {
@@ -181,7 +185,7 @@ describe("the instructions", () => {
     expect(promptOf(model, 1)).not.toContain("Study phase");
   });
 
-  test("without a map, have no candidates and point to the map page", async () => {
+  test("without a map, have no next Topic and point to the map page", async () => {
     const model = mockTextModel("Hi.");
     useMockModels({ chat: model });
 
@@ -191,7 +195,7 @@ describe("the instructions", () => {
     expect(prompt).toContain("The exam date: not set.");
     expect(prompt).toContain("no Knowledge map yet");
     expect(prompt).toContain(`/courses/${COURSE}/map`);
-    expect(prompt).not.toContain("Big idea:");
+    expect(prompt).not.toContain("Next Topic:");
   });
 });
 

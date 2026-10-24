@@ -2,13 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { briefPath } from "@/features/brief";
 import { getCourse } from "@/features/courses/server";
-import { CourseMap, courseMapPath } from "@/features/knowledge-map";
+import { newChatPath } from "@/features/chat";
+import { CourseMap, courseMapPath, topicPath } from "@/features/knowledge-map";
 import {
   getKnowledgeMap,
   loadCourseTopics,
 } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
-import { FitLine, topicBadges } from "@/features/study";
+import { FitLine, TodayCard, topicBadges } from "@/features/study";
 import {
   getKcLearning,
   getPlan,
@@ -60,6 +61,14 @@ export default async function CourseMapPage({
         plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
       )}
       planLine={<FitLine plan={plan} briefHref={briefPath(courseId)} />}
+      today={
+        <TodayCard
+          plan={plan}
+          mapHref={courseMapPath(courseId)}
+          topicHref={plan.today.next && topicPath(courseId, plan.today.next.id)}
+          startHref={newChatPath(courseId)}
+        />
+      }
     />
   );
 }

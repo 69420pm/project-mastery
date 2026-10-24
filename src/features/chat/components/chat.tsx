@@ -10,7 +10,7 @@ import {
   RotateCcwIcon,
   UploadIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -88,8 +88,11 @@ type ChatProps = {
   materials: MaterialListItem[];
   /** The signed-in Student, whose Storage folder uploads go to. */
   ownerId: string;
-  /** The empty state's description, computed by the page. */
-  emptyDescription?: string;
+  /**
+   * What the empty state shows under its heading, such as the study
+   * feature's Today card, which the page passes in.
+   */
+  emptyState?: ReactNode;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
@@ -106,7 +109,7 @@ export function Chat({
   isNew,
   materials: courseMaterials,
   ownerId,
-  emptyDescription = DEFAULT_EMPTY_DESCRIPTION,
+  emptyState,
   dailyLimit: initialDailyLimit,
 }: ChatProps) {
   const chatId = chat.id;
@@ -293,12 +296,13 @@ export function Chat({
                 <h2 className="text-xl font-semibold tracking-tight">
                   Ready to study?
                 </h2>
-                {emptyDescription && (
+                {!emptyState && (
                   <p className="max-w-md text-sm text-balance text-muted-foreground">
-                    {emptyDescription}
+                    {DEFAULT_EMPTY_DESCRIPTION}
                   </p>
                 )}
               </div>
+              {emptyState}
             </ConversationEmptyState>
           ) : (
             messages.map((message) => {

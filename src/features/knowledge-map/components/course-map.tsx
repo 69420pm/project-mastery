@@ -32,7 +32,7 @@ const BUILD_POLL_MS = 2000;
  * A Course's home, the Course map: the build's state with Build or Update
  * map, the Priorities' state, the reviews due and the study plan's line
  * (`planLine`, a slot, since the study feature that owns the plan depends on
- * this one), then its Topics on its Big ideas as a graph filling the rest of
+ * this one), the Today card (`today`, a slot too), then its Topics on its Big ideas as a graph filling the rest of
  * the page, each with its Topic state and recall today from `topicStates`
  * and its plan badges from `topicBadges`, which the page passes in since
  * the study feature computes them. The page
@@ -46,6 +46,7 @@ export function CourseMap({
   topicStates,
   topicBadges,
   planLine,
+  today,
 }: {
   map: KnowledgeMapView;
   /** In Course order; empty before a build stored Topics. */
@@ -55,6 +56,8 @@ export function CourseMap({
   topicStates: MapTopicStates;
   topicBadges: MapTopicBadges;
   planLine: ReactNode;
+  /** The study feature's Today card, shown above the graph. */
+  today?: ReactNode;
 }) {
   const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
   const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
@@ -104,14 +107,17 @@ export function CourseMap({
           />
         </div>
       ) : (
-        <div className="min-h-96 flex-1">
-          <CourseMapGraph
-            map={map}
-            topics={topics}
-            topicStates={topicStates}
-            topicBadges={topicBadges}
-          />
-        </div>
+        <>
+          {today}
+          <div className="min-h-96 flex-1">
+            <CourseMapGraph
+              map={map}
+              topics={topics}
+              topicStates={topicStates}
+              topicBadges={topicBadges}
+            />
+          </div>
+        </>
       )}
     </div>
   );

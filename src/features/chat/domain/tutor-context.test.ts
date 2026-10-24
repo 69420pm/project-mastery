@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import type { TutorContext } from "@/features/study";
 import {
   dueReviewText,
   goalLabel,
@@ -27,25 +28,18 @@ test.each([
   expect(goalLabel(goal)).toBe(label);
 });
 
-test.each([
-  [80, null],
-  [null, 4],
-])(
-  "pacingText says no pacing when share is %s and left out is %s",
-  (share, leftOutCount) => {
-    expect(pacingText({ share, leftOutCount })).toBe("No pacing");
-  },
-);
-
 describe("pacingText", () => {
-  test("shows the share with the left-out count", () => {
-    expect(pacingText({ share: 80, leftOutCount: 4 })).toBe(
-      "80% fit, 4 left out",
-    );
+  const withFit = (fitLine: string | null) =>
+    ({ todayPlan: { next: null, hint: null, fitLine } }) as TutorContext;
+
+  test("shows the fit line", () => {
+    const line = "Build phase. At your pace, 9 of 12 Topics fit.";
+    expect(pacingText(withFit(line))).toBe(line);
   });
 
-  test("says there is no pacing without one", () => {
-    expect(pacingText({ share: null, leftOutCount: null })).toBe("No pacing");
+  test("says there is no pacing without one, or in a context stored before #177", () => {
+    expect(pacingText(withFit(null))).toBe("No pacing");
+    expect(pacingText({} as TutorContext)).toBe("No pacing");
   });
 });
 

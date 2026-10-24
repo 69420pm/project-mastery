@@ -13,6 +13,8 @@ import {
   planStudy,
 } from "@/features/study/domain/plan";
 import type { KcSchedule } from "@/features/study/domain/replay";
+import { selectDueReviews } from "@/features/study/domain/reviews";
+import { planToday, type TodayPlan } from "@/features/study/domain/today";
 import { loadSchedules } from "@/features/study/server/attempts";
 import { loadPace } from "@/features/study/server/pace";
 import type { StudyPlan } from "@/features/study/types";
@@ -27,12 +29,15 @@ const NO_PLAN: StudyPlan = {
   fit: null,
   hoursPerWeek: null,
   pace: DEFAULT_PACE,
+  hasMap: false,
+  today: { reviews: null, next: null, hint: null },
 };
 
 /**
  * A Course's plan over its stored Topics (`planStudy`) at the Student's
  * measured pace (`loadPace`), read with `supabase`, from what the caller
- * already loaded, with the pace it used. No Topic is pinned or skipped yet.
+ * already loaded, with the pace it used and today's work (`planToday`). No
+ * Topic is pinned or skipped yet.
  */
 export async function loadPlan(
   supabase: Supabase,
@@ -42,21 +47,39 @@ export async function loadPlan(
     priorities: Record<string, number>;
     exam: Awaited<ReturnType<typeof getExamFacts>>;
     schedules: Map<string, KcSchedule>;
+    /** How many KCs of the map are due. */
+    dueCount: number;
   },
   now: Date,
-): Promise<Plan & { pace: Pace }> {
+): Promise<Plan & { pace: Pace; today: TodayPlan }> {
   const [topics, pace] = await Promise.all([
     loadStoredTopics(supabase, courseId),
     loadPace(supabase, courseId, now),
   ]);
-  const plan = planStudy({ ...loaded, topics, choices: [], pace, now });
-  return { ...plan, pace };
+  const plan = {
+    ...planStudy({ ...loaded, topics, choices: [], pace, now }),
+    pace,
+  };
+  const today = planToday(plan, {
+    topics,
+    schedules: loaded.schedules,
+    dueCount: loaded.dueCount,
+    examDate: loaded.exam.examDate,
+    now,
+  });
+  return { ...plan, today };
+}
+
+/** How many KCs of a map are due at `now`. */
+function countDue(...args: Parameters<typeof selectDueReviews>): number {
+  const { kcs, more } = selectDueReviews(...args);
+  return kcs.length + more;
 }
 
 /**
- * The signed-in Student's study plan of a Course, derived now from its
- * Topics, map, Priorities, attempts and Brief. An unknown or another
- * Student's Course has none.
+ * The signed-in Student's study plan of a Course with today's work, derived
+ * now from its Topics, map, Priorities, attempts and Brief. An unknown or
+ * another Student's Course has none.
  */
 export async function getPlan(courseId: string): Promise<StudyPlan> {
   if (!z.uuid().safeParse(courseId).success || !(await getUser())) {
@@ -78,8 +101,18 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
   const plan = await loadPlan(
     supabase,
     courseId,
-    { prerequisites: map.prerequisites, priorities, exam, schedules },
+    {
+      prerequisites: map.prerequisites,
+      priorities,
+      exam,
+      schedules,
+      dueCount: countDue(map.kcs, schedules, priorities, now),
+    },
     now,
   );
-  return { ...plan, hoursPerWeek: exam.hoursPerWeek };
+  return {
+    ...plan,
+    hoursPerWeek: exam.hoursPerWeek,
+    hasMap: map.kcs.length > 0,
+  };
 }

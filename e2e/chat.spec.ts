@@ -44,13 +44,15 @@ test.describe("signed in", () => {
       .annotations.push({ type: "student", description: student.email });
   });
 
-  test("the empty state tells a Course without a map to build one", async ({
+  test("the empty state's Today card tells a Course without a map to build one", async ({
     page,
     course,
   }) => {
     await page.goto(course.chatPath);
     await expect(
-      page.getByText("Build your Knowledge map to start studying"),
+      page
+        .getByRole("region", { name: "Today" })
+        .getByRole("link", { name: "Build your Course map" }),
     ).toBeVisible();
   });
 
@@ -239,25 +241,28 @@ test.describe("signed in", () => {
           examDate: "2026-12-03",
           hasMap: true,
           phase: "build",
-          share: null,
-          leftOutCount: null,
           goal: "pass",
           memory: "",
           mapPath: `/courses/${course.id}/map`,
           dueReviews: { kcs: [], more: 0 },
-          candidates: [
-            {
-              bigIdea: "Calculus",
+          todayPlan: {
+            next: {
+              id: "topic-1",
+              name: "Continuity",
+              centralQuestion: "When can you draw a graph without lifting?",
               kcs: [
                 {
                   id: "kc-2",
                   name: "Continuity",
                   type: "concept",
-                  anchors: [],
+                  taught: false,
                 },
               ],
+              anchors: [{ id: "kc-1", name: "Limits" }],
             },
-          ],
+            hint: null,
+            fitLine: null,
+          },
         },
       });
     expect(error).toBeNull();
@@ -278,7 +283,9 @@ test.describe("signed in", () => {
     await page.getByRole("button", { name: "Context" }).click();
     const sheet = page.getByRole("dialog", { name: "Context" });
     await expect(
-      sheet.getByRole("region", { name: "Candidates" }).getByText("Continuity"),
+      sheet
+        .getByRole("region", { name: "Next Topic" })
+        .getByRole("heading", { name: "Continuity" }),
     ).toBeVisible();
   });
 

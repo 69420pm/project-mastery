@@ -6,7 +6,11 @@ import {
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
-import { courseMapPath, loadStoredMap } from "@/features/knowledge-map/server";
+import {
+  courseMapPath,
+  loadStoredMap,
+  topicAnchors,
+} from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import {
   TutorToolError,
@@ -14,7 +18,6 @@ import {
   type TutorToolActions,
   type TutorTools,
 } from "@/features/study/ai/tools";
-import { selectCandidates } from "@/features/study/domain/candidates";
 import {
   loadAttemptedExercises,
   loadSchedules,
@@ -23,6 +26,7 @@ import {
   rankExercises,
   solutionLabel,
 } from "@/features/study/domain/exercises";
+import { fitText } from "@/features/study/domain/plan";
 import { kcState, utcDay } from "@/features/study/domain/replay";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
@@ -34,7 +38,7 @@ import {
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
-import type { TutorContext } from "@/features/study/types";
+import type { TutorContext, TutorToday } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -63,33 +67,66 @@ export async function startTutoring(
   const facts = { examDate, goal: exam.goal, priorities };
   const now = new Date();
   const schedules = await loadSchedules(supabase, courseId, facts, now);
-  const hasMap = map.kcs.length > 0;
-  const today = utcDay(now);
-  const taught = new Set(schedules.keys());
-  const { phase, topics, fit } = await loadPlan(
+  const dueReviews = selectDueReviews(map.kcs, schedules, priorities, now);
+  const plan = await loadPlan(
     supabase,
     courseId,
-    { prerequisites: map.prerequisites, priorities, exam, schedules },
+    {
+      prerequisites: map.prerequisites,
+      priorities,
+      exam,
+      schedules,
+      dueCount: dueReviews.kcs.length + dueReviews.more,
+    },
     now,
   );
   return {
     context: {
-      today,
+      today: utcDay(now),
       examDate,
-      hasMap,
-      phase,
-      share: fit?.examWeight ?? null,
-      leftOutCount:
-        fit === null ? null : topics.filter((t) => t.fits === false).length,
+      hasMap: map.kcs.length > 0,
+      phase: plan.phase,
       goal: exam.goal,
       memory,
       mapPath: courseMapPath(courseId),
-      dueReviews: selectDueReviews(map.kcs, schedules, priorities, now),
-      candidates: hasMap ? selectCandidates(map, priorities, taught) : [],
+      dueReviews,
+      todayPlan: tutorToday(plan, map, schedules),
     },
     tools: tutorTools(
       tutorToolActions(supabase, { courseId, chatId, facts, map }),
     ),
+  };
+}
+
+/**
+ * Today's work as the AI is told of it: the next Topic with its KCs and
+ * anchors from the map, the hint and the fit line.
+ */
+function tutorToday(
+  plan: Awaited<ReturnType<typeof loadPlan>>,
+  map: KnowledgeMap,
+  schedules: Map<string, unknown>,
+): TutorToday {
+  const { next, hint } = plan.today;
+  const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
+  return {
+    next: next && {
+      id: next.id,
+      name: next.name,
+      centralQuestion: next.centralQuestion,
+      kcs: next.kcs.flatMap((id) => {
+        const kc = kcById.get(id);
+        return kc
+          ? [{ id, name: kc.name, type: kc.type, taught: schedules.has(id) }]
+          : [];
+      }),
+      anchors: topicAnchors(next.kcs, map),
+    },
+    hint,
+    fitLine:
+      plan.phase === null || plan.fit === null
+        ? null
+        : fitText(plan.phase, plan.fit),
   };
 }
 
@@ -125,7 +162,7 @@ function tutorToolActions(
     const unknown = kcIds.filter((id) => !kcById.has(id));
     if (unknown.length > 0) {
       throw new TutorToolError(
-        `These are no KC ids of this Course: ${unknown.join(", ")}. Use the ids of the candidates and their anchors.`,
+        `These are no KC ids of this Course: ${unknown.join(", ")}. Use the ids of the due reviews, the next Topic's KCs and their anchors.`,
       );
     }
   };

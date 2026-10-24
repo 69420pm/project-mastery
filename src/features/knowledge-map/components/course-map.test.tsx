@@ -92,6 +92,8 @@ const plan: StudyPlan = {
   fit: { fitting: 9, inPlan: 12, examWeight: 84 },
   hoursPerWeek: 5,
   pace: { minutesPerKc: 30, minutesPerReview: 2 },
+  hasMap: true,
+  today: { reviews: null, next: null, hint: null },
 };
 
 const renderMap = (

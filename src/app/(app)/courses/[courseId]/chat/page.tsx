@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Chat, newChatPath } from "@/features/chat";
 import { newChat } from "@/features/chat/server";
 import { getCourse, getMaterialList } from "@/features/courses/server";
-import { getOpeningLine } from "@/features/study/server";
+import { courseMapPath, topicPath } from "@/features/knowledge-map";
+import { TodayCard } from "@/features/study";
+import { getPlan } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -11,17 +13,20 @@ export const metadata: Metadata = {
   title: "New chat",
 };
 
-/** A new Chat in a Course. It is stored with its first message. */
+/**
+ * A new Chat in a Course, whose empty state shows the Today card. It is
+ * stored with its first message.
+ */
 export default async function NewChatPage({
   params,
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
   const user = await requireUser(newChatPath(courseId));
-  const [course, dailyLimit, materials, emptyDescription] = await Promise.all([
+  const [course, dailyLimit, materials, plan] = await Promise.all([
     getCourse(courseId),
     getDailyLimitStatus(),
     getMaterialList(courseId),
-    getOpeningLine(courseId),
+    getPlan(courseId),
   ]);
   if (!course) notFound();
   const chat = newChat(course.id);
@@ -33,7 +38,13 @@ export default async function NewChatPage({
       isNew
       materials={materials}
       ownerId={user.id}
-      emptyDescription={emptyDescription}
+      emptyState={
+        <TodayCard
+          plan={plan}
+          mapHref={courseMapPath(courseId)}
+          topicHref={plan.today.next && topicPath(courseId, plan.today.next.id)}
+        />
+      }
       dailyLimit={dailyLimit}
     />
   );

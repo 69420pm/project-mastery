@@ -42,6 +42,19 @@ test("a parsed Material is built into a Course map of Topics", async ({
     page.getByRole("status", { name: "Build status" }),
   ).toContainText("Last built");
 
+  // The Today card names the next Topic and starts a new Chat.
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(
+    today.getByRole("link", { name: /^Mock text from the mock AI/ }),
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
+  );
+  await expect(today.getByRole("link", { name: "Start" })).toHaveAttribute(
+    "href",
+    `/courses/${course.id}/chat`,
+  );
+
   // The mock names every Topic with its text.
   const graph = page.getByRole("application", { name: "Course map graph" });
   const card = graph

@@ -1,4 +1,3 @@
-import type { CandidateGroup } from "@/features/study/domain/candidates";
 import type {
   AttemptHelp,
   AttemptResult,
@@ -7,6 +6,7 @@ import type {
 } from "@/features/study/domain/replay";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { TodayPlan } from "@/features/study/domain/today";
 
 export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
 
@@ -24,10 +24,6 @@ export type TutorContext = {
   hasMap: boolean;
   /** Where the study stands (`planStudy`); null without a running exam date. */
   phase: Phase | null;
-  /** The fit's exam weight, a whole percent; null without one. */
-  share: number | null;
-  /** How many in-plan Topics won't fit; null without a fit. */
-  leftOutCount: number | null;
   /** The Student's goal from the Brief; null until answered. */
   goal: "pass" | "good_grade" | "master_everything" | null;
   /** What the AI noted about the Student in this Course; "" without notes. */
@@ -36,16 +32,42 @@ export type TutorContext = {
   mapPath: string;
   /** Most urgent first; none without a map. */
   dueReviews: DueReviews;
-  /** Ranked and grouped by big idea; empty without a map. */
-  candidates: CandidateGroup[];
+  /**
+   * What to work on after the due reviews, from the Today card. Contexts
+   * stored before #177 have none.
+   */
+  todayPlan: TutorToday;
+};
+
+/** The Today card's work as the AI is told of it. */
+export type TutorToday = {
+  /** Null without a map, Topics or a Topic to work on. */
+  next: {
+    id: string;
+    name: string;
+    centralQuestion: string;
+    /** In teaching order; `taught` when it has an FSRS schedule. */
+    kcs: Array<{ id: string; name: string; type: string; taught: boolean }>;
+    /** Prerequisites from outside the Topic, prior KCs included. */
+    anchors: Array<{ id: string; name: string }>;
+  } | null;
+  /** Such as "Practice exam-style problems"; null in build. */
+  hint: string | null;
+  /** The fit line (`fitText`); null without a fit. */
+  fitLine: string | null;
 };
 
 /**
  * A Course's study plan over its Topics as the map and the Brief show it
- * (`planStudy`), with the Brief's weekly hours and the measured pace it
- * used.
+ * (`planStudy`), with the Brief's weekly hours, the measured pace it used,
+ * whether the Course has a map and today's work (`planToday`).
  */
-export type StudyPlan = Plan & { hoursPerWeek: number | null; pace: Pace };
+export type StudyPlan = Plan & {
+  hoursPerWeek: number | null;
+  pace: Pace;
+  hasMap: boolean;
+  today: TodayPlan;
+};
 
 /** A source chunk of a KC as `readKcs` returns it. */
 type KcSourceView = {

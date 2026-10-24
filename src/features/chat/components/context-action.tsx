@@ -20,6 +20,7 @@ import {
   goalLabel,
   pacingText,
   phaseLabel,
+  todayOf,
 } from "@/features/chat/domain/tutor-context";
 import { tutorInstructions, type TutorContext } from "@/features/study";
 
@@ -60,7 +61,9 @@ export function ContextAction({ context }: { context?: TutorContext }) {
 }
 
 function ContextDetails({ context }: { context: TutorContext }) {
-  const { dueReviews, candidates } = context;
+  const { dueReviews } = context;
+  const today = todayOf(context);
+  const next = today?.next ?? null;
   return (
     <>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -111,32 +114,34 @@ function ContextDetails({ context }: { context: TutorContext }) {
         )}
       </Section>
 
-      <Section title="Candidates">
-        {candidates.length === 0 ? (
+      <Section title="Next Topic">
+        {next === null ? (
           <Muted>
-            {context.hasMap ? "No candidates." : "No Knowledge map yet."}
+            {context.hasMap ? "No next Topic." : "No Knowledge map yet."}
           </Muted>
         ) : (
-          candidates.map(({ bigIdea, kcs }) => (
-            <div key={bigIdea} className="flex flex-col gap-1 text-sm">
-              <h3 className="font-medium">{bigIdea}</h3>
-              <ul className="flex flex-col gap-1">
-                {kcs.map((kc) => (
-                  <li key={kc.id}>
-                    {kc.name}
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {kc.type} ·{" "}
-                      {kc.anchors.length === 0
-                        ? "no anchors"
-                        : `anchors: ${kc.anchors.map(({ name }) => name).join(", ")}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))
+          <div className="flex flex-col gap-1 text-sm">
+            <h3 className="font-medium">{next.name}</h3>
+            <p className="text-muted-foreground">{next.centralQuestion}</p>
+            <ul className="flex flex-col gap-1">
+              {next.kcs.map((kc) => (
+                <li key={kc.id}>
+                  {kc.name}
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {kc.type} · {kc.taught ? "taught" : "not taught yet"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground">
+              {next.anchors.length === 0
+                ? "No anchors"
+                : `Anchors: ${next.anchors.map(({ name }) => name).join(", ")}`}
+            </p>
+          </div>
         )}
+        {today?.hint && <Muted>{today.hint}</Muted>}
       </Section>
 
       <Collapsible className="text-sm">

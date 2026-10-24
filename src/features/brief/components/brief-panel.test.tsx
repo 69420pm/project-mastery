@@ -33,6 +33,8 @@ const plan: StudyPlan = {
   fit: null,
   hoursPerWeek: null,
   pace: { minutesPerKc: 30, minutesPerReview: 2 },
+  hasMap: false,
+  today: { reviews: null, next: null, hint: null },
 };
 
 const renderPanel = (

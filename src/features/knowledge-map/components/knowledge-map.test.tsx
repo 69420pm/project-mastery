@@ -136,8 +136,6 @@ test("clicking a KC node opens its panel", async () => {
             exerciseId: null,
           },
         ],
-        candidate: false,
-        anchors: [],
       },
     },
   );
@@ -177,8 +175,6 @@ test("an Exercise node shows its solution status and opens its panel", async () 
             exerciseId: "e1",
           },
         ],
-        candidate: false,
-        anchors: [],
       },
     },
   );
