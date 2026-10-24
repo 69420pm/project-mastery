@@ -1,6 +1,6 @@
 import { createEmptyCard, State, type Card } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
-import { DEFAULT_PACE, type Plan, type TopicPlan } from "./plan";
+import { DEFAULT_PACE, type Pace, type Plan, type TopicPlan } from "./plan";
 import type { KcSchedule } from "./replay";
 import type { TopicStateName } from "./topic-state";
 import { planToday } from "./today";
@@ -25,7 +25,7 @@ const topic = (
 });
 
 const today = (
-  plan: Partial<Plan>,
+  plan: Partial<Plan & { pace: Pace }>,
   input: { dueCount?: number; schedules?: Map<string, KcSchedule> } = {},
 ) =>
   planToday(
@@ -71,7 +71,7 @@ describe("planToday", () => {
   });
 
   test("rounds the review minutes at a measured, fractional pace", () => {
-    const pace = { ...DEFAULT_PACE, minutesPerReview: 0.85 };
+    const pace: Pace = { ...DEFAULT_PACE, minutesPerReview: 0.85 };
     expect(today({ pace }, { dueCount: 7 }).reviews?.minutes).toBe(6);
     expect(today({ pace }, { dueCount: 1 }).reviews?.minutes).toBe(1);
   });
