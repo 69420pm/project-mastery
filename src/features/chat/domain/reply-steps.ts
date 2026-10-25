@@ -67,7 +67,15 @@ export type ReplySegment =
   | { kind: "text"; text: string }
   | { kind: "step"; step: ReplyStep }
   | { kind: "question"; question: AskedQuestion }
-  | { kind: "reading"; reading: ShownReading };
+  | { kind: "reading"; reading: ShownReading }
+  | { kind: "topicMap"; topicMap: TopicMapReveal };
+
+/** A graded rebuild, whose Topic map card opens the Topic's KC graph. */
+export type TopicMapReveal = {
+  /** The `grade` call's id, which tells the cards apart. */
+  id: string;
+  topicId: string;
+};
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
@@ -85,10 +93,22 @@ const TOOL_TITLES: Record<string, string> = {
  * one segment, each tool call as a step. Other parts, such as `step-start`,
  * show nothing. Once the reply is no longer in progress, a call that never
  * returned (the Student stopped the reply) shows as stopped, not running.
+ * A `grade` of a question in `rebuilds` is followed by a Topic map of
+ * `topicId`, when the session has a Topic.
  */
 export function replySegments(
   parts: ChatUIMessage["parts"],
-  { inProgress }: { inProgress: boolean },
+  {
+    inProgress,
+    rebuilds = new Set(),
+    topicId = null,
+  }: {
+    inProgress: boolean;
+    /** The Chat's rebuild questions (`rebuildQuestions`). */
+    rebuilds?: Set<string>;
+    /** The session's Topic (`sessionTopic`). */
+    topicId?: string | null;
+  },
 ): ReplySegment[] {
   const segments: ReplySegment[] = [];
   for (const part of parts) {
@@ -107,6 +127,13 @@ export function replySegments(
             ? { kind: "reading", reading }
             : { kind: "step", step: replyStep(part, inProgress) },
       );
+      const graded = gradedQuestion(part);
+      if (topicId !== null && graded !== null && rebuilds.has(graded)) {
+        segments.push({
+          kind: "topicMap",
+          topicMap: { id: part.toolCallId, topicId },
+        });
+      }
     }
   }
   return segments;
@@ -127,6 +154,38 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
     kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
   };
+}
+
+/** The question a `grade` call that returned graded; null for any other part. */
+function gradedQuestion(part: ToolPart): string | null {
+  if (getToolName(part) !== "grade" || part.state !== "output-available") {
+    return null;
+  }
+  const { questionId } = asRecord(part.input);
+  return typeof questionId === "string" ? questionId : null;
+}
+
+/** The ids of a Chat's questions of kind `rebuild`. */
+export function rebuildQuestions(messages: ChatUIMessage[]): Set<string> {
+  const ids = new Set<string>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (!isToolUIPart(part)) continue;
+      const question = askedQuestion(part);
+      if (question?.kind === "rebuild") ids.add(question.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * A Chat's learn session's Topic, from its latest reply's tutor context: the
+ * Topic of today's work while the context has a session. Null without one.
+ */
+export function sessionTopic(messages: ChatUIMessage[]): string | null {
+  const context = messages.findLast((message) => message.metadata?.tutorContext)
+    ?.metadata?.tutorContext;
+  return context?.session ? (context.todayPlan.next?.id ?? null) : null;
 }
 
 /** The reading of a `showReading` call that returned; null for any other part. */

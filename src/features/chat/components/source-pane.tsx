@@ -10,9 +10,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { pagesLabel } from "@/features/chat/domain/sources";
 import { SourcePaneContext } from "@/features/chat/hooks/use-source-pane";
 import { openSource } from "@/features/chat/server/actions";
-import type { ChatSource, SourceRequest } from "@/features/chat/types";
+import type {
+  ChatSource,
+  PaneRequest,
+  SourceRequest,
+} from "@/features/chat/types";
 import { MaterialFile } from "@/features/courses";
 import { useIsWide } from "@/hooks/use-is-wide";
+import { cn } from "@/lib/utils";
 
 type Loaded =
   | { status: "loading" }
@@ -44,15 +49,18 @@ export type ReadingDone = {
 export function WithSourcePane({
   courseId,
   reading,
+  topicGraph,
   children,
 }: {
   courseId: string;
   reading?: ReadingDone;
+  /** Draws a Topic's KC graph, for a Topic map card to open. */
+  topicGraph?: (topicId: string) => ReactNode;
   /** The Chat. */
   children: ReactNode;
 }) {
-  // What the pane shows; one source at a time.
-  const [source, setSource] = useState<SourceRequest | null>(null);
+  // What the pane shows; one source or Topic map at a time.
+  const [source, setSource] = useState<PaneRequest | null>(null);
   const pane = useMemo(() => ({ courseId, openSource: setSource }), [courseId]);
   return (
     <SourcePaneContext value={pane}>
@@ -62,6 +70,7 @@ export function WithSourcePane({
           courseId={courseId}
           request={source}
           reading={reading}
+          topicGraph={topicGraph}
           onClose={() => setSource(null)}
         />
       </div>
@@ -70,40 +79,50 @@ export function WithSourcePane({
 }
 
 /**
- * The Chat's source pane: one source at a time, a Material's own pages from
- * the source's first page, and a Reading section in its reading mode. From
- * `lg` up it sits beside the Chat; below, it opens in a Sheet. Null
- * `request` closes it.
+ * The Chat's source pane: one thing at a time, a Material's own pages from
+ * the source's first page, a Reading section in its reading mode, or a
+ * Topic's KC graph. From `lg` up it sits beside the Chat; below, it opens in
+ * a Sheet. Null `request` closes it.
  */
 export function SourcePane({
   courseId,
   request,
   reading,
+  topicGraph,
   onClose,
 }: {
   courseId: string;
-  request: SourceRequest | null;
+  request: PaneRequest | null;
   reading?: ReadingDone;
+  topicGraph?: (topicId: string) => ReactNode;
   onClose: () => void;
 }) {
   const isWide = useIsWide();
   if (request === null) return null;
   // Keyed, so opening another source loads it afresh.
-  const view = (
-    <SourceView
-      key={`${request.kind}:${request.id}:${request.cardId ?? ""}`}
-      courseId={courseId}
-      request={request}
-      reading={reading}
-      onClose={onClose}
-    />
-  );
+  const view =
+    request.kind === "topic" ? (
+      <TopicMapView key={`topic:${request.id}`} onClose={onClose}>
+        {topicGraph?.(request.id)}
+      </TopicMapView>
+    ) : (
+      <SourceView
+        key={`${request.kind}:${request.id}:${request.cardId ?? ""}`}
+        courseId={courseId}
+        request={request}
+        reading={reading}
+        onClose={onClose}
+      />
+    );
 
   if (isWide) {
     return (
       <aside
         aria-label="Source"
-        className="flex h-full w-[28rem] shrink-0 flex-col border-l"
+        className={cn(
+          "flex h-full shrink-0 flex-col border-l",
+          request.kind === "topic" ? "w-[40rem]" : "w-[28rem]",
+        )}
       >
         {view}
       </aside>
@@ -122,6 +141,40 @@ export function SourcePane({
         </section>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** A Topic's KC graph (`children`) under the pane's header. */
+function TopicMapView({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-2 border-b px-4 py-2">
+        <h2 className="flex-1 truncate text-sm font-semibold">Topic map</h2>
+        <CloseButton onClose={onClose} />
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
+        {children}
+      </div>
+    </>
+  );
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Close source"
+      onClick={onClose}
+    >
+      <XIcon />
+    </Button>
   );
 }
 
@@ -200,14 +253,7 @@ function SourceView({
                 Done
               </Button>
             ))}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Close source"
-            onClick={onClose}
-          >
-            <XIcon />
-          </Button>
+          <CloseButton onClose={onClose} />
         </div>
         {modes.length > 0 && (
           <Tabs

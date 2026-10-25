@@ -2,13 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import {
-  CircleAlertIcon,
-  FolderOpenIcon,
-  PaperclipIcon,
-  RotateCcwIcon,
-  UploadIcon,
-} from "lucide-react";
+import { FolderOpenIcon, PaperclipIcon, UploadIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
@@ -32,24 +26,25 @@ import {
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { ReplyError } from "@/features/chat/components/reply-error";
 import { AttachedMaterials } from "@/features/chat/components/attached-materials";
 import { ContextAction } from "@/features/chat/components/context-action";
 import { MessageActionRow } from "@/features/chat/components/message-action-row";
 import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
-import { SessionEnded } from "@/features/chat/components/session-end";
-import { chatPath } from "@/features/chat/domain/chat-paths";
-import { sessionEndedMessage } from "@/features/study";
+import { chatPath, newChatPath } from "@/features/chat/domain/chat-paths";
+import { CloseCard, sessionEndedMessage } from "@/features/study";
+import { TopicGraph } from "@/features/chat/components/topic-graph";
 import { SessionBar } from "@/features/chat/components/session-bar";
 import { messageText } from "@/lib/ai/reply";
 import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import {
   questionStates,
+  rebuildQuestions,
   sessionStage,
+  sessionTopic,
 } from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useReadings } from "@/features/chat/hooks/use-readings";
@@ -222,8 +217,12 @@ export function Chat({
   const lastMessage = messages.at(-1);
   const questions = useMemo(() => questionStates(messages), [messages]);
   const stage = useMemo(() => sessionStage(messages), [messages]);
+  const rebuilds = useMemo(() => rebuildQuestions(messages), [messages]);
+  const topicId = useMemo(() => sessionTopic(messages), [messages]);
+  // At close, or once ended, the close card takes the composer's place.
+  const closing = ended || stage === "close";
   const readings = useReadings(messages, chat.messages);
-  const canAnswer = !isBusy && !limitReached && !ended;
+  const canAnswer = !isBusy && !limitReached && !closing;
 
   /** Sends Done from a reading card or the pane opened from it. */
   function sendDone(readingSectionId: string) {
@@ -277,6 +276,7 @@ export function Chat({
     <WithSourcePane
       courseId={chat.courseId}
       reading={{ done: readings.done, canDone: canAnswer, onDone: sendDone }}
+      topicGraph={(id) => <TopicGraph courseId={chat.courseId} topicId={id} />}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
         <SessionBar
@@ -325,6 +325,8 @@ export function Chat({
                             doneReadings={readings.done}
                             arrived={readings.arrived(message.id)}
                             onDoneReading={sendDone}
+                            rebuilds={rebuilds}
+                            topicId={topicId}
                           />
                           {activity !== null && (
                             <Shimmer className="text-sm">{activity}</Shimmer>
@@ -387,27 +389,25 @@ export function Chat({
             {/* At the limit or once ended, the notice below explains the
               refusal. */}
             {error && !limitReached && !ended && (
-              <Alert variant="destructive">
-                <CircleAlertIcon />
-                <AlertDescription>{error.message}</AlertDescription>
-                <AlertAction>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void regenerate()}
-                  >
-                    <RotateCcwIcon />
-                    Retry
-                  </Button>
-                </AlertAction>
-              </Alert>
+              <ReplyError
+                message={error.message}
+                onRetry={() => void regenerate()}
+              />
             )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
 
-        {ended ? (
-          <SessionEnded courseId={chat.courseId} />
+        {closing ? (
+          <CloseCard
+            chatId={chatId}
+            busy={isBusy}
+            newSessionHref={newChatPath(chat.courseId)}
+            onRated={() => {
+              setInputError(null);
+              setEndedHere(true);
+            }}
+          />
         ) : (
           <div
             ref={dropZone}

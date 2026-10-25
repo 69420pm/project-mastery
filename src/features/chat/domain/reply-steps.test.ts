@@ -3,8 +3,10 @@ import type { ChatUIMessage } from "@/features/chat/types";
 import {
   doneReadings,
   questionStates,
+  rebuildQuestions,
   replySegments,
   sessionStage,
+  sessionTopic,
 } from "./reply-steps";
 
 // The study feature's index also exports its Memory card's server action.
@@ -23,16 +25,24 @@ const kc = (id: string, name: string) => ({
 });
 
 /** The one-line summaries of a reply's segments, text as itself. */
-function summaries(parts: Parts) {
-  return replySegments(parts, live).map((segment) =>
-    segment.kind === "text"
-      ? segment.text
-      : segment.kind === "question"
-        ? `question ${segment.question.id}: ${segment.question.prompt}`
-        : segment.kind === "reading"
-          ? `reading ${segment.reading.sectionId}`
-          : `${segment.step.state}: ${segment.step.summary}`,
-  );
+function summaries(
+  parts: Parts,
+  options: Parameters<typeof replySegments>[1] = live,
+) {
+  return replySegments(parts, options).map((segment) => {
+    switch (segment.kind) {
+      case "text":
+        return segment.text;
+      case "question":
+        return `question ${segment.question.id}: ${segment.question.prompt}`;
+      case "reading":
+        return `reading ${segment.reading.sectionId}`;
+      case "topicMap":
+        return `topic map ${segment.topicMap.topicId}`;
+      case "step":
+        return `${segment.step.state}: ${segment.step.summary}`;
+    }
+  });
 }
 
 const askPart = (id: string, state: "input-available" | "output-available") =>
@@ -99,6 +109,48 @@ test("a question is submitted by an answer from its card and graded by grade", (
   expect(states.get("q1")).toEqual({ status: "submitted" });
   expect(states.get("q2")).toEqual({ status: "graded", kcs: graded });
   expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
+});
+
+test("a graded rebuild of a session with a Topic is followed by a Topic map", () => {
+  const rebuild = {
+    ...askPart("q1", "output-available"),
+    input: { kind: "rebuild", prompt: "Rebuild it.", kcIds: ["a", "b"] },
+  } as Parts[number];
+  const grade = (questionId: string) =>
+    ({
+      type: "tool-grade",
+      toolCallId: `g-${questionId}`,
+      state: "output-available",
+      input: { questionId },
+      output: { kcs: [{ id: "a", name: "Limits", result: "full" }] },
+    }) as Parts[number];
+  const context = (session: object | null) => ({
+    tutorContext: { session, todayPlan: { next: { id: "t1" } } },
+  });
+  const messages = [
+    {
+      id: "1",
+      role: "assistant",
+      metadata: context({ stage: "rebuild" }),
+      parts: [rebuild, askPart("q2", "output-available")],
+    },
+  ] as ChatUIMessage[];
+
+  const rebuilds = rebuildQuestions(messages);
+  const topicId = sessionTopic(messages);
+  expect([...rebuilds]).toEqual(["q1"]);
+  expect(topicId).toBe("t1");
+  expect(
+    summaries([grade("q1"), grade("q2")], { ...live, rebuilds, topicId }),
+  ).toEqual([
+    "done: Graded: Limits full",
+    "topic map t1",
+    "done: Graded: Limits full",
+  ]);
+  // Without stages there is no session Topic.
+  expect(
+    sessionTopic([{ ...messages[0]!, metadata: context(null) }] as never),
+  ).toBeNull();
 });
 
 const readingPart = (callId: string, sectionId: string) =>

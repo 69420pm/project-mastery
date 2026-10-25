@@ -269,6 +269,58 @@ export async function seedMaterial(
   return { id };
 }
 
+/**
+ * Stores a one-KC Knowledge map with its Topic in the Course; returns the
+ * KC's name and the Topic's id.
+ */
+export async function seedKc(
+  owner: string,
+  courseId: string,
+): Promise<{ name: string; topicId: string }> {
+  const admin = adminClient();
+  const owned = { owner, course_id: courseId };
+  const bigIdea = await admin
+    .from("big_ideas")
+    .insert({ ...owned, name: "Thrust", description: "Thrust.", position: 0 })
+    .select("id")
+    .single();
+  if (bigIdea.error) throw new Error(bigIdea.error.message);
+  const name = "Thrust equation";
+  const kc = await admin
+    .from("kcs")
+    .insert({
+      ...owned,
+      big_idea_id: bigIdea.data.id,
+      name,
+      description: "Thrust is mass flow times the change in velocity.",
+      type: "procedure",
+      bloom: "apply",
+      origin: "content",
+      position: 0,
+    })
+    .select("id")
+    .single();
+  if (kc.error) throw new Error(kc.error.message);
+  const topic = await admin
+    .from("topics")
+    .insert({
+      ...owned,
+      big_idea_id: bigIdea.data.id,
+      name: "Thrust basics",
+      central_question: "What makes a rocket accelerate?",
+      why_it_matters: "Thrust drives every launch.",
+      position: 0,
+    })
+    .select("id")
+    .single();
+  if (topic.error) throw new Error(topic.error.message);
+  const link = await admin
+    .from("topic_kcs")
+    .insert({ topic_id: topic.data.id, kc_id: kc.data.id, owner, position: 0 });
+  if (link.error) throw new Error(link.error.message);
+  return { name, topicId: topic.data.id };
+}
+
 export const test = base.extend<{
   student: Student;
   /** A Course of the Student's, named "Calculus". */

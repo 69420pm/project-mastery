@@ -3,8 +3,31 @@ import { z } from "zod";
 /** The most characters a Course's Memory holds. */
 export const MAX_MEMORY_LENGTH = 4000;
 
-/** The input of End session's Server Action. */
+/** The input of End session's Server Action, and of the close card's read. */
 export const endSessionSchema = z.object({ chatId: z.uuid() });
+
+/** The most characters of the note on a session's rating. */
+export const MAX_RATING_NOTE_LENGTH = 300;
+
+/** The input of the close card's rating Server Action. */
+export const rateSessionSchema = z.object({
+  chatId: z.uuid(),
+  rating: z.int().min(1).max(5),
+  note: z
+    .string()
+    .trim()
+    .max(
+      MAX_RATING_NOTE_LENGTH,
+      `A note holds at most ${MAX_RATING_NOTE_LENGTH} characters.`,
+    )
+    .optional(),
+});
+
+/** The input of the Topic map's read: a Topic of the Course. */
+export const topicMapSchema = z.object({
+  courseId: z.uuid(),
+  topicId: z.uuid(),
+});
 
 /** Why a message to an ended Study session is refused. */
 export const sessionEndedMessage =

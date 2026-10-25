@@ -10,6 +10,7 @@ export { courseMapPath, topicPath } from "./domain/map-paths";
 export type { FinalAnswer } from "./schemas";
 export type {
   FindingView,
+  KnowledgeMapView,
   MapKcLearning,
   MapPriorities,
   MapTopic,

@@ -22,7 +22,12 @@ export function SessionBar({
   if (stage === null && !canEnd) return null;
   return (
     <div className="mx-auto -mb-2 flex w-full max-w-3xl items-center gap-2 pt-2">
-      {stage !== null && <StageBar stage={stage} />}
+      {stage !== null && (
+        // Beside an open side slot the eight stages may not fit.
+        <div className="min-w-0 overflow-x-auto">
+          <StageBar stage={stage} />
+        </div>
+      )}
       {canEnd && (
         <div className="ml-auto">
           <EndSessionButton

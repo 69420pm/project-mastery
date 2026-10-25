@@ -3,11 +3,13 @@
 // Memory card and the study plan), which pages pass into the Brief's panel
 // and the map as slots. Server-only exports live in `server.ts`.
 export { tutorInstructions } from "./ai/instructions";
+export { CloseCard } from "./components/close-card";
 export { EndSessionButton } from "./components/end-session-button";
 export { MemoryCard } from "./components/memory-card";
 export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
+export { getTopicMap } from "./server/actions";
 export { StageBar } from "./components/stage-bar";
 export { PHASE_NAMES, topicBadges } from "./domain/plan";
 export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
@@ -18,6 +20,7 @@ export type {
   GradedKc,
   QuestionKind,
   StudyPlan,
+  TopicMap,
   TopicView,
   TutorContext,
   TutorToday,

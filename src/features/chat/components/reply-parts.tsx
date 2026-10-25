@@ -5,6 +5,7 @@ import { chatMarkdownComponents } from "@/features/chat/components/citation-link
 import { StepCard } from "@/features/chat/components/step-card";
 import { QuestionCard } from "@/features/chat/components/question-card";
 import { ReadingCard } from "@/features/chat/components/reading-card";
+import { TopicMapCard } from "@/features/chat/components/topic-map-card";
 import {
   replySegments,
   type QuestionState,
@@ -14,7 +15,8 @@ import type { ChatUIMessage } from "@/features/chat/types";
 /**
  * An AI reply's text and tool calls in the order they came: text as
  * Markdown, a question it asked as a question card, a reading it opened as a
- * reading card, and each other tool call as a step card.
+ * reading card, a graded rebuild with a Topic map card after its step card,
+ * and each other tool call as a step card.
  */
 export function ReplyParts({
   parts,
@@ -26,6 +28,8 @@ export function ReplyParts({
   doneReadings,
   arrived,
   onDoneReading,
+  rebuilds,
+  topicId,
 }: {
   parts: ChatUIMessage["parts"];
   /** Whether the reply is still streaming in. */
@@ -49,8 +53,12 @@ export function ReplyParts({
    */
   arrived: boolean;
   onDoneReading: (sectionId: string) => void;
+  /** The Chat's rebuild questions (`rebuildQuestions`). */
+  rebuilds: Set<string>;
+  /** The session's Topic (`sessionTopic`), whose map a graded rebuild opens. */
+  topicId: string | null;
 }) {
-  const segments = replySegments(parts, { inProgress });
+  const segments = replySegments(parts, { inProgress, rebuilds, topicId });
   return segments.map((segment, i) => {
     switch (segment.kind) {
       case "text":
@@ -84,6 +92,14 @@ export function ReplyParts({
             canAnswer={canAnswer}
             autoOpen={arrived}
             onDone={() => onDoneReading(segment.reading.sectionId)}
+          />
+        );
+      case "topicMap":
+        return (
+          <TopicMapCard
+            key={`map-${segment.topicMap.id}`}
+            topicMap={segment.topicMap}
+            autoOpen={arrived}
           />
         );
       case "step":

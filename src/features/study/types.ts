@@ -1,4 +1,9 @@
 import type {
+  KnowledgeMapView,
+  MapKcLearning,
+  MapPriorities,
+} from "@/features/knowledge-map";
+import type {
   AttemptHelp,
   AttemptResult,
   KcState,
@@ -8,6 +13,7 @@ import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
 import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
+import type { TopicState } from "@/features/study/domain/topic-state";
 
 export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase, Stage };
 
@@ -154,6 +160,36 @@ export type ReadingView = {
   chunks: string[];
   /** The study text the Student reads; only in `study_text` mode. */
   studyText?: string;
+};
+
+/**
+ * A Study session as its close card shows it, computed as if it had ended
+ * (`loadSessionSummary`).
+ */
+export type SessionSummary = {
+  /** The session's Topic and its new state; null without a Topic. */
+  topic: ({ name: string } & TopicState) | null;
+  /** Each KC with attempts in the session, with its state and next review. */
+  kcs: Array<{
+    id: string;
+    name: string;
+    state: KcStateName;
+    /** As YYYY-MM-DD; null without a card. */
+    nextReview: string | null;
+  }>;
+  /** Whether the session has ended, by End session, rating or idling. */
+  ended: boolean;
+  /** 1 to 5; null until rated. */
+  rating: number | null;
+  ratingNote: string | null;
+};
+
+/** A Topic's KC graph as the Chat's side slot shows it (`getTopicMap`). */
+export type TopicMap = {
+  name: string;
+  map: KnowledgeMapView;
+  priorities: MapPriorities;
+  learning: MapKcLearning;
 };
 
 /** A Topic as `getTopic` returns it. */
