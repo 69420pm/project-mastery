@@ -26,6 +26,12 @@ export type EvalDefinition<Input, Expected> = {
   aggregate?: (
     items: Array<{ evaluations: Array<{ name: string; value: unknown }> }>,
   ) => { passed: boolean; summary: string };
+  /**
+   * A fixture file the repository does not hold, such as one exported from a
+   * real course (the repo is public). The eval is skipped when the file is
+   * missing, and runs locally only: it is never synced to Langfuse.
+   */
+  privateFixture?: string;
 };
 
 export type EvalItem<Input, Expected> = {
@@ -49,8 +55,23 @@ export async function loadFixture<Input, Expected>(
     ),
   });
   // `pnpm evals` runs from the repository root.
-  const file = path.join("evals", "datasets", `${definition.name}.json`);
+  const file =
+    definition.privateFixture ??
+    path.join("evals", "datasets", `${definition.name}.json`);
   return schema.parse(JSON.parse(await readFile(file, "utf8")));
+}
+
+/** The fixture, or null when a private fixture's file does not exist. */
+export async function loadFixtureIfPresent<Input, Expected>(
+  definition: EvalDefinition<Input, Expected>,
+) {
+  try {
+    return await loadFixture(definition);
+  } catch (error) {
+    const missing = (error as NodeJS.ErrnoException).code === "ENOENT";
+    if (missing && definition.privateFixture) return null;
+    throw error;
+  }
 }
 
 /** Adapts a definition's typed task to the Langfuse experiment runner. */

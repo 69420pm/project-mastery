@@ -1,6 +1,7 @@
 import { chatEval } from "./chat";
 import { disagreementEval } from "./disagreement";
 import type { EvalDefinition } from "./eval";
+import { generateEval, generateRealEval } from "./generate";
 import { gradeEval } from "./grade";
 import { learnEval } from "./learn";
 import { readingEval } from "./reading";
@@ -21,6 +22,8 @@ function register<Input, Expected>(
 export const EVALS: RegisteredEval[] = [
   register(chatEval),
   register(disagreementEval),
+  register(generateEval),
+  register(generateRealEval),
   register(gradeEval),
   register(learnEval),
   register(readingEval),

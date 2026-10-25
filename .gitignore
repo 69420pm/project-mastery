@@ -55,6 +55,9 @@ next-env.d.ts
 /.sweep/
 /.stryker-tmp/
 
+# datasets exported from real courses (the repo is public)
+/evals/datasets/private/
+
 # editor swap files
 *.swp
 *.swo

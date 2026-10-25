@@ -44,6 +44,14 @@ export { startTutoring } from "./server/tutoring";
 // looks the variant up as the tutor would.
 export { findProblems } from "./server/find-problems";
 export { generateProblems } from "./workflows/generate-problems";
+// For the `generate` eval, which runs the workflow's call and check without
+// a database.
+export {
+  generateCall,
+  retryMessages,
+  type GenerateInput,
+} from "./ai/generate-call";
+export { checkDraft } from "./server/problem-draft";
 export type {
   GradedKc,
   KcState,

@@ -32,23 +32,24 @@ flowchart LR
 
 ## Stack
 
-| Area                     | Choice                                                                    |
-| ------------------------ | ------------------------------------------------------------------------- |
-| Framework                | Next.js (App Router, React Server Components, Server Actions), TypeScript |
-| Validation               | Zod (inputs, environment variables, structured AI output)                 |
-| UI                       | Tailwind CSS, shadcn/ui, AI Elements, own design tokens                   |
-| Math and documents       | KaTeX, Streamdown (streaming markdown with math), react-pdf               |
-| Graphs                   | React Flow (`@xyflow/react`) laid out by ELK (`elkjs`) in a web worker    |
-| Database, auth, storage  | Supabase: Postgres with pgvector, Auth, Storage, Row Level Security       |
-| Data access              | supabase-js with generated types, SQL migrations through the Supabase CLI |
-| AI                       | Vercel AI SDK through Vercel AI Gateway                                   |
-| Background jobs          | Durable workflows: Vercel Workflow                                        |
-| PDF pages to images      | unpdf with @napi-rs/canvas                                                |
-| Spaced repetition        | FSRS (`ts-fsrs`) replayed from the attempts log on every read             |
-| Numeric answer check     | mathjs: final values with units, in process                               |
-| LLM tracing and evals    | Langfuse                                                                  |
-| Errors, analytics, email | Sentry, PostHog, Resend                                                   |
-| Hosting                  | Vercel (functions in `fra1`), Supabase (Frankfurt)                        |
+| Area                     | Choice                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| Framework                | Next.js (App Router, React Server Components, Server Actions), TypeScript                     |
+| Validation               | Zod (inputs, environment variables, structured AI output)                                     |
+| UI                       | Tailwind CSS, shadcn/ui, AI Elements, own design tokens                                       |
+| Math and documents       | KaTeX, Streamdown (streaming markdown with math), react-pdf                                   |
+| Graphs                   | React Flow (`@xyflow/react`) laid out by ELK (`elkjs`) in a web worker                        |
+| Database, auth, storage  | Supabase: Postgres with pgvector, Auth, Storage, Row Level Security                           |
+| Data access              | supabase-js with generated types, SQL migrations through the Supabase CLI                     |
+| AI                       | Vercel AI SDK through Vercel AI Gateway                                                       |
+| Background jobs          | Durable workflows: Vercel Workflow                                                            |
+| PDF pages to images      | unpdf with @napi-rs/canvas                                                                    |
+| Spaced repetition        | FSRS (`ts-fsrs`) replayed from the attempts log on every read                                 |
+| Numeric answer check     | mathjs: final values with units, in process                                                   |
+| Problem verification     | mathjs programs, each in its own `node -e` process ([0021](adr/0021-problem-verification.md)) |
+| LLM tracing and evals    | Langfuse                                                                                      |
+| Errors, analytics, email | Sentry, PostHog, Resend                                                                       |
+| Hosting                  | Vercel (functions in `fra1`), Supabase (Frankfurt)                                            |
 
 ## Environments
 
@@ -182,6 +183,7 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 - [0018](adr/0018-questions-as-first-class-objects.md): Questions as first-class objects
 - [0019](adr/0019-fsrs-replay.md): FSRS replay, superseding 0010
 - [0020](adr/0020-topics.md): Topics: stored with code-locked placement, anchors derived on read, Reading sections stored
+- [0021](adr/0021-problem-verification.md): Problem verification: a math runner in its own process, `{{variable}}` placeholders, no second model
 
 ## Open questions
 
