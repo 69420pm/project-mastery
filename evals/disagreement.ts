@@ -3,6 +3,7 @@ import { isStepCount, streamText, type ModelMessage } from "ai";
 import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
 import {
+  mathRunner,
   TutorToolError,
   tutorTools,
   type TutorContext,
@@ -218,6 +219,7 @@ function actionsOf(
     },
     findProblems: async () => ({ problems: [] }),
     findReading: async () => null,
+    compute: (program) => mathRunner.run(program),
     remember: async () => {},
     ask: async () => refuse(),
     findQuestion: async () => null,

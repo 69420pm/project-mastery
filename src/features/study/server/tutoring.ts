@@ -31,6 +31,7 @@ import {
   targetDifficulty,
 } from "@/features/study/domain/exercises";
 import { kcState, utcDay } from "@/features/study/domain/replay";
+import { mathRunner } from "@/features/study/server/math-runner";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
   findSessionQuestion,
@@ -428,6 +429,7 @@ function tutorToolActions(
         ...kcState(schedules.get(kcId), now),
       }));
     },
+    compute: (program) => mathRunner.run(program),
     async findReading(sectionId) {
       // Ids the model made up are no uuids, which the query would refuse.
       if (!UUID.test(sectionId)) return null;

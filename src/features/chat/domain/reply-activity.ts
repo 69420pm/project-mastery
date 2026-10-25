@@ -10,6 +10,7 @@ const TOOL_ACTIVITY: Record<string, string> = {
   showReading: "Choosing a reading…",
   grade: "Grading your answer…",
   setStage: "Moving on…",
+  compute: "Checking the numbers…",
 };
 
 /** What the AI is doing when it has not said a word yet. */

@@ -10,6 +10,8 @@ import {
   stageMoveRefusal,
   type Stage,
 } from "@/features/study/domain/stages";
+import { computeTool } from "@/features/study/ai/compute-tool";
+import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
   ProblemView,
   GradedKc,
@@ -299,6 +301,8 @@ export type TutorToolActions = {
     results: GradeInput["results"];
     check: FinalValueCheck;
   }) => Promise<GradedKc[] | null>;
+  /** Runs a mathjs program through the math runner. */
+  compute: (program: string) => Promise<ProgramRun>;
 };
 
 /** A refused tool call: its message tells the model what to fix. */
@@ -395,6 +399,7 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
     }),
+    compute: computeTool(actions.compute),
   };
 }
 

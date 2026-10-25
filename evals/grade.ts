@@ -4,6 +4,7 @@ import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
 import {
   endsReply,
+  mathRunner,
   tutorTools,
   type TutorContext,
   type TutorToolActions,
@@ -270,6 +271,7 @@ async function gradeTask(item: Input): Promise<string> {
     remember: unused,
     ask: unused,
     findReading: unused,
+    compute: (program) => mathRunner.run(program),
     loadStage: unused,
     saveStage: unused,
     findQuestion: async (id) =>

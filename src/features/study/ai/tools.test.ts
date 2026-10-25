@@ -24,6 +24,7 @@ const noActions = {
   isKc: () => true,
   findChunk: async () => null,
   saveMapFinding: async () => "f-1",
+  compute: async () => ({ ok: false, error: "unused" }),
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -424,6 +425,37 @@ describe("setStage", () => {
     await expect(
       call({ loadStage: at("close") }, { stage: "rebuild", reason: "More." }),
     ).rejects.toThrow("stays there");
+  });
+});
+
+describe("compute", () => {
+  const call = (compute: TutorToolActions["compute"], program: string) =>
+    tutorTools({ ...noActions, compute }).compute.execute!({ program }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
+
+  test("runs the program and returns its values", async () => {
+    const programs: string[] = [];
+    const value = { value: 14, unit: "kN", text: "14 kN" };
+    const output = await call(async (program) => {
+      programs.push(program);
+      return { ok: true, values: { thrust: value }, answers: [] };
+    }, "thrust = 14 kN");
+    expect(output).toEqual({ values: { thrust: value } });
+    expect(programs).toEqual(["thrust = 14 kN"]);
+  });
+
+  test("returns a failed run's error as data", async () => {
+    const error = "These variable names are mathjs units: m.";
+    await expect(
+      call(async () => ({ ok: false, error }), "m = 2 kg"),
+    ).resolves.toEqual({ error });
+  });
+
+  test("takes a program that is not empty", () => {
+    expect(accepts("compute", { program: "" })).toBe(false);
+    expect(accepts("compute", { program: "x = 1" })).toBe(true);
   });
 });
 

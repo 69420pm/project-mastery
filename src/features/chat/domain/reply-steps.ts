@@ -89,6 +89,7 @@ const TOOL_TITLES: Record<string, string> = {
   showReading: "Opening a reading",
   grade: "Grading your answer",
   setStage: "Moving on",
+  compute: "Checking the numbers",
 };
 
 /**
@@ -365,6 +366,15 @@ function describeOutput(
   if (name === "setStage" && isStage(out.stage)) {
     return {
       summary: `Moved to ${STAGE_NAMES[out.stage]}`,
+      detail: { tool: "other", input, output },
+    };
+  }
+  if (name === "compute") {
+    return {
+      summary:
+        typeof out.error === "string"
+          ? "The calculation failed"
+          : "Checked the numbers",
       detail: { tool: "other", input, output },
     };
   }

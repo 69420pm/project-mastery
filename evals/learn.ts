@@ -4,6 +4,7 @@ import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
 import {
   endsReply,
+  mathRunner,
   STAGES,
   TutorToolError,
   tutorTools,
@@ -407,6 +408,7 @@ function courseActions(
           }
         : null,
     remember: async () => {},
+    compute: (program) => mathRunner.run(program),
     ask: async ({ kind, kcIds, problemId }) => {
       requireKnown(kcIds);
       if (problemId !== null && problemId !== EXERCISE_ID) {
