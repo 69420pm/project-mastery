@@ -21,7 +21,7 @@ vi.mock("@/features/courses", async () => ({
     </p>
   ),
 }));
-// Wide: the pane sits beside the conversation.
+// Wide: the pane sits beside the Chat.
 window.matchMedia = (query: string) =>
   ({
     matches: true,

@@ -20,7 +20,7 @@ vi.mock("@/features/courses", async () => ({
   ...(await vi.importActual<object>("@/features/courses/domain/course-paths")),
   MaterialFile: ({ page }: { page?: number }) => <p>PDF at page {page}</p>,
 }));
-// Wide: the pane sits beside the conversation.
+// Wide: the pane sits beside the Chat.
 window.matchMedia = (query: string) =>
   ({
     matches: true,

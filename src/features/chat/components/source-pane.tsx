@@ -38,7 +38,7 @@ export type ReadingDone = {
 };
 
 /**
- * The Chat's layout with its source pane beside the conversation, which
+ * The Chat's layout with its source pane beside the Chat's messages, which
  * citations and cards inside open through `useSourcePane`.
  */
 export function WithSourcePane({
@@ -48,7 +48,7 @@ export function WithSourcePane({
 }: {
   courseId: string;
   reading?: ReadingDone;
-  /** The conversation. */
+  /** The Chat. */
   children: ReactNode;
 }) {
   // What the pane shows; one source at a time.
@@ -72,7 +72,7 @@ export function WithSourcePane({
 /**
  * The Chat's source pane: one source at a time, a Material's own pages from
  * the source's first page, and a Reading section in its reading mode. From
- * `lg` up it sits beside the conversation; below, it opens in a Sheet. Null
+ * `lg` up it sits beside the Chat; below, it opens in a Sheet. Null
  * `request` closes it.
  */
 export function SourcePane({
