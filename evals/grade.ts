@@ -141,12 +141,13 @@ function chatBefore(item: Input, gold: z.infer<typeof goldSchema>) {
   const isExercise = question.finalAnswers !== null;
   const read = isExercise
     ? {
-        toolName: "findExercises",
+        toolName: "findProblems",
         input: { kcIds: question.kcIds },
         output: {
-          exercises: [
+          problems: [
             {
               id: "exercise-under-test",
+              source: "exercise",
               name: "Exercise",
               taskType: "compute",
               difficulty: 2,
@@ -265,7 +266,7 @@ async function gradeTask(item: Input): Promise<string> {
     isKc: () => false,
     findChunk: unused,
     saveMapFinding: unused,
-    findExercises: async () => ({ exercises: [] }),
+    findProblems: async () => ({ problems: [] }),
     remember: unused,
     ask: unused,
     findReading: unused,

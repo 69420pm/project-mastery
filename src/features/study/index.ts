@@ -17,8 +17,8 @@ export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {
-  ExerciseView,
   GradedKc,
+  ProblemView,
   QuestionKind,
   StudyPlan,
   TopicKnowledgeMap,

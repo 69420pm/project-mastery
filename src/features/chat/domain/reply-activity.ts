@@ -4,7 +4,7 @@ import type { ChatUIMessage } from "@/features/chat/types";
 /** What the AI is doing while a tutor tool runs, by tool name. */
 const TOOL_ACTIVITY: Record<string, string> = {
   getTopic: "Reading your knowledge map…",
-  findExercises: "Looking for exercises…",
+  findProblems: "Looking for problems…",
   remember: "Making a note…",
   ask: "Writing a question…",
   showReading: "Choosing a reading…",

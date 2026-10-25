@@ -366,19 +366,20 @@ function courseActions(
         ],
       };
     },
-    findExercises: async (kcIds) => {
+    findProblems: async (kcIds) => {
       requireKnown(kcIds);
       const asked = [...state.questions.values()].some((q) => q.exercise);
       if (asked || !kcIds.some((id) => exerciseKcs.includes(id))) {
         return {
-          exercises: [],
+          problems: [],
           note: "The Student has tried every Exercise of this Course for these KCs: pose a problem of your own.",
         };
       }
       return {
-        exercises: [
+        problems: [
           {
             id: EXERCISE_ID,
+            source: "exercise" as const,
             name: EXERCISE.name,
             taskType: "compute thrust",
             difficulty: 3,
@@ -406,11 +407,11 @@ function courseActions(
           }
         : null,
     remember: async () => {},
-    ask: async ({ kind, kcIds, exerciseId }) => {
+    ask: async ({ kind, kcIds, problemId }) => {
       requireKnown(kcIds);
-      if (exerciseId !== null && exerciseId !== EXERCISE_ID) {
+      if (problemId !== null && problemId !== EXERCISE_ID) {
         throw new TutorToolError(
-          `${exerciseId} is no Exercise id of this Course: use an id from findExercises, or omit it.`,
+          `${problemId} is no Problem id of this Course: use an id from findProblems, or omit it.`,
         );
       }
       const id = uuid(0x1000 + state.questions.size);
@@ -419,7 +420,7 @@ function courseActions(
         kcIds,
         answered: false,
         graded: false,
-        exercise: exerciseId !== null,
+        exercise: problemId !== null,
       });
       state.pending.push({
         id,
@@ -620,7 +621,7 @@ async function learnTask(item: Input): Promise<string> {
 
 /** The tools, which the Student must never see named. */
 const TOOL_NAMES =
-  /\b(getTopic|findExercises|showReading|setStage|remember|ask|grade)\(|\b(getTopic|findExercises|showReading|setStage)\b/;
+  /\b(getTopic|findProblems|showReading|setStage|remember|ask|grade)\(|\b(getTopic|findProblems|showReading|setStage)\b/;
 /** Every id the AI sees is a uuid. */
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 

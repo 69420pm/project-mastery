@@ -1,7 +1,7 @@
 /**
- * Which Exercises the AI gets when it looks for some for KCs (#102): the
- * best three that test any of them. Pure code; the tool feeds it the stored
- * map's Exercises.
+ * Which Problems the AI gets when it looks for some for KCs (#102, #182): the
+ * best three Exercises that test any of them. Pure code; the tool feeds it
+ * the stored map's unseen Exercises.
  */
 
 /** What ranking reads of an Exercise. */
@@ -9,13 +9,20 @@ export type RankableExercise = {
   id: string;
   /** The KCs it tests. */
   kcs: string[];
+  taskType: string;
   /** 1 to 3. */
   difficulty: number;
   /** Whether its question is in an old-exam Material. */
   oldExam: boolean;
 };
 
-const MAX_EXERCISES = 3;
+/** Where a Problem comes from. */
+export type ProblemSource = "old_exam" | "exercise";
+
+const MAX_PROBLEMS = 3;
+
+/** The difficulty target when the Student has no unassisted success yet. */
+const FIRST_TARGET = 1;
 
 /** How the AI is told where an Exercise's solution comes from. */
 export function solutionLabel(status: string): string {
@@ -31,17 +38,27 @@ export function solutionLabel(status: string): string {
   }
 }
 
+/** One above the difficulty of the last unassisted success, capped at 3. */
+export function targetDifficulty(lastSuccess: number | null): number {
+  return lastSuccess === null ? FIRST_TARGET : Math.min(lastSuccess + 1, 3);
+}
+
 /**
- * Up to `MAX_EXERCISES` Exercises that test any of `kcIds`: old-exam ones
- * first, then those testing more of the given KCs, then the easier ones.
- * Ties stay in map order.
+ * Up to `MAX_PROBLEMS` of the `candidates` that test any of `kcIds`. In
+ * order, each breaking the ties of the one before: more of the given KCs
+ * tested, old-exam before other Exercises, a task type other than the last
+ * Problem's, difficulty nearer `target`, then map order.
  */
-export function rankExercises<Exercise extends RankableExercise>(
-  exercises: Exercise[],
+export function rankProblems<Candidate extends RankableExercise>(
+  candidates: Candidate[],
   kcIds: string[],
-): Exercise[] {
+  lastTaskType: string | null,
+  target: number,
+): Candidate[] {
   const wanted = new Set(kcIds);
-  return exercises
+  const varies = (exercise: Candidate) =>
+    Number(exercise.taskType !== lastTaskType);
+  return candidates
     .map((exercise) => ({
       exercise,
       matches: new Set(exercise.kcs.filter((id) => wanted.has(id))).size,
@@ -49,10 +66,12 @@ export function rankExercises<Exercise extends RankableExercise>(
     .filter(({ matches }) => matches > 0)
     .toSorted(
       (a, b) =>
-        Number(b.exercise.oldExam) - Number(a.exercise.oldExam) ||
         b.matches - a.matches ||
-        a.exercise.difficulty - b.exercise.difficulty,
+        Number(b.exercise.oldExam) - Number(a.exercise.oldExam) ||
+        (lastTaskType === null ? 0 : varies(b.exercise) - varies(a.exercise)) ||
+        Math.abs(a.exercise.difficulty - target) -
+          Math.abs(b.exercise.difficulty - target),
     )
-    .slice(0, MAX_EXERCISES)
+    .slice(0, MAX_PROBLEMS)
     .map(({ exercise }) => exercise);
 }

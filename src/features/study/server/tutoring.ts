@@ -21,11 +21,14 @@ import {
 } from "@/features/study/ai/tools";
 import {
   loadAttemptedExercises,
+  loadLastProblemExercise,
+  loadLastUnassistedSuccess,
   loadSchedules,
 } from "@/features/study/server/attempts";
 import {
-  rankExercises,
+  rankProblems,
   solutionLabel,
+  targetDifficulty,
 } from "@/features/study/domain/exercises";
 import { kcState, utcDay } from "@/features/study/domain/replay";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
@@ -309,16 +312,26 @@ function tutorToolActions(
     async saveStage(stage) {
       return saveStage(supabase, await session(), stage);
     },
-    async findExercises(kcIds) {
+    async findProblems(kcIds) {
       requireKnown(kcIds);
-      const attempted = await loadAttemptedExercises(supabase, courseId);
+      const [attempted, lastProblem, lastSuccess] = await Promise.all([
+        loadAttemptedExercises(supabase, courseId),
+        loadLastProblemExercise(supabase, courseId),
+        loadLastUnassistedSuccess(supabase, courseId, kcIds),
+      ]);
+      const exerciseById = new Map(map.exercises.map((e) => [e.id, e]));
+      const lastTaskType =
+        (lastProblem && exerciseById.get(lastProblem)?.taskType) || null;
+      const target = targetDifficulty(
+        (lastSuccess && exerciseById.get(lastSuccess)?.difficulty) || null,
+      );
       const testing = map.exercises.filter((exercise) =>
         exercise.kcs.some((id) => kcIds.includes(id)),
       );
       const unseen = testing.filter(({ id }) => !attempted.has(id));
       if (unseen.length === 0) {
         return {
-          exercises: [],
+          problems: [],
           note:
             testing.length === 0
               ? "This Course has no Exercises for these KCs: pose a problem of your own."
@@ -333,12 +346,14 @@ function tutorToolActions(
         ),
       ]);
       const question = new Map(questionChunks.map((c) => [c.id, c]));
-      const found = rankExercises(
+      const found = rankProblems(
         unseen.flatMap((exercise) => {
           const chunk = question.get(exercise.questionChunk);
           return chunk ? [{ ...exercise, chunk, oldExam: chunk.isExam }] : [];
         }),
         kcIds,
+        lastTaskType,
+        target,
       );
       const solutionIds = found.flatMap(
         (exercise) => paired[exercise.questionChunk] ?? [],
@@ -346,12 +361,15 @@ function tutorToolActions(
       const solutions = new Map(
         (await loadChunkSources(supabase, solutionIds)).map((c) => [c.id, c]),
       );
-      const exercises = found.map((exercise) => {
+      const problems = found.map((exercise) => {
         const solutionChunk = solutions.get(
           paired[exercise.questionChunk] ?? "",
         );
         return {
           id: exercise.id,
+          source: exercise.oldExam
+            ? ("old_exam" as const)
+            : ("exercise" as const),
           name: exercise.name,
           taskType: exercise.taskType,
           difficulty: exercise.difficulty,
@@ -364,23 +382,23 @@ function tutorToolActions(
           },
         };
       });
-      return { exercises };
+      return { problems };
     },
-    async ask({ kcIds, exerciseId, ...question }) {
+    async ask({ kcIds, problemId, ...question }) {
       requireKnown(kcIds);
       if (
-        exerciseId !== null &&
-        !map.exercises.some(({ id }) => id === exerciseId)
+        problemId !== null &&
+        !map.exercises.some(({ id }) => id === problemId)
       ) {
         throw new TutorToolError(
-          `${exerciseId} is no Exercise id of this Course: use an id from findExercises, or omit it.`,
+          `${problemId} is no Problem id of this Course: use an id from findProblems, or omit it.`,
         );
       }
       return insertQuestion(supabase, {
         ...question,
         sessionId: await session(),
         kcIds,
-        exerciseId,
+        exerciseId: problemId,
       });
     },
     async findQuestion(questionId) {

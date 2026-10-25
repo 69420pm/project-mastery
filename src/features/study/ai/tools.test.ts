@@ -12,7 +12,7 @@ import {
 
 const noActions = {
   getTopic: async () => null,
-  findExercises: async () => ({ exercises: [] }),
+  findProblems: async () => ({ problems: [] }),
   remember: async () => {},
   ask: async () => "q-1",
   findQuestion: async () => null,
@@ -34,7 +34,7 @@ const accepts = (name: keyof typeof tools, input: unknown) =>
 const kcIds = (n: number) => Array.from({ length: n }, (_, i) => `kc-${i}`);
 
 describe.each([
-  ["findExercises", 8],
+  ["findProblems", 8],
   ["ask", 12],
   ["getTopic", 12],
 ] as const)("%s", (name, max) => {

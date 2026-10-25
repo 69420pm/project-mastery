@@ -24,7 +24,7 @@ const THRUST_EXERCISE = {
   finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
   /**
    * Every KC of the gold map's thrust big idea, not only its two, so
-   * `findExercises` finds it whichever of them the AI looks up: the AI knows
+   * `findProblems` finds it whichever of them the AI looks up: the AI knows
    * only the ids of the due reviews, the next Topic's KCs and their anchors,
    * which may leave out the Exercise's own KCs.
    */
@@ -43,7 +43,7 @@ const TAUGHT_DAYS_AGO = 3;
 /** The tools the AI may call, which the Student must never see named. */
 const TOOL_NAMES = [
   "getTopic",
-  "findExercises",
+  "findProblems",
   "remember",
   "ask",
   "showReading",
@@ -187,12 +187,12 @@ async function sendMessage(
     }
     if (
       part.type === "tool-output-available" &&
-      Array.isArray(part.output?.exercises)
+      Array.isArray(part.output?.problems)
     ) {
-      const names = part.output.exercises.map(
+      const names = part.output.problems.map(
         (exercise: { name?: string }) => exercise.name,
       );
-      for (const exercise of part.output.exercises) {
+      for (const exercise of part.output.problems) {
         returned.push(
           ...(exercise.kcs ?? []).map((kc: { id: string }) => kc.id),
         );

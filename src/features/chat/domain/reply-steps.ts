@@ -3,7 +3,7 @@ import type { ChatUIMessage } from "@/features/chat/types";
 import {
   isStage,
   STAGE_NAMES,
-  type ExerciseView,
+  type ProblemView,
   type GradedKc,
   type QuestionKind,
   type Stage,
@@ -21,7 +21,7 @@ type StepState = "running" | "done" | "error" | "stopped";
 /** What a step card shows when it is expanded, by tool. */
 export type StepDetail =
   | { tool: "getTopic"; topic: TopicView }
-  | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
+  | { tool: "findProblems"; problems: ProblemView[]; note?: string }
   | { tool: "remember"; text: string }
   | { tool: "grade"; kcs: GradedKc[] }
   | { tool: "other"; input: unknown; output: unknown };
@@ -83,7 +83,7 @@ export type KnowledgeMapReveal = {
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
   getTopic: "Reading the Topic",
-  findExercises: "Finding Exercises",
+  findProblems: "Finding Problems",
   remember: "Making a note",
   ask: "Asking a question",
   showReading: "Opening a reading",
@@ -344,15 +344,15 @@ function describeOutput(
       detail: { tool: "getTopic", topic },
     };
   }
-  if (name === "findExercises" && Array.isArray(out.exercises)) {
-    const exercises = out.exercises as ExerciseView[];
+  if (name === "findProblems" && Array.isArray(out.problems)) {
+    const problems = out.problems as ProblemView[];
     const note = typeof out.note === "string" ? out.note : undefined;
     return {
       summary:
-        exercises.length === 0 && note
+        problems.length === 0 && note
           ? note
-          : `Found ${count(exercises.length, "Exercise")}`,
-      detail: { tool: "findExercises", exercises, note },
+          : `Found ${count(problems.length, "Problem")}`,
+      detail: { tool: "findProblems", problems, note },
     };
   }
   if (name === "grade" && Array.isArray(out.kcs)) {
