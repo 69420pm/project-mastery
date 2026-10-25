@@ -5,9 +5,9 @@ import {
   STAGE_NAMES,
   type ExerciseView,
   type GradedKc,
-  type KcReading,
   type QuestionKind,
   type Stage,
+  type TopicView,
 } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
@@ -20,7 +20,7 @@ type StepState = "running" | "done" | "error" | "stopped";
 
 /** What a step card shows when it is expanded, by tool. */
 export type StepDetail =
-  | { tool: "readKcs"; kcs: KcReading[] }
+  | { tool: "getTopic"; topic: TopicView }
   | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
   | { tool: "remember"; text: string }
   | { tool: "grade"; kcs: GradedKc[] }
@@ -29,7 +29,7 @@ export type StepDetail =
 /** One tool call of an AI reply, as its step card shows it. */
 export type ReplyStep = {
   id: string;
-  /** The tool's name, such as `readKcs`. */
+  /** The tool's name, such as `getTopic`. */
   name: string;
   state: StepState;
   /** The card's one line. */
@@ -71,7 +71,7 @@ export type ReplySegment =
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
-  readKcs: "Reading KCs",
+  getTopic: "Reading the Topic",
   findExercises: "Finding Exercises",
   remember: "Making a note",
   ask: "Asking a question",
@@ -274,11 +274,11 @@ function describeOutput(
 ): { summary: string; detail: StepDetail } {
   const out = asRecord(output);
   const args = asRecord(input);
-  if (name === "readKcs" && Array.isArray(out.kcs)) {
-    const kcs = out.kcs as KcReading[];
+  if (name === "getTopic" && Array.isArray(out.kcs)) {
+    const topic = out as unknown as TopicView;
     return {
-      summary: `Read ${count(kcs.length, "KC")}: ${kcs.map((kc) => kc.name).join(", ")}`,
-      detail: { tool: "readKcs", kcs },
+      summary: `Read Topic ${topic.name}`,
+      detail: { tool: "getTopic", topic },
     };
   }
   if (name === "findExercises" && Array.isArray(out.exercises)) {

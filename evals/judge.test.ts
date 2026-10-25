@@ -9,7 +9,7 @@ test("reads a Chat reply stored as OpenTelemetry GenAI messages", () => {
       { role: "user", parts: [{ type: "text", content: "Solve 7.2b" }] },
       {
         role: "assistant",
-        parts: [{ type: "tool_call", name: "readKcs", arguments: {} }],
+        parts: [{ type: "tool_call", name: "getTopic", arguments: {} }],
       },
       { role: "tool", parts: [{ type: "tool_call_response", response: {} }] },
     ],

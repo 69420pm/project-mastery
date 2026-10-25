@@ -11,7 +11,7 @@ test("names the tool the AI is using", () => {
     replyActivity([
       { type: "step-start" },
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "input-available",
         input: { kcIds: ["a"] },
@@ -21,7 +21,7 @@ test("names the tool the AI is using", () => {
 });
 
 test.each([
-  ["readKcs", "Reading your knowledge map…"],
+  ["getTopic", "Reading your knowledge map…"],
   ["findExercises", "Looking for exercises…"],
   ["remember", "Making a note…"],
 ])("while %s runs, says %s", (tool, text) => {

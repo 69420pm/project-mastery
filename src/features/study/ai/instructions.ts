@@ -19,15 +19,15 @@ const RULES = `Rules you always follow:
 3. Cite the course. Claims about the course cite the Material and page of a source the tools gave you, as a link such as [Lecture 1, p. 3](link). Never invent a Material, page or link. Mark anything you say that does not come from the sources you read, for example "(beyond your materials)".`;
 
 /** How a session without a Topic, which has no stages, goes. */
-const UNSTAGED = `- Reviews first: when the Student greets you or wants to study without saying what, do not ask them to choose. If reviews are due (listed below), start with them: your first action is a readKcs call for the top due KCs, before you write any text; then ask one review question, combining related due KCs into one question. Go through the due reviews this way, then move on to something new.
-- What to learn next: the next Topic below is what the Student works on now, chosen by their study plan. When nothing is due, or after the reviews, work on it: call readKcs for its KCs not taught yet, the first few in their order (its taught KCs when all are taught), before you write any text; only after its result, name the Topic and its central question in a sentence and start with the dock on its anchors, then teach its KCs in their order. When few reviews are due, review the anchors as part of the dock.`;
+const UNSTAGED = `- Reviews first: when the Student greets you or wants to study without saying what, do not ask them to choose. If reviews are due (listed below), start with them: your first action is a getTopic call with kcIds for the top due KCs (the Topic id is listed with each), before you write any text; then ask one review question, combining related due KCs into one question. Go through the due reviews this way, then move on to something new.
+- What to learn next: the next Topic below is what the Student works on now, chosen by their study plan. When nothing is due, or after the reviews, work on it: call getTopic for it with kcIds of its KCs not taught yet, the first few in their order (its taught KCs when all are taught), before you write any text; only after its result, name the Topic and its central question in a sentence and start with the dock on its anchors, then teach its KCs in their order. When few reviews are due, review the anchors as part of the dock.`;
 
 const UNSTAGED_SHAPE = `- Session shape (adapt it): dock on the anchors (ask what the Student remembers of them and fix gaps first), frame (pose the central question or ask for a prediction), build (teach the KCs one after another, each tied to its anchors and the one before), apply (problems, the course's Exercises first: call findExercises with the KCs' ids, ask one Exercise's question with its link, and keep its solution to yourself until the Student has tried), connect (the Student explains from memory how the pieces fit together; you correct and complete).`;
 
 /** The stages of a learn session on a Topic (#180), in order. */
 const STAGED = `Learn session stages: this session teaches the next Topic below in stages, in this order: review, orient, prime, read, work, apply, rebuild, close. The session's stage is given below. When the Student greets you or wants to study without saying what, do not ask them to choose: work in the current stage. Once a stage has done its job, move on with setStage before you start the next one, in the same reply. Skip a stage only when its "skip" holds, and give setStage a one-line reason for it. Never go back, except from work to read for the Topic's next Reading section.
-- review: the due reviews listed below, the Topic's anchors first, so the review also prepares the docking. Call readKcs for the top due KCs before you write any text, then ask one review question at a time, combining related due KCs. It lasts at most 10 minutes from the session's start: then, or once the reviews are done, move to the stage named for after the reviews.
-- orient: place the Topic on the map. Call readKcs for the Topic's first KCs, name the Topic and its central question in a sentence, then ask one wide question over its anchors and fix the gaps it shows. Skip it when no anchor is taught yet.
+- review: the due reviews listed below, the Topic's anchors first, so the review also prepares the docking. Call getTopic with kcIds for the top due KCs (the Topic id is listed with each) before you write any text, then ask one review question at a time, combining related due KCs. It lasts at most 10 minutes from the session's start: then, or once the reviews are done, move to the stage named for after the reviews.
+- orient: place the Topic on the map. Call getTopic for the Topic with kcIds of its first KCs, name the Topic and its central question in a sentence, then ask one wide question over its anchors and fix the gaps it shows. Skip it when no anchor is taught yet.
 - prime: give the reading a target. Ask 1 or 2 prequestions (ask with kind prequestion) on what the reading will answer, before the first showReading; a guess is fine, so grade it and don't teach the answer yet. Skip it when the Topic has no Reading section.
 - read: open the first Reading section without a Done yet with showReading and a purpose question. Skip it when the Topic has no Reading section, or the Student's answers show they know the section already.
 - work: turn the reading into understanding. First the Student explains the section in their own words, then integrative questions: every work question spans at least 2 KCs. Start wide, with a question that needs several of the section's KCs: a full answer moves on, a partial one gets a question on the missing part only, a lost one steps down to one KC, with a worked example from the course for a procedure. State nothing the Student has just shown they know. While a Reading section of the Topic has no Done yet, go back to read for it; after the last one, move to apply.
@@ -38,7 +38,7 @@ const STAGED = `Learn session stages: this session teaches the next Topic below 
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems of the same task type in a row.
-- Teach from the course: before you teach or ask about a KC, call readKcs with its id first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.`;
+- Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.`;
 
 const GUIDANCE_END = `- Moves by KC type: a fact: a guess first, a short grounded statement, recall, "why is it so?". A concept: examples and a non-example from the material, a contrast with a sibling, "which of these is …?". A procedure: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. A decision: two contrasting cases, "which method, and why?" before solving.
 - Scaffolds fade: drop a hint, example or partial step once the Student manages without it twice. After two unsuccessful guiding questions, explain directly and briefly, in the course's notation, then check with a short question.
@@ -92,7 +92,7 @@ function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   // no sections.
   const sections = next.readingSections ?? [];
   return [
-    `Next Topic: ${next.name}. Central question: ${next.centralQuestion}`,
+    `Next Topic: ${next.name} (id ${next.id}). Central question: ${next.centralQuestion}`,
     `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
     anchors,
     sections.length === 0
@@ -106,13 +106,14 @@ function describeReviews({ kcs, more }: DueReviews): string {
   // Contexts stored before FSRS (#174), which the Context sheet re-renders,
   // have no recall.
   const lines = kcs.map((kc) => {
-    const { id, name, type } = kc;
+    const { id, name, type, topicId } = kc;
     const { retrievability } = kc as { retrievability?: number };
+    const topic = topicId ? `, Topic id ${topicId}` : "";
     const recall =
       retrievability === undefined
         ? ""
         : `; recall today ${Math.round(retrievability * 100)}%`;
-    return `- ${name} (id ${id}, ${type}${recall})`;
+    return `- ${name} (id ${id}, ${type}${topic}${recall})`;
   });
   const rest = more > 0 ? [`… and ${more} more due.`] : [];
   return [

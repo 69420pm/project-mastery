@@ -4,12 +4,12 @@ How a Chat tutors a Student from the Course's Knowledge map: what code computes 
 
 ## Parts and when they run
 
-| Part       | Runs                                             | Decided by                                 | Reads                                                           | Writes                  |
-| ---------- | ------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
-| Plan       | On every read: the map page and every Chat reply | Code                                       | Exam date, weekly hours, goal, KCs, Priorities, attempts        | Nothing                 |
-| Context    | Every Chat reply, before the AI's call           | Code                                       | The stored map, Priorities, Memory, Brief, attempts             | Nothing                 |
-| Today card | The map page and a new Chat open                 | Code, with no model call                   | The plan and the due reviews                                    | Nothing                 |
-| Reply      | Each message from the Student                    | The AI, with its tools and at most 5 steps | KC sources and Exercises, through `readKcs` and `findExercises` | `memories` (`remember`) |
+| Part       | Runs                                             | Decided by                                 | Reads                                                            | Writes                  |
+| ---------- | ------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------- | ----------------------- |
+| Plan       | On every read: the map page and every Chat reply | Code                                       | Exam date, weekly hours, goal, KCs, Priorities, attempts         | Nothing                 |
+| Context    | Every Chat reply, before the AI's call           | Code                                       | The stored map, Priorities, Memory, Brief, attempts              | Nothing                 |
+| Today card | The map page and a new Chat open                 | Code, with no model call                   | The plan and the due reviews                                     | Nothing                 |
+| Reply      | Each message from the Student                    | The AI, with its tools and at most 5 steps | KC sources and Exercises, through `getTopic` and `findExercises` | `memories` (`remember`) |
 
 FSRS scheduling is not a part of its own: code replays each KC's card from the attempts on every read, and it sets the KC states and the due reviews.
 
@@ -44,7 +44,7 @@ A reply streams one call with the `chat` task's model, with the instructions and
 
 | Tool            | Takes                                                 | Gives back                                                                                                                                                                                                                                                                                  |
 | --------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `readKcs`       | 1 to 8 KC ids                                         | Each KC's name, type and description, and up to 3 source chunks: Material, pages, a link to the chunk on its page, and its Markdown                                                                                                                                                         |
+| `getTopic`      | A Topic id, and optionally up to 12 of its KC ids     | The central question, the KCs in order with type, description and state, the anchors with their state, and the Reading sections with done marks. The given KCs (all when none) come with up to 3 source chunks: Material, pages, a link to the chunk on its page, and its Markdown          |
 | `findExercises` | 1 to 8 KC ids                                         | Up to 3 Exercises that test any of them and the Student has not been asked as a question: question, link, KCs and solution with its status. Old-exam ones come first, then those testing more of the KCs, then the easier ones. With none left, a note tells the AI to pose its own problem |
 | `remember`      | One line of up to 300 characters, without line breaks | `ok`, or a refusal when the Memory is full                                                                                                                                                                                                                                                  |
 

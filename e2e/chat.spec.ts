@@ -217,17 +217,23 @@ test.describe("signed in", () => {
         parts: [
           { type: "step-start" },
           {
-            type: "tool-readKcs",
+            type: "tool-getTopic",
             toolCallId: "call-1",
             state: "output-available",
-            input: { kcIds: ["kc-1"] },
+            input: { topicId: "topic-1", kcIds: ["kc-1"] },
             output: {
+              id: "topic-1",
+              name: "Calculus",
+              centralQuestion: "What is change?",
+              anchors: [],
+              readingSections: [],
               kcs: [
                 {
                   id: "kc-1",
                   name: "Limits",
                   type: "concept",
                   description: "What a function approaches.",
+                  state: "new",
                   sources: [],
                 },
               ],
@@ -268,7 +274,7 @@ test.describe("signed in", () => {
     expect(error).toBeNull();
 
     await page.goto(`${course.chatPath}/${chatId}`);
-    const card = page.getByRole("button", { name: "Read 1 KC: Limits" });
+    const card = page.getByRole("button", { name: "Read Topic Calculus" });
     await expect(card).toBeVisible();
     await expect(page.getByText("Let's start with limits.")).toBeVisible();
     await expect(page.getByText("What a function approaches.")).toBeHidden();

@@ -16,6 +16,11 @@ type DueReview = {
   id: string;
   name: string;
   type: string;
+  /**
+   * The id of the first Topic with the KC, to read it with `getTopic`. Null
+   * without one; contexts stored before #180 have none.
+   */
+  topicId?: string | null;
   /** Today's FSRS recall, 0 to 1. */
   retrievability: number;
 };
@@ -30,7 +35,7 @@ const MAX_DUE_REVIEWS = 8;
  * today's recall). A KC without a Priority counts as 0; ties go to map
  * order. `schedules` holds the taught KCs' schedules by id, `priorities`
  * their Priorities. Due KCs of `first`, such as the session Topic's anchors,
- * come before the rest, ranked the same way.
+ * come before the rest, ranked the same way. `topicOf` gives each KC's Topic.
  */
 export function selectDueReviews(
   kcs: Array<{ id: string; name: string; type: string }>,
@@ -38,6 +43,7 @@ export function selectDueReviews(
   priorities: Record<string, number>,
   now: Date,
   first: readonly string[] = [],
+  topicOf: ReadonlyMap<string, string> = new Map(),
 ): DueReviews {
   const today = utcDay(now);
   const due = kcs.flatMap((kc, position) => {
@@ -59,6 +65,7 @@ export function selectDueReviews(
       id: kc.id,
       name: kc.name,
       type: kc.type,
+      topicId: topicOf.get(kc.id) ?? null,
       retrievability: recall,
     })),
     more: Math.max(0, ranked.length - MAX_DUE_REVIEWS),

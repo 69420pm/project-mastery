@@ -66,7 +66,7 @@ type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The most source chunks `readKcs` gives per KC. */
+/** The most source chunks `getTopic` gives per KC. */
 const SOURCES_PER_KC = 3;
 
 /**
@@ -100,7 +100,21 @@ export async function startTutoring(
   const facts = { examDate, goal: exam.goal, priorities };
   const now = new Date();
   const schedules = await loadSchedules(supabase, courseId, facts, now);
-  const due = selectDueReviews(map.kcs, schedules, priorities, now);
+  // Each KC's first Topic, which a due review names for `getTopic`.
+  const topicOf = new Map<string, string>();
+  for (const topic of topics) {
+    for (const kcId of topic.kcs) {
+      if (!topicOf.has(kcId)) topicOf.set(kcId, topic.id);
+    }
+  }
+  const due = selectDueReviews(
+    map.kcs,
+    schedules,
+    priorities,
+    now,
+    [],
+    topicOf,
+  );
   const dueCount = due.kcs.length + due.more;
   const plan = await loadPlan(
     supabase,
@@ -142,6 +156,7 @@ export async function startTutoring(
             priorities,
             now,
             topicAnchors(staged.topic.kcs, map).map(({ id }) => id),
+            topicOf,
           )
         : due,
       todayPlan: tutorToday(plan, next, map, schedules, readings),
@@ -153,6 +168,8 @@ export async function startTutoring(
         chatId,
         facts,
         map,
+        topics,
+        readings,
         staged: staged && {
           afterReview: staged.session.afterReview,
           sectionIds: (readings.get(staged.topic.id) ?? []).map(({ id }) => id),
@@ -275,12 +292,16 @@ function tutorToolActions(
     chatId,
     facts,
     map,
+    topics,
+    readings,
     staged,
   }: {
     courseId: string;
     chatId: string;
     facts: Parameters<typeof loadSchedules>[2];
     map: KnowledgeMap;
+    topics: Awaited<ReturnType<typeof loadStoredTopics>>;
+    readings: Awaited<ReturnType<typeof loadStoredReadingSections>>;
     /** The session's stages; null without a Topic. */
     staged: { afterReview: Stage; sectionIds: string[] } | null;
   },
@@ -445,28 +466,65 @@ function tutorToolActions(
         );
       }
     },
-    async readKcs(kcIds) {
-      requireKnown(kcIds);
-      const kcs = [...new Set(kcIds)].map((id) => kcById.get(id)!);
+    async getTopic(topicId, kcIds) {
+      const topic = topics.find(({ id }) => id === topicId);
+      if (!topic) return null;
+      const foreign = (kcIds ?? []).filter((id) => !topic.kcs.includes(id));
+      if (foreign.length > 0) {
+        throw new TutorToolError(
+          `These KCs are not in this Topic: ${foreign.join(", ")}. Use the ids of its KCs.`,
+        );
+      }
+      const sectionList = readings.get(topicId) ?? [];
+      const now = new Date();
+      const [schedules, done] = await Promise.all([
+        loadSchedules(supabase, courseId, facts, now),
+        loadDoneSections(
+          supabase,
+          sectionList.map(({ id }) => id),
+        ),
+      ]);
+      const stateOf = (id: string) => kcState(schedules.get(id), now).state;
+      const kcs = topic.kcs.flatMap((id) => kcById.get(id) ?? []);
+      const wanted = new Set(kcIds ?? topic.kcs);
       const chunks = await loadChunkSources(
         supabase,
-        kcs.flatMap((kc) => kc.sources),
+        kcs.filter((kc) => wanted.has(kc.id)).flatMap((kc) => kc.sources),
       );
-      return kcs.map((kc) => ({
-        id: kc.id,
-        name: kc.name,
-        type: kc.type,
-        description: kc.description,
-        sources: chunks
-          .filter((chunk) => kc.sources.includes(chunk.id))
-          .slice(0, SOURCES_PER_KC)
-          .map((chunk) => ({
-            material: chunk.materialName,
-            pages: pagesLabel(chunk.pageFrom, chunk.pageTo),
-            link: linkTo(chunk),
-            markdown: chunk.markdown,
-          })),
-      }));
+      return {
+        id: topic.id,
+        name: topic.name,
+        centralQuestion: topic.centralQuestion,
+        kcs: kcs.map((kc) => ({
+          id: kc.id,
+          name: kc.name,
+          type: kc.type,
+          description: kc.description,
+          state: stateOf(kc.id),
+          sources: wanted.has(kc.id)
+            ? chunks
+                .filter((chunk) => kc.sources.includes(chunk.id))
+                .slice(0, SOURCES_PER_KC)
+                .map((chunk) => ({
+                  material: chunk.materialName,
+                  pages: pagesLabel(chunk.pageFrom, chunk.pageTo),
+                  link: linkTo(chunk),
+                  markdown: chunk.markdown,
+                }))
+            : [],
+        })),
+        anchors: topicAnchors(topic.kcs, map).map(({ id, name }) => ({
+          id,
+          name,
+          state: stateOf(id),
+        })),
+        readingSections: sectionList.map((section) => ({
+          id: section.id,
+          label: readingLabel(section),
+          mode: section.mode,
+          done: done.has(section.id),
+        })),
+      };
     },
   };
 }

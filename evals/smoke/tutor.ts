@@ -42,7 +42,7 @@ const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
 const TOOL_NAMES = [
-  "readKcs",
+  "getTopic",
   "findExercises",
   "remember",
   "ask",
@@ -149,6 +149,7 @@ async function sendMessage(
   const returned: string[] = [];
   const readings: Array<{ sectionId: string; purpose: string }> = [];
   const toolNames = new Map<string, string>();
+  const callsById = new Map<string, ToolCall>();
   let hasText = false;
   for (const part of chunks) {
     if (part.type === "text-delta" && part.delta.trim() !== "") {
@@ -164,6 +165,19 @@ async function sendMessage(
     ) {
       graded.push(...part.output.kcs);
       console.info(`  graded ${JSON.stringify(part.output.kcs)}`);
+    }
+    if (
+      part.type === "tool-output-available" &&
+      toolNames.get(part.toolCallId) === "getTopic" &&
+      Array.isArray(part.output?.kcs)
+    ) {
+      // A call without kcIds read every KC of the Topic.
+      const call = callsById.get(part.toolCallId);
+      const read = part.output.kcs.map((kc: { id: string }) => kc.id);
+      if (call && call.kcIds.length === 0) call.kcIds = read;
+      returned.push(
+        ...(part.output.anchors ?? []).map((kc: { id: string }) => kc.id),
+      );
     }
     if (
       part.type === "tool-output-available" &&
@@ -193,7 +207,9 @@ async function sendMessage(
         part.input?.kcIds ??
         part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
-      calls.push({ toolName: part.toolName, kcIds, beforeText: !hasText });
+      const call = { toolName: part.toolName, kcIds, beforeText: !hasText };
+      calls.push(call);
+      callsById.set(part.toolCallId, call);
       if (part.toolName === "showReading") {
         readings.push({
           sectionId: String(part.input?.sectionId ?? ""),
@@ -510,7 +526,7 @@ export const tutorSmoke: SmokeCheck = {
 
     const dueReads = first.calls.filter(
       ({ toolName, kcIds }) =>
-        toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
+        toolName === "getTopic" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
     const replies = [
@@ -563,7 +579,7 @@ export const tutorSmoke: SmokeCheck = {
         "the greeting read the next Topic's KCs before its first text",
         opening.calls.some(
           ({ toolName, kcIds, beforeText }) =>
-            toolName === "readKcs" &&
+            toolName === "getTopic" &&
             beforeText &&
             kcIds.some((kc) => nextKcs.has(kc)),
         ),

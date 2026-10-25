@@ -11,7 +11,7 @@ import {
 /** The input limits the model meets, read off the tools themselves. */
 
 const noActions = {
-  readKcs: async () => [],
+  getTopic: async () => null,
   findExercises: async () => ({ exercises: [] }),
   remember: async () => {},
   ask: async () => "q-1",
@@ -29,16 +29,41 @@ const accepts = (name: keyof typeof tools, input: unknown) =>
 
 const kcIds = (n: number) => Array.from({ length: n }, (_, i) => `kc-${i}`);
 
-describe.each(["readKcs", "findExercises", "ask"] as const)("%s", (name) => {
+describe.each([
+  ["findExercises", 8],
+  ["ask", 12],
+  ["getTopic", 12],
+] as const)("%s", (name, max) => {
   const input = (ids: string[]) =>
     name === "ask"
       ? { kind: "recall", prompt: "Why?", kcIds: ids }
-      : { kcIds: ids };
-  test("takes 1 to 8 KCs", () => {
+      : name === "getTopic"
+        ? { topicId: "t-1", kcIds: ids }
+        : { kcIds: ids };
+  test(`takes 1 to ${max} KCs`, () => {
     expect(accepts(name, input(kcIds(1)))).toBe(true);
-    expect(accepts(name, input(kcIds(8)))).toBe(true);
+    expect(accepts(name, input(kcIds(max)))).toBe(true);
     expect(accepts(name, input([]))).toBe(false);
-    expect(accepts(name, input(kcIds(9)))).toBe(false);
+    expect(accepts(name, input(kcIds(max + 1)))).toBe(false);
+  });
+});
+
+describe("getTopic", () => {
+  const read = (topic: unknown, input: Record<string, unknown>) =>
+    tutorTools({ ...noActions, getTopic: async () => topic as never }).getTopic
+      .execute!(input as never, { toolCallId: "1", messages: [] } as never);
+
+  test("takes a Topic without KC ids, or with null", () => {
+    expect(accepts("getTopic", { topicId: "t-1" })).toBe(true);
+    expect(accepts("getTopic", { topicId: "t-1", kcIds: null })).toBe(true);
+  });
+
+  test("returns the Topic, and refuses an id outside the Course", async () => {
+    const topic = { id: "t-1", name: "Thrust" };
+    await expect(read(topic, { topicId: "t-1" })).resolves.toEqual(topic);
+    await expect(read(null, { topicId: "x" })).rejects.toThrow(
+      "x is no Topic id of this Course",
+    );
   });
 });
 
@@ -237,7 +262,7 @@ describe("showReading", () => {
   test.each(["showReading", "ask"])("a %s call ends the reply", (toolName) => {
     const step = (name: string) => ({ toolCalls: [{ toolName: name }] });
     expect(endsReply({ steps: [step(toolName)] } as never)).toBe(true);
-    expect(endsReply({ steps: [step("readKcs")] } as never)).toBe(false);
+    expect(endsReply({ steps: [step("getTopic")] } as never)).toBe(false);
   });
 });
 

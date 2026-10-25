@@ -48,9 +48,24 @@ describe("selectDueReviews", () => {
       id: "a",
       name: "KC a",
       type: "concept",
+      topicId: null,
       retrievability: retrievability(schedules.get("a")!.card!, NOW),
     });
     expect(due.more).toBe(0);
+  });
+
+  test("names each KC's Topic when given", () => {
+    const schedules = new Map([["a", at("2026-10-16")]]);
+    const due = selectDueReviews(
+      [{ id: "a", name: "KC a", type: "concept" }],
+      schedules,
+      {},
+      NOW,
+      [],
+      new Map([["a", "topic-1"]]),
+    );
+
+    expect(due.kcs[0]).toMatchObject({ id: "a", topicId: "topic-1" });
   });
 
   test("keeps at most 8 in map order on ties, and counts the rest", () => {

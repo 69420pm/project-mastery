@@ -89,7 +89,7 @@ export type StudyPlan = Plan & {
   today: TodayPlan;
 };
 
-/** A source chunk of a KC as `readKcs` returns it. */
+/** A source chunk of a KC as `getTopic` returns it. */
 type KcSourceView = {
   material: string;
   /** Such as "p. 3" or "pp. 3–4". */
@@ -156,12 +156,22 @@ export type ReadingView = {
   studyText?: string;
 };
 
-/** A KC as `readKcs` returns it. */
-export type KcReading = {
+/** A Topic as `getTopic` returns it. */
+export type TopicView = {
   id: string;
   name: string;
-  type: string;
-  description: string;
-  /** Up to 3, in reading order. */
-  sources: KcSourceView[];
+  centralQuestion: string;
+  /** In teaching order. */
+  kcs: Array<{
+    id: string;
+    name: string;
+    type: string;
+    description: string;
+    state: KcStateName;
+    /** Up to 3, in reading order; none for a KC not asked for. */
+    sources: KcSourceView[];
+  }>;
+  anchors: Array<{ id: string; name: string; state: KcStateName }>;
+  /** In order; `done` when the Student has a Done message for it. */
+  readingSections: Array<ReadingSectionView & { done: boolean }>;
 };

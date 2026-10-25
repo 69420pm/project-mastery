@@ -13,18 +13,34 @@ import {
 import type {
   ExerciseView,
   GradedKc,
-  KcReading,
   QuestionKind,
   ReadingView,
+  TopicView,
 } from "@/features/study/types";
 
-/** What `readKcs` and `findExercises` take: KC ids of the Course. */
+/** What `findExercises` takes: KC ids of the Course. */
 const kcIdsInputSchema = z.object({
   kcIds: z
     .array(z.string())
     .min(1)
     .max(8)
     .describe("The ids of 1 to 8 KCs of this Course."),
+});
+
+/** The most KCs one question tests, as many as a Topic has at most. */
+const MAX_QUESTION_KCS = 12;
+
+/** What `getTopic` takes: a Topic and, for source chunks, some of its KCs. */
+const getTopicInputSchema = z.object({
+  topicId: z.string().describe("The id of a Topic of this Course."),
+  kcIds: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_QUESTION_KCS)
+    .nullish()
+    .describe(
+      "The ids of KCs of this Topic to read the source chunks of; omit it for every KC of the Topic.",
+    ),
 });
 
 const QUESTION_KINDS = [
@@ -50,9 +66,11 @@ const askInputSchema = z.object({
     .describe(
       "The question as the Student reads it on the card, in Markdown with LaTeX. Complete on its own: give all data the Student needs.",
     ),
-  kcIds: kcIdsInputSchema.shape.kcIds.describe(
-    "The ids of the 1 to 8 KCs of this Course the question tests.",
-  ),
+  kcIds: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_QUESTION_KCS)
+    .describe("The ids of the 1 to 12 KCs of this Course the question tests."),
   exerciseId: z
     .string()
     .nullish()
@@ -78,7 +96,7 @@ const gradeInputSchema = z.object({
       }),
     )
     .min(1)
-    .max(8)
+    .max(MAX_QUESTION_KCS)
     .describe("One result for each of the question's KCs, each KC once."),
   help: z
     .enum(["none", "some", "solution_shown"])
@@ -165,7 +183,12 @@ export type TutorToolActions = {
   loadStage: () => Promise<SessionStage | null>;
   /** Moves the session to a stage; false when it has ended or is at close. */
   saveStage: (stage: Stage) => Promise<boolean>;
-  readKcs: (kcIds: string[]) => Promise<KcReading[]>;
+  /**
+   * A Topic of the Course with the source chunks of `kcIds`, or of all its
+   * KCs when none; null for an id that is no Topic of the Course. Throws a
+   * `TutorToolError` for a KC that is not of the Topic.
+   */
+  getTopic: (topicId: string, kcIds?: string[]) => Promise<TopicView | null>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
     kcIds: string[],
@@ -204,11 +227,19 @@ export class TutorToolError extends Error {
 /** The tools the AI tutors with in a Chat. */
 export function tutorTools(actions: TutorToolActions) {
   return {
-    readKcs: tool({
+    getTopic: tool({
       description:
-        "Read KCs of this Course before teaching them: each KC's name, type and description, and up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite.",
-      inputSchema: kcIdsInputSchema,
-      execute: async ({ kcIds }) => ({ kcs: await actions.readKcs(kcIds) }),
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite.",
+      inputSchema: getTopicInputSchema,
+      execute: async ({ topicId, kcIds }) => {
+        const topic = await actions.getTopic(topicId, kcIds ?? undefined);
+        if (!topic) {
+          throw new TutorToolError(
+            `${topicId} is no Topic id of this Course: use the id of the next Topic, or of a due review's Topic.`,
+          );
+        }
+        return topic;
+      },
     }),
     findExercises: tool({
       description:

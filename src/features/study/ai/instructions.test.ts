@@ -37,7 +37,7 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
 
   expect(instructions).toContain(
     [
-      "Next Topic: Nozzles. Central question: How does a nozzle speed up its gas?",
+      "Next Topic: Nozzles (id t1). Central question: How does a nozzle speed up its gas?",
       "Its KCs in teaching order:",
       "- Nozzle shape (id k1, concept; taught)",
       "- Exit velocity (id k2, procedure; not taught yet)",

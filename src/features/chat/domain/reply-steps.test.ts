@@ -181,29 +181,32 @@ test("keeps text and tool calls in order, merging text across steps", () => {
       { type: "step-start" },
       { type: "text", text: "Let me look. " },
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "output-available",
-        input: { kcIds: ["a", "b"] },
-        output: { kcs: [kc("a", "Limits"), kc("b", "Derivatives")] },
+        input: { topicId: "t" },
+        output: {
+          id: "t",
+          name: "Calculus",
+          centralQuestion: "What is change?",
+          kcs: [kc("a", "Limits"), kc("b", "Derivatives")],
+          anchors: [],
+          readingSections: [],
+        },
       },
       { type: "step-start" },
       { type: "text", text: "Here " },
       { type: "step-start" },
       { type: "text", text: "we go." },
     ]),
-  ).toEqual([
-    "Let me look. ",
-    "done: Read 2 KCs: Limits, Derivatives",
-    "Here we go.",
-  ]);
+  ).toEqual(["Let me look. ", "done: Read Topic Calculus", "Here we go."]);
 });
 
 test("a call on its way is running, and a failed one carries its error", () => {
   const [running, failed] = replySegments(
     [
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "input-streaming",
         input: undefined,
@@ -219,7 +222,7 @@ test("a call on its way is running, and a failed one carries its error", () => {
     live,
   );
   expect(running).toMatchObject({
-    step: { state: "running", summary: "Reading KCs…", detail: null },
+    step: { state: "running", summary: "Reading the Topic…", detail: null },
   });
   expect(failed).toMatchObject({
     step: {
@@ -234,16 +237,20 @@ test("a call that never returned in a finished reply shows as stopped", () => {
   const [stopped] = replySegments(
     [
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "input-available",
-        input: { kcIds: ["a"] },
+        input: { topicId: "t" },
       },
     ],
     { inProgress: false },
   );
   expect(stopped).toMatchObject({
-    step: { state: "stopped", summary: "Reading KCs stopped", detail: null },
+    step: {
+      state: "stopped",
+      summary: "Reading the Topic stopped",
+      detail: null,
+    },
   });
 });
 
@@ -301,7 +308,7 @@ test("a note shows its text, and an unknown tool its name with input and output"
 });
 
 test.each([
-  ["readKcs", "Reading KCs"],
+  ["getTopic", "Reading the Topic"],
   ["findExercises", "Finding Exercises"],
   ["remember", "Making a note"],
   ["search", "search"],

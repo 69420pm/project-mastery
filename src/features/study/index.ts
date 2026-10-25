@@ -16,9 +16,9 @@ export { sessionEndedMessage } from "./schemas";
 export type {
   ExerciseView,
   GradedKc,
-  KcReading,
   QuestionKind,
   StudyPlan,
+  TopicView,
   TutorContext,
   TutorToday,
 } from "./types";
