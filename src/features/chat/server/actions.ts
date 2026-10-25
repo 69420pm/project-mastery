@@ -9,8 +9,13 @@ import {
   chatIdSchema,
   chatNotFoundMessage,
   deleteChatSchema,
+  openSourceSchema,
   renameChatSchema,
+  sourceNotFoundMessage,
 } from "@/features/chat/schemas";
+import type { ChatSource, SourceRequest } from "@/features/chat/types";
+import { findChunkSpan } from "@/features/ingestion/server";
+import { findReadingSection } from "@/features/knowledge-map/server";
 import {
   countChatsAttaching,
   deleteChat as deleteStoredChat,
@@ -26,6 +31,7 @@ const chatNotFound = {
   ok: false,
   message: chatNotFoundMessage,
 } as const;
+const sourceNotFound = { ok: false, message: sourceNotFoundMessage } as const;
 
 /**
  * Renames one of the Student's Chats for good: automatic titling never
@@ -89,6 +95,54 @@ export async function deleteChat(input: {
   revalidatePath("/", "layout");
   if (parsed.data.leave) redirect(newChatPath(deleted.courseId));
   return { ok: true, data: undefined };
+}
+
+/**
+ * A source of the Course for the source pane, read as the Student: a
+ * Reading section with its mode and texts, or a cited chunk's Material and
+ * pages. A source of another Course, or another Student's, is not found.
+ */
+export async function openSource(input: {
+  courseId: string;
+  kind: SourceRequest["kind"];
+  id: string;
+}): Promise<ActionResult<ChatSource>> {
+  const parsed = parseActionInput(openSourceSchema, input);
+  if (!parsed.ok) return sourceNotFound;
+  if (!(await getUser())) return signedOut;
+  const supabase = await createClient();
+  const { courseId, kind, id } = parsed.data;
+
+  if (kind === "section") {
+    const section = await findReadingSection(supabase, courseId, id);
+    if (!section) return sourceNotFound;
+    return {
+      ok: true,
+      data: {
+        materialId: section.materialId,
+        materialName: section.materialName,
+        pageFrom: section.pageFrom,
+        pageTo: section.pageTo,
+        reading: {
+          mode: section.mode,
+          annotations: section.annotations,
+          studyText: section.studyText,
+        },
+      },
+    };
+  }
+  const chunk = await findChunkSpan(supabase, courseId, id);
+  if (!chunk) return sourceNotFound;
+  return {
+    ok: true,
+    data: {
+      materialId: chunk.materialId,
+      materialName: chunk.materialName,
+      pageFrom: chunk.pageFrom,
+      pageTo: chunk.pageTo,
+      reading: null,
+    },
+  };
 }
 
 /**

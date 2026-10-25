@@ -5,7 +5,6 @@ import { DefaultChatTransport } from "ai";
 import {
   CircleAlertIcon,
   FolderOpenIcon,
-  GraduationCapIcon,
   PaperclipIcon,
   RotateCcwIcon,
   UploadIcon,
@@ -14,9 +13,9 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
-  ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
+import { ChatEmptyState } from "@/features/chat/components/chat-empty-state";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
   PromptInput,
@@ -57,6 +56,7 @@ import {
 } from "@/features/chat/schemas";
 import { getChatTitle } from "@/features/chat/server/actions";
 import type { ChatUIMessage, ChatWithMessages } from "@/features/chat/types";
+import { WithSourcePane } from "@/features/chat/components/source-pane";
 import {
   MATERIAL_MEDIA_TYPES,
   MaterialChip,
@@ -96,9 +96,6 @@ type ChatProps = {
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
 };
-
-const DEFAULT_EMPTY_DESCRIPTION =
-  "Say hi and the AI picks up with what's next on your map, or ask about anything.";
 
 /**
  * A Chat with the AI: the messages, streamed replies and the message input.
@@ -262,281 +259,271 @@ export function Chat({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
-      {/* Once the first message is sent, the Chat's session can be ended. */}
-      {messages.length > 0 && !ended && (
-        <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
-          <EndSessionButton
-            chatId={chatId}
-            disabled={isBusy}
-            onEnded={() => {
-              setInputError(null);
-              setEndedHere(true);
-            }}
-            onError={setInputError}
-          />
-        </div>
-      )}
-      <Conversation className="min-h-0">
-        <ConversationContent
-          className={cn(
-            "mx-auto w-full max-w-3xl px-0",
-            messages.length === 0 && "h-full",
-          )}
-        >
-          {messages.length === 0 ? (
-            <ConversationEmptyState>
-              <div
-                aria-hidden
-                className="flex size-11 items-center justify-center rounded-lg border bg-muted/50 text-muted-foreground"
-              >
-                <GraduationCapIcon className="size-5" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <h2 className="text-xl font-semibold tracking-tight">
-                  Ready to study?
-                </h2>
-                {!emptyState && (
-                  <p className="max-w-md text-sm text-balance text-muted-foreground">
-                    {DEFAULT_EMPTY_DESCRIPTION}
-                  </p>
-                )}
-              </div>
-              {emptyState}
-            </ConversationEmptyState>
-          ) : (
-            messages.map((message) => {
-              const isLast = message === lastMessage;
-              const isStreaming = isBusy && isLast;
-              // Until the reply has text, a line says what the AI is doing in
-              // its place, in the same box the text then fills.
-              const activity =
-                isStreaming && message.role === "assistant"
-                  ? replyActivity(message.parts)
-                  : null;
-              return (
-                <Message from={message.role} key={message.id}>
-                  <MessageContent data-testid="message-text">
-                    {message.role === "assistant" ? (
-                      <>
-                        <ReplyParts
-                          parts={message.parts}
-                          streaming={status === "streaming" && isLast}
-                          inProgress={isStreaming}
-                          questions={questions}
-                          canAnswer={canAnswer}
-                          onAnswer={sendAnswer}
-                        />
-                        {activity !== null && (
-                          <Shimmer className="text-sm">{activity}</Shimmer>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <AttachedMaterials
-                          parts={message.parts}
-                          materialsById={materialsById}
-                          onOpen={setOpened}
-                        />
-                        {messageText(message.parts) !== "" && (
-                          <p className="whitespace-pre-wrap">
-                            {messageText(message.parts)}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </MessageContent>
-                  <MessageActionRow
-                    from={message.role === "user" ? "user" : "assistant"}
-                    text={messageText(message.parts)}
-                    stopped={message.metadata?.stopped}
-                    hidden={isStreaming && message.role === "assistant"}
-                    onRegenerate={
-                      message.role === "assistant" &&
-                      isLast &&
-                      !limitReached &&
-                      !ended
-                        ? () => {
-                            clearError();
-                            void regenerate();
-                          }
-                        : undefined
-                    }
-                  >
-                    {message.role === "assistant" && (
-                      <>
-                        <ContextAction
-                          context={message.metadata?.tutorContext}
-                        />
-                        <ReplyFooter metadata={message.metadata} />
-                      </>
-                    )}
-                  </MessageActionRow>
-                </Message>
-              );
-            })
-          )}
-          {/* Before the reply's message exists: the same box it fills. */}
-          {status === "submitted" && lastMessage?.role === "user" && (
-            <Message from="assistant">
-              <MessageContent>
-                <Shimmer className="text-sm">{THINKING}</Shimmer>
-              </MessageContent>
-              <MessageActionRow from="assistant" text="" hidden />
-            </Message>
-          )}
-          {/* At the limit or once ended, the notice below explains the
-              refusal. */}
-          {error && !limitReached && !ended && (
-            <Alert variant="destructive">
-              <CircleAlertIcon />
-              <AlertDescription>{error.message}</AlertDescription>
-              <AlertAction>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void regenerate()}
-                >
-                  <RotateCcwIcon />
-                  Retry
-                </Button>
-              </AlertAction>
-            </Alert>
-          )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {ended ? (
-        <SessionEnded courseId={chat.courseId} />
-      ) : (
-        <div
-          ref={dropZone}
-          className="mx-auto flex w-full max-w-3xl flex-col gap-2"
-        >
-          <DailyLimitNotice status={dailyLimit} />
-          <input
-            ref={fileInput}
-            type="file"
-            multiple
-            aria-label="Upload file"
-            accept={MATERIAL_MEDIA_TYPES.join(",")}
-            // Opened by "Upload file" in the attach menu.
-            hidden
-            onChange={(event) => {
-              if (event.target.files) uploadFiles(event.target.files);
-              event.target.value = "";
-            }}
-          />
-          {/* Controlled, so a refused message stays in the input. */}
-          <PromptInputProvider>
-            <PromptInput onSubmit={handleSubmit}>
-              {(attached.length > 0 || uploading) && (
-                <PromptInputHeader aria-label="Attached materials">
-                  {attached.map((material) => (
-                    <MaterialChip
-                      key={material.materialId}
-                      name={
-                        materialsById.get(material.materialId)?.name ??
-                        material.name
-                      }
-                      mediaType={material.mediaType}
-                      onRemove={() => detach(material.materialId)}
-                    />
-                  ))}
-                  {uploads.map((upload) => (
-                    <MaterialChip
-                      key={upload.key}
-                      name={upload.filename}
-                      mediaType={upload.mediaType}
-                      progress={
-                        upload.status === "failed" ? undefined : upload.progress
-                      }
-                      error={
-                        upload.status === "failed" ? upload.message : undefined
-                      }
-                      onRetry={
-                        upload.canRetry
-                          ? () => retryUpload(upload.key)
+    <WithSourcePane courseId={chat.courseId}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
+        {/* Once the first message is sent, the Chat's session can be ended. */}
+        {messages.length > 0 && !ended && (
+          <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
+            <EndSessionButton
+              chatId={chatId}
+              disabled={isBusy}
+              onEnded={() => {
+                setInputError(null);
+                setEndedHere(true);
+              }}
+              onError={setInputError}
+            />
+          </div>
+        )}
+        <Conversation className="min-h-0">
+          <ConversationContent
+            className={cn(
+              "mx-auto w-full max-w-3xl px-0",
+              messages.length === 0 && "h-full",
+            )}
+          >
+            {messages.length === 0 ? (
+              <ChatEmptyState>{emptyState}</ChatEmptyState>
+            ) : (
+              messages.map((message) => {
+                const isLast = message === lastMessage;
+                const isStreaming = isBusy && isLast;
+                // Until the reply has text, a line says what the AI is doing in
+                // its place, in the same box the text then fills.
+                const activity =
+                  isStreaming && message.role === "assistant"
+                    ? replyActivity(message.parts)
+                    : null;
+                return (
+                  <Message from={message.role} key={message.id}>
+                    <MessageContent data-testid="message-text">
+                      {message.role === "assistant" ? (
+                        <>
+                          <ReplyParts
+                            parts={message.parts}
+                            streaming={status === "streaming" && isLast}
+                            inProgress={isStreaming}
+                            questions={questions}
+                            canAnswer={canAnswer}
+                            onAnswer={sendAnswer}
+                          />
+                          {activity !== null && (
+                            <Shimmer className="text-sm">{activity}</Shimmer>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <AttachedMaterials
+                            parts={message.parts}
+                            materialsById={materialsById}
+                            onOpen={setOpened}
+                          />
+                          {messageText(message.parts) !== "" && (
+                            <p className="whitespace-pre-wrap">
+                              {messageText(message.parts)}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </MessageContent>
+                    <MessageActionRow
+                      from={message.role === "user" ? "user" : "assistant"}
+                      text={messageText(message.parts)}
+                      stopped={message.metadata?.stopped}
+                      hidden={isStreaming && message.role === "assistant"}
+                      onRegenerate={
+                        message.role === "assistant" &&
+                        isLast &&
+                        !limitReached &&
+                        !ended
+                          ? () => {
+                              clearError();
+                              void regenerate();
+                            }
                           : undefined
                       }
-                      onRemove={
-                        upload.status === "registering"
-                          ? undefined
-                          : () => removeUpload(upload.key)
-                      }
-                    />
-                  ))}
-                </PromptInputHeader>
-              )}
-              <PromptInputBody>
-                <PromptInputTextarea
-                  aria-label="Message"
-                  aria-invalid={inputError !== null}
-                  aria-describedby={inputError ? "chat-input-error" : undefined}
-                  placeholder="Ask about your studies…"
-                  disabled={limitReached}
-                  onChange={() => setInputError(null)}
-                />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger
-                      aria-label="Attach"
-                      tooltip="Attach"
-                      disabled={limitReached}
                     >
-                      <PaperclipIcon className="size-4" />
-                    </PromptInputActionMenuTrigger>
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionMenuItem
-                        onSelect={() => fileInput.current?.click()}
+                      {message.role === "assistant" && (
+                        <>
+                          <ContextAction
+                            context={message.metadata?.tutorContext}
+                          />
+                          <ReplyFooter metadata={message.metadata} />
+                        </>
+                      )}
+                    </MessageActionRow>
+                  </Message>
+                );
+              })
+            )}
+            {/* Before the reply's message exists: the same box it fills. */}
+            {status === "submitted" && lastMessage?.role === "user" && (
+              <Message from="assistant">
+                <MessageContent>
+                  <Shimmer className="text-sm">{THINKING}</Shimmer>
+                </MessageContent>
+                <MessageActionRow from="assistant" text="" hidden />
+              </Message>
+            )}
+            {/* At the limit or once ended, the notice below explains the
+              refusal. */}
+            {error && !limitReached && !ended && (
+              <Alert variant="destructive">
+                <CircleAlertIcon />
+                <AlertDescription>{error.message}</AlertDescription>
+                <AlertAction>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void regenerate()}
+                  >
+                    <RotateCcwIcon />
+                    Retry
+                  </Button>
+                </AlertAction>
+              </Alert>
+            )}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </Conversation>
+
+        {ended ? (
+          <SessionEnded courseId={chat.courseId} />
+        ) : (
+          <div
+            ref={dropZone}
+            className="mx-auto flex w-full max-w-3xl flex-col gap-2"
+          >
+            <DailyLimitNotice status={dailyLimit} />
+            <input
+              ref={fileInput}
+              type="file"
+              multiple
+              aria-label="Upload file"
+              accept={MATERIAL_MEDIA_TYPES.join(",")}
+              // Opened by "Upload file" in the attach menu.
+              hidden
+              onChange={(event) => {
+                if (event.target.files) uploadFiles(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            {/* Controlled, so a refused message stays in the input. */}
+            <PromptInputProvider>
+              <PromptInput onSubmit={handleSubmit}>
+                {(attached.length > 0 || uploading) && (
+                  <PromptInputHeader aria-label="Attached materials">
+                    {attached.map((material) => (
+                      <MaterialChip
+                        key={material.materialId}
+                        name={
+                          materialsById.get(material.materialId)?.name ??
+                          material.name
+                        }
+                        mediaType={material.mediaType}
+                        onRemove={() => detach(material.materialId)}
+                      />
+                    ))}
+                    {uploads.map((upload) => (
+                      <MaterialChip
+                        key={upload.key}
+                        name={upload.filename}
+                        mediaType={upload.mediaType}
+                        progress={
+                          upload.status === "failed"
+                            ? undefined
+                            : upload.progress
+                        }
+                        error={
+                          upload.status === "failed"
+                            ? upload.message
+                            : undefined
+                        }
+                        onRetry={
+                          upload.canRetry
+                            ? () => retryUpload(upload.key)
+                            : undefined
+                        }
+                        onRemove={
+                          upload.status === "registering"
+                            ? undefined
+                            : () => removeUpload(upload.key)
+                        }
+                      />
+                    ))}
+                  </PromptInputHeader>
+                )}
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    aria-label="Message"
+                    aria-invalid={inputError !== null}
+                    aria-describedby={
+                      inputError ? "chat-input-error" : undefined
+                    }
+                    placeholder="Ask about your studies…"
+                    disabled={limitReached}
+                    onChange={() => setInputError(null)}
+                  />
+                </PromptInputBody>
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    <PromptInputActionMenu>
+                      <PromptInputActionMenuTrigger
+                        aria-label="Attach"
+                        tooltip="Attach"
+                        disabled={limitReached}
                       >
-                        <UploadIcon />
-                        Upload file
-                      </PromptInputActionMenuItem>
-                      <PromptInputActionMenuItem
-                        onSelect={() => setPickerOpen(true)}
-                      >
-                        <FolderOpenIcon />
-                        Choose from materials
-                      </PromptInputActionMenuItem>
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
-                </PromptInputTools>
-                {/* While a reply is on its way, the button is Stop. */}
-                <PromptInputSubmit
-                  status={status}
-                  onStop={() => void stop()}
-                  disabled={!isBusy && (limitReached || uploading)}
-                />
-              </PromptInputFooter>
-            </PromptInput>
-          </PromptInputProvider>
-          <MaterialPicker
-            open={pickerOpen}
-            onOpenChange={setPickerOpen}
-            materials={materials}
-            pickedIds={[
-              ...attached.map(({ materialId }) => materialId),
-              ...uploads.map(({ key }) => key),
-            ]}
-            max={MAX_ATTACHED_MATERIALS}
-            onToggle={toggleAttached}
-          />
-          <MaterialViewer material={opened} onClose={() => setOpened(null)} />
-          {inputError && (
-            <p
-              id="chat-input-error"
-              role="alert"
-              className="text-sm text-destructive"
-            >
-              {inputError}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+                        <PaperclipIcon className="size-4" />
+                      </PromptInputActionMenuTrigger>
+                      <PromptInputActionMenuContent>
+                        <PromptInputActionMenuItem
+                          onSelect={() => fileInput.current?.click()}
+                        >
+                          <UploadIcon />
+                          Upload file
+                        </PromptInputActionMenuItem>
+                        <PromptInputActionMenuItem
+                          onSelect={() => setPickerOpen(true)}
+                        >
+                          <FolderOpenIcon />
+                          Choose from materials
+                        </PromptInputActionMenuItem>
+                      </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
+                  </PromptInputTools>
+                  {/* While a reply is on its way, the button is Stop. */}
+                  <PromptInputSubmit
+                    status={status}
+                    onStop={() => void stop()}
+                    disabled={!isBusy && (limitReached || uploading)}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
+            </PromptInputProvider>
+            <MaterialPicker
+              open={pickerOpen}
+              onOpenChange={setPickerOpen}
+              materials={materials}
+              pickedIds={[
+                ...attached.map(({ materialId }) => materialId),
+                ...uploads.map(({ key }) => key),
+              ]}
+              max={MAX_ATTACHED_MATERIALS}
+              onToggle={toggleAttached}
+            />
+            <MaterialViewer material={opened} onClose={() => setOpened(null)} />
+            {inputError && (
+              <p
+                id="chat-input-error"
+                role="alert"
+                className="text-sm text-destructive"
+              >
+                {inputError}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </WithSourcePane>
   );
 }

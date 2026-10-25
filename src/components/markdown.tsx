@@ -1,7 +1,7 @@
 "use client";
 
 import { createMathPlugin } from "@streamdown/math";
-import { Streamdown } from "streamdown";
+import { type Components, Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,6 +19,8 @@ type MarkdownProps = {
   /** True while tokens are still arriving: animates new words in. */
   streaming?: boolean;
   className?: string;
+  /** Renderers that replace Streamdown's own, such as for links. */
+  components?: Components;
 };
 
 /**
@@ -30,6 +32,7 @@ export function Markdown({
   children,
   streaming = false,
   className,
+  components,
 }: MarkdownProps) {
   return (
     <Streamdown
@@ -38,6 +41,7 @@ export function Markdown({
         className,
       )}
       plugins={markdownPlugins}
+      components={components}
       animated
       isAnimating={streaming}
     >

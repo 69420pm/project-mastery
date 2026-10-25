@@ -59,6 +59,27 @@ export type ChatWithMessages = {
   ended: boolean;
 };
 
+/**
+ * What the source pane opens: a Reading section by id, or a cited chunk's
+ * Material at the chunk's first page.
+ */
+export type SourceRequest = { kind: "section" | "chunk"; id: string };
+
+/** A source as the source pane shows it (`openSource`). */
+export type ChatSource = {
+  materialId: string;
+  materialName: string;
+  /** The page it opens at. */
+  pageFrom: number;
+  pageTo: number;
+  /** A Reading section's mode and texts; null for a cited chunk. */
+  reading: {
+    mode: "original" | "annotated" | "study_text";
+    annotations: Array<{ page: number; note: string }> | null;
+    studyText: string | null;
+  } | null;
+};
+
 /** A Chat as the sidebar lists it. */
 export type ChatListItem = {
   id: string;

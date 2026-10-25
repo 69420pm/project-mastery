@@ -1,6 +1,7 @@
 "use client";
 
 import { Markdown } from "@/components/markdown";
+import { chatMarkdownComponents } from "@/features/chat/components/citation-link";
 import { StepCard } from "@/features/chat/components/step-card";
 import { QuestionCard } from "@/features/chat/components/question-card";
 import {
@@ -42,7 +43,11 @@ export function ReplyParts({
     switch (segment.kind) {
       case "text":
         return (
-          <Markdown key={i} streaming={streaming && i === segments.length - 1}>
+          <Markdown
+            key={i}
+            streaming={streaming && i === segments.length - 1}
+            components={chatMarkdownComponents}
+          >
             {segment.text}
           </Markdown>
         );

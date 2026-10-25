@@ -287,6 +287,34 @@ export async function loadCourseChunkSpans(
   return spans;
 }
 
+/**
+ * Where one chunk of the Course is, or null when the Course has no chunk
+ * with this id. On a Student's session client, Row Level Security leaves
+ * out another Student's chunks.
+ */
+export async function findChunkSpan(
+  supabase: Supabase,
+  courseId: string,
+  chunkId: string,
+): Promise<ChunkSpan | null> {
+  const { data, error } = await supabase
+    .from("chunks")
+    .select("id, material_id, page_from, page_to, materials(name)")
+    .eq("course_id", courseId)
+    .eq("id", chunkId)
+    .maybeSingle();
+  if (error) failed("Loading the chunk", error);
+  return (
+    data && {
+      id: data.id,
+      materialId: data.material_id,
+      materialName: data.materials?.name ?? "",
+      pageFrom: data.page_from,
+      pageTo: data.page_to,
+    }
+  );
+}
+
 /** A chunk's printed points and its Material, as Priorities weighs them. */
 export type ChunkPoints = {
   id: string;

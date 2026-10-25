@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelRightIcon } from "lucide-react";
-import { type ReactNode, useSyncExternalStore } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -11,24 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-
-/** Tailwind's `lg` breakpoint. */
-const WIDE_QUERY = "(min-width: 1024px)";
-
-function subscribe(onChange: () => void) {
-  const mql = window.matchMedia(WIDE_QUERY);
-  mql.addEventListener("change", onChange);
-  return () => mql.removeEventListener("change", onChange);
-}
-
-/** Whether the viewport is `lg` or wider; false while rendering on the server. */
-function useIsWide() {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(WIDE_QUERY).matches,
-    () => false,
-  );
-}
+import { useIsWide } from "@/hooks/use-is-wide";
 
 /**
  * The Brief page's layout: the conversation with the data panel beside it on

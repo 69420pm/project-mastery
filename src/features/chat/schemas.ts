@@ -130,3 +130,13 @@ export const deleteChatSchema = chatIdSchema.extend({
   /** The Student is on the Chat's page, so they land on a new Chat. */
   leave: z.boolean().optional(),
 });
+
+/** Opening a source in the source pane (`SourceRequest`). */
+export const openSourceSchema = z.object({
+  courseId: z.uuid(),
+  kind: z.enum(["section", "chunk"]),
+  id: z.uuid(),
+});
+
+/** What the source pane shows for a source that is missing or not the Course's. */
+export const sourceNotFoundMessage = "This source could not be found.";

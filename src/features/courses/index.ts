@@ -6,6 +6,7 @@ export { CourseSwitcher } from "./components/course-switcher";
 export { useMaterialUploads } from "./hooks/use-material-uploads";
 export { MaterialChip } from "./components/material-chip";
 export { MaterialPicker } from "./components/material-picker";
+export { MaterialFile } from "./components/material-file";
 export { MaterialViewer } from "./components/material-viewer";
 export { Materials } from "./components/materials";
 export { MaterialsLink } from "./components/materials-link";
