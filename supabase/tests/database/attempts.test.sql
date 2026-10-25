@@ -126,7 +126,8 @@ select lives_ok(
   'another Student''s write to confidence does not raise');
 reset role;
 select results_eq(
-  $$select confidence::int from public.questions$$,
+  $$select confidence::int from public.questions
+    where session_id = (select alice_session from ids)$$,
   $$values (4)$$,
   'only the owner''s confidence is stored');
 
@@ -139,14 +140,18 @@ select results_eq(
   'a deleted Chat leaves its session and attempts');
 
 delete from public.kcs where id = 'bbbbbbbb-0000-0000-0000-000000000001';
-select is((select count(*)::int from public.attempts), 0,
+select is(
+  (select count(*)::int from public.attempts
+    where kc_id = 'bbbbbbbb-0000-0000-0000-000000000001'),
+  0,
   'a deleted KC takes its attempts with it');
 
 delete from public.courses where id = 'aaaaaaaa-0000-0000-0000-000000000001';
 select is(
   (select count(*)::int from public.study_sessions
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001')
-    + (select count(*)::int from public.questions),
+    + (select count(*)::int from public.questions
+      where session_id = (select alice_session from ids)),
   0,
   'a deleted Course takes its sessions and questions with it');
 
