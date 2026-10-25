@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email)
 values
@@ -51,16 +51,17 @@ create function pg_temp.file(
   p_kind text default 'missing_link',
   p_linked uuid default 'bbbbbbbb-0000-0000-0000-000000000001',
   p_chat uuid default 'dddddddd-0000-0000-0000-000000000001',
-  p_kc uuid default 'bbbbbbbb-0000-0000-0000-000000000002'
+  p_kc uuid default 'bbbbbbbb-0000-0000-0000-000000000002',
+  p_quote text default 'change in momentum'
 ) returns uuid language sql as $$
   insert into public.map_findings
     (course_id, study_session_id, kind, kc_id, linked_kc_id, chunk_id, quote, reason)
   values ('aaaaaaaa-0000-0000-0000-000000000001',
     (select id from ids where chat_id = p_chat), p_kind, p_kc, p_linked,
-    'cccccccc-0000-0000-0000-000000000001', 'change in momentum', 'Thrust needs momentum.')
+    'cccccccc-0000-0000-0000-000000000001', p_quote, 'Thrust needs momentum.')
   returning id
 $$;
-grant execute on function pg_temp.file(text, uuid, uuid, uuid) to authenticated;
+grant execute on function pg_temp.file(text, uuid, uuid, uuid, text) to authenticated;
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
@@ -78,6 +79,8 @@ select throws_ok($$select pg_temp.file(p_kind => 'wrong_description')$$,
   '23514', null, 'a description Finding has no linked KC');
 select throws_ok($$select pg_temp.file(p_linked => null)$$,
   '23514', null, 'a link Finding needs its linked KC');
+select throws_ok($$select pg_temp.file(p_quote => E'  \n ')$$,
+  '23514', null, 'a quote shows more than whitespace');
 
 select lives_ok($$
   update public.map_findings set status = 'accepted'

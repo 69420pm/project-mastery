@@ -458,7 +458,13 @@ async function flagMap(
       `${input.chunkId} is no chunk of this Course: use a chunkId from getTopic or searchMaterials.`,
     );
   }
-  if (!normalized(chunk.markdown).includes(normalized(input.quote))) {
+  const quote = normalized(input.quote);
+  if (quote === "") {
+    throw new TutorToolError(
+      "The quote is empty: copy the words that show it from the chunk.",
+    );
+  }
+  if (!normalized(chunk.markdown).includes(quote)) {
     throw new TutorToolError(
       "The quote is not in that chunk's Markdown: copy its words exactly from the chunk.",
     );

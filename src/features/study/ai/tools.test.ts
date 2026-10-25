@@ -178,6 +178,7 @@ describe("flagMap", () => {
     [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],
     [{ chunkId: "ch-9" }, "ch-9 is no chunk of this Course"],
     [{ quote: "change of momentum" }, "The quote is not in that chunk"],
+    [{ quote: " \n " }, "The quote is empty"],
   ])("refuses %o without saving", async (input, message) => {
     const { run, saved } = file(input);
     await expect(run).rejects.toThrow(message);
