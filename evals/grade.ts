@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { generateText, hasToolCall, isStepCount, type ModelMessage } from "ai";
+import { generateText, isStepCount, type ModelMessage } from "ai";
 import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
 import {
+  endsReply,
   tutorTools,
   type TutorContext,
   type TutorToolActions,
@@ -257,6 +258,7 @@ async function gradeTask(item: Input): Promise<string> {
     findExercises: async () => ({ exercises: [] }),
     remember: unused,
     ask: unused,
+    findReading: unused,
     findQuestion: async (id) =>
       id === QUESTION_ID
         ? {
@@ -292,13 +294,9 @@ async function gradeTask(item: Input): Promise<string> {
     ...chatReplySettings(contextOf(gold)),
     messages: chatBefore(item, gold),
     tools: tutorTools(actions),
-    // Like the handler: a reply ends at `ask`; the eval also ends at the
-    // stored grade, whose feedback text it doesn't score.
-    stopWhen: [
-      isStepCount(MAX_STEPS),
-      hasToolCall("ask"),
-      () => stored !== undefined,
-    ],
+    // Like the handler: a reply ends at `ask` or `showReading`; the eval
+    // also ends at the stored grade, whose feedback text it doesn't score.
+    stopWhen: [isStepCount(MAX_STEPS), endsReply, () => stored !== undefined],
   });
 
   const verdict: z.infer<typeof verdictSchema> = stored ?? {

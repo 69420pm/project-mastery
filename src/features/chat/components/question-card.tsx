@@ -6,6 +6,7 @@ import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { chatMarkdownComponents } from "@/features/chat/components/citation-link";
 import type {
   AskedQuestion,
   QuestionState,
@@ -55,7 +56,7 @@ export function QuestionCard({
       data-question-state={status}
       className="flex w-full flex-col gap-3 rounded-lg border bg-card p-4 text-sm sm:min-w-md"
     >
-      <Markdown>{question.prompt}</Markdown>
+      <Markdown components={chatMarkdownComponents}>{question.prompt}</Markdown>
       {showBox ? (
         <AnswerBox
           canAnswer={canAnswer}

@@ -116,14 +116,16 @@ const CENTRAL_QUESTIONS: Record<string, string> = {
 /**
  * Stores one Topic per gold Big idea, in Course order, each with its KCs in
  * map order, as the Topics stage would. `ids` maps gold ids to stored ones,
- * as `insertGoldMap` returns them. Returns the stored Topic ids by gold Big
- * idea id.
+ * as `insertGoldMap` returns them. With `reading`, every Topic, the next
+ * one included, gets two Reading sections over its chunks: an original one
+ * and a study-text one. Returns the stored Topic ids by gold Big idea id.
  */
 export async function insertGoldTopics(
   supabase: AdminSupabase,
   studentId: string,
   courseId: string,
   { gold, id }: Awaited<ReturnType<typeof insertGoldMap>>,
+  reading?: { materialId: string; chunkIds: string[]; studyText: string },
 ): Promise<Map<string, string>> {
   const topicIds = new Map(gold.bigIdeas.map((b) => [b.id, randomUUID()]));
   await insert(
@@ -155,5 +157,38 @@ export async function insertGoldTopics(
         })),
     ),
   );
+  if (reading) {
+    const section = {
+      owner: studentId,
+      course_id: courseId,
+      material_id: reading.materialId,
+      page_from: 1,
+      page_to: 1,
+      chunk_ids: reading.chunkIds,
+      annotations: null,
+    };
+    await insert(
+      supabase,
+      "reading_sections",
+      [...topicIds.values()].flatMap((topicId) => [
+        {
+          ...section,
+          topic_id: topicId,
+          position: 0,
+          mode: "original",
+          reason: "Short and clear as written.",
+          study_text: null,
+        },
+        {
+          ...section,
+          topic_id: topicId,
+          position: 1,
+          mode: "study_text",
+          reason: "Dense: a study text explains it step by step.",
+          study_text: reading.studyText,
+        },
+      ]),
+    );
+  }
   return topicIds;
 }

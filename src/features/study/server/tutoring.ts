@@ -8,7 +8,9 @@ import {
 } from "@/features/ingestion/server";
 import {
   courseMapPath,
+  findReadingSection,
   loadStoredMap,
+  loadStoredReadingSections,
   topicAnchors,
 } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
@@ -43,6 +45,8 @@ import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The most source chunks `readKcs` gives per KC. */
 const SOURCES_PER_KC = 3;
 
@@ -57,11 +61,12 @@ export async function startTutoring(
   courseId: string,
   chatId: string,
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, memory, exam] = await Promise.all([
+  const [map, priorities, memory, exam, readings] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
     loadMemory(supabase, courseId),
     getExamFacts(supabase, courseId),
+    loadStoredReadingSections(supabase, courseId),
   ]);
   const { examDate } = exam;
   const facts = { examDate, goal: exam.goal, priorities };
@@ -90,7 +95,7 @@ export async function startTutoring(
       memory,
       mapPath: courseMapPath(courseId),
       dueReviews,
-      todayPlan: tutorToday(plan, map, schedules),
+      todayPlan: tutorToday(plan, map, schedules, readings),
     },
     tools: tutorTools(
       tutorToolActions(supabase, { courseId, chatId, facts, map }),
@@ -100,12 +105,13 @@ export async function startTutoring(
 
 /**
  * Today's work as the AI is told of it: the next Topic with its KCs and
- * anchors from the map, the hint and the fit line.
+ * anchors from the map and its Reading sections, the hint and the fit line.
  */
 function tutorToday(
   plan: Awaited<ReturnType<typeof loadPlan>>,
   map: KnowledgeMap,
   schedules: Map<string, unknown>,
+  readings: Awaited<ReturnType<typeof loadStoredReadingSections>>,
 ): TutorToday {
   const { next, hint } = plan.today;
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
@@ -121,6 +127,11 @@ function tutorToday(
           : [];
       }),
       anchors: topicAnchors(next.kcs, map),
+      readingSections: (readings.get(next.id) ?? []).map((section) => ({
+        id: section.id,
+        label: readingLabel(section),
+        mode: section.mode,
+      })),
     },
     hint,
     fitLine:
@@ -132,6 +143,14 @@ function tutorToday(
 
 const pagesLabel = (from: number, to: number) =>
   from === to ? `p. ${from}` : `pp. ${from}–${to}`;
+
+/** Such as "Lecture 3, pp. 12–14". */
+const readingLabel = (section: {
+  materialName: string;
+  pageFrom: number;
+  pageTo: number;
+}) =>
+  `${section.materialName}, ${pagesLabel(section.pageFrom, section.pageTo)}`;
 
 function tutorToolActions(
   supabase: Supabase,
@@ -269,6 +288,19 @@ function tutorToolActions(
         result,
         ...kcState(schedules.get(kcId), now),
       }));
+    },
+    async findReading(sectionId) {
+      // Ids the model made up are no uuids, which the query would refuse.
+      if (!UUID.test(sectionId)) return null;
+      const section = await findReadingSection(supabase, courseId, sectionId);
+      if (!section) return null;
+      const chunks = await loadChunkSources(supabase, section.chunkIds);
+      return {
+        label: readingLabel(section),
+        mode: section.mode,
+        chunks: chunks.map((chunk) => chunk.markdown),
+        studyText: section.studyText,
+      };
     },
     async remember(text) {
       if (!(await appendMemory(supabase, courseId, text))) {

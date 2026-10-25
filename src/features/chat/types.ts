@@ -23,6 +23,8 @@ export type ChatMessageMetadata = {
   questionId?: string;
   /** How sure the Student was in that answer, from 1 to 4. */
   confidence?: number;
+  /** The Reading section a Student's "Done reading." is for, sent with Done. */
+  readingSectionId?: string;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */
@@ -57,6 +59,32 @@ export type ChatWithMessages = {
   messages: ChatUIMessage[];
   /** Whether its Study session has ended, which makes it read-only. */
   ended: boolean;
+};
+
+/**
+ * What the source pane opens: a Reading section by id, or a cited chunk's
+ * Material at the chunk's first page.
+ */
+export type SourceRequest = {
+  kind: "section" | "chunk";
+  id: string;
+  /** The reading card that opened a section, whose Done the pane shows. */
+  cardId?: string;
+};
+
+/** A source as the source pane shows it (`openSource`). */
+export type ChatSource = {
+  materialId: string;
+  materialName: string;
+  /** The page it opens at. */
+  pageFrom: number;
+  pageTo: number;
+  /** A Reading section's mode and texts; null for a cited chunk. */
+  reading: {
+    mode: "original" | "annotated" | "study_text";
+    annotations: Array<{ page: number; note: string }> | null;
+    studyText: string | null;
+  } | null;
 };
 
 /** A Chat as the sidebar lists it. */

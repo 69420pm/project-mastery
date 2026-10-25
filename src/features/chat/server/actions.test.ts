@@ -1,10 +1,15 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { chatNotFoundMessage } from "@/features/chat/schemas";
+import {
+  chatNotFoundMessage,
+  sourceNotFoundMessage,
+} from "@/features/chat/schemas";
 import {
   CLASSMATE,
+  CLASSMATE_COURSE,
   COURSE,
+  OTHER_COURSE,
   STUDENT,
   db,
   seedChat,
@@ -27,7 +32,8 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { deleteChat, getChatTitle, renameChat } = await import("./actions");
+const { deleteChat, getChatTitle, openSource, renameChat } =
+  await import("./actions");
 
 const chatNotFound = { ok: false, message: chatNotFoundMessage };
 const signedOut = { ok: false, message: "Sign in again to continue." };
@@ -111,6 +117,98 @@ test("getChatTitle gives the title, null while the Chat has none", async () => {
 
   await renameChat({ chatId, title: "Limits" });
   expect(await getChatTitle({ chatId })).toEqual({ ok: true, data: "Limits" });
+});
+
+describe("openSource", () => {
+  /** A Material with one chunk and one Reading section in `course`. */
+  function seedSource(owner: string, course: string) {
+    const ids = { material: randomUUID(), chunk: randomUUID() };
+    const section = randomUUID();
+    db.tables.materials.push({
+      id: ids.material,
+      owner,
+      course_id: course,
+      name: "Lecture 7",
+    });
+    db.tables.chunks.push({
+      id: ids.chunk,
+      owner,
+      course_id: course,
+      material_id: ids.material,
+      page_from: 4,
+      page_to: 5,
+    });
+    db.tables.reading_sections.push({
+      id: section,
+      owner,
+      course_id: course,
+      material_id: ids.material,
+      page_from: 12,
+      page_to: 14,
+      chunk_ids: [ids.chunk],
+      mode: "study_text",
+      reason: "Dense.",
+      annotations: null,
+      study_text: "Thrust is $F$.",
+    });
+    return { ...ids, section };
+  }
+
+  test("gives a cited chunk's Material at the chunk's pages", async () => {
+    const { material, chunk } = seedSource(STUDENT, COURSE);
+
+    expect(
+      await openSource({ courseId: COURSE, kind: "chunk", id: chunk }),
+    ).toEqual({
+      ok: true,
+      data: {
+        materialId: material,
+        materialName: "Lecture 7",
+        pageFrom: 4,
+        pageTo: 5,
+        reading: null,
+      },
+    });
+  });
+
+  test("gives a Reading section with its mode and texts", async () => {
+    const { material, section } = seedSource(STUDENT, COURSE);
+
+    expect(
+      await openSource({ courseId: COURSE, kind: "section", id: section }),
+    ).toEqual({
+      ok: true,
+      data: {
+        materialId: material,
+        materialName: "Lecture 7",
+        pageFrom: 12,
+        pageTo: 14,
+        reading: {
+          mode: "study_text",
+          annotations: null,
+          studyText: "Thrust is $F$.",
+        },
+      },
+    });
+  });
+
+  test.each([
+    ["another Course of the Student", STUDENT, OTHER_COURSE],
+    ["a classmate's Course", CLASSMATE, CLASSMATE_COURSE],
+  ])("does not find a source of %s", async (_, owner, course) => {
+    const { chunk, section } = seedSource(owner, course);
+    const notFound = { ok: false, message: sourceNotFoundMessage };
+
+    for (const [kind, id] of [
+      ["chunk", chunk],
+      ["section", section],
+      ["chunk", "not-a-uuid"],
+    ] as const) {
+      expect(await openSource({ courseId: COURSE, kind, id })).toEqual(
+        notFound,
+      );
+    }
+  });
 });
 
 describe("deleteChat", () => {

@@ -116,6 +116,10 @@ _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the
 One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map.
 _Avoid_: Conversation, thread
 
+**Source pane**:
+The pane beside a Chat that shows one source at a time: a Material's own pages, or a Reading section in its reading mode. A citation in the Chat opens the cited page in it.
+_Avoid_: Viewer, reader, side panel
+
 **Study session**:
 A Chat with a mode: _learn_ (one Topic), _review_ (due KCs), _practice_ (exam-style Problems), _mock exam_ or _results_ (going through a graded Mock exam), with a start and an end.
 _Avoid_: Lesson, sitting, session alone when a Chat is meant

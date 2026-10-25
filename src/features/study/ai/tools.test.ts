@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import type { z } from "zod";
 import {
+  endsReply,
   tutorTools,
   type QuestionToGrade,
+  type ReadingToShow,
   type TutorToolActions,
 } from "@/features/study/ai/tools";
 
@@ -15,6 +17,7 @@ const noActions = {
   ask: async () => "q-1",
   findQuestion: async () => null,
   saveGrade: async () => null,
+  findReading: async () => null,
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -174,6 +177,55 @@ describe("grade", () => {
       );
       expect(saved).toEqual([]);
     });
+  });
+});
+
+describe("showReading", () => {
+  const section = {
+    label: "Lecture 3, pp. 12–14",
+    chunks: ["Thrust is $F = \\dot m \\Delta v$."],
+    studyText: "In short: thrust is $F$.",
+  };
+  const show = (found: ReadingToShow | null) =>
+    tutorTools({ ...noActions, findReading: async () => found }).showReading
+      .execute!({ sectionId: "s-1", purpose: "What makes thrust?" }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
+
+  test("refuses a section that is no Reading section of the Course", async () => {
+    await expect(show(null)).rejects.toThrow(
+      "s-1 is no Reading section of this Course",
+    );
+  });
+
+  test("returns the label, mode and chunks, and the study text only in study_text mode", async () => {
+    expect(await show({ ...section, mode: "original" })).toEqual({
+      label: "Lecture 3, pp. 12–14",
+      mode: "original",
+      chunks: section.chunks,
+    });
+    expect(await show({ ...section, mode: "study_text" })).toEqual({
+      label: "Lecture 3, pp. 12–14",
+      mode: "study_text",
+      chunks: section.chunks,
+      studyText: "In short: thrust is $F$.",
+    });
+  });
+
+  test("takes a purpose of one line of at most 300 characters", () => {
+    const purpose = (value: string) =>
+      accepts("showReading", { sectionId: "s-1", purpose: value });
+    expect(purpose("x".repeat(300))).toBe(true);
+    expect(purpose("")).toBe(false);
+    expect(purpose("x".repeat(301))).toBe(false);
+    expect(purpose("Why?\nHow?")).toBe(false);
+  });
+
+  test.each(["showReading", "ask"])("a %s call ends the reply", (toolName) => {
+    const step = (name: string) => ({ toolCalls: [{ toolName: name }] });
+    expect(endsReply({ steps: [step(toolName)] } as never)).toBe(true);
+    expect(endsReply({ steps: [step("readKcs")] } as never)).toBe(false);
   });
 });
 

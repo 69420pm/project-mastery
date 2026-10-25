@@ -346,6 +346,7 @@ export type Database = {
           id: string;
           model_id: string | null;
           parts: NonNullable<Json>;
+          reading_section_id: string | null;
           role: string;
           stopped: boolean;
           tutor_context: Json | null;
@@ -357,6 +358,7 @@ export type Database = {
           id?: string;
           model_id?: string | null;
           parts: NonNullable<Json>;
+          reading_section_id?: string | null;
           role: string;
           stopped?: boolean;
           tutor_context?: Json | null;
@@ -367,6 +369,7 @@ export type Database = {
           id?: string;
           model_id?: string | null;
           parts?: NonNullable<Json>;
+          reading_section_id?: string | null;
           role?: string;
           stopped?: boolean;
           tutor_context?: Json | null;
