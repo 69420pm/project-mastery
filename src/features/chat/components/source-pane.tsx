@@ -54,12 +54,12 @@ export function WithSourcePane({
 }: {
   courseId: string;
   reading?: ReadingDone;
-  /** Draws a Topic's KC graph, for a Topic map card to open. */
+  /** Draws a Topic's KC graph, for a Knowledge map card to open. */
   topicGraph?: (topicId: string) => ReactNode;
   /** The Chat. */
   children: ReactNode;
 }) {
-  // What the pane shows; one source or Topic map at a time.
+  // What the pane shows; one source or Topic graph at a time.
   const [source, setSource] = useState<PaneRequest | null>(null);
   const pane = useMemo(() => ({ courseId, openSource: setSource }), [courseId]);
   return (
@@ -102,9 +102,9 @@ export function SourcePane({
   // Keyed, so opening another source loads it afresh.
   const view =
     request.kind === "topic" ? (
-      <TopicMapView key={`topic:${request.id}`} onClose={onClose}>
+      <TopicGraphView key={`topic:${request.id}`} onClose={onClose}>
         {topicGraph?.(request.id)}
-      </TopicMapView>
+      </TopicGraphView>
     ) : (
       <SourceView
         key={`${request.kind}:${request.id}:${request.cardId ?? ""}`}
@@ -145,7 +145,7 @@ export function SourcePane({
 }
 
 /** A Topic's KC graph (`children`) under the pane's header. */
-function TopicMapView({
+function TopicGraphView({
   onClose,
   children,
 }: {
@@ -155,7 +155,7 @@ function TopicMapView({
   return (
     <>
       <div className="flex items-center gap-2 border-b px-4 py-2">
-        <h2 className="flex-1 truncate text-sm font-semibold">Topic map</h2>
+        <h2 className="flex-1 truncate text-sm font-semibold">Knowledge map</h2>
         <CloseButton onClose={onClose} />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">

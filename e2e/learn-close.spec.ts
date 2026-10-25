@@ -5,7 +5,7 @@ import { adminClient, expect, seedKc, test } from "./fixtures";
  * "Rebuild with me" makes it ask a rebuild question, and grading the answer
  * moves the session to close.
  */
-test("a graded rebuild opens the Topic map, and the close card saves a rating", async ({
+test("a graded rebuild opens the Knowledge map, and the close card saves a rating", async ({
   page,
   student,
   course,
@@ -23,19 +23,23 @@ test("a graded rebuild opens the Topic map, and the close card saves a rating", 
     .fill("Thrust is mass flow times the change in velocity.");
   await question.getByRole("button", { name: "Submit" }).click();
 
-  // The grade's Topic map card opens the Topic's graph on its own: beside
-  // the conversation when wide, in a Sheet over it on a phone.
+  // The grade's Knowledge map card opens the Topic's graph on its own:
+  // beside the conversation when wide, in a Sheet over it on a phone.
   const slot = page
     .getByRole("complementary", { name: "Source" })
     .or(page.getByRole("region", { name: "Source" }));
-  await expect(slot.getByRole("heading", { name: "Topic map" })).toBeVisible();
+  await expect(
+    slot.getByRole("heading", { name: "Knowledge map", exact: true }),
+  ).toBeVisible();
   await expect(
     slot
       .getByRole("application", { name: "Knowledge map graph" })
       .getByRole("button", { name: new RegExp(`^${kcName}`) }),
   ).toBeVisible();
   await slot.getByRole("button", { name: "Close source" }).click();
-  await expect(page.getByRole("region", { name: "Topic map" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Knowledge map", exact: true }),
+  ).toBeVisible();
 
   // At close, the close card takes the composer's place.
   const close = page.getByRole("region", { name: "Session summary" });

@@ -5,7 +5,7 @@ import { chatMarkdownComponents } from "@/features/chat/components/citation-link
 import { StepCard } from "@/features/chat/components/step-card";
 import { QuestionCard } from "@/features/chat/components/question-card";
 import { ReadingCard } from "@/features/chat/components/reading-card";
-import { TopicMapCard } from "@/features/chat/components/topic-map-card";
+import { KnowledgeMapCard } from "@/features/chat/components/knowledge-map-card";
 import {
   replySegments,
   type QuestionState,
@@ -15,7 +15,7 @@ import type { ChatUIMessage } from "@/features/chat/types";
 /**
  * An AI reply's text and tool calls in the order they came: text as
  * Markdown, a question it asked as a question card, a reading it opened as a
- * reading card, a graded rebuild with a Topic map card after its step card,
+ * reading card, a graded rebuild with a Knowledge map card after its step card,
  * and each other tool call as a step card.
  */
 export function ReplyParts({
@@ -94,11 +94,11 @@ export function ReplyParts({
             onDone={() => onDoneReading(segment.reading.sectionId)}
           />
         );
-      case "topicMap":
+      case "knowledgeMap":
         return (
-          <TopicMapCard
-            key={`map-${segment.topicMap.id}`}
-            topicMap={segment.topicMap}
+          <KnowledgeMapCard
+            key={`map-${segment.knowledgeMap.id}`}
+            knowledgeMap={segment.knowledgeMap}
             autoOpen={arrived}
           />
         );

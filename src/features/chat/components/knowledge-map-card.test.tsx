@@ -22,7 +22,7 @@ window.matchMedia = (query: string) =>
   }) as unknown as MediaQueryList;
 
 const { WithSourcePane } = await import("./source-pane");
-const { TopicMapCard } = await import("./topic-map-card");
+const { KnowledgeMapCard } = await import("./knowledge-map-card");
 const { ReadingCard } = await import("./reading-card");
 
 beforeEach(() => {
@@ -36,8 +36,8 @@ function renderCard(autoOpen: boolean) {
       // The Chat passes the study feature's graph.
       topicGraph={(topicId) => <p>Graph of {topicId}</p>}
     >
-      <TopicMapCard
-        topicMap={{ id: "g1", topicId: TOPIC }}
+      <KnowledgeMapCard
+        knowledgeMap={{ id: "g1", topicId: TOPIC }}
         autoOpen={autoOpen}
       />
       <ReadingCard
@@ -49,7 +49,7 @@ function renderCard(autoOpen: boolean) {
       />
     </WithSourcePane>,
   );
-  return screen.getByRole("region", { name: "Topic map" });
+  return screen.getByRole("region", { name: "Knowledge map" });
 }
 
 test("Open map shows the Topic's KC graph in the side slot", () => {
@@ -59,7 +59,7 @@ test("Open map shows the Topic's KC graph in the side slot", () => {
   fireEvent.click(within(card).getByRole("button", { name: "Open map" }));
   const pane = screen.getByRole("complementary", { name: "Source" });
   expect(within(pane).getByText(`Graph of ${TOPIC}`)).toBeVisible();
-  expect(within(pane).getByRole("heading")).toHaveTextContent("Topic map");
+  expect(within(pane).getByRole("heading")).toHaveTextContent("Knowledge map");
 });
 
 test("a card arriving in a reply opens the graph on its own, and a source replaces it", async () => {

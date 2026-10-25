@@ -184,8 +184,11 @@ export type SessionSummary = {
   ratingNote: string | null;
 };
 
-/** A Topic's KC graph as the Chat's side slot shows it (`getTopicMap`). */
-export type TopicMap = {
+/**
+ * A Topic's part of the Knowledge map as the Chat's side slot shows it
+ * (`getTopicKnowledgeMap`).
+ */
+export type TopicKnowledgeMap = {
   name: string;
   map: KnowledgeMapView;
   priorities: MapPriorities;

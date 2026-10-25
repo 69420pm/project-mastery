@@ -8,11 +8,11 @@ import {
   rateSessionSchema,
   saveMemorySchema,
   setTopicChoiceSchema,
-  topicMapSchema,
+  topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
 import { appendMemory } from "@/features/study/server/memory";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
-import type { SessionSummary, TopicMap } from "@/features/study/types";
+import type { SessionSummary, TopicKnowledgeMap } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -126,37 +126,41 @@ export async function rateStudySession(input: {
 }
 
 /**
- * A Topic's KC graph with the Student's KC states, for the Chat's side slot
- * after a rebuild: the Topic's KCs and anchors (`restrictMapToTopic`).
+ * A Topic's part of the Knowledge map with the Student's KC states, for the
+ * Chat's side slot after a rebuild: the Topic's KCs and anchors
+ * (`restrictMapToTopic`).
  */
-export async function getTopicMap(input: {
+export async function getTopicKnowledgeMap(input: {
   courseId: string;
   topicId: string;
-}): Promise<ActionResult<TopicMap>> {
+}): Promise<ActionResult<TopicKnowledgeMap>> {
   if (!(await getUser())) {
     return { ok: false, message: "Sign in again to continue." };
   }
-  const parsed = parseActionInput(topicMapSchema, input);
+  const parsed = parseActionInput(topicKnowledgeMapSchema, input);
   if (!parsed.ok) return parsed;
 
-  const { loadTopicMap } = await loadReads();
-  const topic = await loadTopicMap(parsed.data.courseId, parsed.data.topicId);
+  const { loadTopicKnowledgeMap } = await loadReads();
+  const topic = await loadTopicKnowledgeMap(
+    parsed.data.courseId,
+    parsed.data.topicId,
+  );
   if (!topic) return { ok: false, message: "This Topic was not found." };
   return { ok: true, data: topic };
 }
 
 /**
- * The session summary and Topic map reads, imported on first use: they load
- * the knowledge-map feature's server code, which client modules that import
- * these actions (the close card, the Topic graph) must not pull in when they
- * load, as their tests do.
+ * The session summary and Topic Knowledge map reads, imported on first use:
+ * they load the knowledge-map feature's server code, which client modules
+ * that import these actions (the close card, the Topic graph) must not pull
+ * in when they load, as their tests do.
  */
 async function loadReads() {
-  const [summary, topicMap] = await Promise.all([
+  const [summary, topicKnowledgeMap] = await Promise.all([
     import("@/features/study/server/session-summary"),
-    import("@/features/study/server/topic-map"),
+    import("@/features/study/server/topic-knowledge-map"),
   ]);
-  return { ...summary, ...topicMap };
+  return { ...summary, ...topicKnowledgeMap };
 }
 
 /**

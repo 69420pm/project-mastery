@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { KnowledgeMap } from "@/features/knowledge-map";
-import { getTopicMap, type TopicMap } from "@/features/study";
+import { getTopicKnowledgeMap, type TopicKnowledgeMap } from "@/features/study";
 
 type Loaded =
   | { status: "loading" }
-  | { status: "open"; topic: TopicMap }
+  | { status: "open"; topic: TopicKnowledgeMap }
   | { status: "failed"; message: string };
 
 /**
@@ -24,7 +24,7 @@ export function TopicGraph({
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
   useEffect(() => {
     let current = true;
-    void getTopicMap({ courseId, topicId }).then(
+    void getTopicKnowledgeMap({ courseId, topicId }).then(
       (result) => {
         if (!current) return;
         setLoaded(
@@ -37,7 +37,7 @@ export function TopicGraph({
         current &&
         setLoaded({
           status: "failed",
-          message: "The Topic map could not be opened. Please try again.",
+          message: "The Knowledge map could not be opened. Please try again.",
         }),
     );
     return () => {
@@ -46,7 +46,7 @@ export function TopicGraph({
   }, [courseId, topicId]);
 
   if (loaded.status === "loading") {
-    return <Skeleton aria-label="Loading the Topic map" className="h-96" />;
+    return <Skeleton aria-label="Loading the Knowledge map" className="h-96" />;
   }
   if (loaded.status === "failed") {
     return (

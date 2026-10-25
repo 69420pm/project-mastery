@@ -23,8 +23,8 @@ export const rateSessionSchema = z.object({
     .optional(),
 });
 
-/** The input of the Topic map's read: a Topic of the Course. */
-export const topicMapSchema = z.object({
+/** The input of a Topic's Knowledge map read: a Topic of the Course. */
+export const topicKnowledgeMapSchema = z.object({
   courseId: z.uuid(),
   topicId: z.uuid(),
 });

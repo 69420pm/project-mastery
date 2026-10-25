@@ -37,8 +37,8 @@ function summaries(
         return `question ${segment.question.id}: ${segment.question.prompt}`;
       case "reading":
         return `reading ${segment.reading.sectionId}`;
-      case "topicMap":
-        return `topic map ${segment.topicMap.topicId}`;
+      case "knowledgeMap":
+        return `knowledge map ${segment.knowledgeMap.topicId}`;
       case "step":
         return `${segment.step.state}: ${segment.step.summary}`;
     }
@@ -111,7 +111,7 @@ test("a question is submitted by an answer from its card and graded by grade", (
   expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
 });
 
-test("a graded rebuild of a session with a Topic is followed by a Topic map", () => {
+test("a graded rebuild of a session with a Topic is followed by a Knowledge map", () => {
   const rebuild = {
     ...askPart("q1", "output-available"),
     input: { kind: "rebuild", prompt: "Rebuild it.", kcIds: ["a", "b"] },
@@ -144,7 +144,7 @@ test("a graded rebuild of a session with a Topic is followed by a Topic map", ()
     summaries([grade("q1"), grade("q2")], { ...live, rebuilds, topicId }),
   ).toEqual([
     "done: Graded: Limits full",
-    "topic map t1",
+    "knowledge map t1",
     "done: Graded: Limits full",
   ]);
   // Without stages there is no session Topic.

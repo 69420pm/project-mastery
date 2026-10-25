@@ -6,7 +6,7 @@ import type { PaneRequest } from "@/features/chat/types";
 type SourcePaneContextValue = {
   /** The Chat's Course, whose chunk pages citations link to. */
   courseId: string;
-  /** Opens a source or a Topic map in the pane, replacing what it shows. */
+  /** Opens a source or a Topic's graph in the pane, replacing what it shows. */
   openSource: (request: PaneRequest) => void;
 };
 

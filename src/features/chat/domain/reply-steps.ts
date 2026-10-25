@@ -68,10 +68,13 @@ export type ReplySegment =
   | { kind: "step"; step: ReplyStep }
   | { kind: "question"; question: AskedQuestion }
   | { kind: "reading"; reading: ShownReading }
-  | { kind: "topicMap"; topicMap: TopicMapReveal };
+  | { kind: "knowledgeMap"; knowledgeMap: KnowledgeMapReveal };
 
-/** A graded rebuild, whose Topic map card opens the Topic's KC graph. */
-export type TopicMapReveal = {
+/**
+ * A graded rebuild, whose Knowledge map card opens the Topic's part of the
+ * Knowledge map.
+ */
+export type KnowledgeMapReveal = {
   /** The `grade` call's id, which tells the cards apart. */
   id: string;
   topicId: string;
@@ -93,7 +96,7 @@ const TOOL_TITLES: Record<string, string> = {
  * one segment, each tool call as a step. Other parts, such as `step-start`,
  * show nothing. Once the reply is no longer in progress, a call that never
  * returned (the Student stopped the reply) shows as stopped, not running.
- * A `grade` of a question in `rebuilds` is followed by a Topic map of
+ * A `grade` of a question in `rebuilds` is followed by a Knowledge map of
  * `topicId`, when the session has a Topic.
  */
 export function replySegments(
@@ -130,8 +133,8 @@ export function replySegments(
       const graded = gradedQuestion(part);
       if (topicId !== null && graded !== null && rebuilds.has(graded)) {
         segments.push({
-          kind: "topicMap",
-          topicMap: { id: part.toolCallId, topicId },
+          kind: "knowledgeMap",
+          knowledgeMap: { id: part.toolCallId, topicId },
         });
       }
     }

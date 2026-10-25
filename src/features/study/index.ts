@@ -9,7 +9,7 @@ export { MemoryCard } from "./components/memory-card";
 export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
-export { getTopicMap } from "./server/actions";
+export { getTopicKnowledgeMap } from "./server/actions";
 export { StageBar } from "./components/stage-bar";
 export { PHASE_NAMES, topicBadges } from "./domain/plan";
 export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
@@ -20,7 +20,7 @@ export type {
   GradedKc,
   QuestionKind,
   StudyPlan,
-  TopicMap,
+  TopicKnowledgeMap,
   TopicView,
   TutorContext,
   TutorToday,
