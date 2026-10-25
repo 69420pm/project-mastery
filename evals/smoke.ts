@@ -86,13 +86,22 @@ async function withinTimeLimit(run: Promise<SmokeResult[]>) {
  */
 const GEMINI_RPM = Number(process.env.AI_SMOKE_RPM || 14);
 
+/** Whether `url` is a Gemini API request; false for a non-URL. */
+function isGeminiApi(url: string) {
+  try {
+    return new URL(url).hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
 /** Wraps `fetch` so Gemini API requests keep within GEMINI_RPM. */
 function paceGeminiRequests() {
   const sent: number[] = [];
   const fetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
-    if (url.includes("generativelanguage.googleapis.com")) {
+    if (isGeminiApi(url)) {
       for (;;) {
         const now = Date.now();
         while (sent.length > 0 && sent[0]! <= now - 60_000) sent.shift();
