@@ -625,8 +625,9 @@ export const tutorSmoke: SmokeCheck = {
         `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
       ),
       result(
-        `the request asked ${THRUST_EXERCISE.name} as a question`,
-        exercise?.exercise_id === thrustExerciseId,
+        `the request found ${THRUST_EXERCISE.name} with findProblems and asked it by its problemId`,
+        fourth.calls.some(({ toolName }) => toolName === "findProblems") &&
+          exercise?.exercise_id === thrustExerciseId,
         `${describe(fourth.calls)}; exercise ${exercise?.exercise_id ?? "none"}`,
       ),
       result(

@@ -172,6 +172,19 @@ describe("findProblems ranking", () => {
     expect(foundOrder(second)).toEqual(["Ex. 3", "Ex. 4"]);
   });
 
+  test("steps up from an older unassisted success, not a newer one with help", async () => {
+    seedExercises();
+    addExercise(4, "compute thrust", 3);
+    addExercise(6, "compute thrust", 1);
+    const now = Date.now();
+    answered("ex-6", "none", new Date(now - 4000).toISOString());
+    answered("ex-1", "some", new Date(now - 2000).toISOString());
+    const model = finderModel();
+    useMockModels({ chat: model });
+    await send(firstMessage());
+    expect(foundOrder(model)).toEqual(["Ex. 3", "Ex. 4"]);
+  });
+
   test("prefers a task type other than the last Problem's", async () => {
     seedExercises();
     addExercise(5, "explain", 2);
