@@ -24,6 +24,7 @@ import { mapFindingsSmoke } from "./smoke/map-findings";
 import { parseSmoke } from "./smoke/parse";
 import { prioritySmoke } from "./smoke/priority";
 import { readingSmoke } from "./smoke/reading";
+import { reviewSmoke } from "./smoke/review";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 import { topicsSmoke } from "./smoke/topics";
 import { tutorSmoke } from "./smoke/tutor";
@@ -39,6 +40,7 @@ const CHECKS: SmokeCheck[] = [
   tutorSmoke,
   mapFindingsSmoke,
   generateSmoke,
+  reviewSmoke,
 ];
 
 /**

@@ -105,7 +105,7 @@ test("a review session holds the queue in order instead of the learn guidance, o
 
   expect(review).toContain(
     [
-      "Review queue, in order:",
+      "Review queue, in order (Left: 1 open, 1 to retry.)",
       "1. done, to retry; retry: KC b",
       "  - KC a (id a, concept, Topic id t1)",
       "  - KC b (id b, concept, Topic id t1)",

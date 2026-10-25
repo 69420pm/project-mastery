@@ -1,0 +1,69 @@
+{
+  "description": "Two scripted review sessions on the jet-engines gold course (evals/gold/jet-engines): 6 KCs are due, taught full in an earlier session, in 3 Topics: KC01–KC04 of Thrust from momentum, KC09 of Turbojet anatomy and KC15 of the Brayton cycle. Code groups them into KC01+KC02+KC03, KC09, KC04 and KC15, in that interleaved order. The scripted Student answers each question with the answer that shares the most KCs with it, labelled per KC with gold ids (full, or below_full for partial or wrong); a retry takes the answer listed after the first one on its KC. One Student is mostly right (the thrust equation leaves out the pressure term); the other has planted errors: thrust as pushing against the air behind the engine, the turbojet's sections out of order, and the Brayton cycle as a model of real losses.",
+  "items": [
+    {
+      "id": "mostly-right",
+      "input": {
+        "answers": [
+          {
+            "text": "By Newton's third law, the engine pushes air backwards and the air pushes the engine forwards with an equal and opposite force. That reaction force is the thrust: the net force along the axis that comes from changing the momentum of the air flowing through. A propeller makes thrust by accelerating a large mass of air a little with airfoil blades outside the engine, while a jet accelerates a smaller mass of air a lot inside the engine and out of the nozzle.",
+            "labels": { "KC01": "full", "KC02": "full", "KC03": "full" }
+          },
+          {
+            "text": "Intake, compressor, combustion chamber, turbine, nozzle: that is the flow order. The turbine drives the compressor through the shaft.",
+            "labels": { "KC09": "full" }
+          },
+          {
+            "text": "F = mdot_e v_e - mdot_0 v_0: the momentum leaving through the exhaust per second minus the momentum entering through the intake per second.",
+            "labels": { "KC04": "below_full" }
+          },
+          {
+            "text": "F = mdot_e v_e - mdot_0 v_0 + (p_e - p_0) A_e. The first two terms are the momentum flux out minus in, from the momentum balance on a control volume around the engine; the last term is the pressure thrust when the exhaust pressure p_e at the nozzle exit area A_e differs from the ambient pressure p_0. With a fully expanded nozzle it is zero.",
+            "labels": { "KC04": "full" }
+          },
+          {
+            "text": "The Brayton cycle is the ideal model of a gas turbine: isentropic compression, heat added at constant pressure, isentropic expansion and heat rejected at constant pressure. Its key assumption is an ideal gas with no losses, so the compressor and turbine are reversible and adiabatic.",
+            "labels": { "KC15": "full" }
+          }
+        ]
+      },
+      "expectedOutput": null
+    },
+    {
+      "id": "planted-errors",
+      "input": {
+        "answers": [
+          {
+            "text": "By Newton's third law, the engine pushes air backwards and the air pushes the engine forwards. Thrust is the force of the exhaust jet pushing against the still air behind the engine, like a hand pushing off a wall. A propeller makes thrust by accelerating a large mass of air a little with blades outside the engine, while a jet accelerates a smaller mass of air a lot inside it.",
+            "labels": { "KC01": "full", "KC02": "below_full", "KC03": "full" }
+          },
+          {
+            "text": "Thrust is the net force on the engine from the change in momentum of the air flowing through it: the air leaves faster than it came in. It does not need anything behind the engine to push against; it works in a vacuum too.",
+            "labels": { "KC02": "full" }
+          },
+          {
+            "text": "Intake, combustion chamber, compressor, turbine, nozzle.",
+            "labels": { "KC09": "below_full" }
+          },
+          {
+            "text": "Intake, compressor, combustion chamber, turbine, nozzle: the compressor raises the pressure before the fuel burns, and the turbine after the combustor drives the compressor.",
+            "labels": { "KC09": "full" }
+          },
+          {
+            "text": "F = mdot_e v_e - mdot_0 v_0 + (p_e - p_0) A_e: momentum flux out minus in, from the momentum balance on a control volume around the engine, plus the pressure thrust when the exhaust pressure p_e at the nozzle exit area A_e differs from the ambient pressure p_0.",
+            "labels": { "KC04": "full" }
+          },
+          {
+            "text": "The Brayton cycle models a real gas turbine with all its losses: friction in the compressor and turbine and the pressure drop in the combustor, so it predicts the efficiency an engine really reaches.",
+            "labels": { "KC15": "below_full" }
+          },
+          {
+            "text": "The Brayton cycle is the ideal model of a gas turbine: isentropic compression, heat added at constant pressure, isentropic expansion and heat rejected at constant pressure. It assumes an ideal gas with no losses, so a real engine reaches less than its efficiency.",
+            "labels": { "KC15": "full" }
+          }
+        ]
+      },
+      "expectedOutput": null
+    }
+  ]
+}

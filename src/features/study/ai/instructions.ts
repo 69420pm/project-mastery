@@ -40,16 +40,16 @@ const STAGED = `Learn session stages: this session teaches the next Topic below 
 
 /** How a review session (#184) goes: the review queue below, in order. */
 const REVIEW = `Review session: this session reviews the KCs that are due, which code has put into groups and in order in the review queue below. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: work through the queue.
-- Ask one question per open group, in the queue's order, through ask with all the group's KC ids. The question must need every one of those KCs: a wide question that connects them, not a list of small ones. Before you write it, call getTopic with the group's Topic id and its KC ids, so you use the course's sources and notation.
+- Ask one question per open group, in the queue's order, through ask with all the group's KC ids, never as text. The question must need every one of those KCs: a wide question that connects them, not a list of small ones. First call getTopic with the group's Topic id and its KC ids, before any text of your reply, so you use the course's sources and notation.
 - For facts and concepts, ask a short-answer or explain-why question. For a group with a procedure KC, call findProblems with the group's KC ids and pose one Problem through ask with its problemId and link; without one, pose a problem of your own.
-- After a result below full, re-teach the missed part briefly, citing the page (call getTopic first), then go on with the next open group. Ask a fresh question on the KCs to retry after at least one other group, or at the end when no other group is left. One retry per KC: grade it as usual and move on.
+- After a result below full, re-teach the missed part briefly, citing the page (call getTopic first), then ask the next open group's question through ask in the same reply. Ask a fresh question on the KCs to retry after at least one other group, or at the end when no other group is left, the retries in the queue's order. One retry per KC: grade it as usual and move on.
 - The statuses are as of the start of your reply: a group whose question you grade in this reply is done or to retry by then.
 - When every group is done and nothing is left to retry, wrap up in a few sentences, without a new question, and suggest ending the session with End session.
 - When the Student asks something else, answer it, then come back to the queue.`;
 
 /** How a practice session (#184) goes: Problems on the practice KCs below. */
 const PRACTICE = `Practice session: the Student practises exam-style Problems on Topics they have learned, on the practice KCs below, most urgent first. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: pose a Problem.
-- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, never as text. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
+- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
 - Help only when the Student asks for it or after a wrong or partial submission: one hint first, then a corrected step, then the worked solution when they ask again or stay stuck. Grade the help you gave as usual (none, some or solution_shown).
 - After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
 - After a full answer, sometimes ask why a step works, through ask, before the next Problem.
@@ -180,7 +180,13 @@ function describeReviewQueue(queue: ReviewGroup[], mapPath: string): string {
       "\n",
     );
   });
-  return [`Review queue, in order:`, ...groups].join("\n");
+  const open = queue.filter((g) => g.status === "open").length;
+  const retries = queue.filter((g) => g.status === "retry").length;
+  const left =
+    open + retries === 0
+      ? "Left: nothing; wrap up."
+      : `Left: ${open} open, ${retries} to retry.`;
+  return [`Review queue, in order (${left})`, ...groups].join("\n");
 }
 
 function describeMap(context: TutorContext): string {

@@ -78,7 +78,7 @@ async function readMemory(
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /** Rows of `table` for the Student's Course, inserted as given. */
-async function insertRows(
+export async function insertRows(
   supabase: Parameters<typeof insertGoldMap>[0],
   table: string,
   rows: object[],
@@ -91,16 +91,26 @@ async function insertRows(
  * A tool call the AI made, with the KC ids it passed and whether it came
  * before any text of its reply.
  */
-type ToolCall = { toolName: string; kcIds: string[]; beforeText: boolean };
+type ToolCall = {
+  toolName: string;
+  kcIds: string[];
+  beforeText: boolean;
+  input: Record<string, unknown>;
+};
 
 /**
  * Sends `text` in the Chat through the real Chat handler as the Student,
- * and returns the AI's tool calls and text.
+ * and returns the AI's tool calls and text. `chat.mode` starts a new Chat's
+ * Study session in that mode.
  */
-async function sendMessage(
+export async function sendMessage(
   client: Supabase,
   studentId: string,
-  chat: { chatId: string; courseId: string },
+  chat: {
+    chatId: string;
+    courseId: string;
+    mode?: "learn" | "review" | "practice";
+  },
   text: string,
   /**
    * The question it answers on its question card, or the Reading section
@@ -207,7 +217,12 @@ async function sendMessage(
         part.input?.kcIds ??
         part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
-      const call = { toolName: part.toolName, kcIds, beforeText: !hasText };
+      const call = {
+        toolName: part.toolName,
+        kcIds,
+        beforeText: !hasText,
+        input: part.input ?? {},
+      };
       calls.push(call);
       callsById.set(part.toolCallId, call);
       if (part.toolName === "showReading") {
@@ -230,10 +245,127 @@ async function sendMessage(
 }
 
 /**
- * Sets up a Course with the jet-engines gold map with one Topic per Big
- * idea, a stand-in source chunk for every KC and the gold Exercises with
- * stand-in question chunks (Ex. 7.2a with real data and a numeric key).
- * Sends "Let's start studying." in a first Chat, where the AI must read the
+ * Stores a Course with the jet-engines gold map with one Topic per Big idea,
+ * each with an original and a study-text Reading section, a stand-in source
+ * chunk for every KC and the gold Exercises with stand-in question chunks
+ * (Ex. 7.2a with real data and a numeric key).
+ */
+export async function insertGoldCourse(
+  supabase: Parameters<typeof insertGoldMap>[0],
+  studentId: string,
+) {
+  const { data: course, error } = await supabase
+    .from("courses")
+    .insert({ owner: studentId, name: "Smoke check" })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  const owned = { owner: studentId, course_id: course.id };
+  const { gold, id } = await insertGoldMap(supabase, studentId, course.id);
+
+  const materialId = randomUUID();
+  await insertRows(supabase, "materials", [
+    {
+      ...owned,
+      id: materialId,
+      name: "Jet engines",
+      media_type: "application/pdf",
+      size_bytes: 1,
+      storage_path: `${studentId}/${course.id}/${materialId}`,
+    },
+  ]);
+  const chunk = (position: number, label: string, markdown: string) => ({
+    ...owned,
+    id: randomUUID(),
+    material_id: materialId,
+    position,
+    page_from: position + 1,
+    page_to: position + 1,
+    label,
+    markdown,
+  });
+  const source = chunk(
+    0,
+    "content",
+    "A jet engine accelerates air rearward, and the reaction pushes the engine forward (Newton's third law). Thrust is the mass flow times the change in velocity.",
+  );
+  const questions = gold.exercises.map((exercise, index) =>
+    chunk(
+      index + 1,
+      "exercise",
+      exercise.name === THRUST_EXERCISE.name
+        ? THRUST_EXERCISE.markdown
+        : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
+    ),
+  );
+  await insertRows(supabase, "chunks", [source, ...questions]);
+  await insertRows(
+    supabase,
+    "knowledge_map_chunks",
+    [source, ...questions].map(({ id: chunkId }) => ({
+      ...owned,
+      chunk_id: chunkId,
+    })),
+  );
+  await insertRows(
+    supabase,
+    "kc_sources",
+    gold.kcs
+      .filter((kc) => kc.bigIdea !== null)
+      .map((kc) => ({ ...owned, kc_id: id(kc.id), chunk_id: source.id })),
+  );
+  const exerciseIds = gold.exercises.map(() => randomUUID());
+  await insertRows(
+    supabase,
+    "exercises",
+    gold.exercises.map((exercise, position) => ({
+      ...owned,
+      id: exerciseIds[position],
+      name: exercise.name,
+      task_type: exercise.taskType,
+      difficulty: exercise.difficulty,
+      solution_status: exercise.solutionStatus,
+      solution: null,
+      question_chunk_id: questions[position]!.id,
+      final_answers:
+        exercise.name === THRUST_EXERCISE.name
+          ? THRUST_EXERCISE.finalAnswers
+          : null,
+      position,
+    })),
+  );
+  const thrustExerciseId =
+    exerciseIds[
+      gold.exercises.findIndex(({ name }) => name === THRUST_EXERCISE.name)
+    ];
+  await insertRows(
+    supabase,
+    "exercise_kcs",
+    gold.exercises.flatMap((exercise, position) =>
+      (exercise.name === THRUST_EXERCISE.name
+        ? THRUST_EXERCISE.kcs
+        : exercise.kcs
+      ).map((kc) => ({
+        ...owned,
+        exercise_id: exerciseIds[position],
+        kc_id: id(kc),
+      })),
+    ),
+  );
+
+  await insertGoldTopics(
+    supabase,
+    studentId,
+    course.id,
+    { gold, id },
+    { materialId, chunkIds: [source.id], studyText: STUDY_TEXT },
+  );
+  return { courseId: course.id, gold, id, exerciseIds, thrustExerciseId };
+}
+
+/**
+ * Sets up the gold Course (`insertGoldCourse`). Sends "Let's start
+ * studying." in a first Chat, where the AI must read the
  * next Topic's KCs before any text. Then teaches two KCs a few days ago, so
  * both are due, and sends "Let's start studying.", a plausible answer and a
  * learning preference in a new Chat, and a request for Ex. 7.2a and its
@@ -253,112 +385,12 @@ export const tutorSmoke: SmokeCheck = {
   // others.
   maxCalls: 15,
   async run({ supabase, studentId }) {
-    const { data: course, error } = await supabase
-      .from("courses")
-      .insert({ owner: studentId, name: "Smoke check" })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    const owned = { owner: studentId, course_id: course.id };
-    const { gold, id } = await insertGoldMap(supabase, studentId, course.id);
-
-    const materialId = randomUUID();
-    await insertRows(supabase, "materials", [
-      {
-        ...owned,
-        id: materialId,
-        name: "Jet engines",
-        media_type: "application/pdf",
-        size_bytes: 1,
-        storage_path: `${studentId}/${course.id}/${materialId}`,
-      },
-    ]);
-    const chunk = (position: number, label: string, markdown: string) => ({
-      ...owned,
-      id: randomUUID(),
-      material_id: materialId,
-      position,
-      page_from: position + 1,
-      page_to: position + 1,
-      label,
-      markdown,
-    });
-    const source = chunk(
-      0,
-      "content",
-      "A jet engine accelerates air rearward, and the reaction pushes the engine forward (Newton's third law). Thrust is the mass flow times the change in velocity.",
-    );
-    const questions = gold.exercises.map((exercise, index) =>
-      chunk(
-        index + 1,
-        "exercise",
-        exercise.name === THRUST_EXERCISE.name
-          ? THRUST_EXERCISE.markdown
-          : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
-      ),
-    );
-    await insertRows(supabase, "chunks", [source, ...questions]);
-    await insertRows(
-      supabase,
-      "knowledge_map_chunks",
-      [source, ...questions].map(({ id: chunkId }) => ({
-        ...owned,
-        chunk_id: chunkId,
-      })),
-    );
-    await insertRows(
-      supabase,
-      "kc_sources",
-      gold.kcs
-        .filter((kc) => kc.bigIdea !== null)
-        .map((kc) => ({ ...owned, kc_id: id(kc.id), chunk_id: source.id })),
-    );
-    const exerciseIds = gold.exercises.map(() => randomUUID());
-    await insertRows(
-      supabase,
-      "exercises",
-      gold.exercises.map((exercise, position) => ({
-        ...owned,
-        id: exerciseIds[position],
-        name: exercise.name,
-        task_type: exercise.taskType,
-        difficulty: exercise.difficulty,
-        solution_status: exercise.solutionStatus,
-        solution: null,
-        question_chunk_id: questions[position]!.id,
-        final_answers:
-          exercise.name === THRUST_EXERCISE.name
-            ? THRUST_EXERCISE.finalAnswers
-            : null,
-        position,
-      })),
-    );
-    const thrustExerciseId =
-      exerciseIds[
-        gold.exercises.findIndex(({ name }) => name === THRUST_EXERCISE.name)
-      ];
-    await insertRows(
-      supabase,
-      "exercise_kcs",
-      gold.exercises.flatMap((exercise, position) =>
-        (exercise.name === THRUST_EXERCISE.name
-          ? THRUST_EXERCISE.kcs
-          : exercise.kcs
-        ).map((kc) => ({
-          ...owned,
-          exercise_id: exerciseIds[position],
-          kc_id: id(kc),
-        })),
-      ),
-    );
-
-    await insertGoldTopics(
+    const { courseId, gold, id, thrustExerciseId } = await insertGoldCourse(
       supabase,
       studentId,
-      course.id,
-      { gold, id },
-      { materialId, chunkIds: [source.id], studyText: STUDY_TEXT },
     );
+    const course = { id: courseId };
+    const owned = { owner: studentId, course_id: courseId };
 
     // The Chat runs as the Student, with Row Level Security as in the app.
     // Before anything is taught, a greeting starts on the next Topic.

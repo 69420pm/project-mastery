@@ -19,6 +19,10 @@ export {
 } from "./ai/tools";
 // Also here for the `learn` eval, which can't load `index.ts` either.
 export { STAGES, type Stage } from "./domain/stages";
+// For the `review` eval, which builds the queue and replays its attempts in
+// memory.
+export { replayKc, type ReplayAttempt } from "./domain/replay";
+export { planReviewQueue, type ReviewGroup } from "./domain/review-queue";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getMapFindings } from "./server/map-findings-card";
