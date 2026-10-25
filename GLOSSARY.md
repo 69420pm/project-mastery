@@ -106,7 +106,7 @@ A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always 
 _Avoid_: Favourite, hide, exclude (an excluded Material is something else)
 
 **Today card**:
-What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and one Start button.
+What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and a start button per available Study session mode: Learn with a next Topic, Review with Reviews due, Practice with a learned Topic.
 _Avoid_: Dashboard, daily plan, agenda
 
 **AI**:
