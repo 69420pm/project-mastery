@@ -49,7 +49,7 @@ select is(
 reset role;
 select results_eq(
   $$select position, page_from, page_to, chunk_ids, mode, reason, annotations is null
-    from public.reading_sections order by position$$,
+    from public.reading_sections where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by position$$,
   $$values (0, 1, 2, '{cccccccc-0000-0000-0000-000000000001}'::uuid[], 'original', 'Not judged yet.', true),
     (1, 3, 3, '{cccccccc-0000-0000-0000-000000000002}'::uuid[], 'original', 'Not judged yet.', true)$$,
   'sections are stored in order');
@@ -62,10 +62,12 @@ select is(
   public.replace_reading_sections('aaaaaaaa-0000-0000-0000-000000000001', '[]'),
   false, 'without a running build nothing is stored');
 reset role;
-select is((select count(*)::int from public.reading_sections), 2, 'the sections are unchanged');
+select is((select count(*)::int from public.reading_sections where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  2, 'the sections are unchanged');
 
 -- An update keeps a named section's row and texts, moves it first and drops the other.
-create temporary table kept as select id from public.reading_sections where position = 1;
+create temporary table kept as select id from public.reading_sections
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' and position = 1;
 grant select on kept to service_role;
 update public.reading_sections set mode = 'study_text', reason = 'Dense.', study_text = 'Text. [p. 3]'
 where position = 1;
@@ -80,7 +82,8 @@ select replace_reading_sections('aaaaaaaa-0000-0000-0000-000000000001',
       'mode', 'original', 'reason', 'Not judged yet.', 'annotations', null, 'studyText', null)));
 reset role;
 select results_eq(
-  $$select position, id = (select id from kept), mode, study_text from public.reading_sections$$,
+  $$select position, id = (select id from kept), mode, study_text from public.reading_sections
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values (0, true, 'study_text', 'Text. [p. 3]')$$,
   'a named section keeps its row and texts and a left-out one goes');
 
