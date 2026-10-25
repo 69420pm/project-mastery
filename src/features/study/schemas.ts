@@ -47,6 +47,12 @@ export const setTopicChoiceSchema = z.object({
   reason: z.string().trim().max(MAX_SKIP_REASON_LENGTH).optional(),
 });
 
+/** The input of the Map findings card's Accept and Dismiss. */
+export const answerMapFindingSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(["accepted", "dismissed"]),
+});
+
 /** The input of the Memory card's Server Action. */
 export const saveMemorySchema = z.object({
   courseId: z.uuid(),

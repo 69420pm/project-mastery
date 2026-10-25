@@ -5,6 +5,7 @@
 export { tutorInstructions } from "./ai/instructions";
 export { CloseCard } from "./components/close-card";
 export { EndSessionButton } from "./components/end-session-button";
+export { MapFindingsCard } from "./components/map-findings-card";
 export { MemoryCard } from "./components/memory-card";
 export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";

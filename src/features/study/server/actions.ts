@@ -4,12 +4,14 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { briefPath } from "@/features/brief";
 import {
+  answerMapFindingSchema,
   endSessionSchema,
   rateSessionSchema,
   saveMemorySchema,
   setTopicChoiceSchema,
   topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
+import { answerOpenMapFinding } from "@/features/study/server/map-findings";
 import { appendMemory } from "@/features/study/server/memory";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
 import type { SessionSummary, TopicKnowledgeMap } from "@/features/study/types";
@@ -217,4 +219,27 @@ export async function setTopicChoice(input: {
   }
   revalidatePath("/", "layout");
   return { ok: true, data: { reasonKept } };
+}
+
+/**
+ * Accept or Dismiss on the Map findings card: answers an open map Finding
+ * of the Student's. An accepted one is applied at the next Update map. A
+ * Finding that is no longer open stays as it is, and the page refreshes.
+ */
+export async function answerMapFinding(
+  id: string,
+  status: "accepted" | "dismissed",
+): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(answerMapFindingSchema, { id, status });
+  if (!parsed.ok) return parsed;
+  await answerOpenMapFinding(
+    await createClient(),
+    parsed.data.id,
+    parsed.data.status,
+  );
+  revalidatePath("/", "layout");
+  return { ok: true, data: undefined };
 }

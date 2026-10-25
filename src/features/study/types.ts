@@ -213,6 +213,23 @@ export type MapFindingView = {
 };
 
 /**
+ * A map Finding on the Course map's Map findings card: an `open` one the
+ * Student can accept or dismiss, or an `accepted` one the next Update map
+ * applies. `linkedKc` is the other KC of a link kind, null otherwise.
+ */
+export type MapFindingItem = {
+  id: string;
+  kind: MapFindingKind;
+  status: "open" | "accepted";
+  kc: string;
+  linkedKc: string | null;
+  reason: string;
+  quote: string;
+  /** Such as "Lecture 3, p. 12", with the link to the chunk on its page. */
+  source: { label: string; link: string } | null;
+};
+
+/**
  * A Topic as `getTopic` returns it. Read by KC ids alone, without a Topic,
  * it has only the KCs: the Topic's fields are null.
  */

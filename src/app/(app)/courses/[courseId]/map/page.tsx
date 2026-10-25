@@ -9,9 +9,15 @@ import {
   loadCourseTopics,
 } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
-import { FitLine, TodayCard, topicBadges } from "@/features/study";
+import {
+  FitLine,
+  MapFindingsCard,
+  TodayCard,
+  topicBadges,
+} from "@/features/study";
 import {
   getKcLearning,
+  getMapFindings,
   getPlan,
   getTopicStates,
 } from "@/features/study/server";
@@ -32,16 +38,25 @@ export default async function CourseMapPage({
   const { courseId } = await params;
   await requireUser(courseMapPath(courseId));
   await ensurePriorities(courseId);
-  const [course, map, topics, priorities, learning, topicStates, plan] =
-    await Promise.all([
-      getCourse(courseId),
-      getKnowledgeMap(courseId),
-      loadCourseTopics(courseId),
-      getPriorities(courseId),
-      getKcLearning(courseId),
-      getTopicStates(courseId),
-      getPlan(courseId),
-    ]);
+  const [
+    course,
+    map,
+    topics,
+    priorities,
+    learning,
+    topicStates,
+    plan,
+    mapFindings,
+  ] = await Promise.all([
+    getCourse(courseId),
+    getKnowledgeMap(courseId),
+    loadCourseTopics(courseId),
+    getPriorities(courseId),
+    getKcLearning(courseId),
+    getTopicStates(courseId),
+    getPlan(courseId),
+    getMapFindings(courseId),
+  ]);
   if (!course) notFound();
 
   return (
@@ -62,12 +77,17 @@ export default async function CourseMapPage({
       )}
       planLine={<FitLine plan={plan} briefHref={briefPath(courseId)} />}
       today={
-        <TodayCard
-          plan={plan}
-          mapHref={courseMapPath(courseId)}
-          topicHref={plan.today.next && topicPath(courseId, plan.today.next.id)}
-          startHref={newChatPath(courseId)}
-        />
+        <>
+          <TodayCard
+            plan={plan}
+            mapHref={courseMapPath(courseId)}
+            topicHref={
+              plan.today.next && topicPath(courseId, plan.today.next.id)
+            }
+            startHref={newChatPath(courseId)}
+          />
+          <MapFindingsCard findings={mapFindings} />
+        </>
       }
     />
   );

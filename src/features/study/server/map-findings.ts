@@ -63,6 +63,24 @@ export async function insertMapFinding(
 }
 
 /**
+ * The Student's answer to an open map Finding: accepted, for the next
+ * Update map to apply, or dismissed. Row Level Security only lets an open
+ * Finding change, so one answered since stays as it is.
+ */
+export async function answerOpenMapFinding(
+  supabase: Supabase,
+  id: string,
+  status: "accepted" | "dismissed",
+): Promise<void> {
+  const { error } = await supabase
+    .from("map_findings")
+    .update({ status })
+    .eq("id", id)
+    .eq("status", "open");
+  if (error) failed("Answering the map Finding", error);
+}
+
+/**
  * The Course's open and accepted map Findings by KC, oldest first: each
  * under both of its KCs, naming the other one.
  */

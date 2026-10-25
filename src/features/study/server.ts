@@ -21,6 +21,7 @@ export {
 export { STAGES, type Stage } from "./domain/stages";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
+export { getMapFindings } from "./server/map-findings-card";
 export { getMemory } from "./server/memory";
 export { getPlan } from "./server/plan";
 export {
