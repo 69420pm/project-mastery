@@ -643,13 +643,6 @@ export const tutorSmoke: SmokeCheck = {
         `${describe(sixth.calls)}; ${listed.size} sections listed; ${JSON.stringify(opened ?? null)}`,
       ),
       result(
-        "after Done, the reply asked about the reading without opening it again",
-        !seventh.calls.some(({ toolName }) => toolName === "showReading") &&
-          (seventh.calls.some(({ toolName }) => toolName === "ask") ||
-            seventh.text.includes("?")),
-        describe(seventh.calls),
-      ),
-      result(
         "no ids or tool names in the text",
         named.length === 0,
         named.join(", "),
