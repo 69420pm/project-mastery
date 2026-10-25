@@ -41,6 +41,8 @@ const COURSE_TABLES = [
   "topics",
   "reading_sections",
   "map_findings",
+  "problems",
+  "problem_kcs",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -89,6 +91,9 @@ function createDb() {
       topic_choices: [],
       reading_sections: [],
       map_findings: [],
+      problems: [],
+      problem_kcs: [],
+      problem_runs: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
@@ -96,7 +101,12 @@ function createDb() {
       reading_sections: { material_id: "materials" },
       topic_kcs: { topic_id: "topics" },
       topic_choices: { topic_id: "topics" },
-      questions: { session_id: "study_sessions" },
+      questions: {
+        session_id: "study_sessions",
+        exercise_id: "exercises",
+        problem_id: "problems",
+      },
+      problem_kcs: { problem_id: "problems" },
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
     },
@@ -151,6 +161,15 @@ function createDb() {
         }
         session.stage = args.p_stage;
         return true;
+      },
+      // Records each generate trigger in `problem_runs` and lets none start,
+      // so no workflow runs in these tests.
+      queue_problem_run: (args, tables) => {
+        tables.problem_runs.push({
+          course_id: args.p_course_id,
+          topic_id: args.p_topic_id ?? null,
+        });
+        return false;
       },
       // The real function appends as the Student; this one trusts the Course.
       append_memory: (args, tables) => {

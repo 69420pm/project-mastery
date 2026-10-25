@@ -22,8 +22,15 @@ export { STAGES, type Stage } from "./domain/stages";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getMapFindings } from "./server/map-findings-card";
+export {
+  mathRunner,
+  type DeclaredAnswer,
+  type MathRunner,
+  type ProgramRun,
+} from "./server/math-runner";
 export { getMemory } from "./server/memory";
 export { getPlan } from "./server/plan";
+export { loadProblemFlags } from "./server/problems";
 export {
   isAnswerable,
   loadAnswerLinks,
@@ -33,6 +40,18 @@ export { sessionEndedMessage } from "./schemas";
 export { closeIdleSession, getSessionEnd } from "./server/sessions";
 export { getTopicStates } from "./server/topic-states";
 export { startTutoring } from "./server/tutoring";
+// For the `generate` smoke check, which runs a queued run in process and
+// looks the variant up as the tutor would.
+export { findProblems } from "./server/find-problems";
+export { generateProblems } from "./workflows/generate-problems";
+// For the `generate` eval, which runs the workflow's call and check without
+// a database.
+export {
+  generateCall,
+  retryMessages,
+  type GenerateInput,
+} from "./ai/generate-call";
+export { checkDraft } from "./server/problem-draft";
 export type {
   GradedKc,
   KcState,

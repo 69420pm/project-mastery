@@ -7,6 +7,7 @@ export { CloseCard } from "./components/close-card";
 export { EndSessionButton } from "./components/end-session-button";
 export { MapFindingsCard } from "./components/map-findings-card";
 export { MemoryCard } from "./components/memory-card";
+export { ProblemFlagControl } from "./components/problem-flag-control";
 export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
@@ -18,6 +19,7 @@ export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {
   GradedKc,
+  ProblemFlag,
   ProblemView,
   QuestionKind,
   StudyPlan,

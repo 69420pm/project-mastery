@@ -125,69 +125,105 @@ export async function loadSchedules(
 }
 
 /**
- * The ids of the Course's Exercises the Student has been asked as a
- * question, answered or not.
+ * The columns of a question that name the Problem it poses: an Exercise, or
+ * a generated Problem. Each is read with its own query, since a question
+ * sets at most one.
  */
-export async function loadAttemptedExercises(
+const PROBLEM_COLUMNS = ["exercise_id", "problem_id"] as const;
+
+/** The Problem a question poses, from whichever column names it. */
+const posed = (row: {
+  exercise_id: string | null;
+  problem_id: string | null;
+}): string | null => row.exercise_id ?? row.problem_id;
+
+/**
+ * The ids of the Course's Exercises and generated Problems the Student has
+ * been asked as a question, answered or not.
+ */
+export async function loadAskedProblems(
   supabase: Supabase,
   courseId: string,
 ): Promise<Set<string>> {
-  const rows = await allRows("Loading the asked Exercises", (from, to) =>
-    supabase
-      .from("questions")
-      .select("exercise_id, study_sessions!inner(course_id)")
-      .eq("study_sessions.course_id", courseId)
-      .not("exercise_id", "is", null)
-      .order("id")
-      .range(from, to),
+  const asked = await Promise.all(
+    PROBLEM_COLUMNS.map((column) =>
+      allRows("Loading the asked Problems", (from, to) =>
+        supabase
+          .from("questions")
+          .select("exercise_id, problem_id, study_sessions!inner(course_id)")
+          .eq("study_sessions.course_id", courseId)
+          .not(column, "is", null)
+          .order("id")
+          .range(from, to),
+      ),
+    ),
   );
-  return new Set(rows.flatMap(({ exercise_id }) => exercise_id ?? []));
+  return new Set(asked.flat().flatMap((row) => posed(row) ?? []));
 }
 
 /**
- * The Exercise of the Student's most recently asked question in the Course
- * that has one (the last Problem); null with none.
+ * The Exercise or generated Problem of the Student's most recently asked
+ * question in the Course that poses one (the last Problem); null with none.
  */
-export async function loadLastProblemExercise(
+export async function loadLastProblem(
   supabase: Supabase,
   courseId: string,
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("questions")
-    .select("exercise_id, study_sessions!inner(course_id)")
-    .eq("study_sessions.course_id", courseId)
-    .not("exercise_id", "is", null)
-    .order("asked_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(1);
-  if (error) failed("Loading the last Problem", error);
-  return data?.[0]?.exercise_id ?? null;
+  const latest = await Promise.all(
+    PROBLEM_COLUMNS.map(async (column) => {
+      const { data, error } = await supabase
+        .from("questions")
+        .select(
+          "asked_at, exercise_id, problem_id, study_sessions!inner(course_id)",
+        )
+        .eq("study_sessions.course_id", courseId)
+        .not(column, "is", null)
+        .order("asked_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1);
+      if (error) failed("Loading the last Problem", error);
+      return data[0] ?? null;
+    }),
+  );
+  const last = latest
+    .filter((row) => row !== null)
+    .toSorted((a, b) => b.asked_at.localeCompare(a.asked_at))[0];
+  return last ? posed(last) : null;
 }
 
 /**
- * The Exercise of the most recent question in the Course with an attempt on
- * one of `kcIds` graded `full` with help `none`; null with none.
+ * The Exercise or generated Problem of the most recent question in the
+ * Course with an attempt on one of `kcIds` graded `full` with help `none`;
+ * null with none.
  */
 export async function loadLastUnassistedSuccess(
   supabase: Supabase,
   courseId: string,
   kcIds: string[],
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("attempts")
-    .select(
-      "created_at, questions!inner(exercise_id), study_sessions!inner(course_id)",
-    )
-    .eq("study_sessions.course_id", courseId)
-    .in("kc_id", kcIds)
-    .eq("result", "full")
-    .eq("help", "none")
-    .not("questions.exercise_id", "is", null)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(1);
-  if (error) failed("Loading the last unassisted success", error);
-  return data?.[0]?.questions.exercise_id ?? null;
+  const latest = await Promise.all(
+    PROBLEM_COLUMNS.map(async (column) => {
+      const { data, error } = await supabase
+        .from("attempts")
+        .select(
+          "created_at, questions!inner(exercise_id, problem_id), study_sessions!inner(course_id)",
+        )
+        .eq("study_sessions.course_id", courseId)
+        .in("kc_id", kcIds)
+        .eq("result", "full")
+        .eq("help", "none")
+        .not(`questions.${column}`, "is", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(1);
+      if (error) failed("Loading the last unassisted success", error);
+      return data[0] ?? null;
+    }),
+  );
+  const last = latest
+    .filter((row) => row !== null)
+    .toSorted((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  return last ? posed(last.questions) : null;
 }
 
 /**

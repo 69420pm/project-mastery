@@ -42,7 +42,10 @@ export async function insertQuestion(
     kind: QuestionKind;
     prompt: string;
     kcIds: string[];
+    /** The Exercise it poses, or null. */
     exerciseId: string | null;
+    /** The generated Problem it poses, or null; never with an Exercise. */
+    problemId: string | null;
   },
 ): Promise<string> {
   const { data, error } = await supabase
@@ -52,6 +55,7 @@ export async function insertQuestion(
       kind: question.kind,
       prompt: question.prompt,
       exercise_id: question.exerciseId,
+      problem_id: question.problemId,
     })
     .select("id")
     .single();
@@ -79,17 +83,20 @@ export async function findSessionQuestion(
   const { data, error } = await supabase
     .from("questions")
     .select(
-      "kind, answered_at, graded_at, question_kcs(kc_id), exercises(final_answers)",
+      "kind, answered_at, graded_at, question_kcs(kc_id), exercises(final_answers), problems(final_answers)",
     )
     .eq("id", questionId)
     .eq("session_id", sessionId)
     .maybeSingle();
   if (error) failed("Loading the question", error);
   if (!data) return null;
-  // A key that no longer parses is no key: the check then doesn't apply.
+  // The key of the Exercise or generated Problem it poses. A key that no
+  // longer parses is no key: the check then doesn't apply.
   const finalAnswers = z
     .array(finalAnswerSchema)
-    .safeParse(data.exercises?.final_answers);
+    .safeParse(
+      data.exercises?.final_answers ?? data.problems?.final_answers ?? null,
+    );
   return {
     kind: data.kind as QuestionKind,
     kcIds: data.question_kcs.map(({ kc_id }) => kc_id),

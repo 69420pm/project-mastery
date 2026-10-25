@@ -1,9 +1,6 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
-import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
+import { loadChunkSources } from "@/features/ingestion/server";
 import {
   courseMapPath,
   findReadingSection,
@@ -19,18 +16,11 @@ import {
   type TutorToolActions,
   type TutorTools,
 } from "@/features/study/ai/tools";
-import {
-  loadAttemptedExercises,
-  loadLastProblemExercise,
-  loadLastUnassistedSuccess,
-  loadSchedules,
-} from "@/features/study/server/attempts";
-import {
-  rankProblems,
-  solutionLabel,
-  targetDifficulty,
-} from "@/features/study/domain/exercises";
+import { loadSchedules } from "@/features/study/server/attempts";
+import { findProblems } from "@/features/study/server/find-problems";
+import { isReadyProblem } from "@/features/study/server/problems";
 import { kcState, utcDay } from "@/features/study/domain/replay";
+import { mathRunner } from "@/features/study/server/math-runner";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
   findSessionQuestion,
@@ -61,13 +51,10 @@ import {
   insertMapFinding,
   loadMapFindingsByKc,
 } from "@/features/study/server/map-findings";
+import { queueProblemGeneration } from "@/features/study/server/problem-generation";
 import { searchChunks } from "@/features/study/server/search";
 import { tutorToday } from "@/features/study/server/tutor-today";
-import {
-  chunkLink,
-  readingLabel,
-  sourceView,
-} from "@/features/study/server/source-view";
+import { readingLabel, sourceView } from "@/features/study/server/source-view";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -139,6 +126,7 @@ export async function startTutoring(
   const staged =
     session &&
     (await sessionStage(supabase, {
+      courseId,
       session,
       next: firstReply ? plan.today.next : null,
       topics,
@@ -194,12 +182,14 @@ export async function startTutoring(
 async function sessionStage(
   supabase: Supabase,
   {
+    courseId,
     session,
     next,
     topics,
     reviewsDue,
     now,
   }: {
+    courseId: string;
     session: StageSession;
     /** The Topic to set when the session has none; null to set none. */
     next: TodayTopic | null;
@@ -221,6 +211,8 @@ async function sessionStage(
     if (!(await startSessionTopic(supabase, session.id, topicId, stage))) {
       return null;
     }
+    // Topic stock: the Topic's Problems are generated in the background.
+    await queueProblemGeneration(supabase, courseId, topicId);
   }
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic || stage === null) return null;
@@ -281,8 +273,6 @@ function tutorToolActions(
       );
     }
   };
-  const linkTo = (chunk: { id: string; materialId: string }) =>
-    chunkLink(courseId, chunk);
   const sourceOf = (chunk: Parameters<typeof sourceView>[1]) =>
     sourceView(courseId, chunk);
   return {
@@ -314,92 +304,34 @@ function tutorToolActions(
     },
     async findProblems(kcIds) {
       requireKnown(kcIds);
-      const [attempted, lastProblem, lastSuccess] = await Promise.all([
-        loadAttemptedExercises(supabase, courseId),
-        loadLastProblemExercise(supabase, courseId),
-        loadLastUnassistedSuccess(supabase, courseId, kcIds),
-      ]);
-      const exerciseById = new Map(map.exercises.map((e) => [e.id, e]));
-      const lastTaskType =
-        (lastProblem && exerciseById.get(lastProblem)?.taskType) || null;
-      const target = targetDifficulty(
-        (lastSuccess && exerciseById.get(lastSuccess)?.difficulty) || null,
-      );
-      const testing = map.exercises.filter((exercise) =>
-        exercise.kcs.some((id) => kcIds.includes(id)),
-      );
-      const unseen = testing.filter(({ id }) => !attempted.has(id));
-      if (unseen.length === 0) {
-        return {
-          problems: [],
-          note:
-            testing.length === 0
-              ? "This Course has no Exercises for these KCs: pose a problem of your own."
-              : "The Student has tried every Exercise of this Course for these KCs: pose a problem of your own.",
-        };
-      }
-      const [paired, questionChunks] = await Promise.all([
-        loadExerciseSolutions(supabase, courseId),
-        loadChunkSources(
-          supabase,
-          unseen.map((exercise) => exercise.questionChunk),
-        ),
-      ]);
-      const question = new Map(questionChunks.map((c) => [c.id, c]));
-      const found = rankProblems(
-        unseen.flatMap((exercise) => {
-          const chunk = question.get(exercise.questionChunk);
-          return chunk ? [{ ...exercise, chunk, oldExam: chunk.isExam }] : [];
-        }),
-        kcIds,
-        lastTaskType,
-        target,
-      );
-      const solutionIds = found.flatMap(
-        (exercise) => paired[exercise.questionChunk] ?? [],
-      );
-      const solutions = new Map(
-        (await loadChunkSources(supabase, solutionIds)).map((c) => [c.id, c]),
-      );
-      const problems = found.map((exercise) => {
-        const solutionChunk = solutions.get(
-          paired[exercise.questionChunk] ?? "",
-        );
-        return {
-          id: exercise.id,
-          source: exercise.oldExam
-            ? ("old_exam" as const)
-            : ("exercise" as const),
-          name: exercise.name,
-          taskType: exercise.taskType,
-          difficulty: exercise.difficulty,
-          question: exercise.chunk.markdown,
-          link: linkTo(exercise.chunk),
-          kcs: exercise.kcs.map((id) => ({ id, name: kcById.get(id)!.name })),
-          solution: {
-            status: solutionLabel(exercise.solutionStatus),
-            markdown: exercise.solution ?? solutionChunk?.markdown ?? null,
-          },
-        };
-      });
-      return { problems };
+      return findProblems(supabase, courseId, map, kcIds);
     },
     async ask({ kcIds, problemId, ...question }) {
       requireKnown(kcIds);
-      if (
+      // An Exercise of the map, or else a ready generated Problem.
+      const exerciseId =
+        problemId !== null && map.exercises.some(({ id }) => id === problemId)
+          ? problemId
+          : null;
+      const generatedProblemId =
         problemId !== null &&
-        !map.exercises.some(({ id }) => id === problemId)
-      ) {
+        exerciseId === null &&
+        (await isReadyProblem(supabase, courseId, problemId))
+          ? problemId
+          : null;
+      if (problemId !== null && exerciseId === null && !generatedProblemId) {
         throw new TutorToolError(
           `${problemId} is no Problem id of this Course: use an id from findProblems, or omit it.`,
         );
       }
-      return insertQuestion(supabase, {
+      const questionId = await insertQuestion(supabase, {
         ...question,
         sessionId: await session(),
         kcIds,
-        exerciseId: problemId,
+        exerciseId,
+        problemId: generatedProblemId,
       });
+      return { questionId, generatedProblemId };
     },
     async findQuestion(questionId) {
       const [question, end] = await Promise.all([
@@ -428,6 +360,7 @@ function tutorToolActions(
         ...kcState(schedules.get(kcId), now),
       }));
     },
+    compute: (program) => mathRunner.run(program),
     async findReading(sectionId) {
       // Ids the model made up are no uuids, which the query would refuse.
       if (!UUID.test(sectionId)) return null;

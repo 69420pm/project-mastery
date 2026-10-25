@@ -4,6 +4,7 @@ import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
 import {
   endsReply,
+  mathRunner,
   STAGES,
   TutorToolError,
   tutorTools,
@@ -407,6 +408,7 @@ function courseActions(
           }
         : null,
     remember: async () => {},
+    compute: (program) => mathRunner.run(program),
     ask: async ({ kind, kcIds, problemId }) => {
       requireKnown(kcIds);
       if (problemId !== null && problemId !== EXERCISE_ID) {
@@ -427,7 +429,7 @@ function courseActions(
         kind,
         kcIds: kcIds.map((k) => topic.goldId(k)!),
       });
-      return id;
+      return { questionId: id, generatedProblemId: null };
     },
     findQuestion: async (questionId) => {
       const question = state.questions.get(questionId);

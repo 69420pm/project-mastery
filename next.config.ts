@@ -10,8 +10,10 @@ const nextConfig: NextConfig = {
   // Native bindings (.node files) load from node_modules at runtime; bundled,
   // they fail with "Cannot find native binding". Used to render PDF pages.
   // pdfjs-dist stays external so it reads its fonts from disk (see
-  // src/features/ingestion/workflows/page-images.ts).
-  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  // src/features/ingestion/workflows/page-images.ts). mathjs stays external
+  // so tracing ships it in node_modules, where the math runner's own process
+  // loads it (src/features/study/server/math-runner.ts).
+  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "mathjs"],
   // Font and character map files are read at runtime, so tracing cannot see
   // them; without them a deployed function renders pages with no text.
   outputFileTracingIncludes: {

@@ -320,6 +320,7 @@ export function Chat({
                             streaming={status === "streaming" && isLast}
                             inProgress={isStreaming}
                             questions={questions}
+                            problemFlags={chat.problemFlags}
                             canAnswer={canAnswer}
                             onAnswer={sendAnswer}
                             doneReadings={readings.done}

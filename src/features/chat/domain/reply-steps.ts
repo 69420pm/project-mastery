@@ -46,6 +46,8 @@ export type AskedQuestion = {
   kind: QuestionKind;
   /** Markdown with LaTeX. */
   prompt: string;
+  /** The generated Problem it poses, which the card lets the Student flag. */
+  generatedProblemId?: string;
 };
 
 /** A Reading section the AI opened, as its reading card shows it. */
@@ -89,6 +91,7 @@ const TOOL_TITLES: Record<string, string> = {
   showReading: "Opening a reading",
   grade: "Grading your answer",
   setStage: "Moving on",
+  compute: "Checking the numbers",
 };
 
 /**
@@ -156,6 +159,9 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
     id: output.questionId,
     kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
+    ...(typeof output.generatedProblemId === "string" && {
+      generatedProblemId: output.generatedProblemId,
+    }),
   };
 }
 
@@ -365,6 +371,15 @@ function describeOutput(
   if (name === "setStage" && isStage(out.stage)) {
     return {
       summary: `Moved to ${STAGE_NAMES[out.stage]}`,
+      detail: { tool: "other", input, output },
+    };
+  }
+  if (name === "compute") {
+    return {
+      summary:
+        typeof out.error === "string"
+          ? "The calculation failed"
+          : "Checked the numbers",
       detail: { tool: "other", input, output },
     };
   }

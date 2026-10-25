@@ -14,7 +14,7 @@ const noActions = {
   getTopic: async () => null,
   findProblems: async () => ({ problems: [] }),
   remember: async () => {},
-  ask: async () => "q-1",
+  ask: async () => ({ questionId: "q-1", generatedProblemId: null }),
   findQuestion: async () => null,
   saveGrade: async () => null,
   findReading: async () => null,
@@ -24,6 +24,7 @@ const noActions = {
   isKc: () => true,
   findChunk: async () => null,
   saveMapFinding: async () => "f-1",
+  compute: async () => ({ ok: false, error: "unused" }),
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -395,6 +396,25 @@ describe("showReading", () => {
   });
 });
 
+describe("ask", () => {
+  const askWith = (generatedProblemId: string | null) =>
+    tutorTools({
+      ...noActions,
+      ask: async () => ({ questionId: "q-1", generatedProblemId }),
+    }).ask.execute!(
+      { kind: "problem", prompt: "Go.", kcIds: ["k1"], problemId: "p-1" },
+      { toolCallId: "1", messages: [] } as never,
+    );
+
+  test("names the generated Problem it poses, for its card's flag", async () => {
+    expect(await askWith("p-1")).toEqual({
+      questionId: "q-1",
+      generatedProblemId: "p-1",
+    });
+    expect(await askWith(null)).toEqual({ questionId: "q-1" });
+  });
+});
+
 describe("setStage", () => {
   const call = (actions: Partial<TutorToolActions>, input: object) =>
     tutorTools({ ...noActions, ...actions }).setStage.execute!(
@@ -424,6 +444,37 @@ describe("setStage", () => {
     await expect(
       call({ loadStage: at("close") }, { stage: "rebuild", reason: "More." }),
     ).rejects.toThrow("stays there");
+  });
+});
+
+describe("compute", () => {
+  const call = (compute: TutorToolActions["compute"], program: string) =>
+    tutorTools({ ...noActions, compute }).compute.execute!({ program }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
+
+  test("runs the program and returns its values", async () => {
+    const programs: string[] = [];
+    const value = { value: 14, unit: "kN", text: "14 kN" };
+    const output = await call(async (program) => {
+      programs.push(program);
+      return { ok: true, values: { thrust: value }, answers: [] };
+    }, "thrust = 14 kN");
+    expect(output).toEqual({ values: { thrust: value } });
+    expect(programs).toEqual(["thrust = 14 kN"]);
+  });
+
+  test("returns a failed run's error as data", async () => {
+    const error = "These variable names are mathjs units: m.";
+    await expect(
+      call(async () => ({ ok: false, error }), "m = 2 kg"),
+    ).resolves.toEqual({ error });
+  });
+
+  test("takes a program that is not empty", () => {
+    expect(accepts("compute", { program: "" })).toBe(false);
+    expect(accepts("compute", { program: "x = 1" })).toBe(true);
   });
 });
 

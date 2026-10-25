@@ -73,8 +73,9 @@ export async function closeIdleSession(
 }
 
 /**
- * Ends the Chat's running Study session at `at`. False when there is none
- * to end: no session, or one that ended already.
+ * Ends the Chat's running Study session at `at`, and starts generating the
+ * Course's review stock (#183). False when there is none to end: no
+ * session, or one that ended already.
  */
 export async function endSession(
   supabase: Supabase,
@@ -86,7 +87,15 @@ export async function endSession(
     .update({ ended_at: at })
     .eq("chat_id", chatId)
     .is("ended_at", null)
-    .select("id");
+    .select("id, course_id");
   if (error) failed("Ending the Study session", error);
-  return data.length > 0;
+  const ended = data[0];
+  if (!ended) return false;
+  // Loaded on use: `workflow/api` fails to import in the component tests
+  // that reach this module through the Server Actions
+  // (docs/agents/notes/workflow-imports.md).
+  const { queueProblemGeneration } =
+    await import("@/features/study/server/problem-generation");
+  await queueProblemGeneration(supabase, ended.course_id, null);
+  return true;
 }

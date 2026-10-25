@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { briefSmoke } from "./smoke/brief";
+import { generateSmoke } from "./smoke/generate";
 import { mapSmoke } from "./smoke/map";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { parseSmoke } from "./smoke/parse";
@@ -37,6 +38,7 @@ const CHECKS: SmokeCheck[] = [
   readingSmoke,
   tutorSmoke,
   mapFindingsSmoke,
+  generateSmoke,
 ];
 
 /**
@@ -127,6 +129,7 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_TOPIC",
   "AI_MODEL_READING",
   "AI_MODEL_PRIORITY",
+  "AI_MODEL_GENERATE",
   "AI_MODEL_JUDGE",
 ];
 

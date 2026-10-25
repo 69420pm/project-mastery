@@ -36,6 +36,7 @@ const schema = z
     AI_MODEL_TOPIC: modelId,
     AI_MODEL_READING: modelId,
     AI_MODEL_PRIORITY: modelId,
+    AI_MODEL_GENERATE: modelId,
     AI_MODEL_EMBED: modelId,
     AI_MODEL_JUDGE: modelId,
   })

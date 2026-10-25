@@ -102,6 +102,16 @@ export const AI_TASKS = {
     override: "AI_MODEL_PRIORITY",
   },
   /**
+   * One call per generated Problem, a variant of an Exercise or a new
+   * Problem, with structured output and medium thinking; a draft whose
+   * program fails goes back once.
+   */
+  generate: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_GENERATE",
+  },
+  /**
    * Chunk embeddings for pgvector. Changing the model or its dimensions means
    * re-embedding and a new `chunks.embedding` column size.
    */

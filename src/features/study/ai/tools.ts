@@ -10,6 +10,8 @@ import {
   stageMoveRefusal,
   type Stage,
 } from "@/features/study/domain/stages";
+import { computeTool } from "@/features/study/ai/compute-tool";
+import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
   ProblemView,
   GradedKc,
@@ -133,7 +135,7 @@ export type QuestionToGrade = {
   graded: boolean;
   /** Whether its Study session has ended, which closes it for grading. */
   sessionEnded: boolean;
-  /** Its Exercise's numeric final answers; null without any. */
+  /** Its Exercise's or generated Problem's numeric final answers; null without any. */
   finalAnswers: FinalAnswer[] | null;
 };
 
@@ -279,13 +281,16 @@ export type TutorToolActions = {
   findReading: (sectionId: string) => Promise<ReadingToShow | null>;
   /** Appends one line to the Course's Memory. */
   remember: (text: string) => Promise<void>;
-  /** Stores a question in the Chat's Study session; returns its id. */
+  /**
+   * Stores a question in the Chat's Study session; returns its id, and the
+   * generated Problem it poses, which its card lets the Student flag.
+   */
   ask: (question: {
     kind: QuestionKind;
     prompt: string;
     kcIds: string[];
     problemId: string | null;
-  }) => Promise<string>;
+  }) => Promise<{ questionId: string; generatedProblemId: string | null }>;
   /** A question asked in the Chat's Study session; null for any other id. */
   findQuestion: (questionId: string) => Promise<QuestionToGrade | null>;
   /**
@@ -299,6 +304,8 @@ export type TutorToolActions = {
     results: GradeInput["results"];
     check: FinalValueCheck;
   }) => Promise<GradedKc[] | null>;
+  /** Runs a mathjs program through the math runner. */
+  compute: (program: string) => Promise<ProgramRun>;
 };
 
 /** A refused tool call: its message tells the model what to fix. */
@@ -353,7 +360,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     findProblems: tool({
       description:
-        "Find up to 3 Problems for the given KCs: Exercises of this Course that test any of them and that the Student has not attempted yet, ranked to vary and step up in difficulty. Each comes with its source (old_exam or exercise), its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Problems for the given KCs that test any of them and that the Student has not attempted yet: Exercises of this Course first, then Problems generated for it, ranked to vary and step up in difficulty. Each comes with its source (old_exam, exercise, or a generated variant of an Exercise or new Problem), its question, the KCs it tests, a link to cite (null for a generated Problem) and its solution, labelled with its status. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A disputed solution, or a generated one without a program, may be wrong: check it yourself before relying on it.",
       inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => actions.findProblems(kcIds),
     }),
@@ -370,12 +377,15 @@ export function tutorTools(actions: TutorToolActions) {
       description:
         "Ask the Student a graded question: it shows on a question card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
       inputSchema: askInputSchema,
-      execute: async ({ problemId, ...question }) => ({
-        questionId: await actions.ask({
+      execute: async ({ problemId, ...question }) => {
+        const { questionId, generatedProblemId } = await actions.ask({
           ...question,
           problemId: problemId ?? null,
-        }),
-      }),
+        });
+        return generatedProblemId === null
+          ? { questionId }
+          : { questionId, generatedProblemId };
+      },
     }),
     showReading: tool({
       description:
@@ -395,6 +405,7 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
     }),
+    compute: computeTool(actions.compute),
   };
 }
 

@@ -22,7 +22,7 @@ import {
   experimentTask,
   guardQuota,
   isQuotaExhausted,
-  loadFixture,
+  loadFixtureIfPresent,
   QuotaExhaustedError,
   withQuotaGuard,
   type EvalDefinition,
@@ -204,10 +204,15 @@ async function main() {
   try {
     for (const definition of selected) {
       console.info(`\n=== ${definition.name}`);
-      const fixture = await loadFixture(definition);
-      const items = langfuse
-        ? await runWithLangfuse(langfuse, definition, fixture)
-        : await runLocally(definition, fixture);
+      const fixture = await loadFixtureIfPresent(definition);
+      if (!fixture) {
+        console.info(`skipped: no ${definition.privateFixture}`);
+        continue;
+      }
+      const items =
+        langfuse && !definition.privateFixture
+          ? await runWithLangfuse(langfuse, definition, fixture)
+          : await runLocally(definition, fixture);
       if (isQuotaExhausted()) throw new QuotaExhaustedError();
 
       if (definition.aggregate) {

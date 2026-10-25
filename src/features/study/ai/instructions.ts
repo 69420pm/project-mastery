@@ -57,6 +57,7 @@ const QUESTIONS = `Graded questions:
   - wrong means the idea is missing or wrong, also when it leads to a plausible number;
   - an answer that repeats what you explained just before shows at most partial: it is not yet the Student's own.
 - When the question poses an Exercise with a numeric result and the answer ends in a number, always give grade that number as finalValue, even when it looks wrong: code checks it.
+- Check a Student's steps with compute before you judge their numbers: redo their calculation as a mathjs program, never in your head, and point to the first step whose value differs. Do multi-step arithmetic of your own, in teaching or a worked solution, with compute too.
 - A Student message that is not marked as an answer is a side question: answer it, and the card stays open for their answer.`;
 
 const READING = `Guided reading:

@@ -246,6 +246,174 @@ describe("ask with a problemId", () => {
   });
 });
 
+const problemId = (n: number) => `aaaaaaaa-f000-4000-8000-00000000000${n}`;
+
+/** A generated Problem on the thrust KC, ready unless `extra` says else. */
+function addProblem(n: number, extra: Record<string, unknown> = {}) {
+  const owned = { owner: STUDENT, course_id: COURSE };
+  db.tables.problems.push({
+    ...owned,
+    id: problemId(n),
+    source: "new",
+    status: "ready",
+    original_exercise_id: null,
+    task_type: null,
+    difficulty: 2,
+    statement: `Generated statement ${n}.`,
+    solution: `Generated solution ${n}.`,
+    final_answers: null,
+    program: null,
+    flag: null,
+    created_at: `2026-10-25T00:00:0${n}.000Z`,
+    ...extra,
+  });
+  db.tables.problem_kcs.push({
+    ...owned,
+    problem_id: problemId(n),
+    kc_id: MAP.thrust,
+  });
+}
+
+describe("findProblems with generated Problems", () => {
+  test("ranks ready, unflagged, unasked Problems after the Exercises, variants first", async () => {
+    seedExercises();
+    addProblem(1);
+    addProblem(2, {
+      source: "variant",
+      original_exercise_id: "ex-3",
+      task_type: "compute thrust",
+      program: "F = 50 kg/s * 500 m/s",
+    });
+    addProblem(3, { flag: "wrong", flagged_at: "2026-10-25T01:00:00.000Z" });
+    addProblem(4, { status: "queued", statement: null, solution: null });
+    const model = finderModel();
+    useMockModels({ chat: model });
+    await send(firstMessage());
+
+    const result = promptOf(model, 1);
+    expect(result.indexOf("Ex. 1")).toBeLessThan(result.indexOf("Ex. 3"));
+    expect(result.indexOf("Ex. 3")).toBeLessThan(
+      result.indexOf("Variant of Ex. 3"),
+    );
+    expect(result).toContain('"source":"variant"');
+    expect(result).toContain("computed by code");
+    // Only 3: the new Problem ranks last; flagged and queued never come.
+    expect(result).not.toContain("Generated statement 1.");
+    expect(result).not.toContain("Generated statement 3.");
+    expect(result).not.toContain("Generated statement 4.");
+  });
+
+  test("gives a new Problem once the Exercises are seen, and skips asked ones", async () => {
+    seedExercises();
+    addProblem(1);
+    addProblem(2);
+    answered("ex-1", "none", new Date().toISOString());
+    answered("ex-3", "none", new Date().toISOString());
+    db.tables.questions.push({
+      id: randomUUID(),
+      owner: STUDENT,
+      session_id: db.tables.study_sessions[0]!.id,
+      exercise_id: null,
+      problem_id: problemId(2),
+      asked_at: new Date().toISOString(),
+    });
+    const model = finderModel();
+    useMockModels({ chat: model });
+    await send(firstMessage());
+
+    const result = promptOf(model, 1);
+    expect(result).toContain("Generated statement 1.");
+    expect(result).toContain('"source":"new"');
+    expect(result).toContain("without a program: check it");
+    expect(result).not.toContain("Generated statement 2.");
+  });
+});
+
+describe("ask and grade on a generated Problem", () => {
+  const askProblem = (id: string) =>
+    mockToolModel(
+      [
+        [
+          {
+            toolName: "ask",
+            input: {
+              kind: "problem",
+              prompt: "Compute the thrust.",
+              kcIds: [MAP.thrust],
+              problemId: id,
+            },
+          },
+        ],
+      ],
+      "Go on.",
+    );
+
+  test("stores the Problem on the question and names it for the card", async () => {
+    seedExercises();
+    addProblem(1);
+    useMockModels({ chat: askProblem(problemId(1)) });
+    await send(firstMessage());
+    expect(db.tables.questions).toMatchObject([
+      { exercise_id: null, problem_id: problemId(1) },
+    ]);
+    expect(db.tables.chat_messages.at(-1)!.parts).toContainEqual(
+      expect.objectContaining({
+        type: "tool-ask",
+        output: expect.objectContaining({ generatedProblemId: problemId(1) }),
+      }),
+    );
+  });
+
+  test("refuses a queued Problem", async () => {
+    seedExercises();
+    addProblem(1, { status: "queued", statement: null, solution: null });
+    useMockModels({ chat: askProblem(problemId(1)) });
+    await send(firstMessage());
+    expect(db.tables.questions).toEqual([]);
+  });
+
+  test("grade checks the final value against the Problem's key", async () => {
+    seedExercises();
+    addProblem(1, {
+      final_answers: [{ label: "Thrust", value: 25000, unit: "N" }],
+    });
+    const chatId = randomUUID();
+    useMockModels({ chat: askProblem(problemId(1)) });
+    await send({ ...firstMessage(), chatId });
+    const [question] = db.tables.questions;
+
+    useMockModels({
+      chat: mockToolModel(
+        [
+          [
+            {
+              toolName: "grade",
+              input: {
+                questionId: question!.id,
+                results: [{ kcId: MAP.thrust, result: "full" }],
+                help: "none",
+                finalValue: "30 kN",
+              },
+            },
+          ],
+        ],
+        "Check your numbers.",
+      ),
+    });
+    await send({
+      chatId,
+      message: {
+        ...userMessage("F = 30 kN"),
+        metadata: { questionId: question!.id },
+      },
+    });
+
+    expect(db.tables.attempts).toEqual([
+      expect.objectContaining({ result: "partial", check: "mismatch" }),
+    ]);
+  });
+});
+
 describe("findProblems", () => {
   test("gives the model old-exam Exercises first with solutions, labels and links", async () => {
     const model = finderModel([MAP.thrust], "Try Ex. 1 first.");

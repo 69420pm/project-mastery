@@ -10,8 +10,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { ReplyStep, StepDetail } from "@/features/chat/domain/reply-steps";
-import { scheduleText } from "@/features/study";
+import { scheduleText, type ProblemView } from "@/features/study";
 import { cn } from "@/lib/utils";
+
+const SOURCE_LABELS: Record<ProblemView["source"], string> = {
+  old_exam: "old exam",
+  exercise: "exercise",
+  variant: "generated variant",
+  new: "generated problem",
+};
 
 /**
  * One tool call of an AI reply: a collapsed line that says what it did, and
@@ -103,8 +110,9 @@ function StepDetails({ detail }: { detail: StepDetail }) {
               <p>
                 <span className="font-medium">{exercise.name}</span>{" "}
                 <span className="text-muted-foreground">
-                  · {exercise.source === "old_exam" ? "old exam" : "exercise"} ·{" "}
-                  {exercise.taskType} · difficulty {exercise.difficulty}/3
+                  · {SOURCE_LABELS[exercise.source]} ·{" "}
+                  {exercise.taskType && `${exercise.taskType} · `}difficulty{" "}
+                  {exercise.difficulty}/3
                 </span>
               </p>
               <p className="text-muted-foreground">

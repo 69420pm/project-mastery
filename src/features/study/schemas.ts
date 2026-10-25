@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ProblemFlag } from "@/features/study/types";
 
 /** The most characters a Course's Memory holds. */
 export const MAX_MEMORY_LENGTH = 4000;
@@ -45,6 +46,20 @@ export const setTopicChoiceSchema = z.object({
   topicId: z.uuid(),
   choice: z.enum(["pinned", "skipped"]).nullable(),
   reason: z.string().trim().max(MAX_SKIP_REASON_LENGTH).optional(),
+});
+
+/** Why a Student flags a generated Problem, in the order the card lists them. */
+export const PROBLEM_FLAGS = [
+  "unclear",
+  "wrong",
+  "too_easy",
+  "off_topic",
+] as const satisfies readonly ProblemFlag[];
+
+/** The input of a question card's Flag this problem. */
+export const flagProblemSchema = z.object({
+  problemId: z.uuid(),
+  flag: z.enum(PROBLEM_FLAGS),
 });
 
 /** The input of the Map findings card's Accept and Dismiss. */
