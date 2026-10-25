@@ -46,6 +46,8 @@ test("a session asks, grades against the labels and ends at close", async () => 
       "Well done.",
     ),
   });
+  // No pacing between the mock's calls.
+  vi.stubEnv("LEARN_EVAL_RPM", "60000");
   const output = await learnEval.task({
     answers: [
       {

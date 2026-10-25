@@ -455,6 +455,21 @@ function courseActions(
   };
 }
 
+/**
+ * The least time between two model calls. The Gemini API's free tier allows
+ * 15 requests per minute (a 429 with a 59 s retry delay, which the AI SDK's
+ * retries don't wait out); `LEARN_EVAL_RPM` sets another rate, such as 5
+ * for MiMo through the gateway.
+ */
+let lastCall = 0;
+
+async function pace() {
+  const gap = 60_000 / Number(process.env.LEARN_EVAL_RPM ?? 12);
+  const wait = lastCall + gap - Date.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastCall = Date.now();
+}
+
 /** Runs one scripted session; sessions run one at a time. */
 async function runSession({ answers }: Input): Promise<SessionRecord> {
   const topic = topicOf(await loadCourse());
@@ -505,6 +520,10 @@ async function runSession({ answers }: Input): Promise<SessionRecord> {
       ...chatReplySettings(contextOf(topic, state.stage, reply * 2)),
       messages,
       tools,
+      prepareStep: async () => {
+        await pace();
+        return {};
+      },
       stopWhen: [
         isStepCount(MAX_STEPS),
         endsReply,
