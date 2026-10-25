@@ -78,7 +78,7 @@ select is((select origin from public.kcs where name = 'Propulsive power'), 'exer
   'a KC can come from an exercise');
 select results_eq(
   $$select f.text, (select count(*)::int from public.finding_sources s where s.finding_id = f.id)
-    from public.findings f$$,
+    from public.findings f where f.course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('Ex. 7.1: 46.5% vs 50.8%.', 2)$$,
   'a finding is stored with its existing sources');
 

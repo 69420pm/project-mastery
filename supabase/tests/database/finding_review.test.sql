@@ -19,7 +19,8 @@ values ('ffffffff-0000-0000-0000-000000000001', '11111111-1111-1111-1111-1111111
   'aaaaaaaa-0000-0000-0000-000000000001', 'scope',
   'Slides 12–15 say heat exchangers are not examined. Should we skip them?', 0);
 
-select is((select status from public.findings), 'open', 'a new Finding is open');
+select is((select status from public.findings where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+  'open', 'a new Finding is open');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}';
@@ -53,7 +54,7 @@ select is(
   true, 'the update runs');
 reset role;
 select results_eq(
-  $$select status, answer from public.findings$$,
+  $$select status, answer from public.findings where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('answered', 'Yes, skip them.')$$,
   'the update keeps the answer');
 
