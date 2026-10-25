@@ -28,6 +28,10 @@ import {
   type ExerciseAnswer,
 } from "@/features/knowledge-map/domain/exercises";
 import {
+  correctionsOnMap,
+  withCorrections,
+} from "@/features/knowledge-map/domain/corrections";
+import {
   checkMap,
   withAddedKcLinks,
   type Prerequisite,
@@ -73,6 +77,11 @@ import {
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 import {
+  correctMap,
+  loadCorrections,
+  markCorrectionsApplied,
+} from "@/features/knowledge-map/workflows/correction-steps";
+import {
   chooseReadingMode,
   loadReadingChunks,
   loadReadingInput,
@@ -105,9 +114,11 @@ import {
  * finds their remarks that exclude or limit exam content, each a `scope`
  * Finding for the Student (#85). (6) Dedup embeds the KCs when some are
  * new, and merges the duplicates one call finds among the new KCs' close
- * pairs (`withoutDuplicates`). (7) Code checks the whole map, which is
- * stored with its check report, keeping the ids of its stored rows, and the
- * new chunks are recorded as processed. (2b) The Topics stage then groups
+ * pairs (`withoutDuplicates`). (6b) With accepted map Findings, even
+ * without new chunks, one call corrects the map (`withAcceptedFindings`).
+ * (7) Code checks the whole map, which is stored with its check report,
+ * keeping the ids of its stored rows, and the new chunks are recorded as
+ * processed; the accepted Findings are then marked applied. (2b) The Topics stage then groups
  * the stored map's unplaced KCs into Topics (`buildTopics`). (2c) The Reading
  * stage then cuts each Topic's Reading sections and gives each new one a
  * reading mode and texts (`buildReading`), and storing them marks the build
@@ -260,6 +271,12 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       return;
     }
     map = deduped.value.map;
+    const corrected = await withAcceptedFindings(studentId, courseId, map);
+    if (!corrected.ok) {
+      await failBuild(courseId, corrected.reason);
+      return;
+    }
+    map = corrected.value.map;
     await storeMap(
       courseId,
       map,
@@ -267,10 +284,15 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
       checkMap(
         map,
         chunks,
-        [...droppedCycleEdges, ...deduped.value.droppedCycleEdges],
+        [
+          ...droppedCycleEdges,
+          ...deduped.value.droppedCycleEdges,
+          ...corrected.value.droppedCycleEdges,
+        ],
         deduped.value.duplicates,
       ),
     );
+    await markCorrectionsApplied(courseId, corrected.value.outcomes);
     const topics = await buildTopics(courseId);
     if (!topics.ok) {
       await failBuild(courseId, topics.reason);
@@ -429,6 +451,37 @@ async function judgeSection(
     console.error("The writing call failed:", error);
     return original(WRITING_CALL_FAILED_REASON);
   }
+}
+
+/**
+ * Step 6b, corrections (#181): with map Findings the Student accepted, one
+ * `correctMap` call proposes changes to the links between each Finding's
+ * two KCs and to its KC's description, which code applies, dropping any
+ * that touch other KCs, before it breaks cycles and drops redundant
+ * prerequisites again. Returns the map, the cycle edges dropped and each
+ * Finding's outcome, which marks it applied once the map is stored. A
+ * Finding whose KC left the map makes no call; it goes with its KC. No
+ * accepted Finding, no call.
+ */
+async function withAcceptedFindings(
+  studentId: string,
+  courseId: string,
+  map: KnowledgeMap,
+): Promise<StepOutcome<ReturnType<typeof withCorrections>>> {
+  const corrections = correctionsOnMap(map, await loadCorrections(courseId));
+  if (corrections.length === 0) {
+    return { ok: true, value: { map, droppedCycleEdges: [], outcomes: [] } };
+  }
+  const answers = await correctMap(studentId, map, corrections);
+  if (!answers.ok) return answers;
+  return {
+    ok: true,
+    value: withCorrections(
+      map,
+      corrections,
+      new Map(Object.entries(answers.value)),
+    ),
+  };
 }
 
 /**

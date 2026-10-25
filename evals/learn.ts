@@ -317,6 +317,12 @@ function courseActions(
       state.record.readingLeft.push(!state.done.has(SECTION_ID));
       return true;
     },
+    searchMaterials: async () => [],
+    isKc: () => false,
+    findChunk: async () => null,
+    saveMapFinding: async () => {
+      throw new TutorToolError("This eval files no map Findings.");
+    },
     getTopic: async (topicId, kcIds) => {
       if (topicId !== TOPIC_ID) return null;
       const foreign = (kcIds ?? []).filter(
@@ -340,12 +346,14 @@ function courseActions(
           state: stateOf(kc.id),
           sources: wanted.has(topic.id(kc.id))
             ? kc.sources.slice(0, 3).map((position) => ({
+                chunkId: `chunk-${position}`,
                 material: MATERIAL,
                 pages: `p. ${topic.chunk(position).page_from}`,
                 link: topic.link(position),
                 markdown: topic.chunk(position).markdown,
               }))
             : [],
+          findings: [],
         })),
         // Prior knowledge the Student has.
         anchors: topic.anchors.map((kc) => ({
@@ -463,7 +471,7 @@ function courseActions(
  */
 let lastCall = 0;
 
-async function pace() {
+export async function pace() {
   const gap = 60_000 / Number(process.env.LEARN_EVAL_RPM ?? 12);
   const wait = lastCall + gap - Date.now();
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));

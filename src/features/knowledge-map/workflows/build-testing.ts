@@ -34,6 +34,7 @@ export function createMapDb(courseId: string) {
       topics: [] as FakeRow[],
       topic_kcs: [] as FakeRow[],
       reading_sections: [] as FakeRow[],
+      map_findings: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
     defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
@@ -203,19 +204,20 @@ export function createMapDb(courseId: string) {
           core_type: link.coreType,
           label: link.label,
         }));
-        tables.kcs = map.kcs.map((kc, position) =>
-          keep(tables.kcs, kc.id, () => ({
+        // Kept KCs take their fields from the map; origin and position stay.
+        tables.kcs = map.kcs.map((kc, position) => ({
+          ...keep(tables.kcs, kc.id, () => ({
             id: rowId(kc.id),
             course_id: courseId,
-            big_idea_id: kc.bigIdea && rowId(kc.bigIdea),
-            name: kc.name,
-            description: kc.description,
-            type: kc.type,
-            bloom: kc.bloom,
             origin: kc.origin,
             position,
           })),
-        );
+          big_idea_id: kc.bigIdea && rowId(kc.bigIdea),
+          name: kc.name,
+          description: kc.description,
+          type: kc.type,
+          bloom: kc.bloom,
+        }));
         tables.kc_sources = map.kcs.flatMap((kc) =>
           kc.sources
             .filter((chunkId) => chunkIds.has(chunkId))
@@ -386,6 +388,8 @@ export function mapModel(answers: {
   topic?: (input: Sent) => unknown;
   /** A reading call's answer; by default the mode `original`. */
   reading?: (input: Sent) => unknown;
+  /** The corrections call's answer; by default it throws. */
+  corrections?: (input: Sent) => unknown;
 }) {
   const sent: Sent[] = [];
   const embedded: string[][] = [];
@@ -423,7 +427,10 @@ export function mapModel(answers: {
       ) as Sent;
       sent.push(input);
       let answer: unknown;
-      if ("section" in input) {
+      if ("findings" in input) {
+        if (!answers.corrections) throw new Error("The call failed.");
+        answer = answers.corrections(input);
+      } else if ("section" in input) {
         // A reading call: the mode call ("mode" not sent) keeps `original`.
         answer = answers.reading?.(input) ?? {
           mode: "original",

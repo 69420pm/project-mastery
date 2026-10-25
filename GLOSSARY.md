@@ -66,6 +66,7 @@ _Avoid_: Task, exercise (only for those from the Materials)
 
 **Finding**:
 Something a Knowledge map build asks the Student about a Course's Materials, with the chunks it is about: something that looks wrong, such as a printed solution that does not match the AI's, or a remark that limits the exam's content, such as "not exam-relevant". It is open until the Student answers it in the Brief, and then answered.
+A map Finding is one the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong link between two KCs, or a wrong KC description, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones.
 _Avoid_: Issue, error, erratum
 
 **Priority**:

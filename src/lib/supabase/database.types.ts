@@ -1087,6 +1087,101 @@ export type Database = {
           },
         ];
       };
+      map_findings: {
+        Row: {
+          chunk_id: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          kc_id: string;
+          kind: string;
+          linked_kc_id: string | null;
+          outcome: string | null;
+          owner: string;
+          quote: string;
+          reason: string;
+          status: string;
+          study_session_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chunk_id: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kc_id: string;
+          kind: string;
+          linked_kc_id?: string | null;
+          outcome?: string | null;
+          owner?: string;
+          quote: string;
+          reason: string;
+          status?: string;
+          study_session_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          chunk_id?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kc_id?: string;
+          kind?: string;
+          linked_kc_id?: string | null;
+          outcome?: string | null;
+          owner?: string;
+          quote?: string;
+          reason?: string;
+          status?: string;
+          study_session_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "map_findings_chunk_id_fkey";
+            columns: ["chunk_id"];
+            isOneToOne: false;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "map_findings_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "map_findings_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "map_findings_linked_kc_id_fkey";
+            columns: ["linked_kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "map_findings_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "map_findings_study_session_id_fkey";
+            columns: ["study_session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       material_pages: {
         Row: {
           created_at: string;
@@ -1848,6 +1943,13 @@ export type Database = {
           p_map: Json;
         };
         Returns: boolean;
+      };
+      match_chunks: {
+        Args: { p_count: number; p_course_id: string; p_embedding: string };
+        Returns: {
+          distance: number;
+          id: string;
+        }[];
       };
       queue_knowledge_map_build: {
         Args: { course_id: string };

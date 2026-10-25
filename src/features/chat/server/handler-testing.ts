@@ -40,6 +40,7 @@ const COURSE_TABLES = [
   "memories",
   "topics",
   "reading_sections",
+  "map_findings",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -87,6 +88,7 @@ function createDb() {
       topic_kcs: [],
       topic_choices: [],
       reading_sections: [],
+      map_findings: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
@@ -178,6 +180,7 @@ function createDb() {
         title_set_manually: false,
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
+      map_findings: () => ({ owner: signedIn, status: "open", outcome: null }),
       questions: () => ({
         owner: signedIn,
         asked_at: new Date().toISOString(),

@@ -1,8 +1,6 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
-import { materialChunksPath } from "@/features/courses/server";
 import {
-  chunkAnchor,
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
@@ -29,7 +27,6 @@ import {
   rankExercises,
   solutionLabel,
 } from "@/features/study/domain/exercises";
-import { fitText } from "@/features/study/domain/plan";
 import { kcState, utcDay } from "@/features/study/domain/replay";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
@@ -55,11 +52,19 @@ import {
   startSessionTopic,
   type StageSession,
 } from "@/features/study/server/stages";
-import type {
-  TutorContext,
-  TutorSession,
-  TutorToday,
-} from "@/features/study/types";
+import type { TutorContext, TutorSession } from "@/features/study/types";
+import {
+  findCourseChunk,
+  insertMapFinding,
+  loadMapFindingsByKc,
+} from "@/features/study/server/map-findings";
+import { searchChunks } from "@/features/study/server/search";
+import { tutorToday } from "@/features/study/server/tutor-today";
+import {
+  chunkLink,
+  readingLabel,
+  sourceView,
+} from "@/features/study/server/source-view";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -68,7 +73,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The most source chunks `getTopic` gives per KC. */
 const SOURCES_PER_KC = 3;
-
 /**
  * What the AI tutors a reply in a Course's Chat with, read with `supabase`,
  * the Student's session client: the tutor context for its instructions and
@@ -234,57 +238,6 @@ async function sessionStage(
   };
 }
 
-/**
- * Today's work as the AI is told of it: the Topic `next` (the session's, or
- * the plan's next) with its KCs and anchors from the map and its Reading
- * sections, the hint and the fit line.
- */
-function tutorToday(
-  plan: Awaited<ReturnType<typeof loadPlan>>,
-  next: TodayTopic | null,
-  map: KnowledgeMap,
-  schedules: Map<string, unknown>,
-  readings: Awaited<ReturnType<typeof loadStoredReadingSections>>,
-): TutorToday {
-  const { hint } = plan.today;
-  const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
-  return {
-    next: next && {
-      id: next.id,
-      name: next.name,
-      centralQuestion: next.centralQuestion,
-      kcs: next.kcs.flatMap((id) => {
-        const kc = kcById.get(id);
-        return kc
-          ? [{ id, name: kc.name, type: kc.type, taught: schedules.has(id) }]
-          : [];
-      }),
-      anchors: topicAnchors(next.kcs, map),
-      readingSections: (readings.get(next.id) ?? []).map((section) => ({
-        id: section.id,
-        label: readingLabel(section),
-        mode: section.mode,
-      })),
-    },
-    hint,
-    fitLine:
-      plan.phase === null || plan.fit === null
-        ? null
-        : fitText(plan.phase, plan.fit),
-  };
-}
-
-const pagesLabel = (from: number, to: number) =>
-  from === to ? `p. ${from}` : `pp. ${from}–${to}`;
-
-/** Such as "Lecture 3, pp. 12–14". */
-const readingLabel = (section: {
-  materialName: string;
-  pageFrom: number;
-  pageTo: number;
-}) =>
-  `${section.materialName}, ${pagesLabel(section.pageFrom, section.pageTo)}`;
-
 function tutorToolActions(
   supabase: Supabase,
   {
@@ -326,8 +279,19 @@ function tutorToolActions(
     }
   };
   const linkTo = (chunk: { id: string; materialId: string }) =>
-    `${materialChunksPath(courseId, chunk.materialId)}#${chunkAnchor(chunk.id)}`;
+    chunkLink(courseId, chunk);
+  const sourceOf = (chunk: Parameters<typeof sourceView>[1]) =>
+    sourceView(courseId, chunk);
   return {
+    async searchMaterials(query) {
+      return (await searchChunks(supabase, courseId, query)).map(sourceOf);
+    },
+    isKc: (kcId) => kcById.has(kcId),
+    findChunk: (chunkId) => findCourseChunk(supabase, courseId, chunkId),
+    async saveMapFinding(finding) {
+      const sessionId = await session();
+      return insertMapFinding(supabase, { ...finding, courseId, sessionId });
+    },
     // Read fresh on every call, as an earlier call may have moved it.
     async loadStage() {
       if (!staged) return null;
@@ -479,11 +443,16 @@ function tutorToolActions(
       }
       const sectionList = topic ? (readings.get(topic.id) ?? []) : [];
       const now = new Date();
-      const [schedules, done] = await Promise.all([
+      const [schedules, done, findings] = await Promise.all([
         loadSchedules(supabase, courseId, facts, now),
         loadDoneSections(
           supabase,
           sectionList.map(({ id }) => id),
+        ),
+        loadMapFindingsByKc(
+          supabase,
+          courseId,
+          (id) => kcById.get(id)?.name ?? id,
         ),
       ]);
       const stateOf = (id: string) => kcState(schedules.get(id), now).state;
@@ -508,13 +477,9 @@ function tutorToolActions(
             ? chunks
                 .filter((chunk) => kc.sources.includes(chunk.id))
                 .slice(0, SOURCES_PER_KC)
-                .map((chunk) => ({
-                  material: chunk.materialName,
-                  pages: pagesLabel(chunk.pageFrom, chunk.pageTo),
-                  link: linkTo(chunk),
-                  markdown: chunk.markdown,
-                }))
+                .map(sourceOf)
             : [],
+          findings: findings.get(kc.id) ?? [],
         })),
         anchors:
           topic &&

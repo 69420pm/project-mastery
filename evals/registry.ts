@@ -1,4 +1,5 @@
 import { chatEval } from "./chat";
+import { disagreementEval } from "./disagreement";
 import type { EvalDefinition } from "./eval";
 import { gradeEval } from "./grade";
 import { learnEval } from "./learn";
@@ -19,6 +20,7 @@ function register<Input, Expected>(
 // Register each eval here; its fixture is `evals/datasets/<name>.json`.
 export const EVALS: RegisteredEval[] = [
   register(chatEval),
+  register(disagreementEval),
   register(gradeEval),
   register(learnEval),
   register(readingEval),

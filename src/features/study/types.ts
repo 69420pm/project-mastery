@@ -95,8 +95,9 @@ export type StudyPlan = Plan & {
   today: TodayPlan;
 };
 
-/** A source chunk of a KC as `getTopic` returns it. */
-type KcSourceView = {
+/** A source chunk as `getTopic` and `searchMaterials` return it. */
+export type SourceChunkView = {
+  chunkId: string;
   material: string;
   /** Such as "p. 3" or "pp. 3–4". */
   pages: string;
@@ -196,6 +197,39 @@ export type TopicKnowledgeMap = {
 };
 
 /**
+ * What a map Finding says is wrong with the Knowledge map: a link between
+ * two KCs it lacks, a link it has that the sources contradict, or a KC's
+ * description.
+ */
+export type MapFindingKind =
+  "missing_link" | "wrong_link" | "wrong_description";
+
+/** A map Finding on a KC as `getTopic` lists it. */
+export type MapFindingView = {
+  kind: MapFindingKind;
+  /** The other KC of a link kind; null for `wrong_description`. */
+  otherKc: { id: string; name: string } | null;
+  reason: string;
+};
+
+/**
+ * A map Finding on the Course map's Map findings card: an `open` one the
+ * Student can accept or dismiss, or an `accepted` one the next Update map
+ * applies. `linkedKc` is the other KC of a link kind, null otherwise.
+ */
+export type MapFindingItem = {
+  id: string;
+  kind: MapFindingKind;
+  status: "open" | "accepted";
+  kc: string;
+  linkedKc: string | null;
+  reason: string;
+  quote: string;
+  /** Such as "Lecture 3, p. 12", with the link to the chunk on its page. */
+  source: { label: string; link: string } | null;
+};
+
+/**
  * A Topic as `getTopic` returns it. Read by KC ids alone, without a Topic,
  * it has only the KCs: the Topic's fields are null.
  */
@@ -211,7 +245,9 @@ export type TopicView = {
     description: string;
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
-    sources: KcSourceView[];
+    sources: SourceChunkView[];
+    /** Its open and accepted map Findings, oldest first. */
+    findings: MapFindingView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
   /** In order; `done` when the Student has a Done message for it. */

@@ -20,6 +20,10 @@ const noActions = {
   findReading: async () => null,
   loadStage: async () => null,
   saveStage: async () => true,
+  searchMaterials: async () => [],
+  isKc: () => true,
+  findChunk: async () => null,
+  saveMapFinding: async () => "f-1",
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -82,6 +86,113 @@ describe("getTopic", () => {
     await expect(run({ topicId: null }, options)).rejects.toThrow(
       "Give a topicId, or the kcIds",
     );
+  });
+});
+
+describe("searchMaterials", () => {
+  const chunk = {
+    chunkId: "c-1",
+    material: "Lecture 1",
+    pages: "p. 2",
+    link: "/m/1#chunk-c-1",
+    markdown: "Thrust",
+  };
+  const search = (found: (typeof chunk)[], query = "thrust") =>
+    tutorTools({ ...noActions, searchMaterials: async () => found })
+      .searchMaterials.execute!({ query }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
+
+  test("takes one line of at most 300 characters", () => {
+    expect(accepts("searchMaterials", { query: "a".repeat(300) })).toBe(true);
+    expect(accepts("searchMaterials", { query: "a".repeat(301) })).toBe(false);
+    expect(accepts("searchMaterials", { query: "" })).toBe(false);
+    expect(accepts("searchMaterials", { query: "a\nb" })).toBe(false);
+  });
+
+  test("returns the chunks as found", async () => {
+    await expect(search([chunk])).resolves.toEqual({ chunks: [chunk] });
+  });
+
+  test("notes a Course without searchable chunks", async () => {
+    await expect(search([])).resolves.toEqual({
+      chunks: [],
+      note: expect.stringContaining("No chunk"),
+    });
+  });
+});
+
+describe("flagMap", () => {
+  const markdown = "Thrust follows from the\n  **change** in momentum.";
+  const file = (input: object, actions: Partial<TutorToolActions> = {}) => {
+    const saved: unknown[] = [];
+    const run = tutorTools({
+      ...noActions,
+      isKc: (id) => id.startsWith("kc-"),
+      findChunk: async (id) => (id === "ch-1" ? { markdown } : null),
+      saveMapFinding: async (finding) => {
+        saved.push(finding);
+        return "f-1";
+      },
+      ...actions,
+    }).flagMap.execute!(
+      {
+        kind: "missing_link",
+        kcId: "kc-1",
+        linkedKcId: "kc-2",
+        chunkId: "ch-1",
+        quote: "the **change**",
+        reason: "Thrust builds on momentum.",
+        ...input,
+      } as never,
+      { toolCallId: "1", messages: [] } as never,
+    );
+    return { run, saved };
+  };
+
+  test("saves a Finding whose quote is in its chunk, case and whitespace aside", async () => {
+    const { run, saved } = file({ quote: "FOLLOWS from THE  **change**" });
+    expect(await run).toEqual({ findingId: "f-1" });
+    expect(saved).toEqual([
+      {
+        kind: "missing_link",
+        kcId: "kc-1",
+        linkedKcId: "kc-2",
+        chunkId: "ch-1",
+        quote: "FOLLOWS from THE  **change**",
+        reason: "Thrust builds on momentum.",
+      },
+    ]);
+    const description = file({ kind: "wrong_description", linkedKcId: null });
+    await expect(description.run).resolves.toEqual({ findingId: "f-1" });
+    expect(description.saved).toMatchObject([{ linkedKcId: null }]);
+  });
+
+  test.each([
+    [{ linkedKcId: null }, "give the prerequisite or semantic neighbour"],
+    [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
+    [{ kind: "wrong_description" }, "omit linkedKcId"],
+    [{ linkedKcId: "kc-1" }, "two different KCs"],
+    [{ kcId: "x-1" }, "no KC ids of this Course: x-1"],
+    [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],
+    [{ chunkId: "ch-9" }, "ch-9 is no chunk of this Course"],
+    [{ quote: "change of momentum" }, "The quote is not in that chunk"],
+    [{ quote: " \n " }, "The quote is empty"],
+  ])("refuses %o without saving", async (input, message) => {
+    const { run, saved } = file(input);
+    await expect(run).rejects.toThrow(message);
+    expect(saved).toEqual([]);
+  });
+
+  test("takes a quote of at most 500 characters and a one-line reason", () => {
+    const input = { kind: "wrong_link", kcId: "k", chunkId: "c" };
+    const ok = (quote: string, reason = "Off.") =>
+      accepts("flagMap", { ...input, quote, reason });
+    expect(ok("x".repeat(500))).toBe(true);
+    expect(ok("x".repeat(501))).toBe(false);
+    expect(ok("")).toBe(false);
+    expect(ok("x", "Two\nlines")).toBe(false);
   });
 });
 
