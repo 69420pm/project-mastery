@@ -78,6 +78,44 @@ async function withinTimeLimit(run: Promise<SmokeResult[]>) {
   }
 }
 
+/**
+ * The Gemini free tier's limit: 15 requests per minute (`notes/ai-sdk.md`).
+ * The AI SDK's retries don't wait a 429 out, and a reply of several steps
+ * makes several requests, so the runner holds each Gemini request until the
+ * last minute has room for it. `AI_SMOKE_RPM` sets another limit.
+ */
+const GEMINI_RPM = Number(process.env.AI_SMOKE_RPM || 14);
+
+/** Whether `url` is a Gemini API request; false for a non-URL. */
+function isGeminiApi(url: string) {
+  try {
+    return new URL(url).hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
+/** Wraps `fetch` so Gemini API requests keep within GEMINI_RPM. */
+function paceGeminiRequests() {
+  const sent: number[] = [];
+  const fetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input);
+    if (isGeminiApi(url)) {
+      for (;;) {
+        const now = Date.now();
+        while (sent.length > 0 && sent[0]! <= now - 60_000) sent.shift();
+        if (sent.length < GEMINI_RPM) break;
+        await new Promise((resolve) =>
+          setTimeout(resolve, sent[0]! + 60_000 - now + 100),
+        );
+      }
+      sent.push(Date.now());
+    }
+    return fetch(input, init);
+  };
+}
+
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
@@ -173,6 +211,7 @@ async function main() {
   for (const override of GENERATING_TASK_OVERRIDES) {
     process.env[override] = SMOKE_MODEL;
   }
+  paceGeminiRequests();
 
   const supabase = createAdminClient();
   const studentId = await createStudent(supabase);

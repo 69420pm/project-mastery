@@ -106,10 +106,12 @@ export type SourceChunkView = {
   markdown: string;
 };
 
-/** An Exercise as `findExercises` returns it. */
-export type ExerciseView = {
-  /** The Exercise's id, which a question on it names. */
+/** A Problem as `findProblems` returns it. */
+export type ProblemView = {
+  /** The Problem's id, which a question on it names. */
   id: string;
+  /** Whether its Exercise is from an old exam. */
+  source: "old_exam" | "exercise";
   name: string;
   taskType: string;
   /** 1 to 3. */

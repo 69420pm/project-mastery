@@ -306,26 +306,26 @@ test("a call that never returned in a finished reply shows as stopped", () => {
   });
 });
 
-test("summarizes found Exercises, or the note when there are none", () => {
-  const exercise = { id: "e1", name: "Ex. 3" };
+test("summarizes found Problems, or the note when there are none", () => {
+  const problem = { id: "e1", name: "Ex. 3", source: "exercise" };
   expect(
     summaries([
       {
-        type: "tool-findExercises",
+        type: "tool-findProblems",
         toolCallId: "1",
         state: "output-available",
         input: { kcIds: ["a"] },
-        output: { exercises: [exercise] },
+        output: { problems: [problem] },
       },
       {
-        type: "tool-findExercises",
+        type: "tool-findProblems",
         toolCallId: "2",
         state: "output-available",
         input: { kcIds: ["b"] },
-        output: { exercises: [], note: "All attempted already." },
+        output: { problems: [], note: "All attempted already." },
       },
     ]),
-  ).toEqual(["done: Found 1 Exercise", "done: All attempted already."]);
+  ).toEqual(["done: Found 1 Problem", "done: All attempted already."]);
 });
 
 test("a note shows its text, and an unknown tool its name with input and output", () => {
@@ -361,7 +361,7 @@ test("a note shows its text, and an unknown tool its name with input and output"
 
 test.each([
   ["getTopic", "Reading the Topic"],
-  ["findExercises", "Finding Exercises"],
+  ["findProblems", "Finding Problems"],
   ["remember", "Making a note"],
   ["search", "search"],
 ])("a running %s call reads %s…", (tool, title) => {

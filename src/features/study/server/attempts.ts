@@ -145,6 +145,52 @@ export async function loadAttemptedExercises(
 }
 
 /**
+ * The Exercise of the Student's most recently asked question in the Course
+ * that has one (the last Problem); null with none.
+ */
+export async function loadLastProblemExercise(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("exercise_id, study_sessions!inner(course_id)")
+    .eq("study_sessions.course_id", courseId)
+    .not("exercise_id", "is", null)
+    .order("asked_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1);
+  if (error) failed("Loading the last Problem", error);
+  return data?.[0]?.exercise_id ?? null;
+}
+
+/**
+ * The Exercise of the most recent question in the Course with an attempt on
+ * one of `kcIds` graded `full` with help `none`; null with none.
+ */
+export async function loadLastUnassistedSuccess(
+  supabase: Supabase,
+  courseId: string,
+  kcIds: string[],
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("attempts")
+    .select(
+      "created_at, questions!inner(exercise_id), study_sessions!inner(course_id)",
+    )
+    .eq("study_sessions.course_id", courseId)
+    .in("kc_id", kcIds)
+    .eq("result", "full")
+    .eq("help", "none")
+    .not("questions.exercise_id", "is", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1);
+  if (error) failed("Loading the last unassisted success", error);
+  return data?.[0]?.questions.exercise_id ?? null;
+}
+
+/**
  * The signed-in Student's KC states of a Course by KC id, replayed now with
  * the Brief's exam date and goal. Only taught KCs are listed: a missing KC
  * is new. An unknown or another Student's Course has none.

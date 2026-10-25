@@ -92,18 +92,19 @@ function StepDetails({ detail }: { detail: StepDetail }) {
           ))}
         </Items>
       );
-    case "findExercises":
+    case "findProblems":
       return (
         <Items>
           {detail.note && (
             <li className="text-muted-foreground">{detail.note}</li>
           )}
-          {detail.exercises.map((exercise) => (
+          {detail.problems.map((exercise) => (
             <li key={exercise.id} className="flex flex-col gap-1">
               <p>
                 <span className="font-medium">{exercise.name}</span>{" "}
                 <span className="text-muted-foreground">
-                  · {exercise.taskType} · difficulty {exercise.difficulty}/3
+                  · {exercise.source === "old_exam" ? "old exam" : "exercise"} ·{" "}
+                  {exercise.taskType} · difficulty {exercise.difficulty}/3
                 </span>
               </p>
               <p className="text-muted-foreground">

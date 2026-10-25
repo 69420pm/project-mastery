@@ -216,7 +216,7 @@ function actionsOf(
       });
       return uuid(0x2000 + record.filed.length);
     },
-    findExercises: async () => ({ exercises: [] }),
+    findProblems: async () => ({ problems: [] }),
     findReading: async () => null,
     remember: async () => {},
     ask: async () => refuse(),

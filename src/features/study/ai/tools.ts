@@ -11,7 +11,7 @@ import {
   type Stage,
 } from "@/features/study/domain/stages";
 import type {
-  ExerciseView,
+  ProblemView,
   GradedKc,
   MapFindingKind,
   QuestionKind,
@@ -20,7 +20,7 @@ import type {
   TopicView,
 } from "@/features/study/types";
 
-/** What `findExercises` takes: KC ids of the Course. */
+/** What `findProblems` takes: KC ids of the Course. */
 const kcIdsInputSchema = z.object({
   kcIds: z
     .array(z.string())
@@ -81,11 +81,11 @@ const askInputSchema = z.object({
     .min(1)
     .max(MAX_QUESTION_KCS)
     .describe("The ids of the 1 to 12 KCs of this Course the question tests."),
-  exerciseId: z
+  problemId: z
     .string()
     .nullish()
     .describe(
-      "The id of the Exercise from findExercises when the question poses one; omit it for your own question.",
+      "The id of the Problem from findProblems when the question poses one; omit it for your own question.",
     ),
 });
 
@@ -271,10 +271,10 @@ export type TutorToolActions = {
     quote: string;
     reason: string;
   }) => Promise<string>;
-  /** A note, without Exercises, tells the model why there are none. */
-  findExercises: (
+  /** A note, without Problems, tells the model why there are none. */
+  findProblems: (
     kcIds: string[],
-  ) => Promise<{ exercises: ExerciseView[]; note?: string }>;
+  ) => Promise<{ problems: ProblemView[]; note?: string }>;
   /** A Reading section of the Course; null for any other id. */
   findReading: (sectionId: string) => Promise<ReadingToShow | null>;
   /** Appends one line to the Course's Memory. */
@@ -284,7 +284,7 @@ export type TutorToolActions = {
     kind: QuestionKind;
     prompt: string;
     kcIds: string[];
-    exerciseId: string | null;
+    problemId: string | null;
   }) => Promise<string>;
   /** A question asked in the Chat's Study session; null for any other id. */
   findQuestion: (questionId: string) => Promise<QuestionToGrade | null>;
@@ -351,11 +351,11 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: flagMapInputSchema,
       execute: async (input) => flagMap(actions, input),
     }),
-    findExercises: tool({
+    findProblems: tool({
       description:
-        "Find up to 3 Exercises of this Course that test any of the given KCs and that the Student has not attempted yet, old-exam ones first. Each comes with its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Problems for the given KCs: Exercises of this Course that test any of them and that the Student has not attempted yet, ranked to vary and step up in difficulty. Each comes with its source (old_exam or exercise), its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
       inputSchema: kcIdsInputSchema,
-      execute: async ({ kcIds }) => actions.findExercises(kcIds),
+      execute: async ({ kcIds }) => actions.findProblems(kcIds),
     }),
     remember: tool({
       description:
@@ -370,10 +370,10 @@ export function tutorTools(actions: TutorToolActions) {
       description:
         "Ask the Student a graded question: it shows on a question card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
       inputSchema: askInputSchema,
-      execute: async ({ exerciseId, ...question }) => ({
+      execute: async ({ problemId, ...question }) => ({
         questionId: await actions.ask({
           ...question,
-          exerciseId: exerciseId ?? null,
+          problemId: problemId ?? null,
         }),
       }),
     }),
