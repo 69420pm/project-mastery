@@ -318,6 +318,11 @@ function courseActions(
       return true;
     },
     searchMaterials: async () => [],
+    isKc: () => false,
+    findChunk: async () => null,
+    saveMapFinding: async () => {
+      throw new TutorToolError("This eval files no map Findings.");
+    },
     getTopic: async (topicId, kcIds) => {
       if (topicId !== TOPIC_ID) return null;
       const foreign = (kcIds ?? []).filter(
@@ -348,6 +353,7 @@ function courseActions(
                 markdown: topic.chunk(position).markdown,
               }))
             : [],
+          findings: [],
         })),
         // Prior knowledge the Student has.
         anchors: topic.anchors.map((kc) => ({

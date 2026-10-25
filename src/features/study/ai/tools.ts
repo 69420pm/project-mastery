@@ -13,6 +13,7 @@ import {
 import type {
   ExerciseView,
   GradedKc,
+  MapFindingKind,
   QuestionKind,
   ReadingView,
   SourceChunkView,
@@ -161,6 +162,49 @@ const searchMaterialsInputSchema = z.object({
   ),
 });
 
+const MAP_FINDING_KINDS = [
+  "missing_link",
+  "wrong_link",
+  "wrong_description",
+] as const satisfies readonly MapFindingKind[];
+
+/** What `flagMap` takes: a map Finding with the quote that shows it. */
+const flagMapInputSchema = z.object({
+  kind: z
+    .enum(MAP_FINDING_KINDS)
+    .describe(
+      "missing_link: the sources link the two KCs, as a prerequisite or semantic link, and the map doesn't; wrong_link: the map links them and the sources contradict it; wrong_description: the sources contradict the KC's description.",
+    ),
+  kcId: z
+    .string()
+    .describe(
+      "The id of the KC of this Course the Finding is about: for a link, the one that builds on the other.",
+    ),
+  linkedKcId: z
+    .string()
+    .nullish()
+    .describe(
+      "For a link kind, the id of kcId's prerequisite or semantic neighbour; omit it for wrong_description.",
+    ),
+  chunkId: z
+    .string()
+    .describe(
+      "The chunkId of the source chunk that shows it, from getTopic or searchMaterials.",
+    ),
+  quote: z
+    .string()
+    .min(1)
+    .max(500)
+    .describe(
+      "The words of that chunk's Markdown that show it, copied exactly: at most 500 characters.",
+    ),
+  reason: rememberInputSchema.shape.text.describe(
+    "What is wrong with the map and what the sources say, in one line of at most 300 characters.",
+  ),
+});
+
+type FlagMapInput = z.infer<typeof flagMapInputSchema>;
+
 /** What `showReading` takes: a Reading section and why the Student reads it. */
 const showReadingInputSchema = z.object({
   sectionId: z
@@ -214,6 +258,19 @@ export type TutorToolActions = {
    * nearest first. Throws a `TutorToolError` when it can't search.
    */
   searchMaterials: (query: string) => Promise<SourceChunkView[]>;
+  /** Whether the id is a KC of the Course. */
+  isKc: (kcId: string) => boolean;
+  /** A chunk of the Course; null for any other id. */
+  findChunk: (chunkId: string) => Promise<{ markdown: string } | null>;
+  /** Stores an open map Finding in the Chat's Study session; returns its id. */
+  saveMapFinding: (finding: {
+    kind: MapFindingKind;
+    kcId: string;
+    linkedKcId: string | null;
+    chunkId: string;
+    quote: string;
+    reason: string;
+  }) => Promise<string>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
     kcIds: string[],
@@ -254,7 +311,7 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open and accepted map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
         if (!topicId && !kcIds) {
@@ -287,6 +344,12 @@ export function tutorTools(actions: TutorToolActions) {
               note: "No chunk of this Course is searchable yet: its Materials are not parsed, or have no text.",
             };
       },
+    }),
+    flagMap: tool({
+      description:
+        "File a Finding on the Knowledge map when the course's sources show it is wrong: a link between two KCs it lacks, a link the sources contradict, or a KC's description the sources contradict. Check the sources first with getTopic or searchMaterials, and quote the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones; nothing changes before. Never file one for what is only plausible from general knowledge. Returns the Finding's id.",
+      inputSchema: flagMapInputSchema,
+      execute: async (input) => flagMap(actions, input),
     }),
     findExercises: tool({
       description:
@@ -353,6 +416,58 @@ async function showReading(
   return reading.mode === "study_text" && studyText !== null
     ? { ...reading, studyText }
     : reading;
+}
+
+/** Lower case with whitespace collapsed, as `flagMap` compares quotes. */
+const normalized = (text: string) =>
+  text.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * The `flagMap` call's rules: a linked KC for link kinds only, KCs and a
+ * chunk of the Course, and a quote found in the chunk's Markdown.
+ */
+async function flagMap(
+  actions: TutorToolActions,
+  { linkedKcId, ...input }: FlagMapInput,
+): Promise<{ findingId: string }> {
+  const linked = linkedKcId || null;
+  if (input.kind === "wrong_description" && linked) {
+    throw new TutorToolError(
+      "A wrong_description Finding is about one KC: omit linkedKcId.",
+    );
+  }
+  if (input.kind !== "wrong_description" && !linked) {
+    throw new TutorToolError(
+      `A ${input.kind} Finding links two KCs: give the prerequisite or semantic neighbour of kcId as linkedKcId.`,
+    );
+  }
+  if (linked === input.kcId) {
+    throw new TutorToolError("A link joins two different KCs.");
+  }
+  const unknown = [input.kcId, linked].filter(
+    (id): id is string => id !== null && !actions.isKc(id),
+  );
+  if (unknown.length > 0) {
+    throw new TutorToolError(
+      `These are no KC ids of this Course: ${unknown.join(", ")}. Use the ids getTopic returns.`,
+    );
+  }
+  const chunk = await actions.findChunk(input.chunkId);
+  if (!chunk) {
+    throw new TutorToolError(
+      `${input.chunkId} is no chunk of this Course: use a chunkId from getTopic or searchMaterials.`,
+    );
+  }
+  if (!normalized(chunk.markdown).includes(normalized(input.quote))) {
+    throw new TutorToolError(
+      "The quote is not in that chunk's Markdown: copy its words exactly from the chunk.",
+    );
+  }
+  const findingId = await actions.saveMapFinding({
+    ...input,
+    linkedKcId: linked,
+  });
+  return { findingId };
 }
 
 /** The `setStage` call: a move `stageMoveRefusal` allows, then saved. */

@@ -262,6 +262,9 @@ async function gradeTask(item: Input): Promise<string> {
     // Served as the Chat showed them in the history above.
     getTopic: async () => null,
     searchMaterials: unused,
+    isKc: () => false,
+    findChunk: unused,
+    saveMapFinding: unused,
     findExercises: async () => ({ exercises: [] }),
     remember: unused,
     ask: unused,

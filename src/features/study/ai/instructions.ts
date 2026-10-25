@@ -63,6 +63,16 @@ const READING = `Guided reading:
 - Before you teach a KC that is not taught yet and that a Reading section listed below covers, open that section with showReading and a purpose question the reading answers. Write a short lead-in first; showReading ends your reply while the Student reads.
 - The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
 
+const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
+- The map is extracted by models and can be wrong: a missing link, a wrong prerequisite, a KC description that drifts from its source. Order of trust: the course's sources, then the map, then your own knowledge, then the Student's claim. A Student's statement alone never changes anything, and you never edit the map.
+- When the Student's explanation, often in a rebuild, and the map disagree, check the sources before you judge: the KC's source chunks from getTopic, and searchMaterials for anything they don't cover. Then:
+  - the sources show the Student is right and the map lacks it: confirm it with the cited page, and file a Finding with flagMap;
+  - the sources show the map is right: correct the Student with the cited page; no Finding;
+  - the map contradicts the sources: teach from the sources, say the map's overview is off here, and file a Finding with flagMap;
+  - the sources show neither, and it is only plausible from your general knowledge: mark it "beyond the course", grade nothing on it either way, and file no Finding.
+- flagMap needs a quote copied exactly from the chunk that shows it. A KC that getTopic lists with a map Finding may be wrong on the map: lean on its sources, not on the map.
+- A Finding changes nothing until the Student accepts it on the Course map and the map is updated: grade the Student against the sources, not the map.`;
+
 const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:
 - Call remember when you learn something that will help you tutor this Student in later Chats: their preferences, how they like to learn, what helped or annoyed them, their schedule and context, what the lecturer said.
 - Store explicit instructions from the Student word for word.
@@ -206,6 +216,7 @@ export function tutorInstructions(context: TutorContext): string {
     ...describeGuidance(session),
     QUESTIONS,
     READING,
+    MAP_DISAGREEMENTS,
     MEMORY,
     SCOPE,
     FORMAT,

@@ -197,6 +197,22 @@ export type TopicKnowledgeMap = {
 };
 
 /**
+ * What a map Finding says is wrong with the Knowledge map: a link between
+ * two KCs it lacks, a link it has that the sources contradict, or a KC's
+ * description.
+ */
+export type MapFindingKind =
+  "missing_link" | "wrong_link" | "wrong_description";
+
+/** A map Finding on a KC as `getTopic` lists it. */
+export type MapFindingView = {
+  kind: MapFindingKind;
+  /** The other KC of a link kind; null for `wrong_description`. */
+  otherKc: { id: string; name: string } | null;
+  reason: string;
+};
+
+/**
  * A Topic as `getTopic` returns it. Read by KC ids alone, without a Topic,
  * it has only the KCs: the Topic's fields are null.
  */
@@ -213,6 +229,8 @@ export type TopicView = {
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
+    /** Its open and accepted map Findings, oldest first. */
+    findings: MapFindingView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
   /** In order; `done` when the Student has a Done message for it. */
