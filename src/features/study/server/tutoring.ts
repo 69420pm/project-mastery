@@ -1,8 +1,6 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
-import { materialChunksPath } from "@/features/courses/server";
 import {
-  chunkAnchor,
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
@@ -60,6 +58,12 @@ import type {
   TutorSession,
   TutorToday,
 } from "@/features/study/types";
+import { searchChunks } from "@/features/study/server/search";
+import {
+  chunkLink,
+  readingLabel,
+  sourceView,
+} from "@/features/study/server/source-view";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -68,7 +72,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The most source chunks `getTopic` gives per KC. */
 const SOURCES_PER_KC = 3;
-
 /**
  * What the AI tutors a reply in a Course's Chat with, read with `supabase`,
  * the Student's session client: the tutor context for its instructions and
@@ -274,17 +277,6 @@ function tutorToday(
   };
 }
 
-const pagesLabel = (from: number, to: number) =>
-  from === to ? `p. ${from}` : `pp. ${from}–${to}`;
-
-/** Such as "Lecture 3, pp. 12–14". */
-const readingLabel = (section: {
-  materialName: string;
-  pageFrom: number;
-  pageTo: number;
-}) =>
-  `${section.materialName}, ${pagesLabel(section.pageFrom, section.pageTo)}`;
-
 function tutorToolActions(
   supabase: Supabase,
   {
@@ -326,8 +318,13 @@ function tutorToolActions(
     }
   };
   const linkTo = (chunk: { id: string; materialId: string }) =>
-    `${materialChunksPath(courseId, chunk.materialId)}#${chunkAnchor(chunk.id)}`;
+    chunkLink(courseId, chunk);
+  const sourceOf = (chunk: Parameters<typeof sourceView>[1]) =>
+    sourceView(courseId, chunk);
   return {
+    async searchMaterials(query) {
+      return (await searchChunks(supabase, courseId, query)).map(sourceOf);
+    },
     // Read fresh on every call, as an earlier call may have moved it.
     async loadStage() {
       if (!staged) return null;
@@ -508,12 +505,7 @@ function tutorToolActions(
             ? chunks
                 .filter((chunk) => kc.sources.includes(chunk.id))
                 .slice(0, SOURCES_PER_KC)
-                .map((chunk) => ({
-                  material: chunk.materialName,
-                  pages: pagesLabel(chunk.pageFrom, chunk.pageTo),
-                  link: linkTo(chunk),
-                  markdown: chunk.markdown,
-                }))
+                .map(sourceOf)
             : [],
         })),
         anchors:

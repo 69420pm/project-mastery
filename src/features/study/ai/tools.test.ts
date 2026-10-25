@@ -20,6 +20,7 @@ const noActions = {
   findReading: async () => null,
   loadStage: async () => null,
   saveStage: async () => true,
+  searchMaterials: async () => [],
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -82,6 +83,40 @@ describe("getTopic", () => {
     await expect(run({ topicId: null }, options)).rejects.toThrow(
       "Give a topicId, or the kcIds",
     );
+  });
+});
+
+describe("searchMaterials", () => {
+  const chunk = {
+    chunkId: "c-1",
+    material: "Lecture 1",
+    pages: "p. 2",
+    link: "/m/1#chunk-c-1",
+    markdown: "Thrust",
+  };
+  const search = (found: (typeof chunk)[], query = "thrust") =>
+    tutorTools({ ...noActions, searchMaterials: async () => found })
+      .searchMaterials.execute!({ query }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
+
+  test("takes one line of at most 300 characters", () => {
+    expect(accepts("searchMaterials", { query: "a".repeat(300) })).toBe(true);
+    expect(accepts("searchMaterials", { query: "a".repeat(301) })).toBe(false);
+    expect(accepts("searchMaterials", { query: "" })).toBe(false);
+    expect(accepts("searchMaterials", { query: "a\nb" })).toBe(false);
+  });
+
+  test("returns the chunks as found", async () => {
+    await expect(search([chunk])).resolves.toEqual({ chunks: [chunk] });
+  });
+
+  test("notes a Course without searchable chunks", async () => {
+    await expect(search([])).resolves.toEqual({
+      chunks: [],
+      note: expect.stringContaining("No chunk"),
+    });
   });
 });
 

@@ -15,6 +15,7 @@ import type {
   GradedKc,
   QuestionKind,
   ReadingView,
+  SourceChunkView,
   TopicView,
 } from "@/features/study/types";
 
@@ -153,6 +154,13 @@ const rememberInputSchema = z.object({
     .describe("One line of at most 300 characters, without line breaks."),
 });
 
+/** What `searchMaterials` takes: one line to search the Course by meaning. */
+const searchMaterialsInputSchema = z.object({
+  query: rememberInputSchema.shape.text.describe(
+    "What to look for, in one line of at most 300 characters, as a question or a phrase from the Materials.",
+  ),
+});
+
 /** What `showReading` takes: a Reading section and why the Student reads it. */
 const showReadingInputSchema = z.object({
   sectionId: z
@@ -201,6 +209,11 @@ export type TutorToolActions = {
     topicId: string | null,
     kcIds?: string[],
   ) => Promise<TopicView | null>;
+  /**
+   * Up to 4 embedded chunks of the Course nearest to the query by meaning,
+   * nearest first. Throws a `TutorToolError` when it can't search.
+   */
+  searchMaterials: (query: string) => Promise<SourceChunkView[]>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
     kcIds: string[],
@@ -259,6 +272,20 @@ export function tutorTools(actions: TutorToolActions) {
           );
         }
         return topic;
+      },
+    }),
+    searchMaterials: tool({
+      description:
+        "Search all of this Course's Materials by meaning: up to 4 chunks nearest to your query, each with its chunk id, Markdown, Material, pages and a link to cite. Use it when getTopic's source chunks don't answer a question, or to check a KC's description against the Materials. Chunks of a Material still being parsed may be missing.",
+      inputSchema: searchMaterialsInputSchema,
+      execute: async ({ query }) => {
+        const chunks = await actions.searchMaterials(query);
+        return chunks.length > 0
+          ? { chunks }
+          : {
+              chunks,
+              note: "No chunk of this Course is searchable yet: its Materials are not parsed, or have no text.",
+            };
       },
     }),
     findExercises: tool({

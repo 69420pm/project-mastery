@@ -317,6 +317,7 @@ function courseActions(
       state.record.readingLeft.push(!state.done.has(SECTION_ID));
       return true;
     },
+    searchMaterials: async () => [],
     getTopic: async (topicId, kcIds) => {
       if (topicId !== TOPIC_ID) return null;
       const foreign = (kcIds ?? []).filter(
@@ -340,6 +341,7 @@ function courseActions(
           state: stateOf(kc.id),
           sources: wanted.has(topic.id(kc.id))
             ? kc.sources.slice(0, 3).map((position) => ({
+                chunkId: `chunk-${position}`,
                 material: MATERIAL,
                 pages: `p. ${topic.chunk(position).page_from}`,
                 link: topic.link(position),

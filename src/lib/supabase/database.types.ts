@@ -1849,6 +1849,13 @@ export type Database = {
         };
         Returns: boolean;
       };
+      match_chunks: {
+        Args: { p_count: number; p_course_id: string; p_embedding: string };
+        Returns: {
+          distance: number;
+          id: string;
+        }[];
+      };
       queue_knowledge_map_build: {
         Args: { course_id: string };
         Returns: boolean;

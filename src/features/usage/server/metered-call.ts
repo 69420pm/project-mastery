@@ -1,11 +1,18 @@
 import "server-only";
 import { embedMany, generateText } from "ai";
 import { checkDailyLimit } from "@/features/usage/server/daily-limit";
-import { recordAiUsage } from "@/features/usage/server/usage-store";
+import {
+  recordAiUsage,
+  type AdminStudentScope,
+} from "@/features/usage/server/usage-store";
 import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
 import { aiTask, answeringModel, type AiTask } from "@/lib/ai/models";
-import type { AdminSupabase } from "@/lib/supabase/types";
+import type {
+  AdminSupabase,
+  SessionSupabase,
+  Supabase,
+} from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
 
 /**
@@ -68,11 +75,31 @@ export async function meteredGenerate(
  */
 export async function meteredEmbed(
   admin: AdminSupabase,
-  { studentId, traceName, callFailed }: MeteredScope,
+  scope: MeteredScope,
+  call: { values: string[]; maxRetries?: number },
+  store?: (embeddings: number[][]) => Promise<void>,
+): Promise<number[][] | null>;
+/** With the Student's session client, usage is theirs by Row Level Security. */
+export async function meteredEmbed(
+  supabase: SessionSupabase,
+  scope: Omit<MeteredScope, "studentId">,
+  call: { values: string[]; maxRetries?: number },
+  store?: (embeddings: number[][]) => Promise<void>,
+): Promise<number[][] | null>;
+export async function meteredEmbed(
+  admin: Supabase,
+  {
+    studentId,
+    traceName,
+    callFailed,
+  }: Omit<MeteredScope, "studentId"> & { studentId?: string },
   { values, maxRetries }: { values: string[]; maxRetries?: number },
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null> {
-  const dailyLimit = await checkDailyLimit(admin, { studentId });
+  // `checkDailyLimit` and `recordAiUsage` refuse the admin client without a
+  // Student id, whatever the overload the caller used.
+  const scope = { studentId } as AdminStudentScope;
+  const dailyLimit = await checkDailyLimit(admin as AdminSupabase, scope);
   if (dailyLimit.level === "reached") return null;
 
   const settings = aiTask("embed");
@@ -92,7 +119,7 @@ export async function meteredEmbed(
   // it to NaN: estimate it from the text then.
   const reported = Number.isFinite(result.usage.tokens);
   await recordAiUsage(
-    admin,
+    admin as AdminSupabase,
     {
       task: "embed",
       modelId: settings.model,
@@ -105,7 +132,7 @@ export async function meteredEmbed(
         : estimatedUsage({ input: values.join(""), output: "" }),
       estimated: !reported,
     },
-    { studentId },
+    scope,
   );
   return result.embeddings;
 }

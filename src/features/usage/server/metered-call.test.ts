@@ -10,7 +10,11 @@ import {
 import { aiTask } from "@/lib/ai/models";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
-import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
+import type {
+  AdminSupabase,
+  SessionSupabase,
+  Supabase,
+} from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
 
@@ -154,5 +158,24 @@ describe("meteredEmbed", () => {
     const { admin } = reachedLimit();
 
     expect(await meteredEmbed(admin, scope, { values: ["a"] })).toBeNull();
+  });
+
+  test("records the usage with a session client, for its Student", async () => {
+    useMockModels({ embed: mockEmbeddingModel(2) });
+    const db = fakeSupabase({
+      tables: { ai_usage: [] },
+      defaults: { ai_usage: () => ({ created_at: new Date().toISOString() }) },
+    });
+
+    await meteredEmbed(
+      db as unknown as SessionSupabase,
+      { traceName: "test-call" },
+      { values: ["a"] },
+    );
+
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({ task: "embed" }),
+    ]);
+    expect(db.tables.ai_usage[0]).not.toHaveProperty("owner");
   });
 });

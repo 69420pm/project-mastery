@@ -95,8 +95,9 @@ export type StudyPlan = Plan & {
   today: TodayPlan;
 };
 
-/** A source chunk of a KC as `getTopic` returns it. */
-type KcSourceView = {
+/** A source chunk as `getTopic` and `searchMaterials` return it. */
+export type SourceChunkView = {
+  chunkId: string;
   material: string;
   /** Such as "p. 3" or "pp. 3–4". */
   pages: string;
@@ -211,7 +212,7 @@ export type TopicView = {
     description: string;
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
-    sources: KcSourceView[];
+    sources: SourceChunkView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
   /** In order; `done` when the Student has a Done message for it. */

@@ -261,6 +261,7 @@ async function gradeTask(item: Input): Promise<string> {
   const actions: TutorToolActions = {
     // Served as the Chat showed them in the history above.
     getTopic: async () => null,
+    searchMaterials: unused,
     findExercises: async () => ({ exercises: [] }),
     remember: unused,
     ask: unused,
