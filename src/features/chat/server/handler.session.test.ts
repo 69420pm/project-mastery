@@ -143,3 +143,23 @@ test("a message to an ended session is refused, and one within 2 hours is answer
   ).toMatchObject({ status: 200, text: "Welcome back." });
   expect(db.tables.study_sessions[1]!.ended_at).toBeNull();
 });
+
+test.each(["review", "practice"] as const)(
+  "a first message with the mode %s stores the session in that mode",
+  async (mode) => {
+    useMockModels({ chat: mockTextModel("Hello.") });
+    const chatId = randomUUID();
+
+    const reply = await send({
+      chatId,
+      courseId: COURSE,
+      mode,
+      message: userMessage("Hi"),
+    });
+
+    expect(reply.status).toBe(200);
+    expect(db.tables.study_sessions).toEqual([
+      expect.objectContaining({ chat_id: chatId, mode }),
+    ]);
+  },
+);

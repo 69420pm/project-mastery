@@ -8,14 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MODE_LABELS, type SessionMode } from "@/features/study/domain/modes";
 import type { StudyPlan } from "@/features/study/types";
 
 /**
  * The Today card (#177): the due reviews, the next Topic with its central
- * question and a link to its page, the Phase's hint and Start, which opens
- * a new Chat. Without a map or Topics it says to build or update the map.
- * The page passes the links, since the map and the Chat belong to other
- * features; without `startHref`, as in a new Chat, there is no Start.
+ * question and a link to its page, the Phase's hint and a button per
+ * available mode, each opening a new Chat in it: Learn with a next Topic,
+ * Review with reviews due, Practice with a learned in-plan Topic. Without a
+ * map or Topics it says to build or update the map. The page passes the
+ * links, since the map and the Chat belong to other features; without
+ * `startHref`, as in a new Chat, there are no buttons.
  */
 export function TodayCard({
   plan,
@@ -78,6 +81,18 @@ export function TodayCard({
     );
   }
   const ready = plan.hasMap && plan.topics.length > 0;
+  const modes: SessionMode[] = [];
+  if (next) modes.push("learn");
+  if (reviews) modes.push("review");
+  if (
+    plan.topics.some(
+      (t) =>
+        t.status === "in_plan" &&
+        ["learned", "solid", "needs_work"].includes(t.topicState.state),
+    )
+  ) {
+    modes.push("practice");
+  }
   return (
     <Card
       role="region"
@@ -92,10 +107,21 @@ export function TodayCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2 px-4 text-sm">
         {body}
-        {ready && startHref && (
-          <Button asChild size="sm" className="self-start">
-            <Link href={startHref}>Start</Link>
-          </Button>
+        {ready && startHref && modes.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {modes.map((mode) => (
+              <Button
+                key={mode}
+                asChild
+                size="sm"
+                variant={mode === modes[0] ? "default" : "outline"}
+              >
+                <Link href={`${startHref}?mode=${mode}`}>
+                  {MODE_LABELS[mode]}
+                </Link>
+              </Button>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

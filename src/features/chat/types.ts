@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import type { MaterialReference } from "@/features/courses";
-import type { ProblemFlag, TutorContext } from "@/features/study";
+import type { ProblemFlag, SessionMode, TutorContext } from "@/features/study";
 
 /** The tokens and cost of the AI call that wrote a reply. */
 export type ReplyUsage = {
@@ -57,6 +57,8 @@ export type ChatWithMessages = {
   courseId: string;
   title: string | null;
   messages: ChatUIMessage[];
+  /** The mode of its Study session. */
+  mode: SessionMode;
   /** Whether its Study session has ended, which makes it read-only. */
   ended: boolean;
   /** The flags of the generated Problems its questions posed, by Problem id. */

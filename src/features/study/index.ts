@@ -14,6 +14,12 @@ export { TodayCard } from "./components/today-card";
 export { getTopicKnowledgeMap } from "./server/actions";
 export { StageBar } from "./components/stage-bar";
 export { PHASE_NAMES, topicBadges } from "./domain/plan";
+export {
+  MODE_LABELS,
+  parseSessionMode,
+  SESSION_MODES,
+  type SessionMode,
+} from "./domain/modes";
 export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";

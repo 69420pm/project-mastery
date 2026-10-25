@@ -147,6 +147,23 @@ function createDb() {
         });
         return true;
       },
+      start_study_session_mode: (args, tables) => {
+        const session = tables.study_sessions.find(
+          (row) => row.id === args.p_session_id && row.owner === signedIn,
+        );
+        if (
+          !session ||
+          (args.p_mode !== "review" && args.p_mode !== "practice") ||
+          session.mode !== "learn" ||
+          session.topic_id !== null ||
+          session.ended_at !== null ||
+          tables.questions.some((row) => row.session_id === session.id)
+        ) {
+          return false;
+        }
+        session.mode = args.p_mode;
+        return true;
+      },
       set_study_session_stage: (args, tables) => {
         const session = tables.study_sessions.find(
           (row) => row.id === args.p_session_id && row.owner === signedIn,

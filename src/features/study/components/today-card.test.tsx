@@ -45,10 +45,48 @@ test("shows the due reviews, the next Topic with its link, the hint and Start", 
   );
   expect(card).toHaveTextContent("How does a nozzle speed up its gas?");
   expect(card).toHaveTextContent("Practice exam-style problems");
-  expect(within(card).getByRole("link", { name: "Start" })).toHaveAttribute(
+  expect(within(card).getByRole("link", { name: "Learn" })).toHaveAttribute(
     "href",
-    "/courses/c1/chat",
+    "/courses/c1/chat?mode=learn",
   );
+  expect(within(card).getByRole("link", { name: "Review" })).toHaveAttribute(
+    "href",
+    "/courses/c1/chat?mode=review",
+  );
+  expect(within(card).queryByRole("link", { name: "Practice" })).toBeNull();
+});
+
+const topicIn = (status: TopicPlan["status"], state: string) =>
+  ({ id: "t", status, topicState: { state } }) as TopicPlan;
+
+test.each([
+  ["a learned in-plan Topic", [topicIn("in_plan", "learned")], true],
+  ["a solid in-plan Topic", [topicIn("in_plan", "solid")], true],
+  ["a needs-work in-plan Topic", [topicIn("in_plan", "needs_work")], true],
+  ["only new Topics", [topicIn("in_plan", "new")], false],
+  ["only an in-progress Topic", [topicIn("in_plan", "in_progress")], false],
+  ["a learned Topic that is skipped", [topicIn("skipped", "learned")], false],
+  [
+    "a learned Topic outside the plan",
+    [topicIn("if_time_allows", "learned")],
+    false,
+  ],
+])("offers Practice per learned Topics: %s", (_, topics, offered) => {
+  renderCard({}, { topics });
+
+  const practice = screen.queryByRole("link", { name: "Practice" });
+  if (offered) {
+    expect(practice).toHaveAttribute("href", "/courses/c1/chat?mode=practice");
+  } else {
+    expect(practice).toBeNull();
+  }
+});
+
+test("offers Review only with reviews due, and Learn only with a next Topic", () => {
+  renderCard({ reviews: { count: 1, minutes: 2 } });
+
+  expect(screen.getByRole("link", { name: "Review" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Learn" })).toBeNull();
 });
 
 test.each([
@@ -62,14 +100,19 @@ test.each([
     "href",
     "/courses/c1/map",
   );
-  expect(within(card).queryByRole("link", { name: "Start" })).toBeNull();
+  expect(within(card).queryByRole("link", { name: "Learn" })).toBeNull();
 });
 
-test("has no Start without a link to start, as in a new Chat", () => {
-  renderCard({}, {}, null);
-
-  expect(screen.getByRole("region", { name: "Today" })).toHaveTextContent(
-    "Nothing planned for today.",
+test("has no mode buttons without a link to start, as in a new Chat", () => {
+  renderCard(
+    {
+      reviews: { count: 1, minutes: 2 },
+      next: { id: "t1", name: "N", centralQuestion: "Q", kcs: [] },
+    },
+    {},
+    null,
   );
-  expect(screen.queryByRole("link", { name: "Start" })).toBeNull();
+
+  expect(screen.queryByRole("link", { name: "Learn" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Review" })).toBeNull();
 });

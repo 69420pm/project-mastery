@@ -186,7 +186,7 @@ export function Chat({
         body: {
           ...body,
           chatId,
-          ...(isNew && { courseId: chat.courseId }),
+          ...(isNew && { courseId: chat.courseId, mode: chat.mode }),
           message: messages.at(-1),
         },
       }),
@@ -282,6 +282,7 @@ export function Chat({
         <SessionBar
           chatId={chatId}
           stage={stage}
+          mode={chat.mode}
           // Once the first message is sent, the Chat's session can be ended.
           canEnd={messages.length > 0 && !ended}
           busy={isBusy}
