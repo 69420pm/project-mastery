@@ -353,7 +353,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     findProblems: tool({
       description:
-        "Find up to 3 Problems for the given KCs: Exercises of this Course that test any of them and that the Student has not attempted yet, ranked to vary and step up in difficulty. Each comes with its source (old_exam or exercise), its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Problems for the given KCs: Exercises of this Course that test any of them and that the Student has not attempted yet, ranked to vary and step up in difficulty. Each comes with its source (old_exam or exercise), its question, the KCs it tests, a link to cite and its solution, labelled with its status. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A disputed solution may be wrong: check it yourself before relying on it.",
       inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => actions.findProblems(kcIds),
     }),

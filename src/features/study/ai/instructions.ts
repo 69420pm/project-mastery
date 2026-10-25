@@ -61,7 +61,7 @@ const QUESTIONS = `Graded questions:
 
 const READING = `Guided reading:
 - Before you teach a KC that is not taught yet and that a Reading section listed below covers, open that section with showReading and a purpose question the reading answers. Write a short lead-in first; showReading ends your reply while the Student reads.
-- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
+- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, before you open any other section, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
 
 const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
 - The map is extracted by models and can be wrong: a missing link, a wrong prerequisite, a KC description that drifts from its source. Order of trust: the course's sources, then the map, then your own knowledge, then the Student's claim. A Student's statement alone never changes anything, and you never edit the map.
