@@ -52,6 +52,10 @@ test("a message to a session idle for over 2 hours ends it at its newest message
   expect(model.doStreamCalls).toHaveLength(0);
   expect(storedMessages(chatId).map(({ text }) => text)).toEqual(["Earlier"]);
   expect(db.tables.study_sessions[0]!.ended_at).toBe(newest);
+  // Its end queues the review stock once.
+  expect(db.tables.problem_runs).toEqual([
+    { course_id: COURSE, topic_id: null },
+  ]);
 });
 
 const promptOf = (model: ReturnType<typeof mockTextModel>, call = 0) =>
@@ -73,6 +77,9 @@ test("the first reply sets the plan's next Topic and starts at orient; setStage 
     stage: "orient",
   });
   expect(promptOf(first)).toContain("Session stage: orient.");
+  expect(db.tables.problem_runs).toEqual([
+    { course_id: COURSE, topic_id: MAP.topic },
+  ]);
 
   const next = mockToolModel(
     [[{ toolName: "setStage", input: { stage: "prime" } }]],
@@ -85,6 +92,8 @@ test("the first reply sets the plan's next Topic and starts at orient; setStage 
     topic_id: MAP.topic,
     stage: "prime",
   });
+  // Only the reply that set the Topic queued its stock.
+  expect(db.tables.problem_runs).toHaveLength(1);
 });
 
 test("a session resumes at the stage where the Topic's last session stopped", async () => {

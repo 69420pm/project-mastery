@@ -1492,6 +1492,56 @@ export type Database = {
           },
         ];
       };
+      problem_runs: {
+        Row: {
+          course_id: string;
+          owner: string;
+          started_at: string;
+          status: string;
+          stock: string;
+          topic_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          owner: string;
+          started_at?: string;
+          status: string;
+          stock: string;
+          topic_id?: string | null;
+        };
+        Update: {
+          course_id?: string;
+          owner?: string;
+          started_at?: string;
+          status?: string;
+          stock?: string;
+          topic_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "problem_runs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: true;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_runs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_runs_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       problems: {
         Row: {
           course_id: string;
@@ -2108,6 +2158,10 @@ export type Database = {
       };
       queue_material_parse: { Args: { material_id: string }; Returns: boolean };
       queue_priority_run: { Args: { course_id: string }; Returns: boolean };
+      queue_problem_run: {
+        Args: { p_course_id: string; p_topic_id?: string };
+        Returns: boolean;
+      };
       record_knowledge_map_build_start_failure: {
         Args: { course_id: string };
         Returns: boolean;
@@ -2120,6 +2174,7 @@ export type Database = {
         Args: { course_id: string };
         Returns: boolean;
       };
+      release_problem_run: { Args: { p_course_id: string }; Returns: boolean };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };
         Returns: boolean;

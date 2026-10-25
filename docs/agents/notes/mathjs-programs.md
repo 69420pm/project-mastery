@@ -12,3 +12,5 @@ Verified on 2026-10-25 with the installed `mathjs` (15.x) under Node, for M5b (#
 - `math.Unit.isValuelessUnit(name)` tells a unit name (`m`, `km`, `N`, `g`, `T`) from a free one (`a`, `thrust`); a parsed program's `AssignmentNode`s and `FunctionAssignmentNode`s carry the assigned `name`.
 
 One live call on `xiaomi/mimo-v2.6-flash` (gateway, DeepInfra) asked for a variant of the gold thrust Exercise with a program, a structured output of statement, solution, program and final answers by variable and unit. It answered in 15 s, 168 input and 172 output tokens, no reasoning, about $0.00005. The program ran, with the unit slip above.
+
+One run of the `generate` task's real prompt (#183, medium reasoning, a new Problem for a Linear Algebra KC) failed twice with `Invalid left hand side of assignment operator = (char 37)`: about 30 s and 950 input / 450 output tokens for the first call, 16 s for the retry. The program was not kept then; a failed Problem now stores its last program.

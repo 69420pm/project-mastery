@@ -40,6 +40,10 @@ export { sessionEndedMessage } from "./schemas";
 export { closeIdleSession, getSessionEnd } from "./server/sessions";
 export { getTopicStates } from "./server/topic-states";
 export { startTutoring } from "./server/tutoring";
+// For the `generate` smoke check, which runs a queued run in process and
+// looks the variant up as the tutor would.
+export { findProblems } from "./server/find-problems";
+export { generateProblems } from "./workflows/generate-problems";
 export type {
   GradedKc,
   KcState,

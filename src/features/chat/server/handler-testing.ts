@@ -93,6 +93,7 @@ function createDb() {
       map_findings: [],
       problems: [],
       problem_kcs: [],
+      problem_runs: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
@@ -160,6 +161,15 @@ function createDb() {
         }
         session.stage = args.p_stage;
         return true;
+      },
+      // Records each generate trigger in `problem_runs` and lets none start,
+      // so no workflow runs in these tests.
+      queue_problem_run: (args, tables) => {
+        tables.problem_runs.push({
+          course_id: args.p_course_id,
+          topic_id: args.p_topic_id ?? null,
+        });
+        return false;
       },
       // The real function appends as the Student; this one trusts the Course.
       append_memory: (args, tables) => {

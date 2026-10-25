@@ -51,6 +51,7 @@ import {
   insertMapFinding,
   loadMapFindingsByKc,
 } from "@/features/study/server/map-findings";
+import { queueProblemGeneration } from "@/features/study/server/problem-generation";
 import { searchChunks } from "@/features/study/server/search";
 import { tutorToday } from "@/features/study/server/tutor-today";
 import { readingLabel, sourceView } from "@/features/study/server/source-view";
@@ -125,6 +126,7 @@ export async function startTutoring(
   const staged =
     session &&
     (await sessionStage(supabase, {
+      courseId,
       session,
       next: firstReply ? plan.today.next : null,
       topics,
@@ -180,12 +182,14 @@ export async function startTutoring(
 async function sessionStage(
   supabase: Supabase,
   {
+    courseId,
     session,
     next,
     topics,
     reviewsDue,
     now,
   }: {
+    courseId: string;
     session: StageSession;
     /** The Topic to set when the session has none; null to set none. */
     next: TodayTopic | null;
@@ -207,6 +211,8 @@ async function sessionStage(
     if (!(await startSessionTopic(supabase, session.id, topicId, stage))) {
       return null;
     }
+    // Topic stock: the Topic's Problems are generated in the background.
+    await queueProblemGeneration(supabase, courseId, topicId);
   }
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic || stage === null) return null;

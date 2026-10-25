@@ -19,7 +19,7 @@ export const EVAL_SHARE = 0.25;
 
 /**
  * Which bucket each task's spend counts against; `undefined` for tasks that
- * are never recorded for a Student. Generation has no task yet.
+ * are never recorded for a Student.
  */
 const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   chat: "study",
@@ -32,6 +32,7 @@ const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   reading: "study",
   embed: "study",
   priority: "study",
+  generate: "generation",
   judge: undefined,
 };
 
