@@ -1,6 +1,6 @@
 # Architecture
 
-How Project Mastery is built and why. [VISION.md](../VISION.md) defines what the product is; this document defines the technical choices that serve it. Most of the stack below is planned and lands with the features that need it. The README lists what is in place today.
+How Project Mastery is built and why. [VISION.md](../VISION.md) defines what the product is; this document defines the technical choices that serve it. Everything in the stack below is in place except error tracking, analytics and email (Sentry, PostHog, Resend), which land with the features that need them.
 
 ## Overview
 

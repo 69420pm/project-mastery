@@ -2,7 +2,7 @@
   "name": "project-mastery",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "description": "Project Mastery",
   "packageManager": "pnpm@12.9.1",
   "engines": {
