@@ -12,6 +12,8 @@ import type {
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { PracticeKc } from "@/features/study/domain/practice";
+import type { ReviewGroup } from "@/features/study/domain/review-queue";
 import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
 import type { TopicState } from "@/features/study/domain/topic-state";
@@ -61,6 +63,16 @@ export type TutorContext = {
    * #180 have none.
    */
   session?: TutorSession | null;
+  /**
+   * A review session's queue (`planReviewQueue`), in order; absent outside
+   * review sessions and in contexts stored before #184.
+   */
+  reviewQueue?: ReviewGroup[];
+  /**
+   * A practice session's KCs (`selectPracticeKcs`), most urgent first;
+   * absent outside practice sessions and in contexts stored before #184.
+   */
+  practiceKcs?: PracticeKc[];
 };
 
 /** A learn session's stage as the AI is told of it. */

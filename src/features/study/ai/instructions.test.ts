@@ -77,6 +77,75 @@ test("hold one block per stage and the session's stage when it has a Topic, and 
   expect(tutorInstructions(context)).not.toContain("Session stage:");
 });
 
+test("a review session holds the queue in order instead of the learn guidance, or says nothing is due", () => {
+  const kc = (id: string, type = "concept") => ({
+    id,
+    name: `KC ${id}`,
+    type,
+    topicId: "t1",
+  });
+  const review = tutorInstructions({
+    ...context,
+    hasMap: true,
+    reviewQueue: [
+      {
+        topicId: "t1",
+        kcs: [kc("a"), kc("b")],
+        status: "retry",
+        retryKcIds: ["b"],
+      },
+      {
+        topicId: "t2",
+        kcs: [kc("c", "procedure")],
+        status: "open",
+        retryKcIds: [],
+      },
+    ],
+  });
+
+  expect(review).toContain(
+    [
+      "Review queue, in order (Left: 1 open, 1 to retry.)",
+      "1. done, to retry; retry: KC b",
+      "  - KC a (id a, concept, Topic id t1)",
+      "  - KC b (id b, concept, Topic id t1)",
+      "2. open",
+      "  - KC c (id c, procedure, Topic id t1)",
+    ].join("\n"),
+  );
+  expect(review).toContain("Ask one question per open group");
+  expect(review).not.toContain("Session shape");
+  expect(review).not.toContain("No reviews are due.");
+  expect(tutorInstructions({ ...context, reviewQueue: [] })).toContain(
+    "nothing is due for review",
+  );
+});
+
+test("a practice session poses Problems on the practice KCs instead of the learn guidance, or says to learn a Topic first", () => {
+  const practice = tutorInstructions({
+    ...context,
+    hasMap: true,
+    practiceKcs: [
+      { id: "a", name: "KC a", type: "procedure", topicId: "t1" },
+      { id: "b", name: "KC b", type: "concept", topicId: "t2" },
+    ],
+  });
+
+  expect(practice).toContain(
+    [
+      "Practice KCs, most urgent first:",
+      "- KC a (id a, procedure, Topic id t1)",
+      "- KC b (id b, concept, Topic id t2)",
+    ].join("\n"),
+  );
+  expect(practice).toContain("pose one Problem at a time through ask");
+  expect(practice).not.toContain("Session shape");
+  expect(practice).not.toContain("No reviews are due.");
+  expect(tutorInstructions({ ...context, practiceKcs: [] })).toContain(
+    "learns a Topic first",
+  );
+});
+
 const MEMORY_HEADING = "What you know about this Student from earlier Chats:";
 
 test("hold every section and the three rules", () => {

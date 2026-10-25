@@ -50,9 +50,9 @@ test("a parsed Material is built into a Course map of Topics", async ({
     "href",
     new RegExp(`^/courses/${course.id}/map/[0-9a-f-]{36}$`),
   );
-  await expect(today.getByRole("link", { name: "Start" })).toHaveAttribute(
+  await expect(today.getByRole("link", { name: "Learn" })).toHaveAttribute(
     "href",
-    `/courses/${course.id}/chat`,
+    `/courses/${course.id}/chat?mode=learn`,
   );
 
   // Skipping the next Topic on its page takes it off the card. The mock

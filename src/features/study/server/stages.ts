@@ -1,4 +1,8 @@
 import "server-only";
+import {
+  parseSessionMode,
+  type SessionMode,
+} from "@/features/study/domain/modes";
 import { isStage, type Stage } from "@/features/study/domain/stages";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
@@ -17,6 +21,8 @@ export type StageSession = {
   /** Null without a Topic. */
   stage: Stage | null;
   startedAt: string;
+  /** Only learn sessions get a Topic and stages. */
+  mode: SessionMode;
 };
 
 /** The Chat's Study session with its Topic and stage; null without one. */
@@ -26,7 +32,7 @@ export async function loadStageSession(
 ): Promise<StageSession | null> {
   const { data, error } = await supabase
     .from("study_sessions")
-    .select("id, topic_id, stage, started_at")
+    .select("id, topic_id, stage, started_at, mode")
     .eq("chat_id", chatId)
     .maybeSingle();
   if (error) failed("Loading the Study session", error);
@@ -36,6 +42,7 @@ export async function loadStageSession(
     topicId: data.topic_id,
     stage: isStage(data.stage) ? data.stage : null,
     startedAt: data.started_at,
+    mode: parseSessionMode(data.mode),
   };
 }
 

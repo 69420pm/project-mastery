@@ -2221,6 +2221,10 @@ export type Database = {
         Args: { p_session_id: string; p_stage: string };
         Returns: boolean;
       };
+      start_study_session_mode: {
+        Args: { p_mode: string; p_session_id: string };
+        Returns: boolean;
+      };
       start_study_session_topic: {
         Args: { p_session_id: string; p_stage: string; p_topic_id: string };
         Returns: boolean;

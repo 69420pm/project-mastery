@@ -1,4 +1,6 @@
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { PracticeKc } from "@/features/study/domain/practice";
+import type { ReviewGroup } from "@/features/study/domain/review-queue";
 import type {
   TutorContext,
   TutorSession,
@@ -35,6 +37,24 @@ const STAGED = `Learn session stages: this session teaches the next Topic below 
 - rebuild: the Student explains from memory how the Topic's KCs connect, and how they connect to the anchors: one ask of kind rebuild with all the Topic's KCs. Compare the answer with the KCs and their links, name what is missing or wrong, and ask one follow-up on the weakest link.
 - close: wrap up in a few sentences, without a new question: the app shows the Student a summary of the session and takes their rating. The session stays at close.
 - Throughout: an explanation turn covers a coherent chunk, often several KCs, not one fact; a question turn asks one substantial question, with no trickle of tiny confirmations. Rotate the kinds of thinking: explain in your own words, why, compare with a sibling or contrasting KC, what if a quantity changes, predict, find the error in a worked solution, apply to a new case. The card collects the Student's confidence: address a confident wrong answer at once.`;
+
+/** How a review session (#184) goes: the review queue below, in order. */
+const REVIEW = `Review session: this session reviews the KCs that are due, which code has put into groups and in order in the review queue below. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: work through the queue.
+- Ask one question per open group, in the queue's order, through ask with all the group's KC ids, never as text. The question must need every one of those KCs: a wide question that connects them, not a list of small ones. First call getTopic with the group's Topic id and its KC ids, before any text of your reply, so you use the course's sources and notation.
+- For facts and concepts, ask a short-answer or explain-why question. For a group with a procedure KC, call findProblems with the group's KC ids and pose one Problem through ask with its problemId and link; without one, pose a problem of your own.
+- When the Student's message answers a card, call grade first, before anything else: a group stays open until you call grade for its question, and writing a result in your text grades nothing.
+- The statuses are as of the start of your reply: the group whose question you have just graded is no longer open, even though the queue lists it as open. Its next open group is the first open one after it.
+- After a result below full, re-teach the missed part briefly, citing the page (call getTopic first). Then, after a full or a below-full result alike, ask the next open group's question through ask in the same reply. Ask a fresh question on the KCs to retry after at least one other group, or at the end when no other group is left, the retries in the queue's order. One retry per KC: grade it as usual and move on.
+- When every group is done and nothing is left to retry, wrap up in a few sentences, without a new question, and suggest ending the session with End session.
+- When the Student asks something else, answer it, then come back to the queue.`;
+
+/** How a practice session (#184) goes: Problems on the practice KCs below. */
+const PRACTICE = `Practice session: the Student practises exam-style Problems on Topics they have learned, on the practice KCs below, most urgent first. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: pose a Problem.
+- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
+- Help only when the Student asks for it or after a wrong or partial submission: one hint first, then a corrected step, then the worked solution when they ask again or stay stuck. Grade the help you gave as usual (none, some or solution_shown).
+- After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
+- After a full answer, sometimes ask why a step works, through ask, before the next Problem.
+- When the Student asks something else, answer it, then come back to the Problems.`;
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems of the same task type in a row.
@@ -134,6 +154,42 @@ function describeReviews({ kcs, more }: DueReviews): string {
   ].join("\n");
 }
 
+const GROUP_STATUSES = {
+  open: "open",
+  done: "done",
+  retry: "done, to retry",
+} as const;
+
+/** The review queue, or that nothing is due. */
+function describeReviewQueue(queue: ReviewGroup[], mapPath: string): string {
+  if (queue.length === 0) {
+    return `The review queue is empty: nothing is due for review. Say so in a sentence, without a question card, and point the Student to the Today card on the [Course map](${mapPath}), where they can start a learn or practice session. Teach no new Topic here.`;
+  }
+  const groups = queue.map((group, i) => {
+    const kcs = group.kcs.map(
+      (kc) =>
+        `  - ${kc.name} (id ${kc.id}, ${kc.type}${kc.topicId ? `, Topic id ${kc.topicId}` : ""})`,
+    );
+    const retry =
+      group.status === "retry"
+        ? `; retry: ${group.kcs
+            .filter(({ id }) => group.retryKcIds.includes(id))
+            .map(({ name }) => name)
+            .join(", ")}`
+        : "";
+    return [`${i + 1}. ${GROUP_STATUSES[group.status]}${retry}`, ...kcs].join(
+      "\n",
+    );
+  });
+  const open = queue.filter((g) => g.status === "open").length;
+  const retries = queue.filter((g) => g.status === "retry").length;
+  const left =
+    open + retries === 0
+      ? "Left: nothing; wrap up."
+      : `Left: ${open} open, ${retries} to retry.`;
+  return [`Review queue, in order (${left})`, ...groups].join("\n");
+}
+
 function describeMap(context: TutorContext): string {
   if (!context.hasMap) {
     return `The Course has no Knowledge map yet, so you have no next Topic. Tutor without one, and suggest that the Student builds the map on the map page ([Course map](${context.mapPath})) so you can plan what to learn.`;
@@ -181,8 +237,33 @@ function describePlan(context: TutorContext): string[] {
   return [lines.join("\n")];
 }
 
-/** How you tutor, with the stages when the session has them. */
-function describeGuidance(session: TutorSession | null): string[] {
+/** The practice KCs, or that the Student learns a Topic first. */
+function describePracticeKcs(kcs: PracticeKc[], mapPath: string): string {
+  if (kcs.length === 0) {
+    return `No Topic is learned yet, so there is nothing to practise. Say so in a sentence, without a question card, and suggest that the Student learns a Topic first: the Today card on the [Course map](${mapPath}) starts a learn session. Teach no new Topic here.`;
+  }
+  return [
+    "Practice KCs, most urgent first:",
+    ...kcs.map(
+      (kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}, Topic id ${kc.topicId})`,
+    ),
+  ].join("\n");
+}
+
+/**
+ * How you tutor: the review queue's way in a review session, Problems in a
+ * practice session, else with the stages when the session has them.
+ */
+function describeGuidance(
+  session: TutorSession | null,
+  mode: "review" | "practice" | null,
+): string[] {
+  if (mode === "review") {
+    return [["How you tutor:", REVIEW, GUIDANCE_END].join("\n")];
+  }
+  if (mode === "practice") {
+    return [["How you tutor:", PRACTICE, GUIDANCE_END].join("\n")];
+  }
   if (session === null) {
     return [
       [
@@ -211,10 +292,19 @@ export function tutorInstructions(context: TutorContext): string {
   // Contexts stored before #180, which the Context sheet re-renders, have
   // no session.
   const session = context.session ?? null;
+  const queue = context.reviewQueue;
+  const practice = context.practiceKcs;
   return [
     ROLE,
     RULES,
-    ...describeGuidance(session),
+    ...describeGuidance(
+      session,
+      queue !== undefined
+        ? "review"
+        : practice !== undefined
+          ? "practice"
+          : null,
+    ),
     QUESTIONS,
     READING,
     MAP_DISAGREEMENTS,
@@ -228,8 +318,14 @@ export function tutorInstructions(context: TutorContext): string {
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
     ...describePlan(context),
-    ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
-    describeMap(context),
+    ...(queue !== undefined
+      ? [describeReviewQueue(queue, context.mapPath)]
+      : practice !== undefined
+        ? [describePracticeKcs(practice, context.mapPath)]
+        : [
+            ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
+            describeMap(context),
+          ]),
     ...(session ? [describeSession(session)] : []),
   ].join("\n\n");
 }

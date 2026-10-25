@@ -138,19 +138,22 @@ const posed = (row: {
 }): string | null => row.exercise_id ?? row.problem_id;
 
 /**
- * The ids of the Course's Exercises and generated Problems the Student has
- * been asked as a question, answered or not.
+ * The Course's Exercises and generated Problems the Student has been asked
+ * as a question, answered or not, each with when it was last asked (an ISO
+ * timestamp), by id.
  */
 export async function loadAskedProblems(
   supabase: Supabase,
   courseId: string,
-): Promise<Set<string>> {
+): Promise<Map<string, string>> {
   const asked = await Promise.all(
     PROBLEM_COLUMNS.map((column) =>
       allRows("Loading the asked Problems", (from, to) =>
         supabase
           .from("questions")
-          .select("exercise_id, problem_id, study_sessions!inner(course_id)")
+          .select(
+            "exercise_id, problem_id, asked_at, study_sessions!inner(course_id)",
+          )
           .eq("study_sessions.course_id", courseId)
           .not(column, "is", null)
           .order("id")
@@ -158,7 +161,16 @@ export async function loadAskedProblems(
       ),
     ),
   );
-  return new Set(asked.flat().flatMap((row) => posed(row) ?? []));
+  const lastAsked = new Map<string, string>();
+  for (const row of asked.flat()) {
+    const id = posed(row);
+    if (id === null) continue;
+    const before = lastAsked.get(id);
+    if (before === undefined || row.asked_at > before) {
+      lastAsked.set(id, row.asked_at);
+    }
+  }
+  return lastAsked;
 }
 
 /**

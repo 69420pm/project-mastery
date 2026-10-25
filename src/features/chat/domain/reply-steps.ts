@@ -197,6 +197,72 @@ export function sessionTopic(messages: ChatUIMessage[]): string | null {
   return context?.session ? (context.todayPlan.next?.id ?? null) : null;
 }
 
+/**
+ * A review session's progress, such as "3 of 5 done": the groups of its latest
+ * reply's review queue whose every KC has a first attempt, a group to retry
+ * included. The queue is built before that reply grades, so a group whose KCs
+ * the reply's own `grade` calls cover counts as done too. Null without a queue
+ * or with an empty one.
+ */
+export function reviewProgress(messages: ChatUIMessage[]): string | null {
+  const latest = messages.findLast((message) => message.metadata?.tutorContext);
+  const queue = latest?.metadata?.tutorContext?.reviewQueue;
+  if (!latest || !queue?.length) return null;
+  const graded = new Set<string>();
+  for (const part of latest.parts) {
+    if (!isToolUIPart(part) || gradedQuestion(part) === null) continue;
+    const { results } = asRecord(part.input);
+    if (!Array.isArray(results)) continue;
+    for (const result of results) {
+      const { kcId } = asRecord(result);
+      if (typeof kcId === "string") graded.add(kcId);
+    }
+  }
+  const done = queue.filter(
+    ({ status, kcs }) =>
+      status !== "open" || kcs.every(({ id }) => graded.has(id)),
+  ).length;
+  return `${done} of ${queue.length} done`;
+}
+
+/**
+ * A practice session's progress, such as "2 Problems answered": its graded
+ * questions that posed a Problem. Null without practice KCs in the latest
+ * reply's tutor context.
+ */
+export function practiceProgress(messages: ChatUIMessage[]): string | null {
+  const kcs = messages.findLast((message) => message.metadata?.tutorContext)
+    ?.metadata?.tutorContext?.practiceKcs;
+  if (!kcs?.length) return null;
+  const problems = new Set<string>();
+  const graded = new Set<string>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (!isToolUIPart(part)) continue;
+      const question = askedQuestion(part);
+      if (question && typeof asRecord(part.input).problemId === "string") {
+        problems.add(question.id);
+      }
+      const gradedId = gradedQuestion(part);
+      if (gradedId !== null) graded.add(gradedId);
+    }
+  }
+  const answered = [...problems].filter((id) => graded.has(id)).length;
+  return `${answered} ${answered === 1 ? "Problem" : "Problems"} answered`;
+}
+
+/**
+ * Where a Chat's session stands: its stage, Topic and the progress of a
+ * review or practice session.
+ */
+export function sessionView(messages: ChatUIMessage[]) {
+  return {
+    stage: sessionStage(messages),
+    topicId: sessionTopic(messages),
+    progress: reviewProgress(messages) ?? practiceProgress(messages),
+  };
+}
+
 /** The reading of a `showReading` call that returned; null for any other part. */
 function shownReading(part: ToolPart): ShownReading | null {
   if (

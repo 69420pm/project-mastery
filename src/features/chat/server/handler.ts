@@ -54,6 +54,7 @@ import {
   isAnswerable,
   recordAnswer,
   sessionEndedMessage,
+  startSessionMode,
   startTutoring,
   TutorToolError,
 } from "@/features/study/server";
@@ -122,7 +123,7 @@ export async function respondInChat({
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, courseId, message } = parsed.data;
+  const { chatId, courseId, mode, message } = parsed.data;
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -180,6 +181,10 @@ export async function respondInChat({
   if (chat === "taken") return refuse(404, chatNotFoundMessage);
   // The Course was deleted since it was checked.
   if (chat === "no course") return refuse(404, courseNotFoundMessage);
+  // Only a new Chat's first request can set the mode; a refusal leaves learn.
+  if (!existing && mode && mode !== "learn") {
+    await startSessionMode(supabase, chat.id, mode);
+  }
 
   if (existing) await startReply(supabase, chat.id, replyId);
 

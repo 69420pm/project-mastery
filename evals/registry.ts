@@ -5,6 +5,7 @@ import { generateEval, generateRealEval } from "./generate";
 import { gradeEval } from "./grade";
 import { learnEval } from "./learn";
 import { readingEval } from "./reading";
+import { reviewEval } from "./review";
 
 /** A registered eval whose input and expected-output types are erased. */
 export type RegisteredEval = EvalDefinition<unknown, unknown>;
@@ -27,4 +28,5 @@ export const EVALS: RegisteredEval[] = [
   register(gradeEval),
   register(learnEval),
   register(readingEval),
+  register(reviewEval),
 ];

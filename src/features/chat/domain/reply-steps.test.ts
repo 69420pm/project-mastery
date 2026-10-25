@@ -5,6 +5,8 @@ import {
   questionStates,
   rebuildQuestions,
   replySegments,
+  practiceProgress,
+  reviewProgress,
   sessionStage,
   sessionTopic,
 } from "./reply-steps";
@@ -225,6 +227,79 @@ test("the session's stage is the latest setStage that returned, else the latest 
     ]),
   ).toBe("prime");
   expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
+});
+
+test("a review session's progress counts the done groups of the latest queue and of its reply's grades", () => {
+  const grade = (kcIds: string[]) => ({
+    type: "tool-grade",
+    toolCallId: `grade-${kcIds.join()}`,
+    state: "output-available",
+    input: {
+      questionId: "q",
+      results: kcIds.map((kcId) => ({ kcId, result: "wrong" })),
+    },
+    output: {},
+  });
+  const reply = (statuses?: string[], parts: unknown[] = []) =>
+    ({
+      id: "r",
+      role: "assistant",
+      metadata: {
+        tutorContext: {
+          reviewQueue: statuses?.map((status, i) => ({
+            status,
+            kcs: [{ id: `k${i}` }, { id: `j${i}` }],
+          })),
+        },
+      },
+      parts,
+    }) as unknown as ChatUIMessage;
+
+  expect(
+    reviewProgress([reply(["open"]), reply(["done", "retry", "open"])]),
+  ).toBe("2 of 3 done");
+  expect(
+    reviewProgress([
+      reply(["done", "open", "open"], [grade(["k1", "j1", "k2"])]),
+    ]),
+  ).toBe("2 of 3 done");
+  expect(reviewProgress([reply([])])).toBeNull();
+  expect(reviewProgress([reply()])).toBeNull();
+});
+
+test("a practice session's progress counts its graded questions that posed a Problem", () => {
+  const ask = (id: string, problemId?: string) => ({
+    type: "tool-ask",
+    toolCallId: `ask-${id}`,
+    state: "output-available",
+    input: { kind: "problem", kcIds: ["k"], prompt: "Solve", problemId },
+    output: { questionId: id },
+  });
+  const grade = (id: string) => ({
+    type: "tool-grade",
+    toolCallId: `grade-${id}`,
+    state: "output-available",
+    input: { questionId: id },
+    output: { kcs: [] },
+  });
+  const reply = (parts: unknown[], practiceKcs: unknown[] | null = [{}]) =>
+    ({
+      id: "r",
+      role: "assistant",
+      metadata: { tutorContext: practiceKcs ? { practiceKcs } : {} },
+      parts,
+    }) as unknown as ChatUIMessage;
+
+  const messages = [
+    reply([ask("q1", "p1")]),
+    reply([grade("q1"), ask("q2"), ask("q3", "p2")]),
+    reply([grade("q2"), grade("q3"), ask("q4", "p3")]),
+  ];
+  expect(practiceProgress(messages)).toBe("2 Problems answered");
+  expect(practiceProgress(messages.slice(0, 2))).toBe("1 Problem answered");
+  expect(practiceProgress([reply([])])).toBe("0 Problems answered");
+  expect(practiceProgress([reply([], [])])).toBeNull();
+  expect(practiceProgress([reply([], null)])).toBeNull();
 });
 
 test("keeps text and tool calls in order, merging text across steps", () => {

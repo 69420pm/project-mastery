@@ -34,7 +34,8 @@ export type ProblemSource = (typeof PROBLEM_SOURCES)[number];
 export const isGenerated = (source: ProblemSource) =>
   source === "variant" || source === "new";
 
-const MAX_PROBLEMS = 3;
+/** The most Problems `findProblems` returns. */
+export const MAX_PROBLEMS = 3;
 
 /** The difficulty target when the Student has no unassisted success yet. */
 const FIRST_TARGET = 1;

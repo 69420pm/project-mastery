@@ -4,7 +4,7 @@ import { Chat, newChatPath } from "@/features/chat";
 import { newChat } from "@/features/chat/server";
 import { getCourse, getMaterialList } from "@/features/courses/server";
 import { courseMapPath, topicPath } from "@/features/knowledge-map";
-import { TodayCard } from "@/features/study";
+import { parseSessionMode, TodayCard } from "@/features/study";
 import { getPlan } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
@@ -19,8 +19,10 @@ export const metadata: Metadata = {
  */
 export default async function NewChatPage({
   params,
+  searchParams,
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
+  const { mode } = await searchParams;
   const user = await requireUser(newChatPath(courseId));
   const [course, dailyLimit, materials, plan] = await Promise.all([
     getCourse(courseId),
@@ -29,7 +31,7 @@ export default async function NewChatPage({
     getPlan(courseId),
   ]);
   if (!course) notFound();
-  const chat = newChat(course.id);
+  const chat = newChat(course.id, parseSessionMode(mode));
 
   return (
     <Chat
