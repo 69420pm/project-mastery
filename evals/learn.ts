@@ -471,7 +471,7 @@ function courseActions(
  */
 let lastCall = 0;
 
-async function pace() {
+export async function pace() {
   const gap = 60_000 / Number(process.env.LEARN_EVAL_RPM ?? 12);
   const wait = lastCall + gap - Date.now();
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
