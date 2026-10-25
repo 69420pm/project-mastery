@@ -35,6 +35,35 @@ test("items a run skipped count as failed", () => {
   expect(row.run).toMatchObject({ passRate: 0.4, passed: false });
 });
 
+test("an eval with dataset-wide gates takes their verdict, not the pass rate", () => {
+  const row = reportRow(
+    {
+      definition: {
+        ...definition,
+        name: "grade",
+        minPassRate: 0,
+        aggregate: (items) => ({
+          passed: items.every(({ evaluations }) =>
+            evaluations.every(({ value }) => value === 1),
+          ),
+          summary: "every item scored 1",
+        }),
+      },
+      total: 2,
+    },
+    {
+      date: "2026-10-25",
+      items: [{ behavior: 1 }, { behavior: 0 }],
+      costUsd: 0,
+    },
+  );
+  expect(row.run).toMatchObject({
+    passed: false,
+    summary: "every item scored 1",
+  });
+  expect(formatReport([row])).toMatch(/FAIL[\s\S]*grade: every item scored 1/);
+});
+
 test("the table shows a never-run eval and a failing one", async () => {
   const rows = await buildReport(
     {

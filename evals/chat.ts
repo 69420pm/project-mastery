@@ -1,7 +1,12 @@
-import { generateText, Output } from "ai";
+import { generateText, isStepCount, Output } from "ai";
 import { z } from "zod";
 import { chatReplySettings } from "@/features/chat/server";
-import type { TutorContext } from "@/features/study/server";
+import {
+  endsReply,
+  tutorTools,
+  type TutorContext,
+  type TutorToolActions,
+} from "@/features/study/server";
 import { aiTask } from "@/lib/ai/models";
 import type { EvalDefinition } from "./eval";
 
@@ -32,8 +37,9 @@ type Input = z.infer<typeof input>;
 
 /**
  * A fixed tutor context from a small sample calculus map, so the eval runs
- * the instructions as a Chat in a Course with a map gets them. No tools: the
- * items test behaviour, not the course's sources.
+ * the instructions as a Chat in a Course with a map gets them. The tools
+ * serve the sample map without sources: the items test behaviour, not the
+ * course's sources.
  */
 const SAMPLE_CONTEXT: TutorContext = {
   today: "2026-11-02",
@@ -74,6 +80,59 @@ const SAMPLE_CONTEXT: TutorContext = {
   },
 };
 
+const SAMPLE_KCS = [
+  ...SAMPLE_CONTEXT.todayPlan.next!.kcs,
+  ...SAMPLE_CONTEXT.todayPlan.next!.anchors.map((anchor) => ({
+    ...anchor,
+    type: "concept",
+  })),
+];
+
+/** The most steps of a reply, as the tools let the AI read before writing. */
+const MAX_STEPS = 5;
+
+/**
+ * The AI's reply as the Student sees it: its text, and the question card
+ * when it asks one. Tools serve the sample map; a question is not stored.
+ */
+async function reply(messages: Input["messages"]): Promise<string> {
+  const cards: string[] = [];
+  const actions: TutorToolActions = {
+    readKcs: async (kcIds) =>
+      SAMPLE_KCS.filter((kc) => kcIds.includes(kc.id)).map((kc) => ({
+        id: kc.id,
+        name: kc.name,
+        type: kc.type,
+        description: kc.name,
+        sources: [],
+      })),
+    findExercises: async () => ({
+      exercises: [],
+      note: "The Course has no Exercises on these KCs.",
+    }),
+    findReading: async () => null,
+    remember: async () => {},
+    ask: async ({ prompt }) => {
+      cards.push(prompt);
+      return `question-${cards.length}`;
+    },
+    findQuestion: async () => null,
+    saveGrade: async () => null,
+  };
+  const { steps } = await generateText({
+    ...chatReplySettings(SAMPLE_CONTEXT),
+    messages,
+    tools: tutorTools(actions),
+    stopWhen: [isStepCount(MAX_STEPS), endsReply],
+  });
+  return [
+    ...steps.map((step) => step.text),
+    ...cards.map((prompt) => `[Question card]\n${prompt}`),
+  ]
+    .filter((part) => part.trim() !== "")
+    .join("\n\n");
+}
+
 const JUDGE_INSTRUCTIONS = `You grade replies of an AI that tutors university students in a study app. You get the Chat so far, the AI's reply to the Student's last message, and the criteria the reply must meet.
 
 Pass the reply only if it meets every criterion. Judge what the reply actually does, not what it promises. Be strict but fair: wording and style may differ as long as the criteria are met.`;
@@ -90,13 +149,7 @@ export const chatEval: EvalDefinition<Input, z.infer<typeof expectedOutput>> = {
   name: "chat",
   input,
   expectedOutput,
-  task: async ({ messages }) => {
-    const { text } = await generateText({
-      ...chatReplySettings(SAMPLE_CONTEXT),
-      messages,
-    });
-    return text;
-  },
+  task: async ({ messages }) => reply(messages),
   evaluators: [
     async ({ input: item, output, expectedOutput: expected }) => {
       const { output: verdict } = await generateText({

@@ -16,6 +16,8 @@ export type ReportRow = {
     means: Record<string, number | undefined>;
     passRate: number;
     passed: boolean;
+    /** The dataset-wide gates' verdict, for an eval that has them. */
+    summary?: string;
     costUsd: number | undefined;
   };
 };
@@ -23,7 +25,7 @@ export type ReportRow = {
 type ReportInput = {
   definition: Pick<
     EvalDefinition<unknown, unknown>,
-    "name" | "gates" | "minPassRate"
+    "name" | "gates" | "minPassRate" | "aggregate"
   >;
   /** Number of items in the fixture; items a run skipped count as failed. */
   total: number;
@@ -33,7 +35,7 @@ export function reportRow(
   { definition, total }: ReportInput,
   run: EvalRun | undefined,
 ): ReportRow {
-  const { name, gates, minPassRate } = definition;
+  const { name, gates, minPassRate, aggregate } = definition;
   if (!run) return { eval: name, gates, minPassRate };
 
   const means = Object.fromEntries(
@@ -50,6 +52,15 @@ export function reportRow(
     gates.every((gate) => item[gate] === 1),
   ).length;
   const passRate = total === 0 ? 0 : passedItems / total;
+  // Dataset-wide gates replace the pass rate, as in `pnpm evals`.
+  const verdict = aggregate?.(
+    run.items.map((scores) => ({
+      evaluations: Object.entries(scores).map(([name, value]) => ({
+        name,
+        value,
+      })),
+    })),
+  );
   return {
     eval: name,
     gates,
@@ -58,7 +69,8 @@ export function reportRow(
       date: run.date,
       means,
       passRate,
-      passed: passRate >= minPassRate,
+      passed: verdict ? verdict.passed : passRate >= minPassRate,
+      summary: verdict?.summary,
       costUsd: run.costUsd,
     },
   };
@@ -93,12 +105,16 @@ export function formatReport(rows: ReportRow[]) {
   const widths = header.map((_, column) =>
     Math.max(...[header, ...body].map((line) => line[column]?.length ?? 0)),
   );
-  return [header, ...body]
-    .map((line) =>
-      line
-        .map((cell, column) => cell.padEnd(widths[column] ?? 0))
-        .join("  ")
-        .trimEnd(),
-    )
-    .join("\n");
+  const table = [header, ...body].map((line) =>
+    line
+      .map((cell, column) => cell.padEnd(widths[column] ?? 0))
+      .join("  ")
+      .trimEnd(),
+  );
+  const summaries = rows.flatMap(({ eval: name, run }) =>
+    run?.summary ? [`${name}: ${run.summary}`] : [],
+  );
+  return [...table, ...(summaries.length > 0 ? ["", ...summaries] : [])].join(
+    "\n",
+  );
 }
