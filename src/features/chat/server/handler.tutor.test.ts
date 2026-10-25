@@ -244,6 +244,26 @@ describe("getTopic", () => {
     ]);
   });
 
+  test("reads KCs by id alone without a Topic, with their sources", async () => {
+    const model = mockToolModel(
+      [[{ toolName: "getTopic", input: { kcIds: [MAP.thrust] } }]],
+      "Let's review.",
+    );
+    useMockModels({ chat: model });
+    seedMap();
+
+    await send(firstMessage());
+
+    const prompt = model.doStreamCalls[1]!.prompt;
+    const result = JSON.stringify(prompt.at(-1));
+    expect(result).toContain("Thrust equation, as the lecture states it.");
+    expect(result).toContain("Lecture 7");
+    expect(result).toContain('"centralQuestion":null');
+    expect(result).toContain('"readingSections":null');
+    // Only the KCs asked for, not the rest of a Topic.
+    expect(result).not.toContain("Propulsive efficiency");
+  });
+
   test("gives at most 3 sources per KC, in reading order", async () => {
     const model = mockToolModel(
       [[{ toolName: "getTopic", input: { topicId: MAP.topic } }]],
@@ -290,6 +310,11 @@ describe("getTopic", () => {
       "a KC outside the Topic",
       { topicId: MAP.topic, kcIds: [MAP.thrust, MAP.prior] },
       `These KCs are not in this Topic: ${MAP.prior}.`,
+    ],
+    [
+      "a KC outside the Course, read without a Topic",
+      { kcIds: [MAP.thrust, "made-up"] },
+      "These are no KC ids of this Course: made-up.",
     ],
   ])("refuses %s, and the reply continues", async (_name, input, refusal) => {
     const model = mockToolModel(

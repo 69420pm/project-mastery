@@ -339,7 +339,8 @@ function describeOutput(
   if (name === "getTopic" && Array.isArray(out.kcs)) {
     const topic = out as unknown as TopicView;
     return {
-      summary: `Read Topic ${topic.name}`,
+      summary:
+        topic.name === null ? "Read the KCs" : `Read Topic ${topic.name}`,
       detail: { tool: "getTopic", topic },
     };
   }

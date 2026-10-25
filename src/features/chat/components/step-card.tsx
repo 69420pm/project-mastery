@@ -65,9 +65,11 @@ function StepDetails({ detail }: { detail: StepDetail }) {
     case "getTopic":
       return (
         <Items>
-          <li className="text-muted-foreground">
-            {detail.topic.centralQuestion}
-          </li>
+          {detail.topic.centralQuestion !== null && (
+            <li className="text-muted-foreground">
+              {detail.topic.centralQuestion}
+            </li>
+          )}
           {detail.topic.kcs.map((kc) => (
             <li key={kc.id} className="flex flex-col gap-1">
               <p>

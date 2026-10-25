@@ -65,6 +65,24 @@ describe("getTopic", () => {
       "x is no Topic id of this Course",
     );
   });
+
+  test("reads KCs without a Topic, and then needs their ids", async () => {
+    const calls: unknown[][] = [];
+    const kcsOnly = { id: null, kcs: [{ id: "kc-1" }] };
+    const run = tutorTools({
+      ...noActions,
+      getTopic: async (...args) => {
+        calls.push(args);
+        return kcsOnly as never;
+      },
+    }).getTopic.execute!;
+    const options = { toolCallId: "1", messages: [] } as never;
+    await expect(run({ kcIds: ["kc-1"] }, options)).resolves.toEqual(kcsOnly);
+    expect(calls).toEqual([[null, ["kc-1"]]]);
+    await expect(run({ topicId: null }, options)).rejects.toThrow(
+      "Give a topicId, or the kcIds",
+    );
+  });
 });
 
 describe("grade", () => {

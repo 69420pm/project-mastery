@@ -30,16 +30,24 @@ const kcIdsInputSchema = z.object({
 /** The most KCs one question tests, as many as a Topic has at most. */
 const MAX_QUESTION_KCS = 12;
 
-/** What `getTopic` takes: a Topic and, for source chunks, some of its KCs. */
+/**
+ * What `getTopic` takes: a Topic and, for source chunks, some of its KCs; or,
+ * without a Topic, KCs of the Course alone.
+ */
 const getTopicInputSchema = z.object({
-  topicId: z.string().describe("The id of a Topic of this Course."),
+  topicId: z
+    .string()
+    .nullish()
+    .describe(
+      "The id of a Topic of this Course; omit it to read KCs that have no Topic id, by kcIds alone.",
+    ),
   kcIds: z
     .array(z.string())
     .min(1)
     .max(MAX_QUESTION_KCS)
     .nullish()
     .describe(
-      "The ids of KCs of this Topic to read the source chunks of; omit it for every KC of the Topic.",
+      "The ids of KCs to read the source chunks of: of the Topic, or every KC of it when omitted; without a Topic, of the Course, and then required.",
     ),
 });
 
@@ -185,10 +193,14 @@ export type TutorToolActions = {
   saveStage: (stage: Stage) => Promise<boolean>;
   /**
    * A Topic of the Course with the source chunks of `kcIds`, or of all its
-   * KCs when none; null for an id that is no Topic of the Course. Throws a
-   * `TutorToolError` for a KC that is not of the Topic.
+   * KCs when none; null for an id that is no Topic of the Course. Without a
+   * Topic, only the KCs of `kcIds`, with their source chunks. Throws a
+   * `TutorToolError` for a KC that is not of the Topic, or of the Course.
    */
-  getTopic: (topicId: string, kcIds?: string[]) => Promise<TopicView | null>;
+  getTopic: (
+    topicId: string | null,
+    kcIds?: string[],
+  ) => Promise<TopicView | null>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
     kcIds: string[],
@@ -229,10 +241,18 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
-        const topic = await actions.getTopic(topicId, kcIds ?? undefined);
+        if (!topicId && !kcIds) {
+          throw new TutorToolError(
+            "Give a topicId, or the kcIds of the KCs to read without one.",
+          );
+        }
+        const topic = await actions.getTopic(
+          topicId || null,
+          kcIds ?? undefined,
+        );
         if (!topic) {
           throw new TutorToolError(
             `${topicId} is no Topic id of this Course: use the id of the next Topic, or of a due review's Topic.`,

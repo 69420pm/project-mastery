@@ -467,15 +467,17 @@ function tutorToolActions(
       }
     },
     async getTopic(topicId, kcIds) {
-      const topic = topics.find(({ id }) => id === topicId);
-      if (!topic) return null;
-      const foreign = (kcIds ?? []).filter((id) => !topic.kcs.includes(id));
-      if (foreign.length > 0) {
+      const topic =
+        topicId === null ? null : topics.find(({ id }) => id === topicId);
+      if (topic === undefined) return null;
+      if (!topic) requireKnown(kcIds ?? []);
+      const foreign = (kcIds ?? []).filter((id) => !topic?.kcs.includes(id));
+      if (topic && foreign.length > 0) {
         throw new TutorToolError(
           `These KCs are not in this Topic: ${foreign.join(", ")}. Use the ids of its KCs.`,
         );
       }
-      const sectionList = readings.get(topicId) ?? [];
+      const sectionList = topic ? (readings.get(topic.id) ?? []) : [];
       const now = new Date();
       const [schedules, done] = await Promise.all([
         loadSchedules(supabase, courseId, facts, now),
@@ -485,16 +487,17 @@ function tutorToolActions(
         ),
       ]);
       const stateOf = (id: string) => kcState(schedules.get(id), now).state;
-      const kcs = topic.kcs.flatMap((id) => kcById.get(id) ?? []);
-      const wanted = new Set(kcIds ?? topic.kcs);
+      const wanted = new Set(kcIds ?? topic?.kcs);
+      const ids = topic?.kcs ?? [...wanted];
+      const kcs = ids.flatMap((id) => kcById.get(id) ?? []);
       const chunks = await loadChunkSources(
         supabase,
         kcs.filter((kc) => wanted.has(kc.id)).flatMap((kc) => kc.sources),
       );
       return {
-        id: topic.id,
-        name: topic.name,
-        centralQuestion: topic.centralQuestion,
+        id: topic?.id ?? null,
+        name: topic?.name ?? null,
+        centralQuestion: topic?.centralQuestion ?? null,
         kcs: kcs.map((kc) => ({
           id: kc.id,
           name: kc.name,
@@ -513,17 +516,20 @@ function tutorToolActions(
                 }))
             : [],
         })),
-        anchors: topicAnchors(topic.kcs, map).map(({ id, name }) => ({
-          id,
-          name,
-          state: stateOf(id),
-        })),
-        readingSections: sectionList.map((section) => ({
-          id: section.id,
-          label: readingLabel(section),
-          mode: section.mode,
-          done: done.has(section.id),
-        })),
+        anchors:
+          topic &&
+          topicAnchors(topic.kcs, map).map((kc) => ({
+            ...kc,
+            state: stateOf(kc.id),
+          })),
+        readingSections:
+          topic &&
+          sectionList.map((section) => ({
+            id: section.id,
+            label: readingLabel(section),
+            mode: section.mode,
+            done: done.has(section.id),
+          })),
       };
     },
   };

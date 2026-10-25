@@ -195,11 +195,14 @@ export type TopicKnowledgeMap = {
   learning: MapKcLearning;
 };
 
-/** A Topic as `getTopic` returns it. */
+/**
+ * A Topic as `getTopic` returns it. Read by KC ids alone, without a Topic,
+ * it has only the KCs: the Topic's fields are null.
+ */
 export type TopicView = {
-  id: string;
-  name: string;
-  centralQuestion: string;
+  id: string | null;
+  name: string | null;
+  centralQuestion: string | null;
   /** In teaching order. */
   kcs: Array<{
     id: string;
@@ -210,7 +213,7 @@ export type TopicView = {
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: KcSourceView[];
   }>;
-  anchors: Array<{ id: string; name: string; state: KcStateName }>;
+  anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
   /** In order; `done` when the Student has a Done message for it. */
-  readingSections: Array<ReadingSectionView & { done: boolean }>;
+  readingSections: Array<ReadingSectionView & { done: boolean }> | null;
 };
