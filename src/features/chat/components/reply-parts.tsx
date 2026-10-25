@@ -11,6 +11,7 @@ import {
   type QuestionState,
 } from "@/features/chat/domain/reply-steps";
 import type { ChatUIMessage } from "@/features/chat/types";
+import type { ProblemFlag } from "@/features/study";
 
 /**
  * An AI reply's text and tool calls in the order they came: text as
@@ -23,6 +24,7 @@ export function ReplyParts({
   streaming,
   inProgress,
   questions,
+  problemFlags,
   canAnswer,
   onAnswer,
   doneReadings,
@@ -38,6 +40,8 @@ export function ReplyParts({
   inProgress: boolean;
   /** Where the Chat's questions stand (`questionStates`). */
   questions: Map<string, QuestionState>;
+  /** The stored flags of the generated Problems posed, by Problem id. */
+  problemFlags: Record<string, ProblemFlag>;
   /** Whether the Student can send an answer now. */
   canAnswer: boolean;
   onAnswer: (
@@ -77,6 +81,11 @@ export function ReplyParts({
             key={segment.question.id}
             question={segment.question}
             state={questions.get(segment.question.id)}
+            problemFlag={
+              segment.question.generatedProblemId
+                ? problemFlags[segment.question.generatedProblemId]
+                : undefined
+            }
             canAnswer={canAnswer}
             onAnswer={(text, confidence) =>
               onAnswer(segment.question.id, text, confidence)

@@ -12,7 +12,11 @@ import type {
   QuestionState,
 } from "@/features/chat/domain/reply-steps";
 import { MAX_MESSAGE_LENGTH } from "@/features/chat/schemas";
-import type { GradedKc } from "@/features/study";
+import {
+  ProblemFlagControl,
+  type GradedKc,
+  type ProblemFlag,
+} from "@/features/study";
 import { cn } from "@/lib/utils";
 
 const RESULT_LABELS: Record<GradedKc["result"], string> = {
@@ -31,17 +35,21 @@ const RESULT_VARIANTS = {
  * A question the AI asked: its prompt, and an answer box with a live
  * preview while it is open. Once answered it says so and can be answered
  * again, until it is graded; graded, it shows the result on each KC.
- * Feedback stays in the AI's reply.
+ * Feedback stays in the AI's reply. On a generated Problem, the Student can
+ * flag it.
  */
 export function QuestionCard({
   question,
   state,
+  problemFlag,
   canAnswer,
   onAnswer,
 }: {
   question: AskedQuestion;
   /** Undefined while the question is open. */
   state: QuestionState | undefined;
+  /** The stored flag of its generated Problem; undefined without one. */
+  problemFlag?: ProblemFlag | undefined;
   /** False while a reply is on its way or at the Daily limit. */
   canAnswer: boolean;
   onAnswer: (text: string, confidence: number | undefined) => void;
@@ -79,6 +87,12 @@ export function QuestionCard({
         </div>
       ) : (
         state?.status === "graded" && <Grades kcs={state.kcs} />
+      )}
+      {question.generatedProblemId && (
+        <ProblemFlagControl
+          problemId={question.generatedProblemId}
+          flag={problemFlag}
+        />
       )}
     </section>
   );

@@ -333,15 +333,23 @@ export function fakeSupabase<Table extends string>(
       select(columns = "*") {
         if (action.kind !== "select") returning = true;
         // Embeds a table only when the test declares its foreign key here.
-        // A referenced row must exist, as with `!inner` on a not-null key.
-        for (const [, child, inner] of columns.matchAll(
-          /(\w+)(?:!inner)?\(([^)]*)\)/g,
+        // A referenced row must exist with `!inner`, or when the key is set;
+        // without `!inner`, a row whose key is null embeds null, as in a
+        // left join.
+        for (const [, child, isInner, inner] of columns.matchAll(
+          /(\w+)(!inner)?\(([^)]*)\)/g,
         )) {
           const fks = options.foreignKeys?.[child as Table] ?? {};
           const own = options.foreignKeys?.[table] ?? {};
           if (Object.values(own).includes(child as Table)) {
             parents.add(child as Table);
-            filters.push((row) => parentOf(row, child!) !== undefined);
+            const [key] =
+              Object.entries(own).find(([, ref]) => ref === child) ?? [];
+            filters.push(
+              (row) =>
+                (!isInner && (row[key!] ?? null) === null) ||
+                parentOf(row, child!) !== undefined,
+            );
           } else if (Object.values(fks).includes(table)) {
             embeds.set(child as Table, {
               orders: [],

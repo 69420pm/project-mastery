@@ -6,6 +6,7 @@ import { briefPath } from "@/features/brief";
 import {
   answerMapFindingSchema,
   endSessionSchema,
+  flagProblemSchema,
   rateSessionSchema,
   saveMemorySchema,
   setTopicChoiceSchema,
@@ -13,8 +14,13 @@ import {
 } from "@/features/study/schemas";
 import { answerOpenMapFinding } from "@/features/study/server/map-findings";
 import { appendMemory } from "@/features/study/server/memory";
+import { flagReadyProblem } from "@/features/study/server/problems";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
-import type { SessionSummary, TopicKnowledgeMap } from "@/features/study/types";
+import type {
+  ProblemFlag,
+  SessionSummary,
+  TopicKnowledgeMap,
+} from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -149,6 +155,32 @@ export async function getTopicKnowledgeMap(input: {
   );
   if (!topic) return { ok: false, message: "This Topic was not found." };
   return { ok: true, data: topic };
+}
+
+/**
+ * Flags a generated Problem from its question card, once: a flagged
+ * Problem leaves the pool `findProblems` draws from.
+ */
+export async function flagProblem(input: {
+  problemId: string;
+  flag: ProblemFlag;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(flagProblemSchema, input);
+  if (!parsed.ok) return parsed;
+
+  if (
+    !(await flagReadyProblem(
+      await createClient(),
+      parsed.data.problemId,
+      parsed.data.flag,
+    ))
+  ) {
+    return { ok: false, message: "This problem was flagged already." };
+  }
+  return { ok: true, data: undefined };
 }
 
 /**

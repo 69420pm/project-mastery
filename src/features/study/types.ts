@@ -10,12 +10,24 @@ import type {
   KcStateName,
 } from "@/features/study/domain/replay";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
+import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
 import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
 import type { TopicState } from "@/features/study/domain/topic-state";
 
-export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase, Stage };
+export type {
+  AttemptHelp,
+  AttemptResult,
+  KcState,
+  KcStateName,
+  Phase,
+  ProblemSource,
+  Stage,
+};
+
+/** Why a Student flags a generated Problem. */
+export type ProblemFlag = "unclear" | "wrong" | "too_easy" | "off_topic";
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -110,16 +122,23 @@ export type SourceChunkView = {
 export type ProblemView = {
   /** The Problem's id, which a question on it names. */
   id: string;
-  /** Whether its Exercise is from an old exam. */
-  source: "old_exam" | "exercise";
+  /**
+   * An Exercise of an old exam or another one, or a generated variant of an
+   * Exercise or new Problem.
+   */
+  source: ProblemSource;
   name: string;
-  taskType: string;
+  /** Null for a generated Problem without one. */
+  taskType: string | null;
   /** 1 to 3. */
   difficulty: number;
   /** The question's Markdown. */
   question: string;
-  /** The question on its Material's page, where its figure shows. */
-  link: string;
+  /**
+   * The question on its Material's page, where its figure shows; null for a
+   * generated Problem.
+   */
+  link: string | null;
   /** The KCs it tests, by id and name. */
   kcs: Array<{ id: string; name: string }>;
   solution: {

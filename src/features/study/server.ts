@@ -30,6 +30,7 @@ export {
 } from "./server/math-runner";
 export { getMemory } from "./server/memory";
 export { getPlan } from "./server/plan";
+export { loadProblemFlags } from "./server/problems";
 export {
   isAnswerable,
   loadAnswerLinks,

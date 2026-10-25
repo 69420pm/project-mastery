@@ -1441,6 +1441,147 @@ export type Database = {
           },
         ];
       };
+      problem_kcs: {
+        Row: {
+          course_id: string;
+          kc_id: string;
+          owner: string;
+          problem_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          kc_id: string;
+          owner: string;
+          problem_id: string;
+        };
+        Update: {
+          course_id?: string;
+          kc_id?: string;
+          owner?: string;
+          problem_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "problem_kcs_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_kcs_kc_id_fkey";
+            columns: ["kc_id"];
+            isOneToOne: false;
+            referencedRelation: "kcs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_kcs_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problem_kcs_problem_id_fkey";
+            columns: ["problem_id"];
+            isOneToOne: false;
+            referencedRelation: "problems";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      problems: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          difficulty: number;
+          failure: string | null;
+          final_answers: Json | null;
+          flag: string | null;
+          flagged_at: string | null;
+          id: string;
+          original_exercise_id: string | null;
+          owner: string;
+          program: string | null;
+          solution: string | null;
+          source: string;
+          statement: string | null;
+          status: string;
+          task_type: string | null;
+          topic_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          difficulty: number;
+          failure?: string | null;
+          final_answers?: Json | null;
+          flag?: string | null;
+          flagged_at?: string | null;
+          id?: string;
+          original_exercise_id?: string | null;
+          owner: string;
+          program?: string | null;
+          solution?: string | null;
+          source: string;
+          statement?: string | null;
+          status?: string;
+          task_type?: string | null;
+          topic_id?: string | null;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          difficulty?: number;
+          failure?: string | null;
+          final_answers?: Json | null;
+          flag?: string | null;
+          flagged_at?: string | null;
+          id?: string;
+          original_exercise_id?: string | null;
+          owner?: string;
+          program?: string | null;
+          solution?: string | null;
+          source?: string;
+          statement?: string | null;
+          status?: string;
+          task_type?: string | null;
+          topic_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "problems_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problems_original_exercise_id_fkey";
+            columns: ["original_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problems_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "problems_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           created_at: string;
@@ -1506,6 +1647,7 @@ export type Database = {
           id: string;
           kind: string;
           owner: string;
+          problem_id: string | null;
           prompt: string;
           session_id: string;
         };
@@ -1521,6 +1663,7 @@ export type Database = {
           id?: string;
           kind: string;
           owner?: string;
+          problem_id?: string | null;
           prompt: string;
           session_id: string;
         };
@@ -1535,6 +1678,7 @@ export type Database = {
           id?: string;
           kind?: string;
           owner?: string;
+          problem_id?: string | null;
           prompt?: string;
           session_id?: string;
         };
@@ -1558,6 +1702,13 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "questions_problem_id_fkey";
+            columns: ["problem_id"];
+            isOneToOne: false;
+            referencedRelation: "problems";
             referencedColumns: ["id"];
           },
           {

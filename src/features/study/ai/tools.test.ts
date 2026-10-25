@@ -14,7 +14,7 @@ const noActions = {
   getTopic: async () => null,
   findProblems: async () => ({ problems: [] }),
   remember: async () => {},
-  ask: async () => "q-1",
+  ask: async () => ({ questionId: "q-1", generatedProblemId: null }),
   findQuestion: async () => null,
   saveGrade: async () => null,
   findReading: async () => null,
@@ -393,6 +393,25 @@ describe("showReading", () => {
     const step = (name: string) => ({ toolCalls: [{ toolName: name }] });
     expect(endsReply({ steps: [step(toolName)] } as never)).toBe(true);
     expect(endsReply({ steps: [step("getTopic")] } as never)).toBe(false);
+  });
+});
+
+describe("ask", () => {
+  const askWith = (generatedProblemId: string | null) =>
+    tutorTools({
+      ...noActions,
+      ask: async () => ({ questionId: "q-1", generatedProblemId }),
+    }).ask.execute!(
+      { kind: "problem", prompt: "Go.", kcIds: ["k1"], problemId: "p-1" },
+      { toolCallId: "1", messages: [] } as never,
+    );
+
+  test("names the generated Problem it poses, for its card's flag", async () => {
+    expect(await askWith("p-1")).toEqual({
+      questionId: "q-1",
+      generatedProblemId: "p-1",
+    });
+    expect(await askWith(null)).toEqual({ questionId: "q-1" });
   });
 });
 

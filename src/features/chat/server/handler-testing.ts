@@ -41,6 +41,8 @@ const COURSE_TABLES = [
   "topics",
   "reading_sections",
   "map_findings",
+  "problems",
+  "problem_kcs",
 ] as const;
 
 let signedIn: string | null = STUDENT;
@@ -89,6 +91,8 @@ function createDb() {
       topic_choices: [],
       reading_sections: [],
       map_findings: [],
+      problems: [],
+      problem_kcs: [],
     },
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
@@ -96,7 +100,12 @@ function createDb() {
       reading_sections: { material_id: "materials" },
       topic_kcs: { topic_id: "topics" },
       topic_choices: { topic_id: "topics" },
-      questions: { session_id: "study_sessions" },
+      questions: {
+        session_id: "study_sessions",
+        exercise_id: "exercises",
+        problem_id: "problems",
+      },
+      problem_kcs: { problem_id: "problems" },
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
     },

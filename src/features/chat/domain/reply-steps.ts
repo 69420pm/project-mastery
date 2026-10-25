@@ -46,6 +46,8 @@ export type AskedQuestion = {
   kind: QuestionKind;
   /** Markdown with LaTeX. */
   prompt: string;
+  /** The generated Problem it poses, which the card lets the Student flag. */
+  generatedProblemId?: string;
 };
 
 /** A Reading section the AI opened, as its reading card shows it. */
@@ -157,6 +159,9 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
     id: output.questionId,
     kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
+    ...(typeof output.generatedProblemId === "string" && {
+      generatedProblemId: output.generatedProblemId,
+    }),
   };
 }
 

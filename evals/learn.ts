@@ -429,7 +429,7 @@ function courseActions(
         kind,
         kcIds: kcIds.map((k) => topic.goldId(k)!),
       });
-      return id;
+      return { questionId: id, generatedProblemId: null };
     },
     findQuestion: async (questionId) => {
       const question = state.questions.get(questionId);
