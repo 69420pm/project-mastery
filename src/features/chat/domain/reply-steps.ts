@@ -198,14 +198,30 @@ export function sessionTopic(messages: ChatUIMessage[]): string | null {
 }
 
 /**
- * A review session's progress, such as "3 of 5 done": the groups done of its
- * latest reply's review queue. Null without a queue or with an empty one.
+ * A review session's progress, such as "3 of 5 done": the groups of its latest
+ * reply's review queue whose every KC has a first attempt, a group to retry
+ * included. The queue is built before that reply grades, so a group whose KCs
+ * the reply's own `grade` calls cover counts as done too. Null without a queue
+ * or with an empty one.
  */
 export function reviewProgress(messages: ChatUIMessage[]): string | null {
-  const queue = messages.findLast((message) => message.metadata?.tutorContext)
-    ?.metadata?.tutorContext?.reviewQueue;
-  if (!queue?.length) return null;
-  const done = queue.filter(({ status }) => status === "done").length;
+  const latest = messages.findLast((message) => message.metadata?.tutorContext);
+  const queue = latest?.metadata?.tutorContext?.reviewQueue;
+  if (!latest || !queue?.length) return null;
+  const graded = new Set<string>();
+  for (const part of latest.parts) {
+    if (!isToolUIPart(part) || gradedQuestion(part) === null) continue;
+    const { results } = asRecord(part.input);
+    if (!Array.isArray(results)) continue;
+    for (const result of results) {
+      const { kcId } = asRecord(result);
+      if (typeof kcId === "string") graded.add(kcId);
+    }
+  }
+  const done = queue.filter(
+    ({ status, kcs }) =>
+      status !== "open" || kcs.every(({ id }) => graded.has(id)),
+  ).length;
   return `${done} of ${queue.length} done`;
 }
 

@@ -229,22 +229,40 @@ test("the session's stage is the latest setStage that returned, else the latest 
   expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
 });
 
-test("a review session's progress counts the done groups of the latest queue", () => {
-  const reply = (statuses?: string[]) =>
+test("a review session's progress counts the done groups of the latest queue and of its reply's grades", () => {
+  const grade = (kcIds: string[]) => ({
+    type: "tool-grade",
+    toolCallId: `grade-${kcIds.join()}`,
+    state: "output-available",
+    input: {
+      questionId: "q",
+      results: kcIds.map((kcId) => ({ kcId, result: "wrong" })),
+    },
+    output: {},
+  });
+  const reply = (statuses?: string[], parts: unknown[] = []) =>
     ({
       id: "r",
       role: "assistant",
       metadata: {
         tutorContext: {
-          reviewQueue: statuses?.map((status) => ({ status })),
+          reviewQueue: statuses?.map((status, i) => ({
+            status,
+            kcs: [{ id: `k${i}` }, { id: `j${i}` }],
+          })),
         },
       },
-      parts: [],
+      parts,
     }) as unknown as ChatUIMessage;
 
   expect(
     reviewProgress([reply(["open"]), reply(["done", "retry", "open"])]),
-  ).toBe("1 of 3 done");
+  ).toBe("2 of 3 done");
+  expect(
+    reviewProgress([
+      reply(["done", "open", "open"], [grade(["k1", "j1", "k2"])]),
+    ]),
+  ).toBe("2 of 3 done");
   expect(reviewProgress([reply([])])).toBeNull();
   expect(reviewProgress([reply()])).toBeNull();
 });
