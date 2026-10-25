@@ -161,6 +161,15 @@ function mockAnswerFinding(
 /** A Student's message that starts with this makes the tutor mock ask. */
 export const MOCK_QUIZ_REQUEST = "Quiz me";
 
+/**
+ * A Student's message that starts with this makes the tutor mock open the
+ * first Reading section the instructions list.
+ */
+export const MOCK_READING_REQUEST = "Read with me";
+
+/** The purpose question of the tutor mock's reading. */
+export const MOCK_READING_PURPOSE = "Mock purpose: what makes thrust?";
+
 /** The question the tutor mock asks. */
 export const MOCK_QUESTION = "Mock question: what is $2 + 2$?";
 
@@ -211,10 +220,12 @@ function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
 }
 
 /**
- * In a Chat, the tutor's questions: a Student message starting with "Quiz
- * me" gets an `ask` call on the first KC id the instructions name, and an
- * answer from a question card, which names its question, a `grade` call with
- * every KC of the asked question full. Each then ends its step.
+ * In a Chat, the tutor's questions and readings: a Student message starting
+ * with "Quiz me" gets an `ask` call on the first KC id the instructions name,
+ * one starting with "Read with me" a `showReading` call on the first Reading
+ * section they list, and an answer from a question card, which names its
+ * question, a `grade` call with every KC of the asked question full. Each
+ * then ends its step.
  */
 function mockTutorQuestions(
   prompt: Prompt,
@@ -235,8 +246,19 @@ function mockTutorQuestions(
       help: "none",
     });
   }
-  if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const system = prompt.find(({ role }) => role === "system")?.content;
+  if (text.startsWith(MOCK_READING_REQUEST)) {
+    const sectionId =
+      typeof system === "string"
+        ? new RegExp(`section id (${UUID})`).exec(system)?.[1]
+        : undefined;
+    if (!sectionId) return null;
+    return toolCallStream("mock-show-reading", "showReading", {
+      sectionId,
+      purpose: MOCK_READING_PURPOSE,
+    });
+  }
+  if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId =
     typeof system === "string"
       ? new RegExp(`\\(id (${UUID})`).exec(system)?.[1]

@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { hasToolCall, tool } from "ai";
 import { z } from "zod";
 import type { FinalAnswer } from "@/features/knowledge-map";
 import {
@@ -10,6 +10,7 @@ import type {
   GradedKc,
   KcReading,
   QuestionKind,
+  ReadingView,
 } from "@/features/study/types";
 
 /** What `readKcs` and `findExercises` take: KC ids of the Course. */
@@ -103,6 +104,11 @@ export type QuestionToGrade = {
   finalAnswers: FinalAnswer[] | null;
 };
 
+/** A stored Reading section as `showReading` reads it. */
+export type ReadingToShow = Omit<ReadingView, "studyText"> & {
+  studyText: string | null;
+};
+
 /** What the numeric check found: null when it didn't apply. */
 export type FinalValueCheck = "match" | "mismatch" | null;
 
@@ -116,6 +122,16 @@ const rememberInputSchema = z.object({
     .describe("One line of at most 300 characters, without line breaks."),
 });
 
+/** What `showReading` takes: a Reading section and why the Student reads it. */
+const showReadingInputSchema = z.object({
+  sectionId: z
+    .string()
+    .describe("The id of a Reading section listed for the next Topic."),
+  purpose: rememberInputSchema.shape.text.describe(
+    "The question the reading answers, which the Student reads it for: one line of at most 300 characters.",
+  ),
+});
+
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
@@ -126,6 +142,8 @@ export type TutorToolActions = {
   findExercises: (
     kcIds: string[],
   ) => Promise<{ exercises: ExerciseView[]; note?: string }>;
+  /** A Reading section of the Course; null for any other id. */
+  findReading: (sectionId: string) => Promise<ReadingToShow | null>;
   /** Appends one line to the Course's Memory. */
   remember: (text: string) => Promise<void>;
   /** Stores a question in the Chat's Study session; returns its id. */
@@ -190,6 +208,12 @@ export function tutorTools(actions: TutorToolActions) {
         }),
       }),
     }),
+    showReading: tool({
+      description:
+        "Open a Reading section of the course's pages for the Student to read, with the question they read it for: it shows on a reading card, opens the pages beside the Chat and ends your reply. Write a short lead-in first, and don't repeat the question in your text. Returns the section's label, its mode, its chunks' Markdown in order and, in study_text mode, the study text the Student reads, so you can ask about what they read.",
+      inputSchema: showReadingInputSchema,
+      execute: async ({ sectionId }) => showReading(actions, sectionId),
+    }),
     grade: tool({
       description:
         "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
@@ -197,6 +221,26 @@ export function tutorTools(actions: TutorToolActions) {
       execute: async (input) => grade(actions, input),
     }),
   };
+}
+
+/**
+ * The `showReading` call: a Reading section of the Course, with its study
+ * text only when the Student reads that.
+ */
+async function showReading(
+  actions: TutorToolActions,
+  sectionId: string,
+): Promise<ReadingView> {
+  const section = await actions.findReading(sectionId);
+  if (!section) {
+    throw new TutorToolError(
+      `${sectionId} is no Reading section of this Course: use a section id listed for the next Topic.`,
+    );
+  }
+  const { studyText, ...reading } = section;
+  return reading.mode === "study_text" && studyText !== null
+    ? { ...reading, studyText }
+    : reading;
 }
 
 const alreadyGraded = "This question is already graded.";
@@ -269,3 +313,9 @@ function checkAgainstKey(
 }
 
 export type TutorTools = ReturnType<typeof tutorTools>;
+
+/**
+ * Ends a reply at a call that waits for the Student: a question on its card
+ * (`ask`) or a reading (`showReading`).
+ */
+export const endsReply = hasToolCall("ask", "showReading");

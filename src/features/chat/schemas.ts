@@ -18,6 +18,7 @@ export const chatMessageMetadataSchema = z
   .object({
     questionId: z.string().optional(),
     confidence: z.number().int().min(1).max(4).optional(),
+    readingSectionId: z.string().optional(),
     modelId: z.string().optional(),
     stopped: z.boolean().optional(),
     // Built by the server and only displayed, so only its shape is checked.
@@ -53,16 +54,19 @@ const materialPartSchema = z.object({
 const textPartSchema = z.object({ type: z.literal("text"), text: z.string() });
 
 /**
- * A Student's message: text, attached Materials, or both. Sent from a task
- * card, it names the question it answers.
+ * A Student's message: text, attached Materials, or both. Sent from a
+ * question card, it names the question it answers; sent with Done from a
+ * reading card, the Reading section read, whose id is only checked for its
+ * format.
  */
 const studentMessageSchema = z.object({
   id: z.uuid(),
   role: z.literal("user"),
   metadata: z
     .object({
-      questionId: z.uuid(),
+      questionId: z.uuid().optional(),
       confidence: z.number().int().min(1).max(4).optional(),
+      readingSectionId: z.uuid().optional(),
     })
     .optional(),
   parts: z

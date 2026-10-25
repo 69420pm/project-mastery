@@ -45,14 +45,26 @@ export type AskedQuestion = {
   prompt: string;
 };
 
+/** A Reading section the AI opened, as its reading card shows it. */
+export type ShownReading = {
+  /** The `showReading` call's id, which tells the cards apart. */
+  id: string;
+  sectionId: string;
+  /** Such as "Lecture 3, pp. 12–14". */
+  label: string;
+  /** The question the Student reads it for. */
+  purpose: string;
+};
+
 /**
  * A run of an AI reply's text, one of its tool calls, or a question it
- * asked, in reply order.
+ * asked or a reading it opened, in reply order.
  */
 export type ReplySegment =
   | { kind: "text"; text: string }
   | { kind: "step"; step: ReplyStep }
-  | { kind: "question"; question: AskedQuestion };
+  | { kind: "question"; question: AskedQuestion }
+  | { kind: "reading"; reading: ShownReading };
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
@@ -60,6 +72,7 @@ const TOOL_TITLES: Record<string, string> = {
   findExercises: "Finding Exercises",
   remember: "Making a note",
   ask: "Asking a question",
+  showReading: "Opening a reading",
   grade: "Grading your answer",
 };
 
@@ -82,10 +95,13 @@ export function replySegments(
         segments.push({ kind: "text", text: part.text });
     } else if (isToolUIPart(part)) {
       const question = askedQuestion(part);
+      const reading = shownReading(part);
       segments.push(
         question
           ? { kind: "question", question }
-          : { kind: "step", step: replyStep(part, inProgress) },
+          : reading
+            ? { kind: "reading", reading }
+            : { kind: "step", step: replyStep(part, inProgress) },
       );
     }
   }
@@ -107,6 +123,54 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
     kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
   };
+}
+
+/** The reading of a `showReading` call that returned; null for any other part. */
+function shownReading(part: ToolPart): ShownReading | null {
+  if (
+    getToolName(part) !== "showReading" ||
+    part.state !== "output-available"
+  ) {
+    return null;
+  }
+  const input = asRecord(part.input);
+  const output = asRecord(part.output);
+  if (typeof input.sectionId !== "string") return null;
+  return {
+    id: part.toolCallId,
+    sectionId: input.sectionId,
+    label: typeof output.label === "string" ? output.label : "",
+    purpose: typeof input.purpose === "string" ? input.purpose : "",
+  };
+}
+
+/**
+ * The reading cards of a Chat that are done, by `showReading` call id: a
+ * card is done once a later Student message names its section, as Done
+ * sends it. A side message leaves it open.
+ */
+export function doneReadings(messages: ChatUIMessage[]): Set<string> {
+  const done = new Set<string>();
+  // Open cards by section id.
+  const open = new Map<string, string[]>();
+  for (const message of messages) {
+    const read = message.metadata?.readingSectionId;
+    if (message.role === "user" && read) {
+      for (const id of open.get(read) ?? []) done.add(id);
+      open.delete(read);
+    }
+    for (const part of message.parts) {
+      if (!isToolUIPart(part)) continue;
+      const reading = shownReading(part);
+      if (reading) {
+        open.set(reading.sectionId, [
+          ...(open.get(reading.sectionId) ?? []),
+          reading.id,
+        ]);
+      }
+    }
+  }
+  return done;
 }
 
 /**

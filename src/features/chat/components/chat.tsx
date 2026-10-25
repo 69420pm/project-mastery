@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import { questionStates } from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
+import { useReadings } from "@/features/chat/hooks/use-readings";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
   MAX_ATTACHED_MATERIALS,
@@ -216,7 +217,16 @@ export function Chat({
     chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
   const questions = useMemo(() => questionStates(messages), [messages]);
+  const readings = useReadings(messages, chat.messages);
   const canAnswer = !isBusy && !limitReached && !ended;
+
+  /** Sends Done from a reading card or the pane opened from it. */
+  function sendDone(readingSectionId: string) {
+    if (!canAnswer) return;
+    setInputError(null);
+    clearError();
+    void sendMessage({ text: "Done reading.", metadata: { readingSectionId } });
+  }
 
   /** Sends an answer from a question card as the next message. */
   function sendAnswer(
@@ -259,7 +269,10 @@ export function Chat({
   }
 
   return (
-    <WithSourcePane courseId={chat.courseId}>
+    <WithSourcePane
+      courseId={chat.courseId}
+      reading={{ done: readings.done, canDone: canAnswer, onDone: sendDone }}
+    >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
         {/* Once the first message is sent, the Chat's session can be ended. */}
         {messages.length > 0 && !ended && (
@@ -306,6 +319,9 @@ export function Chat({
                             questions={questions}
                             canAnswer={canAnswer}
                             onAnswer={sendAnswer}
+                            doneReadings={readings.done}
+                            arrived={readings.arrived(message.id)}
+                            onDoneReading={sendDone}
                           />
                           {activity !== null && (
                             <Shimmer className="text-sm">{activity}</Shimmer>

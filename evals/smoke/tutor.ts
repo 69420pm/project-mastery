@@ -41,7 +41,22 @@ const EXERCISE_ANSWER =
 const TAUGHT_DAYS_AGO = 3;
 
 /** The tools the AI may call, which the Student must never see named. */
-const TOOL_NAMES = ["readKcs", "findExercises", "remember", "ask", "grade"];
+const TOOL_NAMES = [
+  "readKcs",
+  "findExercises",
+  "remember",
+  "ask",
+  "showReading",
+  "grade",
+];
+
+/** The Student's wish to read first, in a fourth Chat (#179). */
+const READING_REQUEST =
+  "I'd like to read the course's pages on this before we start.";
+
+/** The study text of the gold Topics' study-text Reading sections. */
+const STUDY_TEXT =
+  "A jet engine pushes air backwards; by Newton's third law the air pushes the engine forwards. The thrust is the mass flow times how much faster the air leaves than it came in: $F = \\dot m (v_e - v_0)$ [p. 1].";
 
 /** A preference worth keeping in the Memory (#107). */
 const PREFERENCE = "I learn best with examples before formulas.";
@@ -87,8 +102,11 @@ async function sendMessage(
   studentId: string,
   chat: { chatId: string; courseId: string },
   text: string,
-  /** The question it answers on its question card. */
-  questionId?: string,
+  /**
+   * The question it answers on its question card, or the Reading section
+   * its Done is for.
+   */
+  metadata?: { questionId?: string; readingSectionId?: string },
 ): Promise<{
   calls: ToolCall[];
   text: string;
@@ -96,8 +114,12 @@ async function sendMessage(
   graded: GradedKc[];
   /** The KC ids the tools' results named, such as an Exercise's KCs. */
   returned: string[];
+  /** The `showReading` calls' inputs. */
+  readings: Array<{ sectionId: string; purpose: string }>;
 }> {
   console.info(`Student: ${text}`);
+  const sent =
+    metadata && Object.values(metadata).some(Boolean) ? metadata : undefined;
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
       method: "POST",
@@ -107,7 +129,7 @@ async function sendMessage(
           id: randomUUID(),
           role: "user",
           parts: [{ type: "text", text }],
-          ...(questionId && { metadata: { questionId } }),
+          ...(sent && { metadata: sent }),
         },
       }),
     }),
@@ -125,6 +147,7 @@ async function sendMessage(
   const questionIds: string[] = [];
   const graded: GradedKc[] = [];
   const returned: string[] = [];
+  const readings: Array<{ sectionId: string; purpose: string }> = [];
   const toolNames = new Map<string, string>();
   let hasText = false;
   for (const part of chunks) {
@@ -171,6 +194,12 @@ async function sendMessage(
         part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
         [];
       calls.push({ toolName: part.toolName, kcIds, beforeText: !hasText });
+      if (part.toolName === "showReading") {
+        readings.push({
+          sectionId: String(part.input?.sectionId ?? ""),
+          purpose: String(part.input?.purpose ?? ""),
+        });
+      }
     }
     if (part.type === "tool-output-error" || part.type === "error") {
       console.info(`  ${part.type}: ${part.errorText}`);
@@ -181,7 +210,7 @@ async function sendMessage(
     .map((part) => part.delta)
     .join("");
   console.info(`AI: ${reply}`);
-  return { calls, text: reply, questionIds, graded, returned };
+  return { calls, text: reply, questionIds, graded, returned, readings };
 }
 
 /**
@@ -192,18 +221,21 @@ async function sendMessage(
  * next Topic's KCs before any text. Then teaches two KCs a few days ago, so
  * both are due, and sends "Let's start studying.", a plausible answer and a
  * learning preference in a new Chat, and a request for Ex. 7.2a and its
- * right answer in a third one, all through the real Chat handler, and
- * checks what the AI did, said, remembered and graded, numeric check
- * included, and that every KC id it used belongs to its context.
+ * right answer in a third one, and in a fourth the wish to read the
+ * course's pages first and then "Done reading." for the section the AI
+ * opened, all through the real Chat handler. Every Topic has an original
+ * and a study-text Reading section. Checks what the AI did, said,
+ * remembered, graded and opened, numeric check included, and that every KC
+ * id it used belongs to its context.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with Topics, stand-in sources and Exercises; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for Ex. 7.2a and its answer in a third Chat)",
+    "pnpm smoke tutor (the gold map with Topics, stand-in sources and Exercises; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for Ex. 7.2a and its answer in a third Chat; a wish to read first and Done in a fourth)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with a title per Chat the only
   // others.
-  maxCalls: 12,
+  maxCalls: 15,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
       .from("courses")
@@ -304,7 +336,13 @@ export const tutorSmoke: SmokeCheck = {
       ),
     );
 
-    await insertGoldTopics(supabase, studentId, course.id, { gold, id });
+    await insertGoldTopics(
+      supabase,
+      studentId,
+      course.id,
+      { gold, id },
+      { materialId, chunkIds: [source.id], studyText: STUDY_TEXT },
+    );
 
     // The Chat runs as the Student, with Row Level Security as in the app.
     // Before anything is taught, a greeting starts on the next Topic.
@@ -394,7 +432,9 @@ export const tutorSmoke: SmokeCheck = {
     const first = await sendMessage(client, studentId, chat, GREETING);
     // The Student answers the question the first reply asked, on its card.
     const asked = first.questionIds.at(-1);
-    const second = await sendMessage(client, studentId, chat, ANSWER, asked);
+    const second = await sendMessage(client, studentId, chat, ANSWER, {
+      questionId: asked,
+    });
     const memoryBefore = await readMemory(supabase, course.id);
     // The turn may cross UTC midnight, so either day counts as "this turn".
     const utcDay = () => new Date().toISOString().slice(0, 10);
@@ -421,7 +461,30 @@ export const tutorSmoke: SmokeCheck = {
       studentId,
       exerciseChat,
       EXERCISE_ANSWER,
-      exerciseAsked,
+      { questionId: exerciseAsked },
+    );
+
+    // In a fourth Chat, the Student wants to read first, then says Done.
+    const readingChat = { chatId: randomUUID(), courseId: course.id };
+    const listed = new Set(
+      (
+        (await startTutoring(client, course.id, readingChat.chatId)).context
+          .todayPlan.next?.readingSections ?? []
+      ).map((section) => section.id),
+    );
+    const sixth = await sendMessage(
+      client,
+      studentId,
+      readingChat,
+      READING_REQUEST,
+    );
+    const opened = sixth.readings.at(-1);
+    const seventh = await sendMessage(
+      client,
+      studentId,
+      readingChat,
+      "Done reading.",
+      { readingSectionId: opened?.sectionId },
     );
 
     // An asked question with its answer and the attempts its grade stored.
@@ -450,7 +513,17 @@ export const tutorSmoke: SmokeCheck = {
         toolName === "readKcs" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const shown = [opening, first, second, third, fourth, fifth]
+    const replies = [
+      opening,
+      first,
+      second,
+      third,
+      fourth,
+      fifth,
+      sixth,
+      seventh,
+    ];
+    const shown = replies
       .map((reply) => reply.text)
       .join("\n")
       .replace(/\]\([^)]*\)/g, "]");
@@ -478,7 +551,6 @@ export const tutorSmoke: SmokeCheck = {
       for (const kc of graded) earlier.add(kc.id);
       return checked;
     });
-    const replies = [opening, first, second, third, fourth, fifth];
     const known = new Set([
       ...offered,
       ...replies.flatMap((reply) => reply.returned),
@@ -545,6 +617,20 @@ export const tutorSmoke: SmokeCheck = {
         "its right final value was checked as a match on every attempt",
         checks.length > 0 && checks.every((check) => check === "match"),
         `checks ${JSON.stringify(checks)}; ${describe(fifth.calls)}`,
+      ),
+      result(
+        "the wish to read opened a listed section with a purpose through showReading",
+        opened !== undefined &&
+          listed.has(opened.sectionId) &&
+          opened.purpose.trim() !== "",
+        `${describe(sixth.calls)}; ${listed.size} sections listed; ${JSON.stringify(opened ?? null)}`,
+      ),
+      result(
+        "after Done, the reply asked about the reading without opening it again",
+        !seventh.calls.some(({ toolName }) => toolName === "showReading") &&
+          (seventh.calls.some(({ toolName }) => toolName === "ask") ||
+            seventh.text.includes("?")),
+        describe(seventh.calls),
       ),
       result(
         "no ids or tool names in the text",

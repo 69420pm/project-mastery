@@ -50,6 +50,11 @@ export type TutorToday = {
     kcs: Array<{ id: string; name: string; type: string; taught: boolean }>;
     /** Prerequisites from outside the Topic, prior KCs included. */
     anchors: Array<{ id: string; name: string }>;
+    /**
+     * The Topic's Reading sections in order. Contexts stored before #179
+     * have none.
+     */
+    readingSections?: ReadingSectionView[];
   } | null;
   /** Such as "Practice exam-style problems"; null in build. */
   hint: string | null;
@@ -114,6 +119,27 @@ export type GradedKc = {
   name: string;
   result: AttemptResult;
 } & KcState;
+
+/** How a Student reads a Reading section's pages. */
+export type ReadingMode = "original" | "annotated" | "study_text";
+
+/** A Reading section as the AI is told of it. */
+export type ReadingSectionView = {
+  id: string;
+  /** Its Material and pages, such as "Lecture 3, pp. 12–14". */
+  label: string;
+  mode: ReadingMode;
+};
+
+/** A Reading section as `showReading` returns it. */
+export type ReadingView = {
+  label: string;
+  mode: ReadingMode;
+  /** Its chunks' Markdown, in reading order. */
+  chunks: string[];
+  /** The study text the Student reads; only in `study_text` mode. */
+  studyText?: string;
+};
 
 /** A KC as `readKcs` returns it. */
 export type KcReading = {

@@ -20,12 +20,15 @@ export function MaterialFile({
   materialId,
   name,
   page,
+  onPageChange,
 }: {
   materialId: string;
   /** The Material's name, the image's alternative text. */
   name: string;
   /** The 1-based PDF page to show first. */
   page?: number;
+  /** Called with the PDF page the Student turns to. */
+  onPageChange?: (page: number) => void;
 }) {
   const [opened, setOpened] = useState<Opened>({ status: "loading" });
 
@@ -63,7 +66,11 @@ export function MaterialFile({
     );
   }
   return opened.mediaType === "application/pdf" ? (
-    <PdfViewer file={opened.url} defaultPage={page} />
+    <PdfViewer
+      file={opened.url}
+      defaultPage={page}
+      onPageChange={onPageChange}
+    />
   ) : (
     <div className="relative h-[70dvh] w-full">
       {/* A signed Storage link: served as is, not optimized. */}

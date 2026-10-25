@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { questionStates, replySegments } from "./reply-steps";
+import { doneReadings, questionStates, replySegments } from "./reply-steps";
 
 type Parts = ChatUIMessage["parts"];
 
@@ -21,7 +21,9 @@ function summaries(parts: Parts) {
       ? segment.text
       : segment.kind === "question"
         ? `question ${segment.question.id}: ${segment.question.prompt}`
-        : `${segment.step.state}: ${segment.step.summary}`,
+        : segment.kind === "reading"
+          ? `reading ${segment.reading.sectionId}`
+          : `${segment.step.state}: ${segment.step.summary}`,
   );
 }
 
@@ -89,6 +91,52 @@ test("a question is submitted by an answer from its card and graded by grade", (
   expect(states.get("q1")).toEqual({ status: "submitted" });
   expect(states.get("q2")).toEqual({ status: "graded", kcs: graded });
   expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
+});
+
+const readingPart = (callId: string, sectionId: string) =>
+  ({
+    type: "tool-showReading",
+    toolCallId: callId,
+    state: "output-available",
+    input: { sectionId, purpose: "What makes thrust?" },
+    output: { label: "Lecture 3, pp. 12–14", mode: "original", chunks: [] },
+  }) as Parts[number];
+
+test("shows an opened reading as a reading card", () => {
+  expect(replySegments([readingPart("r1", "s1")], live)).toEqual([
+    {
+      kind: "reading",
+      reading: {
+        id: "r1",
+        sectionId: "s1",
+        label: "Lecture 3, pp. 12–14",
+        purpose: "What makes thrust?",
+      },
+    },
+  ]);
+});
+
+test("a reading card is done once a later Student message names its section", () => {
+  const reply = (id: string, parts: Parts) =>
+    ({ id, role: "assistant", parts }) as ChatUIMessage;
+  const student = (id: string, readingSectionId?: string) =>
+    ({
+      id,
+      role: "user",
+      ...(readingSectionId && { metadata: { readingSectionId } }),
+      parts: [{ type: "text", text: "Done reading." }],
+    }) as ChatUIMessage;
+  const messages = [
+    student("0", "s1"),
+    reply("1", [readingPart("r1", "s1"), readingPart("r2", "s2")]),
+    // A side message leaves the cards open.
+    student("2"),
+    student("3", "s1"),
+    reply("4", [readingPart("r3", "s1")]),
+  ];
+
+  expect([...doneReadings(messages)]).toEqual(["r1"]);
+  expect(doneReadings(messages.slice(0, 3)).size).toBe(0);
 });
 
 test("keeps text and tool calls in order, merging text across steps", () => {

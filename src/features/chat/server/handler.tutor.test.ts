@@ -438,3 +438,95 @@ describe("findExercises", () => {
     );
   });
 });
+
+describe("guided reading", () => {
+  const SECTION = "aaaaaaaa-5000-4000-8000-000000000001";
+
+  /** A study-text Reading section of the Topic over both chunks. */
+  function seedSection() {
+    seedMap();
+    db.tables.reading_sections.push({
+      id: SECTION,
+      owner: STUDENT,
+      course_id: COURSE,
+      topic_id: MAP.topic,
+      material_id: MAP.material,
+      position: 0,
+      page_from: 3,
+      page_to: 5,
+      chunk_ids: [...MAP.chunks],
+      mode: "study_text",
+      reason: "Dense derivation.",
+      annotations: null,
+      study_text: "Thrust in short: $F$.",
+    });
+  }
+
+  test("the instructions list the next Topic's sections, and showReading ends the reply with the section's text", async () => {
+    const model = mockToolModel(
+      [
+        [
+          {
+            toolName: "showReading",
+            input: { sectionId: SECTION, purpose: "What makes thrust?" },
+          },
+        ],
+      ],
+      "Never reached.",
+    );
+    useMockModels({ chat: model });
+    seedSection();
+
+    const reply = await send(firstMessage());
+
+    expect(promptOf(model, 0)).toContain(
+      `- Lecture 7, pp. 3–5 (section id ${SECTION}, study text)`,
+    );
+    expect(model.doStreamCalls).toHaveLength(1);
+    expect(reply.text).toBe("");
+    const part = (
+      db.tables.chat_messages.at(-1)!.parts as Array<{
+        type: string;
+        output?: unknown;
+      }>
+    ).find(({ type }) => type === "tool-showReading");
+    expect(part?.output).toEqual({
+      label: "Lecture 7, pp. 3–5",
+      mode: "study_text",
+      chunks: [
+        "Chunk 0: $F = \\dot m (v_e - v_0)$",
+        "Chunk 1: $F = \\dot m (v_e - v_0)$",
+      ],
+      studyText: "Thrust in short: $F$.",
+    });
+  });
+
+  test("a Done is stored with its section and reaches the model with the prefix", async () => {
+    const model = mockTextModel("What makes thrust, then?");
+    useMockModels({ chat: model });
+    seedSection();
+    const done = {
+      ...userMessage("Done reading."),
+      metadata: { readingSectionId: SECTION },
+    };
+
+    await send({ ...firstMessage(), message: done });
+
+    expect(
+      db.tables.chat_messages.find(({ id }) => id === done.id),
+    ).toMatchObject({ role: "user", reading_section_id: SECTION });
+    expect(promptOf(model, 0)).toContain(
+      `"text":"[Done reading section ${SECTION}.]\\n\\n"},{"type":"text","text":"Done reading."`,
+    );
+  });
+
+  test("refuses a Done whose section id is no uuid", async () => {
+    useMockModels({ chat: mockTextModel("Never sent.") });
+    const done = {
+      ...userMessage("Done reading."),
+      metadata: { readingSectionId: "made-up" },
+    };
+
+    expect((await send({ ...firstMessage(), message: done })).status).toBe(400);
+  });
+});

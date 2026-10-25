@@ -212,6 +212,9 @@ function toUIMessage(
     role: row.role as ChatUIMessage["role"],
     parts: row.parts as unknown as ChatUIMessage["parts"],
     ...(questionId && { metadata: { questionId } }),
+    ...(row.reading_section_id && {
+      metadata: { readingSectionId: row.reading_section_id },
+    }),
   };
   return row.role === "assistant"
     ? {
@@ -240,7 +243,7 @@ export async function loadMessages(
   const { data, error } = await supabase
     .from("chat_messages")
     .select(
-      "id, chat_id, role, parts, model_id, stopped, tutor_context, created_at",
+      "id, chat_id, role, parts, model_id, stopped, tutor_context, reading_section_id, created_at",
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
@@ -304,6 +307,7 @@ function messageRow(chatId: string, message: ChatUIMessage) {
     stopped: message.metadata?.stopped ?? false,
     tutor_context:
       (message.metadata?.tutorContext as unknown as Json | undefined) ?? null,
+    reading_section_id: message.metadata?.readingSectionId ?? null,
   };
 }
 

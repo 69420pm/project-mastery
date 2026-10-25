@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import {
   consumeStream,
   createUIMessageStreamResponse,
-  hasToolCall,
   isStepCount,
   isToolUIPart,
   streamText,
@@ -51,6 +50,7 @@ import {
 } from "@/features/courses/server";
 import {
   closeIdleSession,
+  endsReply,
   isAnswerable,
   recordAnswer,
   sessionEndedMessage,
@@ -244,21 +244,21 @@ const questionClosedMessage =
 /**
  * The history as the model reads it: a Student's answer on a question card
  * starts with a line naming the question it answers, so the AI can grade
- * it.
+ * it, and a Done on a reading card with one naming the section read.
  */
 function withAnswerNotes(history: ChatUIMessage[]): ChatUIMessage[] {
   return history.map((message) => {
-    const questionId = message.metadata?.questionId;
-    if (message.role !== "user" || !questionId) return message;
+    if (message.role !== "user") return message;
+    const { questionId, readingSectionId } = message.metadata ?? {};
+    const note = questionId
+      ? `[My answer on the card of question ${questionId}:]\n\n`
+      : readingSectionId
+        ? `[Done reading section ${readingSectionId}.]\n\n`
+        : null;
+    if (note === null) return message;
     return {
       ...message,
-      parts: [
-        {
-          type: "text",
-          text: `[My answer on the card of question ${questionId}:]\n\n`,
-        },
-        ...message.parts,
-      ],
+      parts: [{ type: "text", text: note }, ...message.parts],
     };
   });
 }
@@ -351,8 +351,9 @@ async function streamReply({
         ...settings,
         messages: await toModelMessages(withAnswerNotes(messages), materials),
         tools: tutoring.tools,
-        // A question on a question card waits for the Student's answer.
-        stopWhen: [isStepCount(MAX_STEPS), hasToolCall("ask")],
+        // A question card waits for the Student's answer, a reading card
+        // for their Done.
+        stopWhen: [isStepCount(MAX_STEPS), endsReply],
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),

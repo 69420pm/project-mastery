@@ -4,6 +4,7 @@ import { Markdown } from "@/components/markdown";
 import { chatMarkdownComponents } from "@/features/chat/components/citation-link";
 import { StepCard } from "@/features/chat/components/step-card";
 import { QuestionCard } from "@/features/chat/components/question-card";
+import { ReadingCard } from "@/features/chat/components/reading-card";
 import {
   replySegments,
   type QuestionState,
@@ -12,8 +13,8 @@ import type { ChatUIMessage } from "@/features/chat/types";
 
 /**
  * An AI reply's text and tool calls in the order they came: text as
- * Markdown, a question it asked as a question card, and each other tool call as
- * a step card.
+ * Markdown, a question it asked as a question card, a reading it opened as a
+ * reading card, and each other tool call as a step card.
  */
 export function ReplyParts({
   parts,
@@ -22,6 +23,9 @@ export function ReplyParts({
   questions,
   canAnswer,
   onAnswer,
+  doneReadings,
+  arrived,
+  onDoneReading,
 }: {
   parts: ChatUIMessage["parts"];
   /** Whether the reply is still streaming in. */
@@ -37,6 +41,14 @@ export function ReplyParts({
     text: string,
     confidence: number | undefined,
   ) => void;
+  /** The Chat's reading cards that are done (`doneReadings`). */
+  doneReadings: Set<string>;
+  /**
+   * Whether the reply arrived while the Chat is open, not with the stored
+   * Chat: its reading card then opens the pane on its own.
+   */
+  arrived: boolean;
+  onDoneReading: (sectionId: string) => void;
 }) {
   const segments = replySegments(parts, { inProgress });
   return segments.map((segment, i) => {
@@ -61,6 +73,17 @@ export function ReplyParts({
             onAnswer={(text, confidence) =>
               onAnswer(segment.question.id, text, confidence)
             }
+          />
+        );
+      case "reading":
+        return (
+          <ReadingCard
+            key={segment.reading.id}
+            reading={segment.reading}
+            done={doneReadings.has(segment.reading.id)}
+            canAnswer={canAnswer}
+            autoOpen={arrived}
+            onDone={() => onDoneReading(segment.reading.sectionId)}
           />
         );
       case "step":

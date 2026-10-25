@@ -11,6 +11,7 @@ import "server-only";
 // whose React components fail to import outside Next.js (evals, smoke checks).
 export { tutorInstructions } from "./ai/instructions";
 export {
+  endsReply,
   TutorToolError,
   tutorTools,
   type TutorToolActions,

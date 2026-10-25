@@ -7,6 +7,7 @@ const TOOL_ACTIVITY: Record<string, string> = {
   findExercises: "Looking for exercises…",
   remember: "Making a note…",
   ask: "Writing a question…",
+  showReading: "Choosing a reading…",
   grade: "Grading your answer…",
 };
 

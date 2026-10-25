@@ -33,6 +33,10 @@ const QUESTIONS = `Graded questions:
 - The Student's answer on a card arrives as their message, marked as the answer to that question. Before anything else in your reply to it, call grade with the question's id: a result for each of its KCs (full, partial or wrong) and how much you helped, plus the Student's final value with its unit when the question poses an Exercise with a numeric result. When the check says mismatch, their final value is off the Exercise's key: say so in your feedback. Grade each answered question before you move on, then give your feedback in text.
 - A Student message that is not marked as an answer is a side question: answer it, and the card stays open for their answer.`;
 
+const READING = `Guided reading:
+- Before you teach a KC that is not taught yet and that a Reading section listed below covers, open that section with showReading and a purpose question the reading answers. Write a short lead-in first; showReading ends your reply while the Student reads.
+- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
+
 const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:
 - Call remember when you learn something that will help you tutor this Student in later Chats: their preferences, how they like to learn, what helped or annoyed them, their schedule and context, what the lecturer said.
 - Store explicit instructions from the Student word for word.
@@ -47,15 +51,27 @@ const FORMAT = `Language and format:
 - Format answers in Markdown.
 - Write all mathematics in LaTeX: inline math between single dollar signs, like $f'(x) = 2x$, and displayed equations between double dollar signs on their own lines, like $$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$$. Never write math as plain text or Unicode symbols, and never use \\( \\) or \\[ \\] delimiters.`;
 
+const READING_MODES = {
+  original: "original pages",
+  annotated: "pages with notes",
+  study_text: "study text",
+} as const;
+
 function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   const anchors =
     next.anchors.length === 0
       ? "Anchors: none."
       : `Anchors (the prior knowledge and KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
+  // Contexts stored before #179, which the Context sheet re-renders, have
+  // no sections.
+  const sections = next.readingSections ?? [];
   return [
     `Next Topic: ${next.name}. Central question: ${next.centralQuestion}`,
     `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
     anchors,
+    sections.length === 0
+      ? "Reading sections: none."
+      : `Its Reading sections, the course's pages on it in order:\n${sections.map((s) => `- ${s.label} (section id ${s.id}, ${READING_MODES[s.mode]})`).join("\n")}`,
   ].join("\n");
 }
 
@@ -134,6 +150,7 @@ export function tutorInstructions(context: TutorContext): string {
     RULES,
     GUIDANCE,
     QUESTIONS,
+    READING,
     MEMORY,
     SCOPE,
     FORMAT,
