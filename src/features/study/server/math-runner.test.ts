@@ -70,6 +70,14 @@ describe("mathRunner", () => {
     });
   });
 
+  test("passes a function whose parameter is named like a unit", async () => {
+    const result = await run("f(m) = m^2\nsquare = f(3)");
+    expect(result).toMatchObject({
+      ok: true,
+      values: { square: { value: 9 } },
+    });
+  });
+
   // The note's second case: dividing by a unit drops it.
   test("fails a final answer that is no quantity in its declared unit", async () => {
     const result = await run(
@@ -99,5 +107,19 @@ describe("mathRunner", () => {
       ok: false,
       error: expect.stringContaining("ratio = Infinity"),
     });
+  });
+
+  test("fails a non-finite value inside a matrix or a complex number", async () => {
+    for (const program of [
+      "x = [1, 1/0]",
+      "x = [[1], [0/0]]",
+      "x = 1/0 + 2i",
+    ]) {
+      const result = await run(program);
+      expect(result, program).toMatchObject({
+        ok: false,
+        error: expect.stringContaining("not finite: x ="),
+      });
+    }
   });
 });

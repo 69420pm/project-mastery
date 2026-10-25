@@ -71,15 +71,28 @@ const fail = (error) => done({ ok: false, error });
 const text = (value) => math.format(value, { precision: 14 });
 const list = (names) => names.join(", ");
 
+// Whether a value holds only finite numbers, inside a matrix or a complex
+// number too.
+function finite(value) {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (math.isUnit(value)) return value.value === null || finite(value.toNumber());
+  if (math.isComplex(value)) return Number.isFinite(value.re) && Number.isFinite(value.im);
+  if (math.isBigNumber(value)) return value.isFinite();
+  if (math.isMatrix(value)) return finite(value.valueOf());
+  if (Array.isArray(value)) return value.every(finite);
+  return true;
+}
+
 function run({ program, answers }) {
   const node = math.parse(program);
+  // Only the program's own lines assign variables; a function's parameters
+  // are local to it, so f(m) = m^2 shadows nothing.
+  const lines = node.type === "BlockNode" ? node.blocks.map((b) => b.node) : [node];
   const shadowing = new Set();
-  node.traverse((n) => {
-    if (n.type !== "AssignmentNode" && n.type !== "FunctionAssignmentNode") return;
-    for (const name of [n.name, ...(n.params ?? [])]) {
-      if (typeof name === "string" && math.Unit.isValuelessUnit(name)) shadowing.add(name);
-    }
-  });
+  for (const n of lines) {
+    if (n.type !== "AssignmentNode" && n.type !== "FunctionAssignmentNode") continue;
+    if (typeof n.name === "string" && math.Unit.isValuelessUnit(n.name)) shadowing.add(n.name);
+  }
   if (shadowing.size > 0) {
     return fail("These variable names are mathjs units, which they would shadow: " + list([...shadowing]) + ". Rename them, such as mass_flow for m.");
   }
@@ -91,14 +104,13 @@ function run({ program, answers }) {
     if (typeof value === "function") continue;
     if (typeof value === "number") {
       values[name] = { value, unit: null, text: text(value) };
-      if (!Number.isFinite(value)) infinite.push(name);
     } else if (math.isUnit(value)) {
       const number = value.value === null ? null : value.toNumber();
       values[name] = { value: number, unit: value.formatUnits() || null, text: text(value) };
-      if (number !== null && !Number.isFinite(number)) infinite.push(name);
     } else {
       values[name] = { value: null, unit: null, text: text(value) };
     }
+    if (!finite(value)) infinite.push(name);
   }
   if (infinite.length > 0) {
     return fail("These variables are not finite: " + list(infinite.map((n) => n + " = " + values[n].text)) + ". Check for a division by zero or an overflow.");
