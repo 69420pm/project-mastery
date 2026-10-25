@@ -1,6 +1,16 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { doneReadings, questionStates, replySegments } from "./reply-steps";
+import {
+  doneReadings,
+  questionStates,
+  rebuildQuestions,
+  replySegments,
+  sessionStage,
+  sessionTopic,
+} from "./reply-steps";
+
+// The study feature's index also exports its Memory card's server action.
+vi.mock("server-only", () => ({}));
 
 type Parts = ChatUIMessage["parts"];
 
@@ -15,16 +25,24 @@ const kc = (id: string, name: string) => ({
 });
 
 /** The one-line summaries of a reply's segments, text as itself. */
-function summaries(parts: Parts) {
-  return replySegments(parts, live).map((segment) =>
-    segment.kind === "text"
-      ? segment.text
-      : segment.kind === "question"
-        ? `question ${segment.question.id}: ${segment.question.prompt}`
-        : segment.kind === "reading"
-          ? `reading ${segment.reading.sectionId}`
-          : `${segment.step.state}: ${segment.step.summary}`,
-  );
+function summaries(
+  parts: Parts,
+  options: Parameters<typeof replySegments>[1] = live,
+) {
+  return replySegments(parts, options).map((segment) => {
+    switch (segment.kind) {
+      case "text":
+        return segment.text;
+      case "question":
+        return `question ${segment.question.id}: ${segment.question.prompt}`;
+      case "reading":
+        return `reading ${segment.reading.sectionId}`;
+      case "knowledgeMap":
+        return `knowledge map ${segment.knowledgeMap.topicId}`;
+      case "step":
+        return `${segment.step.state}: ${segment.step.summary}`;
+    }
+  });
 }
 
 const askPart = (id: string, state: "input-available" | "output-available") =>
@@ -93,6 +111,48 @@ test("a question is submitted by an answer from its card and graded by grade", (
   expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
 });
 
+test("a graded rebuild of a session with a Topic is followed by a Knowledge map", () => {
+  const rebuild = {
+    ...askPart("q1", "output-available"),
+    input: { kind: "rebuild", prompt: "Rebuild it.", kcIds: ["a", "b"] },
+  } as Parts[number];
+  const grade = (questionId: string) =>
+    ({
+      type: "tool-grade",
+      toolCallId: `g-${questionId}`,
+      state: "output-available",
+      input: { questionId },
+      output: { kcs: [{ id: "a", name: "Limits", result: "full" }] },
+    }) as Parts[number];
+  const context = (session: object | null) => ({
+    tutorContext: { session, todayPlan: { next: { id: "t1" } } },
+  });
+  const messages = [
+    {
+      id: "1",
+      role: "assistant",
+      metadata: context({ stage: "rebuild" }),
+      parts: [rebuild, askPart("q2", "output-available")],
+    },
+  ] as ChatUIMessage[];
+
+  const rebuilds = rebuildQuestions(messages);
+  const topicId = sessionTopic(messages);
+  expect([...rebuilds]).toEqual(["q1"]);
+  expect(topicId).toBe("t1");
+  expect(
+    summaries([grade("q1"), grade("q2")], { ...live, rebuilds, topicId }),
+  ).toEqual([
+    "done: Graded: Limits full",
+    "knowledge map t1",
+    "done: Graded: Limits full",
+  ]);
+  // Without stages there is no session Topic.
+  expect(
+    sessionTopic([{ ...messages[0]!, metadata: context(null) }] as never),
+  ).toBeNull();
+});
+
 const readingPart = (callId: string, sectionId: string) =>
   ({
     type: "tool-showReading",
@@ -139,35 +199,66 @@ test("a reading card is done once a later Student message names its section", ()
   expect(doneReadings(messages.slice(0, 3)).size).toBe(0);
 });
 
+test("the session's stage is the latest setStage that returned, else the latest reply's context", () => {
+  const reply = (stage: string | null, parts: Parts = []) =>
+    ({
+      id: "r",
+      role: "assistant",
+      metadata: { tutorContext: { session: stage && { stage } } },
+      parts,
+    }) as unknown as ChatUIMessage;
+  const moved = (stage: string, state = "output-available") =>
+    ({
+      type: "tool-setStage",
+      toolCallId: "s",
+      state,
+      input: { stage },
+      output: { stage },
+    }) as Parts[number];
+
+  expect(sessionStage([reply(null)])).toBeNull();
+  expect(sessionStage([reply("orient", [moved("prime")])])).toBe("prime");
+  expect(
+    sessionStage([
+      reply("orient", [moved("prime")]),
+      reply("prime", [moved("read", "input-available")]),
+    ]),
+  ).toBe("prime");
+  expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
+});
+
 test("keeps text and tool calls in order, merging text across steps", () => {
   expect(
     summaries([
       { type: "step-start" },
       { type: "text", text: "Let me look. " },
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "output-available",
-        input: { kcIds: ["a", "b"] },
-        output: { kcs: [kc("a", "Limits"), kc("b", "Derivatives")] },
+        input: { topicId: "t" },
+        output: {
+          id: "t",
+          name: "Calculus",
+          centralQuestion: "What is change?",
+          kcs: [kc("a", "Limits"), kc("b", "Derivatives")],
+          anchors: [],
+          readingSections: [],
+        },
       },
       { type: "step-start" },
       { type: "text", text: "Here " },
       { type: "step-start" },
       { type: "text", text: "we go." },
     ]),
-  ).toEqual([
-    "Let me look. ",
-    "done: Read 2 KCs: Limits, Derivatives",
-    "Here we go.",
-  ]);
+  ).toEqual(["Let me look. ", "done: Read Topic Calculus", "Here we go."]);
 });
 
 test("a call on its way is running, and a failed one carries its error", () => {
   const [running, failed] = replySegments(
     [
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "input-streaming",
         input: undefined,
@@ -183,7 +274,7 @@ test("a call on its way is running, and a failed one carries its error", () => {
     live,
   );
   expect(running).toMatchObject({
-    step: { state: "running", summary: "Reading KCs…", detail: null },
+    step: { state: "running", summary: "Reading the Topic…", detail: null },
   });
   expect(failed).toMatchObject({
     step: {
@@ -198,16 +289,20 @@ test("a call that never returned in a finished reply shows as stopped", () => {
   const [stopped] = replySegments(
     [
       {
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         toolCallId: "1",
         state: "input-available",
-        input: { kcIds: ["a"] },
+        input: { topicId: "t" },
       },
     ],
     { inProgress: false },
   );
   expect(stopped).toMatchObject({
-    step: { state: "stopped", summary: "Reading KCs stopped", detail: null },
+    step: {
+      state: "stopped",
+      summary: "Reading the Topic stopped",
+      detail: null,
+    },
   });
 });
 
@@ -265,7 +360,7 @@ test("a note shows its text, and an unknown tool its name with input and output"
 });
 
 test.each([
-  ["readKcs", "Reading KCs"],
+  ["getTopic", "Reading the Topic"],
   ["findExercises", "Finding Exercises"],
   ["remember", "Making a note"],
   ["search", "search"],

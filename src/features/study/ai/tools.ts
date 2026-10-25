@@ -5,21 +5,50 @@ import {
   checkFinalValue,
   parseFinalValue,
 } from "@/features/study/domain/final-answers";
+import {
+  STAGES,
+  stageMoveRefusal,
+  type Stage,
+} from "@/features/study/domain/stages";
 import type {
   ExerciseView,
   GradedKc,
-  KcReading,
   QuestionKind,
   ReadingView,
+  TopicView,
 } from "@/features/study/types";
 
-/** What `readKcs` and `findExercises` take: KC ids of the Course. */
+/** What `findExercises` takes: KC ids of the Course. */
 const kcIdsInputSchema = z.object({
   kcIds: z
     .array(z.string())
     .min(1)
     .max(8)
     .describe("The ids of 1 to 8 KCs of this Course."),
+});
+
+/** The most KCs one question tests, as many as a Topic has at most. */
+const MAX_QUESTION_KCS = 12;
+
+/**
+ * What `getTopic` takes: a Topic and, for source chunks, some of its KCs; or,
+ * without a Topic, KCs of the Course alone.
+ */
+const getTopicInputSchema = z.object({
+  topicId: z
+    .string()
+    .nullish()
+    .describe(
+      "The id of a Topic of this Course; omit it to read KCs that have no Topic id, by kcIds alone.",
+    ),
+  kcIds: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_QUESTION_KCS)
+    .nullish()
+    .describe(
+      "The ids of KCs to read the source chunks of: of the Topic, or every KC of it when omitted; without a Topic, of the Course, and then required.",
+    ),
 });
 
 const QUESTION_KINDS = [
@@ -45,9 +74,11 @@ const askInputSchema = z.object({
     .describe(
       "The question as the Student reads it on the card, in Markdown with LaTeX. Complete on its own: give all data the Student needs.",
     ),
-  kcIds: kcIdsInputSchema.shape.kcIds.describe(
-    "The ids of the 1 to 8 KCs of this Course the question tests.",
-  ),
+  kcIds: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_QUESTION_KCS)
+    .describe("The ids of the 1 to 12 KCs of this Course the question tests."),
   exerciseId: z
     .string()
     .nullish()
@@ -73,7 +104,7 @@ const gradeInputSchema = z.object({
       }),
     )
     .min(1)
-    .max(8)
+    .max(MAX_QUESTION_KCS)
     .describe("One result for each of the question's KCs, each KC once."),
   help: z
     .enum(["none", "some", "solution_shown"])
@@ -132,12 +163,44 @@ const showReadingInputSchema = z.object({
   ),
 });
 
+/** What `setStage` takes: the stage to move to and, to skip, why. */
+const setStageInputSchema = z.object({
+  stage: z.enum(STAGES).describe("The stage of this learn session to move to."),
+  reason: rememberInputSchema.shape.text
+    .nullish()
+    .describe(
+      "Why, in one line, when you skip a stage: needed for any move but the next stage, work back to read for a Reading section left, and review to the stage named for after it.",
+    ),
+});
+
+/** Where a learn session stands, as `setStage` checks a move against it. */
+export type SessionStage = {
+  stage: Stage;
+  /** Where the session goes after `review`. */
+  afterReview: Stage;
+  /** Whether a Reading section of the Topic has no Done message yet. */
+  readingLeft: boolean;
+};
+
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
  */
 export type TutorToolActions = {
-  readKcs: (kcIds: string[]) => Promise<KcReading[]>;
+  /** The Chat's learn session's stage; null when it has no Topic. */
+  loadStage: () => Promise<SessionStage | null>;
+  /** Moves the session to a stage; false when it has ended or is at close. */
+  saveStage: (stage: Stage) => Promise<boolean>;
+  /**
+   * A Topic of the Course with the source chunks of `kcIds`, or of all its
+   * KCs when none; null for an id that is no Topic of the Course. Without a
+   * Topic, only the KCs of `kcIds`, with their source chunks. Throws a
+   * `TutorToolError` for a KC that is not of the Topic, or of the Course.
+   */
+  getTopic: (
+    topicId: string | null,
+    kcIds?: string[],
+  ) => Promise<TopicView | null>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
     kcIds: string[],
@@ -176,11 +239,27 @@ export class TutorToolError extends Error {
 /** The tools the AI tutors with in a Chat. */
 export function tutorTools(actions: TutorToolActions) {
   return {
-    readKcs: tool({
+    getTopic: tool({
       description:
-        "Read KCs of this Course before teaching them: each KC's name, type and description, and up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite.",
-      inputSchema: kcIdsInputSchema,
-      execute: async ({ kcIds }) => ({ kcs: await actions.readKcs(kcIds) }),
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
+      inputSchema: getTopicInputSchema,
+      execute: async ({ topicId, kcIds }) => {
+        if (!topicId && !kcIds) {
+          throw new TutorToolError(
+            "Give a topicId, or the kcIds of the KCs to read without one.",
+          );
+        }
+        const topic = await actions.getTopic(
+          topicId || null,
+          kcIds ?? undefined,
+        );
+        if (!topic) {
+          throw new TutorToolError(
+            `${topicId} is no Topic id of this Course: use the id of the next Topic, or of a due review's Topic.`,
+          );
+        }
+        return topic;
+      },
     }),
     findExercises: tool({
       description:
@@ -214,6 +293,12 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: showReadingInputSchema,
       execute: async ({ sectionId }) => showReading(actions, sectionId),
     }),
+    setStage: tool({
+      description:
+        "Move this learn session to another stage once the current one has done its job. Without a reason it allows the next stage in order, work back to read while a Reading section of the Topic is left, and review to the stage named for after it; any other forward move needs a one-line reason. It never moves back otherwise, and close is final. Returns the stage the session is at.",
+      inputSchema: setStageInputSchema,
+      execute: async (input) => setStage(actions, input),
+    }),
     grade: tool({
       description:
         "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
@@ -241,6 +326,32 @@ async function showReading(
   return reading.mode === "study_text" && studyText !== null
     ? { ...reading, studyText }
     : reading;
+}
+
+/** The `setStage` call: a move `stageMoveRefusal` allows, then saved. */
+async function setStage(
+  actions: TutorToolActions,
+  { stage, reason }: z.infer<typeof setStageInputSchema>,
+): Promise<{ stage: Stage }> {
+  const session = await actions.loadStage();
+  if (!session) {
+    throw new TutorToolError(
+      "This session has no Topic, so it has no stages: tutor without them.",
+    );
+  }
+  const refusal = stageMoveRefusal({
+    ...session,
+    from: session.stage,
+    to: stage,
+    reason,
+  });
+  if (refusal) throw new TutorToolError(refusal);
+  if (stage !== session.stage && !(await actions.saveStage(stage))) {
+    throw new TutorToolError(
+      "This session has ended or is at close, so its stage stays.",
+    );
+  }
+  return { stage };
 }
 
 const alreadyGraded = "This question is already graded.";

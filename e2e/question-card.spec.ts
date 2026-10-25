@@ -1,63 +1,10 @@
-import { adminClient, expect, test } from "./fixtures";
+import { adminClient, expect, seedKc, test } from "./fixtures";
 
 /**
  * A graded question on a question card, with the mock AI (AI_PROVIDER=mock):
  * "Quiz me" makes it ask about the Course's first candidate KC, and an
  * answer from the card makes it grade every KC full.
  */
-
-/**
- * Stores a one-KC Knowledge map with its Topic in the Course; returns the
- * KC's name and the Topic's id.
- */
-async function seedKc(
-  owner: string,
-  courseId: string,
-): Promise<{ name: string; topicId: string }> {
-  const admin = adminClient();
-  const owned = { owner, course_id: courseId };
-  const bigIdea = await admin
-    .from("big_ideas")
-    .insert({ ...owned, name: "Thrust", description: "Thrust.", position: 0 })
-    .select("id")
-    .single();
-  if (bigIdea.error) throw new Error(bigIdea.error.message);
-  const name = "Thrust equation";
-  const kc = await admin
-    .from("kcs")
-    .insert({
-      ...owned,
-      big_idea_id: bigIdea.data.id,
-      name,
-      description: "Thrust is mass flow times the change in velocity.",
-      type: "procedure",
-      bloom: "apply",
-      origin: "content",
-      position: 0,
-    })
-    .select("id")
-    .single();
-  if (kc.error) throw new Error(kc.error.message);
-  // The Topic page is where the map shows the KC.
-  const topic = await admin
-    .from("topics")
-    .insert({
-      ...owned,
-      big_idea_id: bigIdea.data.id,
-      name: "Thrust basics",
-      central_question: "What makes a rocket accelerate?",
-      why_it_matters: "Thrust drives every launch.",
-      position: 0,
-    })
-    .select("id")
-    .single();
-  if (topic.error) throw new Error(topic.error.message);
-  const link = await admin
-    .from("topic_kcs")
-    .insert({ topic_id: topic.data.id, kc_id: kc.data.id, owner, position: 0 });
-  if (link.error) throw new Error(link.error.message);
-  return { name, topicId: topic.data.id };
-}
 
 test("the AI asks on a question card, the Student answers there, and the card shows graded", async ({
   page,
@@ -138,13 +85,14 @@ test("after an answered card, End session makes the Chat read-only and schedules
 
   await page.getByRole("button", { name: "End session" }).click();
 
-  const ended = page.getByRole("status").filter({ hasText: "Session ended" });
-  await expect(ended).toBeVisible();
+  // The close card takes the composer's place.
+  const ended = page.getByRole("region", { name: "Session summary" });
+  await expect(ended.getByRole("heading")).toHaveText("Session ended");
   await expect(message).toBeHidden();
   await expect(page.getByRole("button", { name: "End session" })).toBeHidden();
   // Stays read-only on a reload, and opens a new Chat to go on.
   await page.reload();
-  await expect(ended).toBeVisible();
+  await expect(ended.getByRole("heading")).toHaveText("Session ended");
   await expect(page.getByRole("textbox", { name: "Message" })).toBeHidden();
   await ended.getByRole("link", { name: "Start new session" }).click();
   await expect(page).toHaveURL(new RegExp(`${course.chatPath}$`));

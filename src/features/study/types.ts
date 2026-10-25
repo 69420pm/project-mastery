@@ -1,4 +1,9 @@
 import type {
+  KnowledgeMapView,
+  MapKcLearning,
+  MapPriorities,
+} from "@/features/knowledge-map";
+import type {
   AttemptHelp,
   AttemptResult,
   KcState,
@@ -6,9 +11,11 @@ import type {
 } from "@/features/study/domain/replay";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
+import type { TopicState } from "@/features/study/domain/topic-state";
 
-export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
+export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase, Stage };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -37,6 +44,20 @@ export type TutorContext = {
    * stored before #177 have none.
    */
   todayPlan: TutorToday;
+  /**
+   * The learn session's stage; null without a Topic. Contexts stored before
+   * #180 have none.
+   */
+  session?: TutorSession | null;
+};
+
+/** A learn session's stage as the AI is told of it. */
+export type TutorSession = {
+  stage: Stage;
+  /** Where the session goes after `review`. */
+  afterReview: Stage;
+  /** Whole minutes since the session started. */
+  minutes: number;
 };
 
 /** The Today card's work as the AI is told of it. */
@@ -74,7 +95,7 @@ export type StudyPlan = Plan & {
   today: TodayPlan;
 };
 
-/** A source chunk of a KC as `readKcs` returns it. */
+/** A source chunk of a KC as `getTopic` returns it. */
 type KcSourceView = {
   material: string;
   /** Such as "p. 3" or "pp. 3–4". */
@@ -141,12 +162,58 @@ export type ReadingView = {
   studyText?: string;
 };
 
-/** A KC as `readKcs` returns it. */
-export type KcReading = {
-  id: string;
+/**
+ * A Study session as its close card shows it, computed as if it had ended
+ * (`loadSessionSummary`).
+ */
+export type SessionSummary = {
+  /** The session's Topic and its new state; null without a Topic. */
+  topic: ({ name: string } & TopicState) | null;
+  /** Each KC with attempts in the session, with its state and next review. */
+  kcs: Array<{
+    id: string;
+    name: string;
+    state: KcStateName;
+    /** As YYYY-MM-DD; null without a card. */
+    nextReview: string | null;
+  }>;
+  /** Whether the session has ended, by End session, rating or idling. */
+  ended: boolean;
+  /** 1 to 5; null until rated. */
+  rating: number | null;
+  ratingNote: string | null;
+};
+
+/**
+ * A Topic's part of the Knowledge map as the Chat's side slot shows it
+ * (`getTopicKnowledgeMap`).
+ */
+export type TopicKnowledgeMap = {
   name: string;
-  type: string;
-  description: string;
-  /** Up to 3, in reading order. */
-  sources: KcSourceView[];
+  map: KnowledgeMapView;
+  priorities: MapPriorities;
+  learning: MapKcLearning;
+};
+
+/**
+ * A Topic as `getTopic` returns it. Read by KC ids alone, without a Topic,
+ * it has only the KCs: the Topic's fields are null.
+ */
+export type TopicView = {
+  id: string | null;
+  name: string | null;
+  centralQuestion: string | null;
+  /** In teaching order. */
+  kcs: Array<{
+    id: string;
+    name: string;
+    type: string;
+    description: string;
+    state: KcStateName;
+    /** Up to 3, in reading order; none for a KC not asked for. */
+    sources: KcSourceView[];
+  }>;
+  anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
+  /** In order; `done` when the Student has a Done message for it. */
+  readingSections: Array<ReadingSectionView & { done: boolean }> | null;
 };

@@ -48,9 +48,24 @@ describe("selectDueReviews", () => {
       id: "a",
       name: "KC a",
       type: "concept",
+      topicId: null,
       retrievability: retrievability(schedules.get("a")!.card!, NOW),
     });
     expect(due.more).toBe(0);
+  });
+
+  test("names each KC's Topic when given", () => {
+    const schedules = new Map([["a", at("2026-10-16")]]);
+    const due = selectDueReviews(
+      [{ id: "a", name: "KC a", type: "concept" }],
+      schedules,
+      {},
+      NOW,
+      [],
+      new Map([["a", "topic-1"]]),
+    );
+
+    expect(due.kcs[0]).toMatchObject({ id: "a", topicId: "topic-1" });
   });
 
   test("keeps at most 8 in map order on ties, and counts the rest", () => {
@@ -62,5 +77,21 @@ describe("selectDueReviews", () => {
     expect(due.kcs).toHaveLength(8);
     expect(due.kcs[0]!.id).toBe("k0");
     expect(due.more).toBe(3);
+  });
+
+  test("lists the given KCs first, such as the session Topic's anchors", () => {
+    const ids = Array.from({ length: 11 }, (_, i) => `k${i}`);
+    const schedules = new Map(ids.map((id) => [id, at("2026-10-15")]));
+
+    const due = selectDueReviews(ids.map(kc), schedules, {}, NOW, [
+      "k10",
+      "k9",
+    ]);
+
+    expect(due.kcs.map(({ id }) => id).slice(0, 3)).toEqual([
+      "k9",
+      "k10",
+      "k0",
+    ]);
   });
 });

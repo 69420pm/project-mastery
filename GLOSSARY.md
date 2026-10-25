@@ -117,7 +117,7 @@ One ongoing conversation between a Student and the AI within one Course, kept un
 _Avoid_: Conversation, thread
 
 **Source pane**:
-The pane beside a Chat that shows one source at a time: a Material's own pages, or a Reading section in its reading mode. A citation in the Chat opens the cited page in it.
+The pane beside a Chat that shows one thing at a time: a Material's own pages, a Reading section in its reading mode, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:
@@ -125,8 +125,12 @@ A Chat with a mode: _learn_ (one Topic), _review_ (due KCs), _practice_ (exam-st
 _Avoid_: Lesson, sitting, session alone when a Chat is meant
 
 **Stage**:
-Where a Learn session stands in teaching its Topic: _orient_, _prime_, _read_, _work_, _apply_, _rebuild_ or _close_.
+Where a Learn session stands in teaching its Topic: _review_ (the due Reviews it opens with), _orient_, _prime_, _read_, _work_, _apply_, _rebuild_ or _close_.
 _Avoid_: Step, phase (a Phase belongs to a Course)
+
+**Session rating**:
+The Student's verdict on a Study session at its close: 1 to 5, with an optional short note.
+_Avoid_: Feedback, score, review (a Review asks about a due KC)
 
 **Question**:
 One graded ask the AI puts to a Student in a Study session, such as a prequestion, a recall question, a Problem or the rebuild of a Topic, with the KCs it tests. Grading its answer gives Attempts.

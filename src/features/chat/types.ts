@@ -72,6 +72,12 @@ export type SourceRequest = {
   cardId?: string;
 };
 
+/**
+ * What the Chat's side slot shows, one at a time: a source, or a Topic's KC
+ * graph after a rebuild, by Topic id.
+ */
+export type PaneRequest = SourceRequest | { kind: "topic"; id: string };
+
 /** A source as the source pane shows it (`openSource`). */
 export type ChatSource = {
   materialId: string;

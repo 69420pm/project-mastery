@@ -197,8 +197,20 @@ function toolCallStream(id: string, toolName: string, input: unknown) {
   });
 }
 
+/**
+ * A Student's message that starts with this makes the tutor mock ask a
+ * `rebuild` question; once it grades the answer, it moves to `close`.
+ */
+export const MOCK_REBUILD_REQUEST = "Rebuild with me";
+
+/** The rebuild question the tutor mock asks. */
+export const MOCK_REBUILD_QUESTION =
+  "Mock rebuild: rebuild the Topic from memory.";
+
+type AskInput = { kcIds?: string[]; kind?: string };
+
 /** The input of the latest `ask` call in the prompt, if any. */
-function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
+function lastAskInput(prompt: Prompt): AskInput | undefined {
   for (const message of prompt.toReversed()) {
     if (message.role !== "assistant" || !Array.isArray(message.content)) {
       continue;
@@ -213,7 +225,7 @@ function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
     if (call) {
       return typeof call.input === "string"
         ? JSON.parse(call.input)
-        : (call.input as { kcIds?: string[] });
+        : (call.input as AskInput);
     }
   }
   return undefined;
@@ -224,14 +236,22 @@ function lastAskInput(prompt: Prompt): { kcIds?: string[] } | undefined {
  * with "Quiz me" gets an `ask` call on the first KC id the instructions name,
  * one starting with "Read with me" a `showReading` call on the first Reading
  * section they list, and an answer from a question card, which names its
- * question, a `grade` call with every KC of the asked question full. Each
- * then ends its step.
+ * question, a `grade` call with every KC of the asked question full. One
+ * starting with "Rebuild with me" gets a `rebuild` question on that KC, and
+ * once its grade returns, a `setStage` call to `close`. Each then ends its
+ * step.
  */
 function mockTutorQuestions(
   prompt: Prompt,
   tools: ReadonlyArray<{ name: string }> | undefined,
 ) {
   if (!tools?.some(({ name }) => name === "ask")) return null;
+  if (gradedJustNow(prompt) && lastAskInput(prompt)?.kind === "rebuild") {
+    return toolCallStream("mock-set-stage", "setStage", {
+      stage: "close",
+      reason: "The rebuild is done.",
+    });
+  }
   if (prompt.at(-1)?.role !== "user") return null;
   const text = lastUserParts(prompt)
     .filter((part) => part.type === "text")
@@ -258,17 +278,31 @@ function mockTutorQuestions(
       purpose: MOCK_READING_PURPOSE,
     });
   }
-  if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
+  const rebuild = text.startsWith(MOCK_REBUILD_REQUEST);
+  if (!rebuild && !text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId =
     typeof system === "string"
-      ? new RegExp(`\\(id (${UUID})`).exec(system)?.[1]
+      ? // A KC's id is followed by its type; a Topic's by a parenthesis.
+        new RegExp(`\\(id (${UUID}),`).exec(system)?.[1]
       : undefined;
   if (!kcId) return null;
   return toolCallStream("mock-ask", "ask", {
-    kind: "question",
-    prompt: MOCK_QUESTION,
+    kind: rebuild ? "rebuild" : "question",
+    prompt: rebuild ? MOCK_REBUILD_QUESTION : MOCK_QUESTION,
     kcIds: [kcId],
   });
+}
+
+/** Whether the prompt ends with the result of a `grade` call. */
+function gradedJustNow(prompt: Prompt): boolean {
+  const last = prompt.at(-1);
+  return (
+    last?.role === "tool" &&
+    Array.isArray(last.content) &&
+    (last.content as Array<{ type: string; toolName?: string }>).some(
+      (part) => part.type === "tool-result" && part.toolName === "grade",
+    )
+  );
 }
 
 function languageModel(modelId: string) {

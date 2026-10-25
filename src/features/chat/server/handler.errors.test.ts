@@ -31,7 +31,7 @@ describe("a failed reply's message", () => {
       isRetryable: false,
     });
   const toolInputError = new InvalidToolInputError({
-    toolName: "readKcs",
+    toolName: "getTopic",
     toolInput: "{}",
     cause: new Error("kcIds is required"),
   });

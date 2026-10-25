@@ -37,7 +37,7 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
 
   expect(instructions).toContain(
     [
-      "Next Topic: Nozzles. Central question: How does a nozzle speed up its gas?",
+      "Next Topic: Nozzles (id t1). Central question: How does a nozzle speed up its gas?",
       "Its KCs in teaching order:",
       "- Nozzle shape (id k1, concept; taught)",
       "- Exit velocity (id k2, procedure; not taught yet)",
@@ -58,6 +58,23 @@ test("render a context stored before #177 without a Today plan", () => {
   expect(tutorInstructions(stored as unknown as TutorContext)).toContain(
     "The study plan has no next Topic right now.",
   );
+});
+
+test("hold one block per stage and the session's stage when it has a Topic, and the session shape when it has none", () => {
+  const staged = tutorInstructions({
+    ...context,
+    session: { stage: "review", afterReview: "work", minutes: 7 },
+  });
+
+  for (const stage of ["review", "orient", "prime", "read", "work"]) {
+    expect(staged).toContain(`\n- ${stage}: `);
+  }
+  expect(staged).toContain(
+    "Session stage: review. The session started 7 minutes ago.\nAfter the reviews, go to work.",
+  );
+  expect(staged).not.toContain("Session shape");
+  expect(tutorInstructions(context)).toContain("Session shape");
+  expect(tutorInstructions(context)).not.toContain("Session stage:");
 });
 
 const MEMORY_HEADING = "What you know about this Student from earlier Chats:";

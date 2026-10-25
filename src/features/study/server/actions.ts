@@ -5,11 +5,14 @@ import { revalidatePath } from "next/cache";
 import { briefPath } from "@/features/brief";
 import {
   endSessionSchema,
+  rateSessionSchema,
   saveMemorySchema,
   setTopicChoiceSchema,
+  topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
 import { appendMemory } from "@/features/study/server/memory";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
+import type { SessionSummary, TopicKnowledgeMap } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -68,6 +71,96 @@ export async function endStudySession(input: {
     return { ok: false, message: "This Chat has no study session to end." };
   }
   return { ok: true, data: undefined };
+}
+
+/**
+ * The close card's view of a Chat's Study session, computed as if it had
+ * ended (`loadSessionSummary`).
+ */
+export async function getSessionSummary(input: {
+  chatId: string;
+}): Promise<ActionResult<SessionSummary>> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(endSessionSchema, input);
+  if (!parsed.ok) return parsed;
+  const { loadSessionSummary } = await loadReads();
+  const summary = await loadSessionSummary(
+    await createClient(),
+    parsed.data.chatId,
+  );
+  if (!summary) {
+    return { ok: false, message: "This Chat has no study session." };
+  }
+  return { ok: true, data: summary };
+}
+
+/**
+ * Saves the Student's rating of a Chat's Study session, 1 to 5 with an
+ * optional note, replacing an earlier one. It ends a running session now,
+ * or one gone idle at its newest message.
+ */
+export async function rateStudySession(input: {
+  chatId: string;
+  rating: number;
+  note?: string;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(rateSessionSchema, input);
+  if (!parsed.ok) return parsed;
+
+  const { chatId, rating, note } = parsed.data;
+  const supabase = await createClient();
+  const now = new Date();
+  if (!(await closeIdleSession(supabase, chatId, now))) {
+    await endSession(supabase, chatId, now.toISOString());
+  }
+  const { saveRating } = await loadReads();
+  if (!(await saveRating(supabase, chatId, rating, note || null))) {
+    return { ok: false, message: "This Chat has no study session to rate." };
+  }
+  return { ok: true, data: undefined };
+}
+
+/**
+ * A Topic's part of the Knowledge map with the Student's KC states, for the
+ * Chat's side slot after a rebuild: the Topic's KCs and anchors
+ * (`restrictMapToTopic`).
+ */
+export async function getTopicKnowledgeMap(input: {
+  courseId: string;
+  topicId: string;
+}): Promise<ActionResult<TopicKnowledgeMap>> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(topicKnowledgeMapSchema, input);
+  if (!parsed.ok) return parsed;
+
+  const { loadTopicKnowledgeMap } = await loadReads();
+  const topic = await loadTopicKnowledgeMap(
+    parsed.data.courseId,
+    parsed.data.topicId,
+  );
+  if (!topic) return { ok: false, message: "This Topic was not found." };
+  return { ok: true, data: topic };
+}
+
+/**
+ * The session summary and Topic Knowledge map reads, imported on first use:
+ * they load the knowledge-map feature's server code, which client modules
+ * that import these actions (the close card, the Topic graph) must not pull
+ * in when they load, as their tests do.
+ */
+async function loadReads() {
+  const [summary, topicKnowledgeMap] = await Promise.all([
+    import("@/features/study/server/session-summary"),
+    import("@/features/study/server/topic-knowledge-map"),
+  ]);
+  return { ...summary, ...topicKnowledgeMap };
 }
 
 /**

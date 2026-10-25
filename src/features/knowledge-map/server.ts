@@ -13,6 +13,7 @@ export {
 } from "./ai/reading-calls";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export { checkAnnotations, checkStudyText } from "./domain/reading-checks";
+export { restrictMapToTopic } from "./domain/topic-map";
 export { topicAnchors } from "./domain/topic-reading";
 export { finalAnswerSchema } from "./schemas";
 export { getChunkFindings } from "./server/chunk-findings";

@@ -159,14 +159,20 @@ function chatBefore(item: Input, gold: z.infer<typeof goldSchema>) {
         },
       }
     : {
-        toolName: "readKcs",
-        input: { kcIds: question.kcIds },
+        toolName: "getTopic",
+        input: { topicId: "topic-under-test", kcIds: question.kcIds },
         output: {
+          id: "topic-under-test",
+          name: "Topic",
+          centralQuestion: "How do the KCs fit together?",
+          anchors: [],
+          readingSections: [],
           kcs: kcs.map(({ id, name, type, description }) => ({
             id,
             name,
             type,
             description,
+            state: "new",
             sources: [
               {
                 material:
@@ -254,11 +260,13 @@ async function gradeTask(item: Input): Promise<string> {
   };
   const actions: TutorToolActions = {
     // Served as the Chat showed them in the history above.
-    readKcs: async () => [],
+    getTopic: async () => null,
     findExercises: async () => ({ exercises: [] }),
     remember: unused,
     ask: unused,
     findReading: unused,
+    loadStage: unused,
+    saveStage: unused,
     findQuestion: async (id) =>
       id === QUESTION_ID
         ? {

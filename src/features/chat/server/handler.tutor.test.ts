@@ -1,6 +1,6 @@
 // @vitest-environment node
 // The chat handler as a tutor: the instructions with the tutor context, and
-// the readKcs tool. Shared setup and helpers: handler-testing.ts.
+// the getTopic tool. Shared setup and helpers: handler-testing.ts.
 import { randomUUID } from "node:crypto";
 import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
@@ -90,7 +90,7 @@ describe("the instructions", () => {
     );
     expect(prompt).toContain("The exam date: 2026-12-03.");
     expect(prompt).toContain(
-      "Next Topic: Thrust. Central question: How does an engine make thrust?",
+      `Next Topic: Thrust (id ${MAP.topic}). Central question: How does an engine make thrust?`,
     );
     expect(prompt).toContain(
       `- Thrust equation (id ${MAP.thrust}, procedure; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
@@ -132,7 +132,7 @@ describe("the instructions", () => {
     const prompt = promptOf(model, 0);
     expect(prompt).toMatch(
       new RegExp(
-        `- Thrust equation \\(id ${MAP.thrust}, procedure; recall today \\d+%\\)`,
+        `- Thrust equation \\(id ${MAP.thrust}, procedure, Topic id ${MAP.topic}; recall today \\d+%\\)`,
       ),
     );
     expect(prompt).toContain(
@@ -199,10 +199,17 @@ describe("the instructions", () => {
   });
 });
 
-describe("readKcs", () => {
-  test("gives the model each KC with its sources and links, and the Student only the text", async () => {
+describe("getTopic", () => {
+  test("gives the model the Topic with each asked KC's sources and links, and the Student only the text", async () => {
     const model = mockToolModel(
-      [[{ toolName: "readKcs", input: { kcIds: [MAP.thrust] } }]],
+      [
+        [
+          {
+            toolName: "getTopic",
+            input: { topicId: MAP.topic, kcIds: [MAP.thrust] },
+          },
+        ],
+      ],
       "How would you start?",
     );
     useMockModels({ chat: model });
@@ -215,6 +222,12 @@ describe("readKcs", () => {
     expect(reply.error).toBeUndefined();
     const result = promptOf(model, 1);
     expect(result).toContain("Thrust equation, as the lecture states it.");
+    expect(result).toContain("How does an engine make thrust?");
+    // Efficiency is in the Topic, but its sources were not asked for.
+    expect(result).toContain("Propulsive efficiency");
+    // The anchor, with its state.
+    expect(result).toContain("Newton's second law");
+    expect(result).toContain('"state":"new"');
     expect(result).toContain("Lecture 7");
     expect(result).toContain("p. 3");
     expect(result).toContain("pp. 4–5");
@@ -225,15 +238,35 @@ describe("readKcs", () => {
     const stored = db.tables.chat_messages.at(-1)!.parts as Array<{
       type: string;
     }>;
-    expect(stored.map(({ type }) => type)).toContain("tool-readKcs");
+    expect(stored.map(({ type }) => type)).toContain("tool-getTopic");
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({ task: "chat", input_tokens: 20 }),
     ]);
   });
 
+  test("reads KCs by id alone without a Topic, with their sources", async () => {
+    const model = mockToolModel(
+      [[{ toolName: "getTopic", input: { kcIds: [MAP.thrust] } }]],
+      "Let's review.",
+    );
+    useMockModels({ chat: model });
+    seedMap();
+
+    await send(firstMessage());
+
+    const prompt = model.doStreamCalls[1]!.prompt;
+    const result = JSON.stringify(prompt.at(-1));
+    expect(result).toContain("Thrust equation, as the lecture states it.");
+    expect(result).toContain("Lecture 7");
+    expect(result).toContain('"centralQuestion":null');
+    expect(result).toContain('"readingSections":null');
+    // Only the KCs asked for, not the rest of a Topic.
+    expect(result).not.toContain("Propulsive efficiency");
+  });
+
   test("gives at most 3 sources per KC, in reading order", async () => {
     const model = mockToolModel(
-      [[{ toolName: "readKcs", input: { kcIds: [MAP.thrust] } }]],
+      [[{ toolName: "getTopic", input: { topicId: MAP.topic } }]],
       "Let's start.",
     );
     useMockModels({ chat: model });
@@ -267,9 +300,25 @@ describe("readKcs", () => {
     expect(result).not.toContain("Chunk 3");
   });
 
-  test("refuses ids of no KC of the Course, and the reply continues", async () => {
+  test.each([
+    [
+      "a Topic id outside the Course",
+      { topicId: "made-up" },
+      "made-up is no Topic id of this Course",
+    ],
+    [
+      "a KC outside the Topic",
+      { topicId: MAP.topic, kcIds: [MAP.thrust, MAP.prior] },
+      `These KCs are not in this Topic: ${MAP.prior}.`,
+    ],
+    [
+      "a KC outside the Course, read without a Topic",
+      { kcIds: [MAP.thrust, "made-up"] },
+      "These are no KC ids of this Course: made-up.",
+    ],
+  ])("refuses %s, and the reply continues", async (_name, input, refusal) => {
     const model = mockToolModel(
-      [[{ toolName: "readKcs", input: { kcIds: [MAP.thrust, "made-up"] } }]],
+      [[{ toolName: "getTopic", input }]],
       "Let's start with thrust.",
     );
     useMockModels({ chat: model });
@@ -278,12 +327,11 @@ describe("readKcs", () => {
     const reply = await send(firstMessage());
 
     expect(reply.text).toBe("Let's start with thrust.");
-    const refusal = "These are no KC ids of this Course: made-up.";
     expect(promptOf(model, 1)).toContain(refusal);
     // Stored as the tool's error, which the model sees on the next turn.
     expect(db.tables.chat_messages.at(-1)!.parts).toContainEqual(
       expect.objectContaining({
-        type: "tool-readKcs",
+        type: "tool-getTopic",
         errorText: expect.stringContaining(refusal),
       }),
     );

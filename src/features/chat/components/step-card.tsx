@@ -62,14 +62,21 @@ export function StepCard({ step }: { step: ReplyStep }) {
 
 function StepDetails({ detail }: { detail: StepDetail }) {
   switch (detail.tool) {
-    case "readKcs":
+    case "getTopic":
       return (
         <Items>
-          {detail.kcs.map((kc) => (
+          {detail.topic.centralQuestion !== null && (
+            <li className="text-muted-foreground">
+              {detail.topic.centralQuestion}
+            </li>
+          )}
+          {detail.topic.kcs.map((kc) => (
             <li key={kc.id} className="flex flex-col gap-1">
               <p>
                 <span className="font-medium">{kc.name}</span>{" "}
-                <span className="text-muted-foreground">· {kc.type}</span>
+                <span className="text-muted-foreground">
+                  · {kc.type} · {kc.state}
+                </span>
               </p>
               <p className="text-muted-foreground">{kc.description}</p>
               {kc.sources.map((source, i) => (

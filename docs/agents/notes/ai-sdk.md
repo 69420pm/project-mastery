@@ -20,6 +20,7 @@ Verified 2026-10-13 on the Gemini API; on 2026-10-14 (before `exercise` lost its
 
 - **A `google/` id goes to the Gemini API, everything else to the gateway** (ADR 0016, `routeToGeminiApi` in `src/lib/ai/models.ts`). The global default provider replaces the gateway for every string id, so the router must delegate the other ids to `gateway` itself, embeddings included.
 - **Verified live on 2026-10-14** with `google/gemini-3.5-flash-lite`: plain text, `Output.object` with a Zod schema (no warnings) and a title all worked through the direct route. Its `response.modelId` is `gemini-3.5-flash-lite` without the prefix, which `answeringModel` matches. Embeddings through the gateway stayed at 2048 dimensions.
+- **The free tier allows 15 requests per minute** for `gemini-3.5-flash-lite` (verified 2026-10-25: a 429 `RESOURCE_EXHAUSTED` with `retryDelay: "59s"` in the body). The AI SDK's 3 retries back off for seconds and don't wait it out, so a multi-call run must pace itself (`pace` in `evals/learn.ts`).
 
 ## Data parts and file parts
 

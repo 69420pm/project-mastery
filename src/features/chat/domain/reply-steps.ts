@@ -1,10 +1,13 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type {
-  ExerciseView,
-  GradedKc,
-  KcReading,
-  QuestionKind,
+import {
+  isStage,
+  STAGE_NAMES,
+  type ExerciseView,
+  type GradedKc,
+  type QuestionKind,
+  type Stage,
+  type TopicView,
 } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
@@ -17,7 +20,7 @@ type StepState = "running" | "done" | "error" | "stopped";
 
 /** What a step card shows when it is expanded, by tool. */
 export type StepDetail =
-  | { tool: "readKcs"; kcs: KcReading[] }
+  | { tool: "getTopic"; topic: TopicView }
   | { tool: "findExercises"; exercises: ExerciseView[]; note?: string }
   | { tool: "remember"; text: string }
   | { tool: "grade"; kcs: GradedKc[] }
@@ -26,7 +29,7 @@ export type StepDetail =
 /** One tool call of an AI reply, as its step card shows it. */
 export type ReplyStep = {
   id: string;
-  /** The tool's name, such as `readKcs`. */
+  /** The tool's name, such as `getTopic`. */
   name: string;
   state: StepState;
   /** The card's one line. */
@@ -64,16 +67,28 @@ export type ReplySegment =
   | { kind: "text"; text: string }
   | { kind: "step"; step: ReplyStep }
   | { kind: "question"; question: AskedQuestion }
-  | { kind: "reading"; reading: ShownReading };
+  | { kind: "reading"; reading: ShownReading }
+  | { kind: "knowledgeMap"; knowledgeMap: KnowledgeMapReveal };
+
+/**
+ * A graded rebuild, whose Knowledge map card opens the Topic's part of the
+ * Knowledge map.
+ */
+export type KnowledgeMapReveal = {
+  /** The `grade` call's id, which tells the cards apart. */
+  id: string;
+  topicId: string;
+};
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
-  readKcs: "Reading KCs",
+  getTopic: "Reading the Topic",
   findExercises: "Finding Exercises",
   remember: "Making a note",
   ask: "Asking a question",
   showReading: "Opening a reading",
   grade: "Grading your answer",
+  setStage: "Moving on",
 };
 
 /**
@@ -81,10 +96,22 @@ const TOOL_TITLES: Record<string, string> = {
  * one segment, each tool call as a step. Other parts, such as `step-start`,
  * show nothing. Once the reply is no longer in progress, a call that never
  * returned (the Student stopped the reply) shows as stopped, not running.
+ * A `grade` of a question in `rebuilds` is followed by a Knowledge map of
+ * `topicId`, when the session has a Topic.
  */
 export function replySegments(
   parts: ChatUIMessage["parts"],
-  { inProgress }: { inProgress: boolean },
+  {
+    inProgress,
+    rebuilds = new Set(),
+    topicId = null,
+  }: {
+    inProgress: boolean;
+    /** The Chat's rebuild questions (`rebuildQuestions`). */
+    rebuilds?: Set<string>;
+    /** The session's Topic (`sessionTopic`). */
+    topicId?: string | null;
+  },
 ): ReplySegment[] {
   const segments: ReplySegment[] = [];
   for (const part of parts) {
@@ -103,6 +130,13 @@ export function replySegments(
             ? { kind: "reading", reading }
             : { kind: "step", step: replyStep(part, inProgress) },
       );
+      const graded = gradedQuestion(part);
+      if (topicId !== null && graded !== null && rebuilds.has(graded)) {
+        segments.push({
+          kind: "knowledgeMap",
+          knowledgeMap: { id: part.toolCallId, topicId },
+        });
+      }
     }
   }
   return segments;
@@ -123,6 +157,38 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
     kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
   };
+}
+
+/** The question a `grade` call that returned graded; null for any other part. */
+function gradedQuestion(part: ToolPart): string | null {
+  if (getToolName(part) !== "grade" || part.state !== "output-available") {
+    return null;
+  }
+  const { questionId } = asRecord(part.input);
+  return typeof questionId === "string" ? questionId : null;
+}
+
+/** The ids of a Chat's questions of kind `rebuild`. */
+export function rebuildQuestions(messages: ChatUIMessage[]): Set<string> {
+  const ids = new Set<string>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (!isToolUIPart(part)) continue;
+      const question = askedQuestion(part);
+      if (question?.kind === "rebuild") ids.add(question.id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * A Chat's learn session's Topic, from its latest reply's tutor context: the
+ * Topic of today's work while the context has a session. Null without one.
+ */
+export function sessionTopic(messages: ChatUIMessage[]): string | null {
+  const context = messages.findLast((message) => message.metadata?.tutorContext)
+    ?.metadata?.tutorContext;
+  return context?.session ? (context.todayPlan.next?.id ?? null) : null;
 }
 
 /** The reading of a `showReading` call that returned; null for any other part. */
@@ -206,6 +272,30 @@ export function questionStates(
   return states;
 }
 
+/**
+ * Where a Chat's learn session stands, read from its messages: the stage of
+ * the latest `setStage` call that returned, or else of the latest reply's
+ * tutor context. Null for a session without stages.
+ */
+export function sessionStage(messages: ChatUIMessage[]): Stage | null {
+  let stage: Stage | null = null;
+  for (const message of messages) {
+    const context = message.metadata?.tutorContext;
+    if (context) stage = context.session?.stage ?? null;
+    for (const part of message.parts) {
+      if (
+        isToolUIPart(part) &&
+        getToolName(part) === "setStage" &&
+        part.state === "output-available"
+      ) {
+        const moved = asRecord(part.output).stage;
+        if (isStage(moved)) stage = moved;
+      }
+    }
+  }
+  return stage;
+}
+
 /** A question's state on its question card, once it is no longer open. */
 export type QuestionState =
   { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
@@ -246,11 +336,12 @@ function describeOutput(
 ): { summary: string; detail: StepDetail } {
   const out = asRecord(output);
   const args = asRecord(input);
-  if (name === "readKcs" && Array.isArray(out.kcs)) {
-    const kcs = out.kcs as KcReading[];
+  if (name === "getTopic" && Array.isArray(out.kcs)) {
+    const topic = out as unknown as TopicView;
     return {
-      summary: `Read ${count(kcs.length, "KC")}: ${kcs.map((kc) => kc.name).join(", ")}`,
-      detail: { tool: "readKcs", kcs },
+      summary:
+        topic.name === null ? "Read the KCs" : `Read Topic ${topic.name}`,
+      detail: { tool: "getTopic", topic },
     };
   }
   if (name === "findExercises" && Array.isArray(out.exercises)) {
@@ -269,6 +360,12 @@ function describeOutput(
     return {
       summary: `Graded: ${kcs.map((kc) => `${kc.name} ${kc.result}`).join(", ")}`,
       detail: { tool: "grade", kcs },
+    };
+  }
+  if (name === "setStage" && isStage(out.stage)) {
+    return {
+      summary: `Moved to ${STAGE_NAMES[out.stage]}`,
+      detail: { tool: "other", input, output },
     };
   }
   if (name === "remember" && typeof args.text === "string") {

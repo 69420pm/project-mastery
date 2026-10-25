@@ -3,12 +3,14 @@
 // takes no more messages. Shared setup and helpers: handler-testing.ts.
 import { randomUUID } from "node:crypto";
 import { expect, test, vi } from "vitest";
-import { mockTextModel, useMockModels } from "@/lib/ai/testing";
+import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
   COURSE,
+  MAP,
   STUDENT,
   db,
   seedChat,
+  seedMap,
   send,
   storedMessages,
   userMessage,
@@ -50,6 +52,73 @@ test("a message to a session idle for over 2 hours ends it at its newest message
   expect(model.doStreamCalls).toHaveLength(0);
   expect(storedMessages(chatId).map(({ text }) => text)).toEqual(["Earlier"]);
   expect(db.tables.study_sessions[0]!.ended_at).toBe(newest);
+});
+
+const promptOf = (model: ReturnType<typeof mockTextModel>, call = 0) =>
+  JSON.stringify(model.doStreamCalls[call]!.prompt);
+
+const sessionOf = (chatId: string) =>
+  db.tables.study_sessions.find((row) => row.chat_id === chatId)!;
+
+test("the first reply sets the plan's next Topic and starts at orient; setStage moves it on, and the Topic stays", async () => {
+  seedMap();
+  const chatId = randomUUID();
+  const first = mockTextModel("Let's place this Topic.");
+  useMockModels({ chat: first });
+
+  await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
+
+  expect(sessionOf(chatId)).toMatchObject({
+    topic_id: MAP.topic,
+    stage: "orient",
+  });
+  expect(promptOf(first)).toContain("Session stage: orient.");
+
+  const next = mockToolModel(
+    [[{ toolName: "setStage", input: { stage: "prime" } }]],
+    "A guess first.",
+  );
+  useMockModels({ chat: next });
+  await send({ chatId, message: userMessage("Ready.") });
+
+  expect(sessionOf(chatId)).toMatchObject({
+    topic_id: MAP.topic,
+    stage: "prime",
+  });
+});
+
+test("a session resumes at the stage where the Topic's last session stopped", async () => {
+  seedMap();
+  db.tables.study_sessions.push({
+    id: randomUUID(),
+    owner: STUDENT,
+    chat_id: null,
+    course_id: COURSE,
+    topic_id: MAP.topic,
+    stage: "work",
+    started_at: "2025-12-30T00:00:00.000Z",
+    ended_at: "2025-12-30T01:00:00.000Z",
+  });
+  useMockModels({ chat: mockTextModel("Back to work.") });
+  const chatId = randomUUID();
+
+  await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
+
+  expect(sessionOf(chatId)).toMatchObject({
+    topic_id: MAP.topic,
+    stage: "work",
+  });
+});
+
+test("a Course without Topics gets a session without a Topic or stage", async () => {
+  const model = mockTextModel("What shall we study?");
+  useMockModels({ chat: model });
+  const chatId = randomUUID();
+
+  await send({ chatId, courseId: COURSE, message: userMessage("Hi") });
+
+  expect(sessionOf(chatId)).toMatchObject({ topic_id: null, stage: null });
+  expect(promptOf(model)).toContain("Session shape");
 });
 
 test("a message to an ended session is refused, and one within 2 hours is answered", async () => {

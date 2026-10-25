@@ -1,13 +1,13 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { SourceRequest } from "@/features/chat/types";
+import type { PaneRequest } from "@/features/chat/types";
 
 type SourcePaneContextValue = {
   /** The Chat's Course, whose chunk pages citations link to. */
   courseId: string;
-  /** Opens a source in the pane, replacing the one it shows. */
-  openSource: (request: SourceRequest) => void;
+  /** Opens a source or a Topic's graph in the pane, replacing what it shows. */
+  openSource: (request: PaneRequest) => void;
 };
 
 /** The Chat's source pane, for citations in its messages to open. */

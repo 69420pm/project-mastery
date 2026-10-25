@@ -17,6 +17,8 @@ export {
   type TutorToolActions,
   type TutorTools,
 } from "./ai/tools";
+// Also here for the `learn` eval, which can't load `index.ts` either.
+export { STAGES, type Stage } from "./domain/stages";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getMemory } from "./server/memory";

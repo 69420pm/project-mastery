@@ -1,6 +1,7 @@
 import { chatEval } from "./chat";
 import type { EvalDefinition } from "./eval";
 import { gradeEval } from "./grade";
+import { learnEval } from "./learn";
 import { readingEval } from "./reading";
 
 /** A registered eval whose input and expected-output types are erased. */
@@ -19,5 +20,6 @@ function register<Input, Expected>(
 export const EVALS: RegisteredEval[] = [
   register(chatEval),
   register(gradeEval),
+  register(learnEval),
   register(readingEval),
 ];

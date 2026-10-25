@@ -34,7 +34,7 @@ const chat: MetricsChat = {
       id: "a2",
       role: "assistant",
       parts: [
-        { type: "tool-readKcs" },
+        { type: "tool-getTopic" },
         ...text("Right. The slope **where**?**"),
       ],
       createdAt: "2026-10-20T10:02:05Z",
