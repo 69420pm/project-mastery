@@ -197,6 +197,8 @@ export type GenerateRecord = {
   stored: boolean;
   /** The last failure, null when stored. */
   error: string | null;
+  /** Every failed draft's error, in order: one, two, or none. */
+  errors: string[];
   calls: number;
   costUsd: number;
   program: string | null;
@@ -253,6 +255,9 @@ async function generateTask(item: Input): Promise<string> {
     firstTry: first.ok,
     stored: last.ok,
     error: last.ok ? null : last.error,
+    errors: [first, ...(first.ok ? [] : [last])].flatMap((a) =>
+      a.ok ? [] : [a.error],
+    ),
     calls,
     costUsd: cost,
     program: problem ? problem.program : program,
@@ -269,7 +274,10 @@ const GATES = ["program_runs"];
 
 /** The scores of one item. `program_runs` is the gate. */
 export function scoreGenerate(record: GenerateRecord) {
-  const programFailed = record.error?.startsWith("Program:") ?? false;
+  // A Problem not stored whose program failed on either draft: a retry that
+  // then fails the schema never ran its program.
+  const programFailed =
+    !record.stored && record.errors.some((e) => e.startsWith("Program:"));
   return [
     { name: "schema_valid", value: record.schemaValid ? 1 : 0 },
     { name: "first_try", value: record.firstTry ? 1 : 0 },
