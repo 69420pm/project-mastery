@@ -457,6 +457,28 @@ describe("findProblems", () => {
     );
   });
 
+  test("in a review session, gives Exercises last asked over 14 days ago after the unseen ones", async () => {
+    seedExercises();
+    addExercise(4, "explain", 2);
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    answered("ex-1", "none", daysAgo(20));
+    answered("ex-3", "none", daysAgo(3));
+
+    const learn = finderModel();
+    useMockModels({ chat: learn });
+    await send(firstMessage());
+    const review = finderModel();
+    useMockModels({ chat: review });
+    await send({ ...firstMessage(), mode: "review" });
+
+    expect(promptOf(learn, 1)).toContain("Ex. 4");
+    expect(promptOf(learn, 1)).not.toContain("Ex. 1");
+    const result = promptOf(review, 1);
+    expect(result.indexOf("Ex. 4")).toBeLessThan(result.indexOf("Ex. 1"));
+    expect(result).not.toContain("Ex. 3");
+  });
+
   test("says when the Course has no Exercises for the KCs", async () => {
     const model = finderModel([MAP.efficiency]);
     useMockModels({ chat: model });

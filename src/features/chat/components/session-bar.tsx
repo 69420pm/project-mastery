@@ -15,6 +15,7 @@ export function SessionBar({
   chatId,
   stage,
   mode,
+  progress = null,
   canEnd,
   busy,
   onEnded,
@@ -23,6 +24,8 @@ export function SessionBar({
   chatId: string;
   stage: Stage | null;
   mode: SessionMode;
+  /** How far a review or practice session is, such as "3 of 5 done". */
+  progress?: string | null;
   canEnd: boolean;
   busy: boolean;
   onEnded: () => void;
@@ -39,8 +42,9 @@ export function SessionBar({
         </div>
       )}
       {modeLabel !== null && (
-        // The progress line comes with each mode's session.
-        <p className="text-sm font-medium">{modeLabel}</p>
+        <p className="text-sm font-medium">
+          {progress === null ? modeLabel : `${modeLabel} · ${progress}`}
+        </p>
       )}
       {canEnd && (
         <div className="ml-auto">

@@ -197,6 +197,27 @@ export function sessionTopic(messages: ChatUIMessage[]): string | null {
   return context?.session ? (context.todayPlan.next?.id ?? null) : null;
 }
 
+/**
+ * A review session's progress, such as "3 of 5 done": the groups done of its
+ * latest reply's review queue. Null without a queue or with an empty one.
+ */
+export function reviewProgress(messages: ChatUIMessage[]): string | null {
+  const queue = messages.findLast((message) => message.metadata?.tutorContext)
+    ?.metadata?.tutorContext?.reviewQueue;
+  if (!queue?.length) return null;
+  const done = queue.filter(({ status }) => status === "done").length;
+  return `${done} of ${queue.length} done`;
+}
+
+/** Where a Chat's session stands: its stage, Topic and review progress. */
+export function sessionView(messages: ChatUIMessage[]) {
+  return {
+    stage: sessionStage(messages),
+    topicId: sessionTopic(messages),
+    progress: reviewProgress(messages),
+  };
+}
+
 /** The reading of a `showReading` call that returned; null for any other part. */
 function shownReading(part: ToolPart): ShownReading | null {
   if (

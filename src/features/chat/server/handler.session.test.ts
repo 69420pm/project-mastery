@@ -144,6 +144,24 @@ test("a message to an ended session is refused, and one within 2 hours is answer
   expect(db.tables.study_sessions[1]!.ended_at).toBeNull();
 });
 
+test("a review Chat gets no Topic and is tutored from its review queue", async () => {
+  seedMap();
+  const chatId = randomUUID();
+  const model = mockTextModel("Nothing is due.");
+  useMockModels({ chat: model });
+
+  await send({
+    chatId,
+    courseId: COURSE,
+    mode: "review",
+    message: userMessage("Hi"),
+  });
+
+  expect(sessionOf(chatId)).toMatchObject({ topic_id: null, stage: null });
+  expect(promptOf(model)).toContain("nothing is due for review");
+  expect(promptOf(model)).not.toContain("Session stage:");
+});
+
 test.each(["review", "practice"] as const)(
   "a first message with the mode %s stores the session in that mode",
   async (mode) => {

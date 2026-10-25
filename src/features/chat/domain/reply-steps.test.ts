@@ -5,6 +5,7 @@ import {
   questionStates,
   rebuildQuestions,
   replySegments,
+  reviewProgress,
   sessionStage,
   sessionTopic,
 } from "./reply-steps";
@@ -225,6 +226,26 @@ test("the session's stage is the latest setStage that returned, else the latest 
     ]),
   ).toBe("prime");
   expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
+});
+
+test("a review session's progress counts the done groups of the latest queue", () => {
+  const reply = (statuses?: string[]) =>
+    ({
+      id: "r",
+      role: "assistant",
+      metadata: {
+        tutorContext: {
+          reviewQueue: statuses?.map((status) => ({ status })),
+        },
+      },
+      parts: [],
+    }) as unknown as ChatUIMessage;
+
+  expect(
+    reviewProgress([reply(["open"]), reply(["done", "retry", "open"])]),
+  ).toBe("1 of 3 done");
+  expect(reviewProgress([reply([])])).toBeNull();
+  expect(reviewProgress([reply()])).toBeNull();
 });
 
 test("keeps text and tool calls in order, merging text across steps", () => {

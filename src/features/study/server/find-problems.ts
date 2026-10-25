@@ -6,6 +6,7 @@ import {
 import type { loadStoredMap } from "@/features/knowledge-map/server";
 import {
   generatedSolutionLabel,
+  MAX_PROBLEMS,
   rankProblems,
   solutionLabel,
   targetDifficulty,
@@ -25,6 +26,16 @@ import type { ProblemView } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
+
+/** How long ago a Problem was last asked for a review session to ask it again. */
+const REVIEW_AGAIN_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Never asked. */
+const isUnseen = (lastAsked: string | undefined) => lastAsked === undefined;
+/** Last asked before `cutoff`. */
+const isStale = (lastAsked: string | undefined, cutoff: Date) =>
+  lastAsked !== undefined && Date.parse(lastAsked) < cutoff.getTime();
 type Exercise = KnowledgeMap["exercises"][number];
 type Chunk = Awaited<ReturnType<typeof loadChunkSources>>[number];
 
@@ -54,14 +65,17 @@ type Candidate =
  * `findProblems` for KCs of the Course (#102, #182, #183): up to 3 of the
  * unseen Exercises and the ready, unflagged generated Problems not yet asked
  * in the Course that test any of them, ranked by `rankProblems` against the
- * last Problem's task type and one above the last unassisted success. A
- * note, without Problems, tells the model why there are none.
+ * last Problem's task type and one above the last unassisted success. In a
+ * review session (`review`), the Problems last asked more than 14 days
+ * before `now` follow the unseen ones, ranked the same way. A note, without
+ * Problems, tells the model why there are none.
  */
 export async function findProblems(
   supabase: Supabase,
   courseId: string,
   map: KnowledgeMap,
   kcIds: string[],
+  { review = false, now = new Date() }: { review?: boolean; now?: Date } = {},
 ): Promise<{ problems: ProblemView[]; note?: string }> {
   const [asked, lastProblem, lastSuccess, generated] = await Promise.all([
     loadAskedProblems(supabase, courseId),
@@ -80,9 +94,14 @@ export async function findProblems(
     kcs.some((id) => kcIds.includes(id));
   const exercises = map.exercises.filter(tests);
   const problems = generated.filter(tests);
-  const unseen = exercises.filter(({ id }) => !asked.has(id));
-  const unasked = problems.filter(({ id }) => !asked.has(id));
-  if (unseen.length === 0 && unasked.length === 0) {
+  // Unseen first; in review, then those last asked before the cutoff.
+  const cutoff = new Date(now.getTime() - REVIEW_AGAIN_DAYS * DAY_MS);
+  const tiers = review ? [isUnseen, isStale] : [isUnseen];
+  const tierOf = (id: string) =>
+    tiers.findIndex((inTier) => inTier(asked.get(id), cutoff));
+  const askable = exercises.filter(({ id }) => tierOf(id) !== -1);
+  const askableProblems = problems.filter(({ id }) => tierOf(id) !== -1);
+  if (askable.length === 0 && askableProblems.length === 0) {
     return {
       problems: [],
       note:
@@ -96,46 +115,51 @@ export async function findProblems(
     loadExerciseSolutions(supabase, courseId),
     loadChunkSources(
       supabase,
-      unseen.map((exercise) => exercise.questionChunk),
+      askable.map((exercise) => exercise.questionChunk),
     ),
   ]);
   const question = new Map(questionChunks.map((c) => [c.id, c]));
-  const found = rankProblems<Candidate>(
-    [
-      ...unseen.flatMap((exercise) => {
-        const chunk = question.get(exercise.questionChunk);
-        return chunk
-          ? [
-              {
-                kind: "exercise" as const,
-                id: exercise.id,
-                kcs: exercise.kcs,
-                taskType: exercise.taskType,
-                difficulty: exercise.difficulty,
-                source: chunk.isExam ? "old_exam" : "exercise",
-                exercise,
-                chunk,
-              } satisfies Candidate,
-            ]
-          : [];
-      }),
-      ...unasked.map(
-        (problem) =>
-          ({
-            kind: "generated",
-            id: problem.id,
-            kcs: problem.kcs,
-            taskType: problem.taskType,
-            difficulty: problem.difficulty,
-            source: problem.source,
-            problem,
-          }) satisfies Candidate,
+  const candidates: Candidate[] = [
+    ...askable.flatMap((exercise) => {
+      const chunk = question.get(exercise.questionChunk);
+      return chunk
+        ? [
+            {
+              kind: "exercise" as const,
+              id: exercise.id,
+              kcs: exercise.kcs,
+              taskType: exercise.taskType,
+              difficulty: exercise.difficulty,
+              source: chunk.isExam ? "old_exam" : "exercise",
+              exercise,
+              chunk,
+            } satisfies Candidate,
+          ]
+        : [];
+    }),
+    ...askableProblems.map(
+      (problem) =>
+        ({
+          kind: "generated",
+          id: problem.id,
+          kcs: problem.kcs,
+          taskType: problem.taskType,
+          difficulty: problem.difficulty,
+          source: problem.source,
+          problem,
+        }) satisfies Candidate,
+    ),
+  ];
+  const found = tiers
+    .flatMap((_, tier) =>
+      rankProblems(
+        candidates.filter(({ id }) => tierOf(id) === tier),
+        kcIds,
+        lastTaskType,
+        target,
       ),
-    ],
-    kcIds,
-    lastTaskType,
-    target,
-  );
+    )
+    .slice(0, MAX_PROBLEMS);
   const solutionIds = found.flatMap((candidate) =>
     candidate.kind === "exercise"
       ? (paired[candidate.exercise.questionChunk] ?? [])

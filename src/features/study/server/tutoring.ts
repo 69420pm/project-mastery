@@ -28,6 +28,7 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
+import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
@@ -123,17 +124,32 @@ export async function startTutoring(
     },
     now,
   );
+  // Only learn sessions get a Topic and stages.
   const staged =
-    session &&
-    (await sessionStage(supabase, {
-      courseId,
-      session,
-      next: firstReply ? plan.today.next : null,
-      topics,
-      reviewsDue: dueCount > 0,
-      now,
-    }));
+    session?.mode === "learn"
+      ? await sessionStage(supabase, {
+          courseId,
+          session,
+          next: firstReply ? plan.today.next : null,
+          topics,
+          reviewsDue: dueCount > 0,
+          now,
+        })
+      : null;
   const next = staged?.topic ?? plan.today.next;
+  const review = session?.mode === "review";
+  const reviewQueue =
+    review && session
+      ? await loadReviewQueue(supabase, {
+          courseId,
+          session,
+          map,
+          topicOf,
+          facts,
+          minutesPerReview: plan.pace.minutesPerReview,
+          now,
+        })
+      : null;
   return {
     context: {
       today: utcDay(now),
@@ -156,6 +172,7 @@ export async function startTutoring(
         : due,
       todayPlan: tutorToday(plan, next, map, schedules, readings),
       session: staged?.session ?? null,
+      ...(reviewQueue && { reviewQueue }),
     },
     tools: tutorTools(
       tutorToolActions(supabase, {
@@ -165,6 +182,7 @@ export async function startTutoring(
         map,
         topics,
         readings,
+        review,
         staged: staged && {
           afterReview: staged.session.afterReview,
           sectionIds: (readings.get(staged.topic.id) ?? []).map(({ id }) => id),
@@ -242,6 +260,7 @@ function tutorToolActions(
     map,
     topics,
     readings,
+    review,
     staged,
   }: {
     courseId: string;
@@ -250,6 +269,8 @@ function tutorToolActions(
     map: KnowledgeMap;
     topics: Awaited<ReturnType<typeof loadStoredTopics>>;
     readings: Awaited<ReturnType<typeof loadStoredReadingSections>>;
+    /** Whether the session is a review session, which sets `findProblems`' purpose. */
+    review: boolean;
     /** The session's stages; null without a Topic. */
     staged: { afterReview: Stage; sectionIds: string[] } | null;
   },
@@ -304,7 +325,7 @@ function tutorToolActions(
     },
     async findProblems(kcIds) {
       requireKnown(kcIds);
-      return findProblems(supabase, courseId, map, kcIds);
+      return findProblems(supabase, courseId, map, kcIds, { review });
     },
     async ask({ kcIds, problemId, ...question }) {
       requireKnown(kcIds);

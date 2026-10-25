@@ -43,8 +43,7 @@ import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
 import {
   questionStates,
   rebuildQuestions,
-  sessionStage,
-  sessionTopic,
+  sessionView,
 } from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useReadings } from "@/features/chat/hooks/use-readings";
@@ -216,11 +215,10 @@ export function Chat({
     chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
   const questions = useMemo(() => questionStates(messages), [messages]);
-  const stage = useMemo(() => sessionStage(messages), [messages]);
   const rebuilds = useMemo(() => rebuildQuestions(messages), [messages]);
-  const topicId = useMemo(() => sessionTopic(messages), [messages]);
+  const session = useMemo(() => sessionView(messages), [messages]);
   // At close, or once ended, the close card takes the composer's place.
-  const closing = ended || stage === "close";
+  const closing = ended || session.stage === "close";
   const readings = useReadings(messages, chat.messages);
   const canAnswer = !isBusy && !limitReached && !closing;
 
@@ -281,8 +279,9 @@ export function Chat({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
         <SessionBar
           chatId={chatId}
-          stage={stage}
+          stage={session.stage}
           mode={chat.mode}
+          progress={session.progress}
           // Once the first message is sent, the Chat's session can be ended.
           canEnd={messages.length > 0 && !ended}
           busy={isBusy}
@@ -328,7 +327,7 @@ export function Chat({
                             arrived={readings.arrived(message.id)}
                             onDoneReading={sendDone}
                             rebuilds={rebuilds}
-                            topicId={topicId}
+                            topicId={session.topicId}
                           />
                           {activity !== null && (
                             <Shimmer className="text-sm">{activity}</Shimmer>
