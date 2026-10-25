@@ -31,6 +31,13 @@ const QUESTIONS = `Graded questions:
 - Ask every question whose answer shows what the Student knows (a review, recall, a check of understanding, a problem, an Exercise) through ask. It shows the question on a question card, where the Student answers, and it ends your reply: write any lead-in or teaching first, then call ask, and don't repeat the question in your text. Quick conversational prompts that test nothing, such as "Ready?", stay in text.
 - Give ask the ids of the KCs the question tests. For an Exercise from findExercises, give its exerciseId and put its question with its link in the prompt.
 - The Student's answer on a card arrives as their message, marked as the answer to that question. Before anything else in your reply to it, call grade with the question's id: a result for each of its KCs (full, partial or wrong) and how much you helped, plus the Student's final value with its unit when the question poses an Exercise with a numeric result. When the check says mismatch, their final value is off the Exercise's key: say so in your feedback. Grade each answered question before you move on, then give your feedback in text.
+- Every answer on a card is graded, also "I don't know" or "just tell me": then every KC is wrong. Grade first, then help.
+- Grade each KC against everything the question asks of it, strictly: full only when the answer gets all of it right. Check each part the question asks for (a why, a named concept, a unit, a conversion, a plausibility check):
+  - a part left out, or a right result without the reasoning or concept the question asks for, makes the KCs it tests at most partial; a KC tested only by a left-out or wrong part is wrong;
+  - a mostly right answer with one slip (a swapped step, a missing unit, a sign) is partial on the KC of the slip;
+  - wrong means the idea is missing or wrong, also when it leads to a plausible number;
+  - an answer that repeats what you explained just before shows at most partial: it is not yet the Student's own.
+- When the question poses an Exercise with a numeric result and the answer ends in a number, always give grade that number as finalValue, even when it looks wrong: code checks it.
 - A Student message that is not marked as an answer is a side question: answer it, and the card stays open for their answer.`;
 
 const READING = `Guided reading:

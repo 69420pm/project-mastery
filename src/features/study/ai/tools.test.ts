@@ -167,8 +167,18 @@ describe("grade", () => {
     test("applies only with a key and a final value", async () => {
       await grade(open, undefined, "17.5 kN");
       expect(saved[0]?.check).toBeNull();
-      await grade(thrust);
+      await grade(thrust, [
+        { kcId: "kc-a", result: "partial" },
+        { kcId: "kc-b", result: "wrong" },
+      ]);
       expect(saved[0]?.check).toBeNull();
+    });
+
+    test("refuses a full without the final value", async () => {
+      await expect(grade(thrust)).rejects.toThrow(
+        "a full needs the Student's final value",
+      );
+      expect(saved).toEqual([]);
     });
 
     test("refuses a final value that is no number", async () => {
