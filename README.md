@@ -2,160 +2,64 @@
 
 [![CI](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
-**Live demo:** https://project-mastery-dun.vercel.app/courses
+> **The AI handles everything about learning except the learning itself.**
 
-> 🚧 Early development — the product description lands here as features ship.
+Project Mastery is an AI tutor that helps university students master their course material and prepare for exams. A student uploads slides, scripts and old exams, tells the AI about the exam, and gets a study plan and a tutor grounded in their own course: it asks more than it tells, cites the page it draws on and schedules reviews so the knowledge stays.
 
-## Tech stack
+**Live demo:** https://project-mastery-dun.vercel.app. Create an account to try it; AI use is capped per day.
 
-| Area             | Choice                                                                   |
-| ---------------- | ------------------------------------------------------------------------ |
-| Framework        | [Next.js](https://nextjs.org) (App Router, React Compiler)               |
-| Language         | TypeScript (strict)                                                      |
-| Styling          | Tailwind CSS                                                             |
-| Validation       | Zod (Server Action input, environment variables)                         |
-| UI               | shadcn/ui (Radix), AI Elements, next-themes, own design tokens           |
-| Math & documents | KaTeX, Streamdown (streaming markdown with math), react-pdf              |
-| AI               | [Vercel AI SDK](https://ai-sdk.dev) through Vercel AI Gateway            |
-| Background jobs  | [Vercel Workflow](https://useworkflow.dev) (durable workflows)           |
-| LLM tracing      | [Langfuse](https://langfuse.com) via OpenTelemetry, on-demand evals      |
-| Database         | Supabase Postgres with pgvector, Row Level Security, SQL migrations      |
-| Auth and storage | Supabase Auth (email + password, magic link), Supabase Storage           |
-| Data access      | supabase-js and `@supabase/ssr` with generated types                     |
-| Unit tests       | Vitest + React Testing Library                                           |
-| E2E tests        | Playwright                                                               |
-| Code quality     | ESLint, Prettier, Husky + lint-staged                                    |
-| CI/CD            | GitHub Actions, Vercel (preview deploy per PR, production from `main`)   |
-| Security         | CodeQL, Dependabot, dependency review, secret scanning + push protection |
-| Releases         | release-please (semantic versioning + generated changelog)               |
-| Project tracking | GitHub Issues + Projects                                                 |
+[VISION.md](VISION.md) defines the product and its principles, and [GLOSSARY.md](GLOSSARY.md) the words used for its concepts in code, issues and UI.
 
-The table lists what is in place today. The rest of the planned stack (spaced repetition, error tracking, analytics, email) and the reasons behind each choice are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and its decision records in [docs/adr/](docs/adr/).
+## What it does today
 
-## Getting started
+1. **Upload:** Materials (slides, scripts, exercise sheets, old exams) are parsed into searchable chunks by a durable background workflow.
+2. **Brief:** the student tells the AI about the exam in a conversation: its date, format, their goal, weekly hours and what to skip.
+3. **Knowledge map:** the AI builds a map of what the Materials teach, with Big ideas, Topics, Knowledge components, Prerequisites and the Exercises that test them, drawn as a graph.
+4. **Plan:** code, not a model, plans over the Topics from the exam date, the weekly hours and the student's measured pace, and shows a Today card.
+5. **Tutor:** a Chat answers from the course, cites Material and page, asks the student to produce answers before it gives solutions, remembers the student, and schedules reviews with [FSRS](docs/adr/0019-fsrs-replay.md) replayed from the student's attempts.
+6. **Read:** every Topic has Reading sections with a source pane that shows the original page.
 
-Requires Node.js 24 (see `.nvmrc`) and pnpm (pinned via the `packageManager` field — `corepack enable` sets it up).
+Still to come ([epic #170](https://github.com/69420pm/project-mastery/issues/170)): Learn sessions, a problem pool with verified generated problems, review and practice sessions, mock exams with a readiness estimate, and an evaluation of the whole tutor with simulated students.
 
-```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
-```
+## How it is built
 
-Open [http://localhost:3000](http://localhost:3000).
+- **Feature modules with enforced boundaries.** Code is organized by feature in layers that depend in one direction only. ESLint rules fail the build on a file in the wrong place or an import across a boundary, and the message says where the code belongs ([ADR 0014](docs/adr/0014-feature-modules-with-lint-boundaries.md)).
+- **Security in the database.** The app talks to Postgres through supabase-js as the signed-in student, and Row Level Security does the access control. Every table has pgTAP tests for its policies ([ADR 0003](docs/adr/0003-supabase-js-with-rls.md)).
+- **Durable workflows.** Parsing, map building and other long jobs run as Vercel Workflows that survive restarts and retry per step ([ADR 0008](docs/adr/0008-workflows-by-default.md), [ADR 0009](docs/adr/0009-durable-background-jobs.md)).
+- **AI that is measured.** Every model call goes through one metered path with a per-student daily limit, and is traced in Langfuse. Prompts and models are checked by evals with LLM judges whose agreement with human labels is calibrated ([ADR 0006](docs/adr/0006-ai-cost.md), [ADR 0012](docs/adr/0012-ai-observability-and-evals.md)).
+- **Tests that need no keys.** A deterministic mock AI provider lets unit tests, the Playwright suite and CI run the full app without a model or a network. Mutation testing with Stryker checks that the tests would notice a broken line.
+- **Decisions on record.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) shows the stack and how the parts fit, and 20 [ADRs](docs/adr/) explain why each choice was made.
 
-### Local Supabase
+| Area           | Choice                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| App            | Next.js (App Router, React Server Components, Server Actions), TypeScript, Zod |
+| UI             | Tailwind CSS, shadcn/ui, AI Elements, KaTeX, React Flow with ELK, react-pdf    |
+| Data           | Supabase: Postgres with pgvector, Auth, Storage, Row Level Security            |
+| AI             | Vercel AI SDK through Vercel AI Gateway, Langfuse tracing and evals            |
+| Background     | Vercel Workflow                                                                |
+| Tests          | Vitest and React Testing Library, Playwright, pgTAP, Stryker                   |
+| Quality and CI | ESLint, Prettier, Husky, GitHub Actions, CodeQL, Dependabot, release-please    |
+| Hosting        | Vercel and Supabase, both in the EU                                            |
 
-Auth, the database and file storage run locally with the Supabase CLI (installed with the dev dependencies). It needs Docker, for example [Docker Desktop](https://docs.docker.com/desktop/) or [OrbStack](https://orbstack.dev). On Linux, including an OrbStack Linux machine, install [Docker Engine](https://docs.docker.com/engine/install/) and add yourself to the `docker` group. If image pulls fail with "failed to convert whiteout file" on a btrfs root (as in OrbStack machines), set `{ "features": { "containerd-snapshotter": false }, "storage-driver": "btrfs" }` in `/etc/docker/daemon.json` and restart Docker.
+## How it was built
 
-```bash
-pnpm db:start   # start Supabase in Docker and apply the migrations
-pnpm db:status  # print the local URL and API keys
-```
+Almost every commit here comes from the `agent69420pm` account: the code is written by Claude Code agents, in a workflow I set up and review myself. I make the product decisions and read every PR before I squash-merge it.
 
-Copy the Project URL, the Publishable key and the Secret key from `pnpm db:status` into `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` in `.env.local`, then restart `pnpm dev`. Sign up at [/login](http://localhost:3000/login); confirmation and sign-in emails land in Mailpit at [http://127.0.0.1:54324](http://127.0.0.1:54324). Studio runs at [http://127.0.0.1:54323](http://127.0.0.1:54323).
+1. **Decide:** `/grilling` interviews me about a plan until the decisions are made, and `/to-spec` turns them into a one-page spec issue.
+2. **Build:** `/build <spec>` implements one spec in its own git worktree: a fresh `builder` agent per slice, then one `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model and a PR, with no questions in between.
+3. **Verify:** agents check their own work. `pnpm -s agent` drives the running app in a real browser and database, and hooks run lint on every edit and the full `pnpm check` before an agent may stop.
+4. **Clean up:** `/sweep` audits the whole codebase with auditor agents and opens one decision issue of ranked changes, `/sweep-apply` builds the ones I tick, and `/retro` reviews what recent runs cost and what went wrong.
 
-Schema changes are SQL migrations in `supabase/migrations/`:
+The harness follows a few rules: fix a failure in the environment (a lint rule, a script, a hook) before adding a sentence to a prompt; keep always-loaded instructions short; use the cheapest model that does a role well. They are written down in [docs/agents/harness.md](docs/agents/harness.md), with the skills and agents in [`.claude/`](.claude/), the run reports in [docs/retros/](docs/retros/) and the audits in [docs/sweeps/](docs/sweeps/).
 
-```bash
-pnpm db:migration:new add_courses  # create an empty migration file
-pnpm db:reset                      # rebuild the local database from migrations and seed.sql
-pnpm db:types                      # regenerate src/lib/supabase/database.types.ts
-pnpm db:test                       # run the Row Level Security tests in supabase/tests/
-```
+## Run it locally
 
-Every new table needs Row Level Security policies and pgTAP tests for them ([ADR 0003](docs/adr/0003-supabase-js-with-rls.md)). Commit the regenerated types with the migration; CI fails when they are out of date.
-
-### AI, background jobs and tracing
-
-- **AI keys:** deployments call models through Vercel AI Gateway. Locally, the text tasks call the Gemini API directly: create a `GOOGLE_GENERATIVE_AI_API_KEY` in [Google AI Studio](https://aistudio.google.com/apikey) and set the `AI_MODEL_*` overrides in `.env.local` that `.env.example` lists, which point them at `google/gemini-3.5-flash-lite` ([ADR 0016](docs/adr/0016-gemini-api-for-local-development.md)). Embeddings still need an `AI_GATEWAY_API_KEY` from the [Vercel dashboard](https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys), which every team gets a monthly free credit for. Use your own test materials and never personal data. Unit tests and CI use mock models and need no key. Models are configured per task in `src/lib/ai/models.ts`.
-- **Mock AI:** `AI_PROVIDER=mock` answers every AI call with a deterministic reply, streamed slowly enough to be stopped, without any key or network access. The Playwright suite runs the production build in this mode; it is refused on Vercel.
-- **Background jobs:** `pnpm dev` runs workflows locally with no setup (the local world stores runs in `.next/workflow-data`). Inspect runs with `pnpm exec workflow web` or `pnpm exec workflow inspect runs`.
-- **Tracing (optional):** create a project in [Langfuse EU cloud](https://cloud.langfuse.com) and set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to trace every real AI call (not the mock provider's). Without keys, tracing is off.
-- **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models, as the AI keys above route them. With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI. Judge criteria are rubrics in `evals/judges/`: `pnpm evals draft <criterion> [--limit N]` judges recent Chat replies in Langfuse, writes the verdicts as `<criterion>_draft` scores and adds the traces to the `tutor-criteria` annotation queue for labelling; `pnpm evals calibrate <criterion>` runs each judge candidate on the labelled traces and prints its agreement and the winner.
-
-### Agent CLI
-
-`pnpm -s agent` lets coding agents (and you) drive the running app from the terminal: start the stack, sign in as a test user, open pages as compact accessibility snapshots, click and type, read errors as Next.js sees them, follow emails and run SQL with Row Level Security applied. It works only against the local stack. `pnpm -s agent help` lists the commands; the `run-app` skill in `.claude/skills/` teaches agents the workflow.
-
-```bash
-pnpm -s agent up              # start Supabase and the dev server, create test users
-pnpm -s agent login student   # sign in the browser session as a test user
-pnpm -s agent open /courses   # URL, page snapshot and new errors
-pnpm -s agent check           # compile issues, runtime and server errors
-```
-
-## Scripts
-
-| Command                        | Description                                                                        |
-| ------------------------------ | ---------------------------------------------------------------------------------- |
-| `pnpm dev`                     | Start the dev server                                                               |
-| `pnpm build`                   | Production build                                                                   |
-| `pnpm start`                   | Serve the production build                                                         |
-| `pnpm lint`                    | ESLint (zero warnings allowed)                                                     |
-| `pnpm lint:fix`                | ESLint with autofix                                                                |
-| `pnpm typecheck`               | Generate route types and run `tsc`                                                 |
-| `pnpm format`                  | Format with Prettier                                                               |
-| `pnpm test`                    | Unit tests in watch mode                                                           |
-| `pnpm test:run`                | Unit tests once                                                                    |
-| `pnpm test:coverage`           | Unit tests with coverage report                                                    |
-| `pnpm test:e2e`                | Playwright E2E tests (run `pnpm db:start` first; rebuilds when the build is stale) |
-| `pnpm check`                   | Lint + typecheck + format check + unit tests                                       |
-| `pnpm evals`                   | AI evals against real models (not in CI)                                           |
-| `pnpm smoke <name>`            | Run one feature path once against a real model and check it (not in CI)            |
-| `pnpm langfuse:models`         | Push the model prices in `src/lib/ai/prices.ts` to Langfuse                        |
-| `pnpm -s agent`                | Drive the running app from the terminal                                            |
-| `pnpm -s retro`                | Digest recent Claude Code runs of this repo for a retro                            |
-| `pnpm -s sweep`                | Deterministic checks for `/sweep` (`mutate [unit...]` runs mutation tests)         |
-| `pnpm db:start`                | Start local Supabase (Docker)                                                      |
-| `pnpm db:stop`                 | Stop local Supabase                                                                |
-| `pnpm db:status`               | Show local Supabase URLs and API keys                                              |
-| `pnpm db:reset`                | Recreate the local database from migrations                                        |
-| `pnpm db:migration:new <name>` | Create a new SQL migration file                                                    |
-| `pnpm db:types`                | Generate TypeScript types from the local DB                                        |
-| `pnpm db:lint`                 | Lint the local database schema                                                     |
-| `pnpm db:test`                 | Run pgTAP database tests (RLS policies)                                            |
-
-## Development workflow
-
-1. **Plan** — every change starts as an issue (bug / feature / task template) on the project board.
-2. **Branch** — `feat/<issue>-short-name`, `fix/...`, `chore/...`.
-3. **Commit** — a pre-commit hook lints and formats staged files.
-4. **Pull request** — title follows [Conventional Commits](https://www.conventionalcommits.org); CI runs lint, typecheck, unit + E2E tests, CodeQL and dependency review; Vercel posts a preview URL.
-5. **Merge** — squash-merge into protected `main` once checks pass; production deploys automatically.
-6. **Release** — release-please opens a release PR with a generated changelog; merging it tags a version.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-## Project structure
-
-```
-src/app/           Routing only: Next.js pages, layouts and route handlers
-src/features/      One folder per feature: components, server code, AI, workflows
-src/components/    Shared components; ui/ and ai-elements/ are generated by their CLIs
-src/hooks/         Shared client hooks
-src/lib/           Platform: Supabase clients, auth session, AI config, tracing, env
-eslint/            Lint rules that enforce the project structure, and their tests
-evals/             AI eval datasets and runner (`pnpm evals`), smoke checks (`pnpm smoke`)
-tools/agent/       CLI that lets coding agents drive the running app (`pnpm -s agent`)
-tools/retro/       Transcript digest for agent-run retros (`pnpm -s retro`)
-tools/build/       Worktree setup for `/build`
-tools/sweep/       Deterministic checks and units for `/sweep` (`pnpm -s sweep`)
-supabase/          Supabase config, SQL migrations, seed data and pgTAP tests
-docs/              Architecture; adr/ holds the technical decisions, agents/ the
-                   agent harness facts, features/ how features work, retros/ run retros
-e2e/               Playwright end-to-end tests
-public/            Static assets
-.github/           CI workflows, issue/PR templates, Dependabot
-```
-
-The layers, the anatomy of a feature and the lint rules that enforce them are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#project-structure).
+The live demo needs no setup. To run the app yourself or to change it, follow [CONTRIBUTING.md](CONTRIBUTING.md): local Supabase in Docker, AI keys, scripts, the agent CLI and the workflow for PRs.
 
 ## License
 
-Copyright © 2026 Florian Portscher. All rights reserved.
-
-The source is public for review purposes; no license is granted for reuse or redistribution.
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may read, run and modify the code for private and other noncommercial use, such as study, research and hobby projects. You may not sell it or use it commercially. This is not an open source license.
 
 Third-party agent skills in `.claude/skills/` keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
