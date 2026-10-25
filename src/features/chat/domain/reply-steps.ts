@@ -209,12 +209,41 @@ export function reviewProgress(messages: ChatUIMessage[]): string | null {
   return `${done} of ${queue.length} done`;
 }
 
-/** Where a Chat's session stands: its stage, Topic and review progress. */
+/**
+ * A practice session's progress, such as "2 Problems answered": its graded
+ * questions that posed a Problem. Null without practice KCs in the latest
+ * reply's tutor context.
+ */
+export function practiceProgress(messages: ChatUIMessage[]): string | null {
+  const kcs = messages.findLast((message) => message.metadata?.tutorContext)
+    ?.metadata?.tutorContext?.practiceKcs;
+  if (!kcs?.length) return null;
+  const problems = new Set<string>();
+  const graded = new Set<string>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (!isToolUIPart(part)) continue;
+      const question = askedQuestion(part);
+      if (question && typeof asRecord(part.input).problemId === "string") {
+        problems.add(question.id);
+      }
+      const gradedId = gradedQuestion(part);
+      if (gradedId !== null) graded.add(gradedId);
+    }
+  }
+  const answered = [...problems].filter((id) => graded.has(id)).length;
+  return `${answered} ${answered === 1 ? "Problem" : "Problems"} answered`;
+}
+
+/**
+ * Where a Chat's session stands: its stage, Topic and the progress of a
+ * review or practice session.
+ */
 export function sessionView(messages: ChatUIMessage[]) {
   return {
     stage: sessionStage(messages),
     topicId: sessionTopic(messages),
-    progress: reviewProgress(messages),
+    progress: reviewProgress(messages) ?? practiceProgress(messages),
   };
 }
 

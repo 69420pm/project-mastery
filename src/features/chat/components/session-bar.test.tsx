@@ -60,6 +60,23 @@ test("shows a review session's progress after its mode", () => {
   expect(screen.getByText("Review · 3 of 5 done")).toBeVisible();
 });
 
+test("shows a practice session's Problems answered after its mode", () => {
+  render(
+    <SessionBar
+      chatId="c1"
+      stage={null}
+      mode="practice"
+      progress="2 Problems answered"
+      canEnd
+      busy={false}
+      onEnded={() => {}}
+      onError={() => {}}
+    />,
+  );
+
+  expect(screen.getByText("Practice · 2 Problems answered")).toBeVisible();
+});
+
 test("shows the mode before the session can be ended", () => {
   bar("review", false);
 

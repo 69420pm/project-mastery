@@ -121,6 +121,31 @@ test("a review session holds the queue in order instead of the learn guidance, o
   );
 });
 
+test("a practice session poses Problems on the practice KCs instead of the learn guidance, or says to learn a Topic first", () => {
+  const practice = tutorInstructions({
+    ...context,
+    hasMap: true,
+    practiceKcs: [
+      { id: "a", name: "KC a", type: "procedure", topicId: "t1" },
+      { id: "b", name: "KC b", type: "concept", topicId: "t2" },
+    ],
+  });
+
+  expect(practice).toContain(
+    [
+      "Practice KCs, most urgent first:",
+      "- KC a (id a, procedure, Topic id t1)",
+      "- KC b (id b, concept, Topic id t2)",
+    ].join("\n"),
+  );
+  expect(practice).toContain("pose one Problem at a time through ask");
+  expect(practice).not.toContain("Session shape");
+  expect(practice).not.toContain("No reviews are due.");
+  expect(tutorInstructions({ ...context, practiceKcs: [] })).toContain(
+    "learns a Topic first",
+  );
+});
+
 const MEMORY_HEADING = "What you know about this Student from earlier Chats:";
 
 test("hold every section and the three rules", () => {

@@ -162,6 +162,24 @@ test("a review Chat gets no Topic and is tutored from its review queue", async (
   expect(promptOf(model)).not.toContain("Session stage:");
 });
 
+test("a practice Chat without a learned Topic gets no Topic and says to learn one first", async () => {
+  seedMap();
+  const chatId = randomUUID();
+  const model = mockTextModel("Learn a Topic first.");
+  useMockModels({ chat: model });
+
+  await send({
+    chatId,
+    courseId: COURSE,
+    mode: "practice",
+    message: userMessage("Hi"),
+  });
+
+  expect(sessionOf(chatId)).toMatchObject({ topic_id: null, stage: null });
+  expect(promptOf(model)).toContain("learns a Topic first");
+  expect(promptOf(model)).not.toContain("Session stage:");
+});
+
 test.each(["review", "practice"] as const)(
   "a first message with the mode %s stores the session in that mode",
   async (mode) => {

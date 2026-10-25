@@ -1,4 +1,5 @@
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { PracticeKc } from "@/features/study/domain/practice";
 import type { ReviewGroup } from "@/features/study/domain/review-queue";
 import type {
   TutorContext,
@@ -45,6 +46,14 @@ const REVIEW = `Review session: this session reviews the KCs that are due, which
 - The statuses are as of the start of your reply: a group whose question you grade in this reply is done or to retry by then.
 - When every group is done and nothing is left to retry, wrap up in a few sentences, without a new question, and suggest ending the session with End session.
 - When the Student asks something else, answer it, then come back to the queue.`;
+
+/** How a practice session (#184) goes: Problems on the practice KCs below. */
+const PRACTICE = `Practice session: the Student practises exam-style Problems on Topics they have learned, on the practice KCs below, most urgent first. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: pose a Problem.
+- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, never as text. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
+- Help only when the Student asks for it or after a wrong or partial submission: one hint first, then a corrected step, then the worked solution when they ask again or stay stuck. Grade the help you gave as usual (none, some or solution_shown).
+- After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
+- After a full answer, sometimes ask why a step works, through ask, before the next Problem.
+- When the Student asks something else, answer it, then come back to the Problems.`;
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems of the same task type in a row.
@@ -221,15 +230,33 @@ function describePlan(context: TutorContext): string[] {
   return [lines.join("\n")];
 }
 
+/** The practice KCs, or that the Student learns a Topic first. */
+function describePracticeKcs(kcs: PracticeKc[], mapPath: string): string {
+  if (kcs.length === 0) {
+    return `No Topic is learned yet, so there is nothing to practise. Say so in a sentence, without a question card, and suggest that the Student learns a Topic first: the Today card on the [Course map](${mapPath}) starts a learn session. Teach no new Topic here.`;
+  }
+  return [
+    "Practice KCs, most urgent first:",
+    ...kcs.map(
+      (kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}, Topic id ${kc.topicId})`,
+    ),
+  ].join("\n");
+}
+
 /**
- * How you tutor: the review queue's way in a review session, else with the
- * stages when the session has them.
+ * How you tutor: the review queue's way in a review session, Problems in a
+ * practice session, else with the stages when the session has them.
  */
 function describeGuidance(
   session: TutorSession | null,
-  review: boolean,
+  mode: "review" | "practice" | null,
 ): string[] {
-  if (review) return [["How you tutor:", REVIEW, GUIDANCE_END].join("\n")];
+  if (mode === "review") {
+    return [["How you tutor:", REVIEW, GUIDANCE_END].join("\n")];
+  }
+  if (mode === "practice") {
+    return [["How you tutor:", PRACTICE, GUIDANCE_END].join("\n")];
+  }
   if (session === null) {
     return [
       [
@@ -259,10 +286,18 @@ export function tutorInstructions(context: TutorContext): string {
   // no session.
   const session = context.session ?? null;
   const queue = context.reviewQueue;
+  const practice = context.practiceKcs;
   return [
     ROLE,
     RULES,
-    ...describeGuidance(session, queue !== undefined),
+    ...describeGuidance(
+      session,
+      queue !== undefined
+        ? "review"
+        : practice !== undefined
+          ? "practice"
+          : null,
+    ),
     QUESTIONS,
     READING,
     MAP_DISAGREEMENTS,
@@ -276,12 +311,14 @@ export function tutorInstructions(context: TutorContext): string {
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
     ...describePlan(context),
-    ...(queue === undefined
-      ? [
-          ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
-          describeMap(context),
-        ]
-      : [describeReviewQueue(queue, context.mapPath)]),
+    ...(queue !== undefined
+      ? [describeReviewQueue(queue, context.mapPath)]
+      : practice !== undefined
+        ? [describePracticeKcs(practice, context.mapPath)]
+        : [
+            ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
+            describeMap(context),
+          ]),
     ...(session ? [describeSession(session)] : []),
   ].join("\n\n");
 }

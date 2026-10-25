@@ -31,6 +31,7 @@ import {
 import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
+import { selectPracticeKcs } from "@/features/study/domain/practice";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import {
   resumeStage,
@@ -150,6 +151,21 @@ export async function startTutoring(
           now,
         })
       : null;
+  const practiceKcs =
+    session?.mode === "practice"
+      ? selectPracticeKcs({
+          kcs: map.kcs,
+          topics: plan.topics.map((t) => ({
+            id: t.id,
+            kcs: topics.find(({ id }) => id === t.id)?.kcs ?? [],
+            status: t.status,
+            state: t.topicState.state,
+          })),
+          schedules,
+          priorities,
+          now,
+        })
+      : null;
   return {
     context: {
       today: utcDay(now),
@@ -173,6 +189,7 @@ export async function startTutoring(
       todayPlan: tutorToday(plan, next, map, schedules, readings),
       session: staged?.session ?? null,
       ...(reviewQueue && { reviewQueue }),
+      ...(practiceKcs && { practiceKcs }),
     },
     tools: tutorTools(
       tutorToolActions(supabase, {
