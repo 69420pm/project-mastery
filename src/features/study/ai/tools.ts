@@ -248,7 +248,8 @@ const alreadyGraded = "This question is already graded.";
 /**
  * The `grade` call's rules: one result for each KC of an ungraded, answered
  * question of a running session, and the numeric check of a final value against its Exercise's
- * final answers, which turns every `full` into `partial` on a mismatch.
+ * final answers, which turns every `full` into `partial` on a mismatch. A
+ * `full` on a question with a key needs the final value, so the check runs.
  */
 async function grade(
   actions: TutorToolActions,
@@ -280,6 +281,15 @@ async function grade(
   if (foreign.length > 0 || missing.length > 0) {
     throw new TutorToolError(
       `Give one result for each KC the question tests, and no others: ${question.kcIds.join(", ")}.`,
+    );
+  }
+  if (
+    question.finalAnswers?.length &&
+    !input.finalValue &&
+    input.results.some(({ result }) => result === "full")
+  ) {
+    throw new TutorToolError(
+      "This question poses an Exercise with a numeric result, so a full needs the Student's final value: give it as finalValue for the check. Without a final number in the answer, no KC is full.",
     );
   }
   const check = checkAgainstKey(question.finalAnswers, input.finalValue);
