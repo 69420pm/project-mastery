@@ -259,6 +259,8 @@ async function gradeTask(item: Input): Promise<string> {
     remember: unused,
     ask: unused,
     findReading: unused,
+    loadStage: unused,
+    saveStage: unused,
     findQuestion: async (id) =>
       id === QUESTION_ID
         ? {

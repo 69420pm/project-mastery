@@ -115,6 +115,41 @@ function createDb() {
       },
     },
     functions: {
+      // As the real functions: on the Student's own running session only.
+      start_study_session_topic: (args, tables) => {
+        const session = tables.study_sessions.find(
+          (row) => row.id === args.p_session_id && row.owner === signedIn,
+        );
+        const topic = tables.topics.find(({ id }) => id === args.p_topic_id);
+        if (
+          !session ||
+          session.topic_id !== null ||
+          session.ended_at !== null ||
+          topic?.course_id !== session.course_id
+        ) {
+          return false;
+        }
+        Object.assign(session, {
+          topic_id: args.p_topic_id,
+          stage: args.p_stage,
+        });
+        return true;
+      },
+      set_study_session_stage: (args, tables) => {
+        const session = tables.study_sessions.find(
+          (row) => row.id === args.p_session_id && row.owner === signedIn,
+        );
+        if (
+          !session ||
+          session.topic_id === null ||
+          session.ended_at !== null ||
+          session.stage === "close"
+        ) {
+          return false;
+        }
+        session.stage = args.p_stage;
+        return true;
+      },
       // The real function appends as the Student; this one trusts the Course.
       append_memory: (args, tables) => {
         const line = `${new Date().toISOString().slice(0, 10)}: ${args.text}`;

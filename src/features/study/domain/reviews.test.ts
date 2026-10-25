@@ -63,4 +63,20 @@ describe("selectDueReviews", () => {
     expect(due.kcs[0]!.id).toBe("k0");
     expect(due.more).toBe(3);
   });
+
+  test("lists the given KCs first, such as the session Topic's anchors", () => {
+    const ids = Array.from({ length: 11 }, (_, i) => `k${i}`);
+    const schedules = new Map(ids.map((id) => [id, at("2026-10-15")]));
+
+    const due = selectDueReviews(ids.map(kc), schedules, {}, NOW, [
+      "k10",
+      "k9",
+    ]);
+
+    expect(due.kcs.map(({ id }) => id).slice(0, 3)).toEqual([
+      "k9",
+      "k10",
+      "k0",
+    ]);
+  });
 });

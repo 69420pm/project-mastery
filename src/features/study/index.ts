@@ -8,7 +8,9 @@ export { MemoryCard } from "./components/memory-card";
 export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
+export { StageBar } from "./components/stage-bar";
 export { PHASE_NAMES, topicBadges } from "./domain/plan";
+export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {

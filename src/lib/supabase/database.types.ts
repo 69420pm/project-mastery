@@ -1623,6 +1623,8 @@ export type Database = {
           id: string;
           mode: string;
           owner: string;
+          rating: number | null;
+          rating_note: string | null;
           stage: string | null;
           started_at: string;
           topic_id: string | null;
@@ -1635,6 +1637,8 @@ export type Database = {
           id?: string;
           mode: string;
           owner: string;
+          rating?: number | null;
+          rating_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
@@ -1646,6 +1650,8 @@ export type Database = {
           id?: string;
           mode?: string;
           owner?: string;
+          rating?: number | null;
+          rating_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
@@ -1670,6 +1676,13 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_sessions_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
             referencedColumns: ["id"];
           },
         ];
@@ -1895,6 +1908,14 @@ export type Database = {
       set_chunk_embeddings: {
         Args: { p_embeddings: Json };
         Returns: undefined;
+      };
+      set_study_session_stage: {
+        Args: { p_session_id: string; p_stage: string };
+        Returns: boolean;
+      };
+      start_study_session_topic: {
+        Args: { p_session_id: string; p_stage: string; p_topic_id: string };
+        Returns: boolean;
       };
     };
     Enums: {

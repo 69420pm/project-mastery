@@ -336,7 +336,10 @@ async function streamReply({
     dataSchemas: { material: materialReferenceSchema },
   });
   // Read on every reply, so the candidates and dates are always current.
-  const tutoring = await startTutoring(supabase, chat.courseId, chat.id);
+  // The session's first reply sets its Topic and start stage.
+  const tutoring = await startTutoring(supabase, chat.courseId, chat.id, {
+    firstReply: !history.some(({ role }) => role === "assistant"),
+  });
   const settings = chatReplySettings(tutoring.context);
   // What the provider reports when the call completes: its usage over all
   // steps and the model that answered, a gateway fallback when the primary

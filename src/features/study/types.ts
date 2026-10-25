@@ -6,9 +6,10 @@ import type {
 } from "@/features/study/domain/replay";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { DueReviews } from "@/features/study/domain/reviews";
+import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
 
-export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase };
+export type { AttemptHelp, AttemptResult, KcState, KcStateName, Phase, Stage };
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
@@ -37,6 +38,20 @@ export type TutorContext = {
    * stored before #177 have none.
    */
   todayPlan: TutorToday;
+  /**
+   * The learn session's stage; null without a Topic. Contexts stored before
+   * #180 have none.
+   */
+  session?: TutorSession | null;
+};
+
+/** A learn session's stage as the AI is told of it. */
+export type TutorSession = {
+  stage: Stage;
+  /** Where the session goes after `review`. */
+  afterReview: Stage;
+  /** Whole minutes since the session started. */
+  minutes: number;
 };
 
 /** The Today card's work as the AI is told of it. */

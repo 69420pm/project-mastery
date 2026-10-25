@@ -42,11 +42,15 @@ import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { SessionEnded } from "@/features/chat/components/session-end";
 import { chatPath } from "@/features/chat/domain/chat-paths";
-import { EndSessionButton, sessionEndedMessage } from "@/features/study";
+import { sessionEndedMessage } from "@/features/study";
+import { SessionBar } from "@/features/chat/components/session-bar";
 import { messageText } from "@/lib/ai/reply";
 import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
-import { questionStates } from "@/features/chat/domain/reply-steps";
+import {
+  questionStates,
+  sessionStage,
+} from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
 import { useReadings } from "@/features/chat/hooks/use-readings";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
@@ -217,6 +221,7 @@ export function Chat({
     chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
   const questions = useMemo(() => questionStates(messages), [messages]);
+  const stage = useMemo(() => sessionStage(messages), [messages]);
   const readings = useReadings(messages, chat.messages);
   const canAnswer = !isBusy && !limitReached && !ended;
 
@@ -274,20 +279,18 @@ export function Chat({
       reading={{ done: readings.done, canDone: canAnswer, onDone: sendDone }}
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
-        {/* Once the first message is sent, the Chat's session can be ended. */}
-        {messages.length > 0 && !ended && (
-          <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
-            <EndSessionButton
-              chatId={chatId}
-              disabled={isBusy}
-              onEnded={() => {
-                setInputError(null);
-                setEndedHere(true);
-              }}
-              onError={setInputError}
-            />
-          </div>
-        )}
+        <SessionBar
+          chatId={chatId}
+          stage={stage}
+          // Once the first message is sent, the Chat's session can be ended.
+          canEnd={messages.length > 0 && !ended}
+          busy={isBusy}
+          onEnded={() => {
+            setInputError(null);
+            setEndedHere(true);
+          }}
+          onError={setInputError}
+        />
         <Conversation className="min-h-0">
           <ConversationContent
             className={cn(

@@ -50,11 +50,13 @@ export async function loadPlan(
     schedules: Map<string, KcSchedule>;
     /** How many KCs of the map are due. */
     dueCount: number;
+    /** The stored Topics, when the caller has them; read otherwise. */
+    topics?: Awaited<ReturnType<typeof loadStoredTopics>>;
   },
   now: Date,
 ): Promise<Plan & { pace: Pace; today: TodayPlan }> {
   const [topics, pace, choices] = await Promise.all([
-    loadStoredTopics(supabase, courseId),
+    loaded.topics ?? loadStoredTopics(supabase, courseId),
     loadPace(supabase, courseId, now),
     loadTopicChoices(supabase, courseId),
   ]);

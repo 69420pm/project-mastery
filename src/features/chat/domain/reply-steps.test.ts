@@ -1,6 +1,14 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import { doneReadings, questionStates, replySegments } from "./reply-steps";
+import {
+  doneReadings,
+  questionStates,
+  replySegments,
+  sessionStage,
+} from "./reply-steps";
+
+// The study feature's index also exports its Memory card's server action.
+vi.mock("server-only", () => ({}));
 
 type Parts = ChatUIMessage["parts"];
 
@@ -137,6 +145,34 @@ test("a reading card is done once a later Student message names its section", ()
 
   expect([...doneReadings(messages)]).toEqual(["r1"]);
   expect(doneReadings(messages.slice(0, 3)).size).toBe(0);
+});
+
+test("the session's stage is the latest setStage that returned, else the latest reply's context", () => {
+  const reply = (stage: string | null, parts: Parts = []) =>
+    ({
+      id: "r",
+      role: "assistant",
+      metadata: { tutorContext: { session: stage && { stage } } },
+      parts,
+    }) as unknown as ChatUIMessage;
+  const moved = (stage: string, state = "output-available") =>
+    ({
+      type: "tool-setStage",
+      toolCallId: "s",
+      state,
+      input: { stage },
+      output: { stage },
+    }) as Parts[number];
+
+  expect(sessionStage([reply(null)])).toBeNull();
+  expect(sessionStage([reply("orient", [moved("prime")])])).toBe("prime");
+  expect(
+    sessionStage([
+      reply("orient", [moved("prime")]),
+      reply("prime", [moved("read", "input-available")]),
+    ]),
+  ).toBe("prime");
+  expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
 });
 
 test("keeps text and tool calls in order, merging text across steps", () => {

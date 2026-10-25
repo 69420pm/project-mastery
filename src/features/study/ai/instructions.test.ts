@@ -60,6 +60,23 @@ test("render a context stored before #177 without a Today plan", () => {
   );
 });
 
+test("hold one block per stage and the session's stage when it has a Topic, and the session shape when it has none", () => {
+  const staged = tutorInstructions({
+    ...context,
+    session: { stage: "review", afterReview: "work", minutes: 7 },
+  });
+
+  for (const stage of ["review", "orient", "prime", "read", "work"]) {
+    expect(staged).toContain(`\n- ${stage}: `);
+  }
+  expect(staged).toContain(
+    "Session stage: review. The session started 7 minutes ago.\nAfter the reviews, go to work.",
+  );
+  expect(staged).not.toContain("Session shape");
+  expect(tutorInstructions(context)).toContain("Session shape");
+  expect(tutorInstructions(context)).not.toContain("Session stage:");
+});
+
 const MEMORY_HEADING = "What you know about this Student from earlier Chats:";
 
 test("hold every section and the three rules", () => {

@@ -11,6 +11,7 @@ import {
   findReadingSection,
   loadStoredMap,
   loadStoredReadingSections,
+  loadStoredTopics,
   topicAnchors,
 } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
@@ -40,7 +41,25 @@ import {
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
 import { selectDueReviews } from "@/features/study/domain/reviews";
-import type { TutorContext, TutorToday } from "@/features/study/types";
+import {
+  resumeStage,
+  startStage,
+  type Stage,
+} from "@/features/study/domain/stages";
+import type { TodayTopic } from "@/features/study/domain/today";
+import {
+  loadDoneSections,
+  loadPreviousStage,
+  loadStageSession,
+  saveStage,
+  startSessionTopic,
+  type StageSession,
+} from "@/features/study/server/stages";
+import type {
+  TutorContext,
+  TutorSession,
+  TutorToday,
+} from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -60,19 +79,29 @@ export async function startTutoring(
   supabase: Supabase,
   courseId: string,
   chatId: string,
+  {
+    firstReply = false,
+  }: {
+    /** Whether the reply is the session's first, which sets its Topic. */
+    firstReply?: boolean;
+  } = {},
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, memory, exam, readings] = await Promise.all([
-    loadStoredMap(supabase, courseId),
-    loadKcPriorities(supabase, courseId),
-    loadMemory(supabase, courseId),
-    getExamFacts(supabase, courseId),
-    loadStoredReadingSections(supabase, courseId),
-  ]);
+  const [map, priorities, memory, exam, readings, topics, session] =
+    await Promise.all([
+      loadStoredMap(supabase, courseId),
+      loadKcPriorities(supabase, courseId),
+      loadMemory(supabase, courseId),
+      getExamFacts(supabase, courseId),
+      loadStoredReadingSections(supabase, courseId),
+      loadStoredTopics(supabase, courseId),
+      loadStageSession(supabase, chatId),
+    ]);
   const { examDate } = exam;
   const facts = { examDate, goal: exam.goal, priorities };
   const now = new Date();
   const schedules = await loadSchedules(supabase, courseId, facts, now);
-  const dueReviews = selectDueReviews(map.kcs, schedules, priorities, now);
+  const due = selectDueReviews(map.kcs, schedules, priorities, now);
+  const dueCount = due.kcs.length + due.more;
   const plan = await loadPlan(
     supabase,
     courseId,
@@ -81,10 +110,21 @@ export async function startTutoring(
       priorities,
       exam,
       schedules,
-      dueCount: dueReviews.kcs.length + dueReviews.more,
+      dueCount,
+      topics,
     },
     now,
   );
+  const staged =
+    session &&
+    (await sessionStage(supabase, {
+      session,
+      next: firstReply ? plan.today.next : null,
+      topics,
+      reviewsDue: dueCount > 0,
+      now,
+    }));
+  const next = staged?.topic ?? plan.today.next;
   return {
     context: {
       today: utcDay(now),
@@ -94,26 +134,102 @@ export async function startTutoring(
       goal: exam.goal,
       memory,
       mapPath: courseMapPath(courseId),
-      dueReviews,
-      todayPlan: tutorToday(plan, map, schedules, readings),
+      // The review opening prepares the docking: the Topic's anchors first.
+      dueReviews: staged
+        ? selectDueReviews(
+            map.kcs,
+            schedules,
+            priorities,
+            now,
+            topicAnchors(staged.topic.kcs, map).map(({ id }) => id),
+          )
+        : due,
+      todayPlan: tutorToday(plan, next, map, schedules, readings),
+      session: staged?.session ?? null,
     },
     tools: tutorTools(
-      tutorToolActions(supabase, { courseId, chatId, facts, map }),
+      tutorToolActions(supabase, {
+        courseId,
+        chatId,
+        facts,
+        map,
+        staged: staged && {
+          afterReview: staged.session.afterReview,
+          sectionIds: (readings.get(staged.topic.id) ?? []).map(({ id }) => id),
+        },
+      }),
     ),
   };
 }
 
 /**
- * Today's work as the AI is told of it: the next Topic with its KCs and
- * anchors from the map and its Reading sections, the hint and the fit line.
+ * The session's Topic and stage. The first reply sets them, from the plan's
+ * next Topic (`next`) and `startStage`; later replies read them. Null
+ * without a Topic.
+ */
+async function sessionStage(
+  supabase: Supabase,
+  {
+    session,
+    next,
+    topics,
+    reviewsDue,
+    now,
+  }: {
+    session: StageSession;
+    /** The Topic to set when the session has none; null to set none. */
+    next: TodayTopic | null;
+    topics: Awaited<ReturnType<typeof loadStoredTopics>>;
+    reviewsDue: boolean;
+    now: Date;
+  },
+): Promise<{ topic: TodayTopic; session: TutorSession } | null> {
+  const topicId = session.topicId ?? next?.id;
+  if (!topicId) return null;
+  const previous = await loadPreviousStage(
+    supabase,
+    topicId,
+    session.startedAt,
+  );
+  let { stage } = session;
+  if (session.topicId === null) {
+    stage = startStage(previous, reviewsDue);
+    if (!(await startSessionTopic(supabase, session.id, topicId, stage))) {
+      return null;
+    }
+  }
+  const topic = topics.find(({ id }) => id === topicId);
+  if (!topic || stage === null) return null;
+  return {
+    topic: {
+      id: topic.id,
+      name: topic.name,
+      centralQuestion: topic.centralQuestion,
+      kcs: topic.kcs,
+    },
+    session: {
+      stage,
+      afterReview: resumeStage(previous),
+      minutes: Math.floor(
+        (now.getTime() - new Date(session.startedAt).getTime()) / 60_000,
+      ),
+    },
+  };
+}
+
+/**
+ * Today's work as the AI is told of it: the Topic `next` (the session's, or
+ * the plan's next) with its KCs and anchors from the map and its Reading
+ * sections, the hint and the fit line.
  */
 function tutorToday(
   plan: Awaited<ReturnType<typeof loadPlan>>,
+  next: TodayTopic | null,
   map: KnowledgeMap,
   schedules: Map<string, unknown>,
   readings: Awaited<ReturnType<typeof loadStoredReadingSections>>,
 ): TutorToday {
-  const { next, hint } = plan.today;
+  const { hint } = plan.today;
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
   return {
     next: next && {
@@ -159,11 +275,14 @@ function tutorToolActions(
     chatId,
     facts,
     map,
+    staged,
   }: {
     courseId: string;
     chatId: string;
     facts: Parameters<typeof loadSchedules>[2];
     map: KnowledgeMap;
+    /** The session's stages; null without a Topic. */
+    staged: { afterReview: Stage; sectionIds: string[] } | null;
   },
 ): TutorToolActions {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
@@ -188,6 +307,23 @@ function tutorToolActions(
   const linkTo = (chunk: { id: string; materialId: string }) =>
     `${materialChunksPath(courseId, chunk.materialId)}#${chunkAnchor(chunk.id)}`;
   return {
+    // Read fresh on every call, as an earlier call may have moved it.
+    async loadStage() {
+      if (!staged) return null;
+      const [current, done] = await Promise.all([
+        loadStageSession(supabase, chatId),
+        loadDoneSections(supabase, staged.sectionIds),
+      ]);
+      if (!current?.stage) return null;
+      return {
+        stage: current.stage,
+        afterReview: staged.afterReview,
+        readingLeft: staged.sectionIds.some((id) => !done.has(id)),
+      };
+    },
+    async saveStage(stage) {
+      return saveStage(supabase, await session(), stage);
+    },
     async findExercises(kcIds) {
       requireKnown(kcIds);
       const attempted = await loadAttemptedExercises(supabase, courseId);

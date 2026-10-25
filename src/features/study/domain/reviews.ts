@@ -29,13 +29,15 @@ const MAX_DUE_REVIEWS = 8;
  * The due KCs of `kcs` (in map order) at `now`, ranked by Priority × (1 −
  * today's recall). A KC without a Priority counts as 0; ties go to map
  * order. `schedules` holds the taught KCs' schedules by id, `priorities`
- * their Priorities.
+ * their Priorities. Due KCs of `first`, such as the session Topic's anchors,
+ * come before the rest, ranked the same way.
  */
 export function selectDueReviews(
   kcs: Array<{ id: string; name: string; type: string }>,
   schedules: ReadonlyMap<string, KcSchedule>,
   priorities: Record<string, number>,
   now: Date,
+  first: readonly string[] = [],
 ): DueReviews {
   const today = utcDay(now);
   const due = kcs.flatMap((kc, position) => {
@@ -45,8 +47,12 @@ export function selectDueReviews(
     const urgency = (priorities[kc.id] ?? 0) * (1 - recall);
     return [{ kc, position, recall, urgency }];
   });
+  const firstRank = (id: string) => (first.includes(id) ? 0 : 1);
   const ranked = due.toSorted(
-    (a, b) => b.urgency - a.urgency || a.position - b.position,
+    (a, b) =>
+      firstRank(a.kc.id) - firstRank(b.kc.id) ||
+      b.urgency - a.urgency ||
+      a.position - b.position,
   );
   return {
     kcs: ranked.slice(0, MAX_DUE_REVIEWS).map(({ kc, recall }) => ({

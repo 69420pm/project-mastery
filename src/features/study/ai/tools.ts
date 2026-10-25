@@ -5,6 +5,11 @@ import {
   checkFinalValue,
   parseFinalValue,
 } from "@/features/study/domain/final-answers";
+import {
+  STAGES,
+  stageMoveRefusal,
+  type Stage,
+} from "@/features/study/domain/stages";
 import type {
   ExerciseView,
   GradedKc,
@@ -132,11 +137,34 @@ const showReadingInputSchema = z.object({
   ),
 });
 
+/** What `setStage` takes: the stage to move to and, to skip, why. */
+const setStageInputSchema = z.object({
+  stage: z.enum(STAGES).describe("The stage of this learn session to move to."),
+  reason: rememberInputSchema.shape.text
+    .nullish()
+    .describe(
+      "Why, in one line, when you skip a stage: needed for any move but the next stage, work back to read for a Reading section left, and review to the stage named for after it.",
+    ),
+});
+
+/** Where a learn session stands, as `setStage` checks a move against it. */
+export type SessionStage = {
+  stage: Stage;
+  /** Where the session goes after `review`. */
+  afterReview: Stage;
+  /** Whether a Reading section of the Topic has no Done message yet. */
+  readingLeft: boolean;
+};
+
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
  */
 export type TutorToolActions = {
+  /** The Chat's learn session's stage; null when it has no Topic. */
+  loadStage: () => Promise<SessionStage | null>;
+  /** Moves the session to a stage; false when it has ended or is at close. */
+  saveStage: (stage: Stage) => Promise<boolean>;
   readKcs: (kcIds: string[]) => Promise<KcReading[]>;
   /** A note, without Exercises, tells the model why there are none. */
   findExercises: (
@@ -214,6 +242,12 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: showReadingInputSchema,
       execute: async ({ sectionId }) => showReading(actions, sectionId),
     }),
+    setStage: tool({
+      description:
+        "Move this learn session to another stage once the current one has done its job. Without a reason it allows the next stage in order, work back to read while a Reading section of the Topic is left, and review to the stage named for after it; any other forward move needs a one-line reason. It never moves back otherwise, and close is final. Returns the stage the session is at.",
+      inputSchema: setStageInputSchema,
+      execute: async (input) => setStage(actions, input),
+    }),
     grade: tool({
       description:
         "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
@@ -241,6 +275,32 @@ async function showReading(
   return reading.mode === "study_text" && studyText !== null
     ? { ...reading, studyText }
     : reading;
+}
+
+/** The `setStage` call: a move `stageMoveRefusal` allows, then saved. */
+async function setStage(
+  actions: TutorToolActions,
+  { stage, reason }: z.infer<typeof setStageInputSchema>,
+): Promise<{ stage: Stage }> {
+  const session = await actions.loadStage();
+  if (!session) {
+    throw new TutorToolError(
+      "This session has no Topic, so it has no stages: tutor without them.",
+    );
+  }
+  const refusal = stageMoveRefusal({
+    ...session,
+    from: session.stage,
+    to: stage,
+    reason,
+  });
+  if (refusal) throw new TutorToolError(refusal);
+  if (stage !== session.stage && !(await actions.saveStage(stage))) {
+    throw new TutorToolError(
+      "This session has ended or is at close, so its stage stays.",
+    );
+  }
+  return { stage };
 }
 
 const alreadyGraded = "This question is already graded.";

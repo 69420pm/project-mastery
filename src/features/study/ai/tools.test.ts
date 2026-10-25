@@ -18,6 +18,8 @@ const noActions = {
   findQuestion: async () => null,
   saveGrade: async () => null,
   findReading: async () => null,
+  loadStage: async () => null,
+  saveStage: async () => true,
 } satisfies TutorToolActions;
 
 const tools = tutorTools(noActions);
@@ -236,6 +238,38 @@ describe("showReading", () => {
     const step = (name: string) => ({ toolCalls: [{ toolName: name }] });
     expect(endsReply({ steps: [step(toolName)] } as never)).toBe(true);
     expect(endsReply({ steps: [step("readKcs")] } as never)).toBe(false);
+  });
+});
+
+describe("setStage", () => {
+  const call = (actions: Partial<TutorToolActions>, input: object) =>
+    tutorTools({ ...noActions, ...actions }).setStage.execute!(
+      input as never,
+      { toolCallId: "1", messages: [] } as never,
+    );
+  const at = (stage: "orient" | "close") => async () => ({
+    stage,
+    afterReview: "orient" as const,
+    readingLeft: false,
+  });
+
+  test("saves an allowed move and returns the stage", async () => {
+    const saved: string[] = [];
+    const saveStage = async (stage: string) => saved.push(stage) > 0;
+    expect(
+      await call({ loadStage: at("orient"), saveStage }, { stage: "prime" }),
+    ).toEqual({ stage: "prime" });
+    expect(saved).toEqual(["prime"]);
+  });
+
+  test("refuses a session without a Topic, a skip without a reason and leaving close", async () => {
+    await expect(call({}, { stage: "prime" })).rejects.toThrow("no Topic");
+    await expect(
+      call({ loadStage: at("orient") }, { stage: "apply" }),
+    ).rejects.toThrow("give a one-line reason");
+    await expect(
+      call({ loadStage: at("close") }, { stage: "rebuild", reason: "More." }),
+    ).rejects.toThrow("stays there");
   });
 });
 

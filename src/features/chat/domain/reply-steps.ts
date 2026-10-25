@@ -1,10 +1,13 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type {
-  ExerciseView,
-  GradedKc,
-  KcReading,
-  QuestionKind,
+import {
+  isStage,
+  STAGE_NAMES,
+  type ExerciseView,
+  type GradedKc,
+  type KcReading,
+  type QuestionKind,
+  type Stage,
 } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
@@ -74,6 +77,7 @@ const TOOL_TITLES: Record<string, string> = {
   ask: "Asking a question",
   showReading: "Opening a reading",
   grade: "Grading your answer",
+  setStage: "Moving on",
 };
 
 /**
@@ -206,6 +210,30 @@ export function questionStates(
   return states;
 }
 
+/**
+ * Where a Chat's learn session stands, read from its messages: the stage of
+ * the latest `setStage` call that returned, or else of the latest reply's
+ * tutor context. Null for a session without stages.
+ */
+export function sessionStage(messages: ChatUIMessage[]): Stage | null {
+  let stage: Stage | null = null;
+  for (const message of messages) {
+    const context = message.metadata?.tutorContext;
+    if (context) stage = context.session?.stage ?? null;
+    for (const part of message.parts) {
+      if (
+        isToolUIPart(part) &&
+        getToolName(part) === "setStage" &&
+        part.state === "output-available"
+      ) {
+        const moved = asRecord(part.output).stage;
+        if (isStage(moved)) stage = moved;
+      }
+    }
+  }
+  return stage;
+}
+
 /** A question's state on its question card, once it is no longer open. */
 export type QuestionState =
   { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
@@ -269,6 +297,12 @@ function describeOutput(
     return {
       summary: `Graded: ${kcs.map((kc) => `${kc.name} ${kc.result}`).join(", ")}`,
       detail: { tool: "grade", kcs },
+    };
+  }
+  if (name === "setStage" && isStage(out.stage)) {
+    return {
+      summary: `Moved to ${STAGE_NAMES[out.stage]}`,
+      detail: { tool: "other", input, output },
     };
   }
   if (name === "remember" && typeof args.text === "string") {
