@@ -2489,7 +2489,7 @@ export type Database = {
       };
       start_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       start_study_session_mode: {
-        Args: { p_mode: string; p_session_id: string };
+        Args: { p_mock_id?: string; p_mode: string; p_session_id: string };
         Returns: boolean;
       };
       start_study_session_topic: {

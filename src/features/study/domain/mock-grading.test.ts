@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { awardedPoints, checkedResult, mockScore } from "./mock-grading";
+import {
+  awardedPoints,
+  byPointsLost,
+  checkedResult,
+  mockScore,
+} from "./mock-grading";
 
 const step = (points: number) => ({ points, reason: "Step." });
 
@@ -44,4 +49,21 @@ describe("mockScore", () => {
       mockScore([{ points: 8, awarded: null, predictedSuccess: 0.5 }]),
     ).toEqual({ score: 0, brier: null });
   });
+});
+
+test("byPointsLost puts the biggest loss first, exam order on ties, and ungraded items last", () => {
+  const item = (position: number, points: number, awarded: number | null) => ({
+    position,
+    points,
+    awarded,
+  });
+  expect(
+    byPointsLost([
+      item(0, 4, 4),
+      item(1, 6, null),
+      item(2, 6, 2),
+      item(3, 10, 8),
+      item(4, 3, 0),
+    ]).map(({ position }) => position),
+  ).toEqual([2, 4, 3, 0, 1]);
 });

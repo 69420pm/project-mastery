@@ -23,6 +23,8 @@ export type StageSession = {
   startedAt: string;
   /** Only learn sessions get a Topic and stages. */
   mode: SessionMode;
+  /** The graded Mock exam a results session goes through; null otherwise. */
+  mockId: string | null;
 };
 
 /** The Chat's Study session with its Topic and stage; null without one. */
@@ -32,7 +34,7 @@ export async function loadStageSession(
 ): Promise<StageSession | null> {
   const { data, error } = await supabase
     .from("study_sessions")
-    .select("id, topic_id, stage, started_at, mode")
+    .select("id, topic_id, stage, started_at, mode, mock_id")
     .eq("chat_id", chatId)
     .maybeSingle();
   if (error) failed("Loading the Study session", error);
@@ -43,6 +45,7 @@ export async function loadStageSession(
     stage: isStage(data.stage) ? data.stage : null,
     startedAt: data.started_at,
     mode: parseSessionMode(data.mode),
+    mockId: data.mock_id ?? null,
   };
 }
 

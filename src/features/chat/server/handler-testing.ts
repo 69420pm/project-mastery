@@ -81,6 +81,7 @@ function createDb() {
       kc_priorities: [],
       briefs: [],
       mock_exams: [],
+      mock_items: [],
       chunks: [],
       study_sessions: [],
       questions: [],
@@ -152,9 +153,21 @@ function createDb() {
         const session = tables.study_sessions.find(
           (row) => row.id === args.p_session_id && row.owner === signedIn,
         );
+        const mock = tables.mock_exams.find(
+          (row) =>
+            row.id === args.p_mock_id &&
+            row.owner === signedIn &&
+            row.course_id === session?.course_id &&
+            row.status === "graded",
+        );
+        const fits =
+          args.p_mode === "results"
+            ? mock !== undefined
+            : (args.p_mode === "review" || args.p_mode === "practice") &&
+              args.p_mock_id === undefined;
         if (
           !session ||
-          (args.p_mode !== "review" && args.p_mode !== "practice") ||
+          !fits ||
           session.mode !== "learn" ||
           session.topic_id !== null ||
           session.ended_at !== null ||
@@ -162,7 +175,10 @@ function createDb() {
         ) {
           return false;
         }
-        session.mode = args.p_mode;
+        Object.assign(session, {
+          mode: args.p_mode,
+          mock_id: args.p_mock_id ?? null,
+        });
         return true;
       },
       set_study_session_stage: (args, tables) => {
@@ -255,7 +271,9 @@ function createDb() {
         table === "materials" ||
         table === "study_sessions" ||
         table === "questions" ||
-        table === "attempts"
+        table === "attempts" ||
+        table === "mock_exams" ||
+        table === "mock_items"
       ) {
         return row.owner === signedIn;
       }

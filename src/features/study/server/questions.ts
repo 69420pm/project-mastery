@@ -115,7 +115,7 @@ export async function saveAttempts(
   grade: {
     questionId: string;
     sessionId: string;
-    kind: "pre" | "learn";
+    kind: "pre" | "learn" | "retry";
     help: AttemptHelp;
     results: Array<{ kcId: string; result: AttemptResult }>;
     /** The numeric check, stored on every attempt; null when it didn't apply. */

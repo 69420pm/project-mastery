@@ -74,6 +74,27 @@ export type TutorContext = {
    * absent outside practice sessions and in contexts stored before #184.
    */
   practiceKcs?: PracticeKc[];
+  /**
+   * A results session's graded Mock exam items, the most points lost
+   * first (`byPointsLost`); absent outside results sessions.
+   */
+  mockResults?: MockReviewItem[];
+};
+
+/** A graded Mock exam's item as a Results session goes through it. */
+export type MockReviewItem = {
+  /** Its task number in the mock, from 1. */
+  number: number;
+  prompt: string;
+  /** Null when left blank. */
+  answer: string | null;
+  points: number;
+  /** Null when it could not be graded. */
+  pointsAwarded: number | null;
+  steps: Array<{ points: number; reason: string }>;
+  /** The Exercise's or Problem's solution; null without one. */
+  reference: string | null;
+  kcs: Array<{ id: string; name: string }>;
 };
 
 /** A learn session's stage as the AI is told of it. */

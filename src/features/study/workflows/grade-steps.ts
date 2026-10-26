@@ -1,11 +1,5 @@
 import "server-only";
-import { z } from "zod";
-import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
 import type { FinalAnswer } from "@/features/knowledge-map";
-import { finalAnswerSchema } from "@/features/knowledge-map/server";
 import {
   gradeExamCall,
   type ExamGrading,
@@ -21,6 +15,7 @@ import {
   mockScore,
   type MockCheck,
 } from "@/features/study/domain/mock-grading";
+import { loadItemSource } from "@/features/study/server/mock-results";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -94,7 +89,7 @@ export async function gradeMockItem(itemId: string): Promise<void> {
       finalValue: null,
     };
   } else {
-    const source = await loadSource(supabase, mock.course_id, item);
+    const source = await loadItemSource(supabase, mock.course_id, item);
     const { call, grading: read } = gradeExamCall({
       prompt: item.prompt,
       points: item.points,
@@ -186,52 +181,6 @@ async function loadKcs(
     .in("id", kcIds);
   if (error) failed("Loading the item's KCs", error);
   return data;
-}
-
-/**
- * The item's reference solution and final answers: its Exercise's (its
- * solution, else its paired solution chunk) or its Problem's.
- */
-async function loadSource(
-  supabase: Supabase,
-  courseId: string,
-  item: { exercise_id: string | null; problem_id: string | null },
-): Promise<{ reference: string | null; keys: FinalAnswer[] | null }> {
-  const keysOf = (value: unknown) => {
-    const parsed = z.array(finalAnswerSchema).safeParse(value);
-    return parsed.success ? parsed.data : null;
-  };
-  if (item.problem_id !== null) {
-    const { data, error } = await supabase
-      .from("problems")
-      .select("solution, final_answers")
-      .eq("id", item.problem_id)
-      .maybeSingle();
-    if (error) failed("Loading the item's Problem", error);
-    return {
-      reference: data?.solution ?? null,
-      keys: keysOf(data?.final_answers),
-    };
-  }
-  if (item.exercise_id === null) return { reference: null, keys: null };
-  const { data, error } = await supabase
-    .from("exercises")
-    .select("solution, question_chunk_id, final_answers")
-    .eq("id", item.exercise_id)
-    .maybeSingle();
-  if (error) failed("Loading the item's Exercise", error);
-  if (!data) return { reference: null, keys: null };
-  let reference = data.solution;
-  if (reference === null) {
-    const paired = (await loadExerciseSolutions(supabase, courseId))[
-      data.question_chunk_id
-    ];
-    if (paired) {
-      const [chunk] = await loadChunkSources(supabase, [paired]);
-      reference = chunk?.markdown ?? null;
-    }
-  }
-  return { reference, keys: keysOf(data.final_answers) };
 }
 
 /** The numeric check; null without keys or a readable final value. */

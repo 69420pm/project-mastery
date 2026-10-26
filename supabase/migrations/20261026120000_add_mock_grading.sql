@@ -111,6 +111,56 @@ alter table public.study_sessions
 
 create index study_sessions_mock_id_idx on public.study_sessions (mock_id);
 
+-- As before for review and practice, and `results` with the caller's
+-- graded mock of the session's Course, which it sets as `mock_id`.
+drop function public.start_study_session_mode(uuid, text);
+
+create function public.start_study_session_mode(
+  p_session_id uuid,
+  p_mode text,
+  p_mock_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not (
+    (p_mode in ('review', 'practice') and p_mock_id is null)
+    or (p_mode = 'results' and p_mock_id is not null)
+  ) then
+    return false;
+  end if;
+  update public.study_sessions s
+  set mode = p_mode, mock_id = p_mock_id
+  where s.id = p_session_id
+    and s.owner = (select auth.uid())
+    and s.mode = 'learn'
+    and s.topic_id is null
+    and s.ended_at is null
+    and not exists (
+      select 1 from public.questions q where q.session_id = s.id
+    )
+    and (
+      p_mock_id is null
+      or exists (
+        select 1 from public.mock_exams m
+        where m.id = p_mock_id
+          and m.owner = (select auth.uid())
+          and m.course_id = s.course_id
+          and m.status = 'graded'
+      )
+    );
+  return found;
+end;
+$$;
+
+comment on function public.start_study_session_mode(uuid, text, uuid) is 'Sets the caller''s running session''s mode to review or practice, or to results with the caller''s graded mock of its Course, once; false when it has a Topic or a question, has ended, or the mode or mock does not fit.';
+
+revoke execute on function public.start_study_session_mode(uuid, text, uuid) from public, anon;
+grant execute on function public.start_study_session_mode(uuid, text, uuid) to authenticated;
+
 -- Exam results ---------------------------------------------------------------
 
 -- The grade a Student got in a Course's real exam, once per exam date; a

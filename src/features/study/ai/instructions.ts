@@ -2,6 +2,7 @@ import type { DueReviews } from "@/features/study/domain/reviews";
 import type { PracticeKc } from "@/features/study/domain/practice";
 import type { ReviewGroup } from "@/features/study/domain/review-queue";
 import type {
+  MockReviewItem,
   TutorContext,
   TutorSession,
   TutorToday,
@@ -55,6 +56,15 @@ const PRACTICE = `Practice session: the Student practises exam-style Problems on
 - After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
 - After a full answer, sometimes ask why a step works, through ask, before the next Problem.
 - When the Student asks something else, answer it, then come back to the Problems.`;
+
+/** How a results session (#186) goes: the graded Mock exam's items below. */
+const RESULTS = `Results session: the Student goes through a Mock exam they took, which code has graded, with you. Its tasks are listed below, the most points lost first, each with the Student's answer, the points and the grader's reasons, the reference solution and the KCs it tests. When the Student greets you or wants to start without saying what, do not ask them to choose: start with the first task that lost points.
+- Go through the tasks top-down, one at a time. For each, first ask the Student in text how they approached it, and wait for their reply. Never show the reference solution or its final value, and never state the correct answer, before they have replied.
+- Then correct: compare their approach and answer with the reference solution, point to the first mistake, explain the missing step or idea briefly, citing the course (call getTopic with the task's KC ids first), and show the reference solution's key steps.
+- Skip tasks with full points unless the Student asks about one. A task that could not be graded: ask the Student whether they want to go through it.
+- Later in the session, at least one other task after a correction, ask one question per KC you corrected through ask, a fresh question on it rather than the mock's task, and grade it as usual. Ask each such KC once.
+- When every task that lost points is corrected and the KC questions are graded, wrap up in a few sentences, without a new question, and suggest ending the session with End session.
+- When the Student asks something else, answer it, then come back to the tasks.`;
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems of the same task type in a row.
@@ -250,14 +260,44 @@ function describePracticeKcs(kcs: PracticeKc[], mapPath: string): string {
   ].join("\n");
 }
 
+/** A results session's graded Mock exam tasks, the most points lost first. */
+function describeMockResults(items: MockReviewItem[]): string {
+  if (items.length === 0) {
+    return "The Mock exam has no tasks to go through. Say so in a sentence, without a question card.";
+  }
+  const tasks = items.map((item) => {
+    const grade =
+      item.pointsAwarded === null
+        ? `could not be graded (${item.points} points)`
+        : `${item.pointsAwarded} of ${item.points} points`;
+    const steps = item.steps.map(
+      (step) => `  - ${step.points} points: ${step.reason}`,
+    );
+    return [
+      `Task ${item.number}: ${grade}`,
+      `Task:\n${item.prompt}`,
+      `The Student's answer:\n${item.answer ?? "(left blank)"}`,
+      ...(steps.length > 0 ? [`Grader's reasons:\n${steps.join("\n")}`] : []),
+      `Reference solution:\n${item.reference ?? "none; correct from the task's statement and the course."}`,
+      `KCs: ${item.kcs.map((kc) => `${kc.name} (id ${kc.id})`).join(", ") || "none"}`,
+    ].join("\n");
+  });
+  return ["The Mock exam's tasks, the most points lost first:", ...tasks].join(
+    "\n\n",
+  );
+}
+
 /**
  * How you tutor: the review queue's way in a review session, Problems in a
  * practice session, else with the stages when the session has them.
  */
 function describeGuidance(
   session: TutorSession | null,
-  mode: "review" | "practice" | null,
+  mode: "review" | "practice" | "results" | null,
 ): string[] {
+  if (mode === "results") {
+    return [["How you tutor:", RESULTS, GUIDANCE_END].join("\n")];
+  }
   if (mode === "review") {
     return [["How you tutor:", REVIEW, GUIDANCE_END].join("\n")];
   }
@@ -294,16 +334,19 @@ export function tutorInstructions(context: TutorContext): string {
   const session = context.session ?? null;
   const queue = context.reviewQueue;
   const practice = context.practiceKcs;
+  const mock = context.mockResults;
   return [
     ROLE,
     RULES,
     ...describeGuidance(
       session,
-      queue !== undefined
-        ? "review"
-        : practice !== undefined
-          ? "practice"
-          : null,
+      mock !== undefined
+        ? "results"
+        : queue !== undefined
+          ? "review"
+          : practice !== undefined
+            ? "practice"
+            : null,
     ),
     QUESTIONS,
     READING,
@@ -318,14 +361,16 @@ export function tutorInstructions(context: TutorContext): string {
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
     ...describePlan(context),
-    ...(queue !== undefined
-      ? [describeReviewQueue(queue, context.mapPath)]
-      : practice !== undefined
-        ? [describePracticeKcs(practice, context.mapPath)]
-        : [
-            ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
-            describeMap(context),
-          ]),
+    ...(mock !== undefined
+      ? [describeMockResults(mock)]
+      : queue !== undefined
+        ? [describeReviewQueue(queue, context.mapPath)]
+        : practice !== undefined
+          ? [describePracticeKcs(practice, context.mapPath)]
+          : [
+              ...(context.hasMap ? [describeReviews(context.dueReviews)] : []),
+              describeMap(context),
+            ]),
     ...(session ? [describeSession(session)] : []),
   ].join("\n\n");
 }

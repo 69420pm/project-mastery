@@ -101,3 +101,16 @@ export function mockScore(items: ScoredItem[]): {
     brier: squared.reduce((sum, value) => sum + value, 0) / graded.length,
   };
 }
+
+/**
+ * A graded mock's items in the order a Results session goes through them:
+ * the most points lost first, ties in exam order, and items that could not
+ * be graded last.
+ */
+export function byPointsLost<
+  T extends { position: number; points: number; awarded: number | null },
+>(items: T[]): T[] {
+  const lost = (item: T) =>
+    item.awarded === null ? -1 : item.points - item.awarded;
+  return items.toSorted((a, b) => lost(b) - lost(a) || a.position - b.position);
+}
