@@ -97,9 +97,13 @@ export function pinnedLines(memory: string): string[] {
     .filter((line) => line.startsWith("!"));
 }
 
-/** Whether every pinned line of `memory` is in `condensed` word for word. */
+/**
+ * Whether every pinned line of `memory` is a whole line of `condensed`,
+ * word for word (trimmed): a pin merged into another line fails.
+ */
 export function keepsPinnedLines(memory: string, condensed: string): boolean {
-  return pinnedLines(memory).every((line) => condensed.includes(line));
+  const lines = new Set(condensed.split("\n").map((line) => line.trim()));
+  return pinnedLines(memory).every((line) => lines.has(line));
 }
 
 /**

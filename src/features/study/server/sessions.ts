@@ -180,7 +180,9 @@ export async function endSession(
       import("@/features/study/server/session-close"),
     ],
   );
-  await queueProblemGeneration(supabase, ended.course_id, null);
+  // The close starts first: it never throws, and a failing generation
+  // queue must not leave the session without its notes.
   await startSessionClose(ended.id);
+  await queueProblemGeneration(supabase, ended.course_id, null);
   return true;
 }

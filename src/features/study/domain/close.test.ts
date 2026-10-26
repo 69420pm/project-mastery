@@ -31,6 +31,21 @@ describe("keepsPinnedLines", () => {
     ).toBe(false);
   });
 
+  test("fails when a pinned line is merged into another line", () => {
+    expect(
+      keepsPinnedLines(
+        MEMORY,
+        "!Exam is open book. Also notes.\n!Studies at night.",
+      ),
+    ).toBe(false);
+    expect(
+      keepsPinnedLines(
+        MEMORY,
+        "2026-10-01: !Exam is open book.\n!Studies at night.",
+      ),
+    ).toBe(false);
+  });
+
   test("holds for any text when the Memory has no pins", () => {
     expect(keepsPinnedLines("Likes short answers.", "Short.")).toBe(true);
   });
