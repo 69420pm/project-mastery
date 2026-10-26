@@ -73,19 +73,23 @@ export async function getSessionMode(
 }
 
 /**
- * Switches a new Chat's session to review or practice. False, leaving it
- * learn, when it is not the caller's, has ended, has a Topic or a question.
+ * Switches a new Chat's session to review or practice, or to results on
+ * the graded Mock exam `mockId`. False, leaving it learn, when it is not
+ * the caller's, has ended, has a Topic or a question, or the mock is not
+ * the caller's graded mock of the Chat's Course.
  */
 export async function startSessionMode(
   supabase: Supabase,
   chatId: string,
   mode: SessionMode,
+  mockId?: string,
 ): Promise<boolean> {
   const session = await loadChatSession(supabase, chatId);
   if (!session) return false;
   const { data, error } = await supabase.rpc("start_study_session_mode", {
     p_session_id: session.id,
     p_mode: mode,
+    ...(mockId && { p_mock_id: mockId }),
   });
   if (error) failed("Setting the session's mode", error);
   return data === true;

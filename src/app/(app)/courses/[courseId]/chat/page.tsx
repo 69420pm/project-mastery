@@ -22,7 +22,7 @@ export default async function NewChatPage({
   searchParams,
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
-  const { mode } = await searchParams;
+  const { mode, mock } = await searchParams;
   const user = await requireUser(newChatPath(courseId));
   const [course, dailyLimit, materials, plan] = await Promise.all([
     getCourse(courseId),
@@ -31,7 +31,7 @@ export default async function NewChatPage({
     getPlan(courseId),
   ]);
   if (!course) notFound();
-  const chat = newChat(course.id, parseSessionMode(mode));
+  const chat = newChat(course.id, parseSessionMode(mode), mock);
 
   return (
     <Chat

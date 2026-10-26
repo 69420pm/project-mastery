@@ -19,6 +19,7 @@ import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { briefSmoke } from "./smoke/brief";
 import { generateSmoke } from "./smoke/generate";
+import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapSmoke } from "./smoke/map";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
@@ -43,6 +44,7 @@ const CHECKS: SmokeCheck[] = [
   generateSmoke,
   reviewSmoke,
   mockSmoke,
+  gradeMockSmoke,
 ];
 
 /**
@@ -134,6 +136,7 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_READING",
   "AI_MODEL_PRIORITY",
   "AI_MODEL_GENERATE",
+  "AI_MODEL_GRADE_EXAM",
   "AI_MODEL_JUDGE",
 ];
 

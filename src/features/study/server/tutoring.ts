@@ -28,6 +28,7 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
+import { loadMockReview } from "@/features/study/server/mock-results";
 import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
@@ -183,6 +184,12 @@ export async function startTutoring(
           now,
         })
       : null;
+  // A results session goes through its graded Mock exam.
+  const resultsSession = session?.mode === "results";
+  const mockResults =
+    resultsSession && session.mockId
+      ? await loadMockReview(supabase, courseId, session.mockId, map.kcs)
+      : null;
   return {
     context: {
       today: utcDay(now),
@@ -207,6 +214,7 @@ export async function startTutoring(
       session: staged?.session ?? null,
       ...(reviewQueue && { reviewQueue }),
       ...(practiceKcs && { practiceKcs }),
+      ...(mockResults && { mockResults }),
     },
     tools: tutorTools(
       tutorToolActions(supabase, {
@@ -218,6 +226,7 @@ export async function startTutoring(
         readings,
         reserved,
         review,
+        resultsSession,
         staged: staged && {
           afterReview: staged.session.afterReview,
           sectionIds: (readings.get(staged.topic.id) ?? []).map(({ id }) => id),
@@ -297,6 +306,7 @@ function tutorToolActions(
     readings,
     reserved,
     review,
+    resultsSession,
     staged,
   }: {
     courseId: string;
@@ -309,6 +319,8 @@ function tutorToolActions(
     reserved: Set<string>;
     /** Whether the session is a review session, which sets `findProblems`' purpose. */
     review: boolean;
+    /** Whether the session is a results session, whose attempts are `retry`. */
+    resultsSession: boolean;
     /** The session's stages; null without a Topic. */
     staged: { afterReview: Stage; sectionIds: string[] } | null;
   },
@@ -405,7 +417,8 @@ function tutorToolActions(
       const saved = await saveAttempts(supabase, {
         questionId,
         sessionId: await session(),
-        kind,
+        // A Results session's questions retry corrected KCs: never scheduled.
+        kind: resultsSession ? "retry" : kind,
         help,
         results,
         check,

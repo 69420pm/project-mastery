@@ -25,6 +25,7 @@ export { replayKc, type ReplayAttempt } from "./domain/replay";
 export { planReviewQueue, type ReviewGroup } from "./domain/review-queue";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
+export { getExamToReport } from "./server/exam-to-report";
 export { getMapFindings } from "./server/map-findings-card";
 export {
   mathRunner,
@@ -35,6 +36,7 @@ export {
 export { getMemory } from "./server/memory";
 export { getMockExam, getOpenMockExam } from "./server/mock-exams";
 export { getPlan } from "./server/plan";
+export { getReadiness } from "./server/readiness";
 export { loadProblemFlags } from "./server/problems";
 export {
   isAnswerable,
@@ -56,6 +58,15 @@ export { findProblems } from "./server/find-problems";
 export { generateProblems } from "./workflows/generate-problems";
 // For the `mock` smoke check, which assembles a queued mock in process.
 export { assembleMock } from "./workflows/assemble-mock";
+// For the `grade-mock` smoke check, which grades a submitted mock in process,
+// and the `grade_exam` eval, which runs the call without a database.
+export { gradeMock } from "./workflows/grade-mock";
+export { awardedPoints, checkMockValue } from "./domain/mock-grading";
+export {
+  gradeExamCall,
+  type ExamGrading,
+  type GradeExamInput,
+} from "./ai/grade-exam-call";
 // For the `generate` eval, which runs the workflow's call and check without
 // a database.
 export {

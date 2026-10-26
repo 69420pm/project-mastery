@@ -74,6 +74,27 @@ export type TutorContext = {
    * absent outside practice sessions and in contexts stored before #184.
    */
   practiceKcs?: PracticeKc[];
+  /**
+   * A results session's graded Mock exam items, the most points lost
+   * first (`byPointsLost`); absent outside results sessions.
+   */
+  mockResults?: MockReviewItem[];
+};
+
+/** A graded Mock exam's item as a Results session goes through it. */
+export type MockReviewItem = {
+  /** Its task number in the mock, from 1. */
+  number: number;
+  prompt: string;
+  /** Null when left blank. */
+  answer: string | null;
+  points: number;
+  /** Null when it could not be graded. */
+  pointsAwarded: number | null;
+  steps: Array<{ points: number; reason: string }>;
+  /** The Exercise's or Problem's solution; null without one. */
+  reference: string | null;
+  kcs: Array<{ id: string; name: string }>;
 };
 
 /** A learn session's stage as the AI is told of it. */
@@ -310,6 +331,25 @@ export type MockExamView = {
   serverNow: string;
   /** Its tasks in order, once started; empty before. */
   tasks: MockTask[];
+  /** How many tasks grading has finished, of all. */
+  grading: { done: number; total: number };
+  /** Once graded: the score against the prediction; null before. */
+  result: MockResult | null;
+};
+
+/** A graded Mock exam's score, over the tasks that could be graded. */
+export type MockResult = {
+  /** The share of points awarded, from 0 to 100. */
+  scorePercent: number;
+  /** The share Readiness predicted, from 0 to 100. */
+  predictedPercent: number;
+  /** Points per Topic, in task order; "Other" for tasks without a Topic. */
+  topics: Array<{ name: string; awarded: number; points: number }>;
+  /**
+   * The Course's graded questions answered with confidence 4, and how many
+   * of them were right (every attempt full); null without one.
+   */
+  sure: { right: number; total: number } | null;
 };
 
 /** A task of a started Mock exam, with the Student's answer so far. */
@@ -321,4 +361,32 @@ export type MockTask = {
   answer: string | null;
   /** From 1 (unsure) to 4 (sure); null until given. */
   confidence: number | null;
+  /**
+   * Once grading finished with it: its points and steps, or `failed` when
+   * it could not be graded; null before.
+   */
+  grade: MockTaskGrade | null;
 };
+
+/** A Course's Readiness for the map (see `readiness`). */
+export type CourseReadiness = {
+  /** Over every KC with a Priority, 0 to 1; null without Priorities. */
+  course: number | null;
+  /** Per Topic id, 0 to 1; a Topic without weighted KCs is missing. */
+  topics: Record<string, number>;
+  /** How many graded mocks check it; 0 means untested. */
+  mocks: number;
+  /** Whether it is projected to an exam date still ahead. */
+  onTheDay: boolean;
+};
+
+/** How a Mock exam's task was graded. */
+export type MockTaskGrade =
+  | { status: "failed" }
+  | {
+      status: "graded";
+      pointsAwarded: number;
+      steps: Array<{ points: number; reason: string }>;
+      /** The final value against the key; null when unchecked. */
+      check: "match" | "mismatch" | null;
+    };

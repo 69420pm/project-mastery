@@ -15,6 +15,7 @@ import type {
   MapPriorities,
   MapTopic,
   MapTopicBadges,
+  MapTopicReadiness,
   MapTopicStates,
 } from "@/features/knowledge-map/types";
 import { CourseMapGraph } from "./course-map-graph";
@@ -44,8 +45,10 @@ export function CourseMap({
   priorities,
   learning,
   topicStates,
+  topicReadiness = {},
   topicBadges,
   planLine,
+  readinessLine,
   today,
 }: {
   map: KnowledgeMapView;
@@ -54,8 +57,11 @@ export function CourseMap({
   priorities: MapPriorities;
   learning: MapKcLearning;
   topicStates: MapTopicStates;
+  topicReadiness?: MapTopicReadiness;
   topicBadges: MapTopicBadges;
   planLine: ReactNode;
+  /** The study feature's Readiness line, shown in the header. */
+  readinessLine?: ReactNode;
   /** The study feature's Today card, shown above the graph. */
   today?: ReactNode;
 }) {
@@ -88,6 +94,7 @@ export function CourseMap({
                 {dueCount} {dueCount === 1 ? "review" : "reviews"} due
               </p>
               {planLine}
+              {readinessLine}
             </>
           )}
         </div>
@@ -114,6 +121,7 @@ export function CourseMap({
               map={map}
               topics={topics}
               topicStates={topicStates}
+              topicReadiness={topicReadiness}
               topicBadges={topicBadges}
             />
           </div>

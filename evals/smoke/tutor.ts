@@ -17,7 +17,7 @@ const ANSWER =
   "I think the air goes through the intake, the compressor, the combustion chamber, the turbine and then the nozzle. Thermal efficiency is the useful power you get out, the gain in the jet's kinetic energy, divided by the heat the fuel puts in.";
 
 /** The gold Exercise the Student asks for, with real data and a key. */
-const THRUST_EXERCISE = {
+export const THRUST_EXERCISE = {
   name: "Ex. 7.2a",
   markdown:
     "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
@@ -109,7 +109,9 @@ export async function sendMessage(
   chat: {
     chatId: string;
     courseId: string;
-    mode?: "learn" | "review" | "practice";
+    mode?: "learn" | "review" | "practice" | "results";
+    /** The graded mock a `results` Chat goes through. */
+    mockId?: string;
   },
   text: string,
   /**

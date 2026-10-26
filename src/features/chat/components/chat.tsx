@@ -186,6 +186,7 @@ export function Chat({
           ...body,
           chatId,
           ...(isNew && { courseId: chat.courseId, mode: chat.mode }),
+          mockId: chat.mockId,
           message: messages.at(-1),
         },
       }),

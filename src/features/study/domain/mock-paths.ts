@@ -5,7 +5,7 @@ export function mockExamPath(courseId: string, mockId: string): string {
 
 /** A Mock exam's status as its page shows it. */
 export type MockStatus =
-  "assembling" | "ready" | "in_progress" | "submitted" | "failed";
+  "assembling" | "ready" | "in_progress" | "submitted" | "graded" | "failed";
 
 /** How long a mock may assemble before it counts as failed. */
 const ASSEMBLY_MS = 60 * 60 * 1000;
@@ -19,6 +19,24 @@ export const STALE_ASSEMBLY = "Assembling took longer than an hour.";
  */
 export function mockDeadline(startedAt: string, durationMinutes: number): Date {
   return new Date(Date.parse(startedAt) + durationMinutes * 60_000);
+}
+
+/** How long grading may run before the page starts it again. */
+const GRADING_MS = 60 * 60 * 1000;
+
+/**
+ * Whether a submitted mock's grading never started or started over an hour
+ * ago, so the page starts it again, as `restart_mock_grading` allows.
+ */
+export function gradingStalled(
+  row: { status: string; grading_started_at: string | null },
+  now: Date,
+): boolean {
+  return (
+    row.status === "submitted" &&
+    (row.grading_started_at === null ||
+      now.getTime() - Date.parse(row.grading_started_at) > GRADING_MS)
+  );
 }
 
 /**
