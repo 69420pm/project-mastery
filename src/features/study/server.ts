@@ -33,6 +33,7 @@ export {
   type ProgramRun,
 } from "./server/math-runner";
 export { getMemory } from "./server/memory";
+export { getMockExam, getOpenMockExam } from "./server/mock-exams";
 export { getPlan } from "./server/plan";
 export { loadProblemFlags } from "./server/problems";
 export {
@@ -53,6 +54,8 @@ export { startTutoring } from "./server/tutoring";
 // looks the variant up as the tutor would.
 export { findProblems } from "./server/find-problems";
 export { generateProblems } from "./workflows/generate-problems";
+// For the `mock` smoke check, which assembles a queued mock in process.
+export { assembleMock } from "./workflows/assemble-mock";
 // For the `generate` eval, which runs the workflow's call and check without
 // a database.
 export {

@@ -80,6 +80,7 @@ function createDb() {
         },
       ] as FakeRow[],
       briefs: [],
+      mock_exams: [],
       brief_excluded_materials: [],
       brief_messages: [],
       ai_usage: [],

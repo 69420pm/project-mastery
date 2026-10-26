@@ -68,6 +68,24 @@ export const answerMapFindingSchema = z.object({
   status: z.enum(["accepted", "dismissed"]),
 });
 
+/** The input of Mock exam and Assemble another. */
+export const queueMockExamSchema = z.object({ courseId: z.uuid() });
+
+/** The input of a Mock exam's Start and Submit. */
+export const mockExamSchema = z.object({ mockId: z.uuid() });
+
+/** The longest answer a mock task stores (`questions.answer_text`). */
+export const MAX_MOCK_ANSWER_LENGTH = 20_000;
+
+/** The input of a mock task's autosave: its answer and confidence so far. */
+export const saveMockAnswerSchema = z.object({
+  questionId: z.uuid(),
+  answer: z.string().max(MAX_MOCK_ANSWER_LENGTH, {
+    message: `Keep your answer under ${MAX_MOCK_ANSWER_LENGTH.toLocaleString("en-US")} characters.`,
+  }),
+  confidence: z.number().int().min(1).max(4).nullable(),
+});
+
 /** The input of the Memory card's Server Action. */
 export const saveMemorySchema = z.object({
   courseId: z.uuid(),

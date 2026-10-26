@@ -9,6 +9,7 @@ import type {
   KcState,
   KcStateName,
 } from "@/features/study/domain/replay";
+import type { MockStatus } from "@/features/study/domain/mock-paths";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
@@ -285,4 +286,39 @@ export type TopicView = {
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
   /** In order; `done` when the Student has a Done message for it. */
   readingSections: Array<ReadingSectionView & { done: boolean }> | null;
+};
+
+/** A Mock exam as its page shows it (#185). */
+export type MockExamView = {
+  id: string;
+  courseId: string;
+  status: MockStatus;
+  /** Why it failed; null unless failed. */
+  failure: string | null;
+  /** While assembling: the missing Problems it generates, and how many are done. */
+  gaps: { total: number; done: number };
+  /** The sum of its items' minutes; null until ready. */
+  durationMinutes: number | null;
+  itemCount: number;
+  /** The aids the Brief allows. */
+  aids: string[];
+  /** Whether it is the reserved exam itself. */
+  final: boolean;
+  /** When its time is up, in progress; null otherwise. */
+  deadline: string | null;
+  /** The server's time when the page loaded, which the countdown runs from. */
+  serverNow: string;
+  /** Its tasks in order, once started; empty before. */
+  tasks: MockTask[];
+};
+
+/** A task of a started Mock exam, with the Student's answer so far. */
+export type MockTask = {
+  questionId: string;
+  prompt: string;
+  points: number;
+  /** Null until saved. */
+  answer: string | null;
+  /** From 1 (unsure) to 4 (sure); null until given. */
+  confidence: number | null;
 };

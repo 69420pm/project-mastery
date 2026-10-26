@@ -56,6 +56,11 @@ import {
 import { queueProblemGeneration } from "@/features/study/server/problem-generation";
 import { searchChunks } from "@/features/study/server/search";
 import { tutorToday } from "@/features/study/server/tutor-today";
+import {
+  loadReservedChunks,
+  withoutReserved,
+  withoutReservedSections,
+} from "@/features/study/server/reserved-exam";
 import { readingLabel, sourceView } from "@/features/study/server/source-view";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -82,16 +87,28 @@ export async function startTutoring(
     firstReply?: boolean;
   } = {},
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [map, priorities, memory, exam, readings, topics, session] =
-    await Promise.all([
-      loadStoredMap(supabase, courseId),
-      loadKcPriorities(supabase, courseId),
-      loadMemory(supabase, courseId),
-      getExamFacts(supabase, courseId),
-      loadStoredReadingSections(supabase, courseId),
-      loadStoredTopics(supabase, courseId),
-      loadStageSession(supabase, chatId),
-    ]);
+  const [
+    storedMap,
+    priorities,
+    memory,
+    exam,
+    storedReadings,
+    topics,
+    session,
+    reserved,
+  ] = await Promise.all([
+    loadStoredMap(supabase, courseId),
+    loadKcPriorities(supabase, courseId),
+    loadMemory(supabase, courseId),
+    getExamFacts(supabase, courseId),
+    loadStoredReadingSections(supabase, courseId),
+    loadStoredTopics(supabase, courseId),
+    loadStageSession(supabase, chatId),
+    loadReservedChunks(supabase, courseId),
+  ]);
+  // The reserved exam stays unseen: the tutor never gets its chunks.
+  const map = withoutReserved(storedMap, reserved);
+  const readings = withoutReservedSections(storedReadings, reserved);
   const { examDate } = exam;
   const facts = { examDate, goal: exam.goal, priorities };
   const now = new Date();
@@ -199,6 +216,7 @@ export async function startTutoring(
         map,
         topics,
         readings,
+        reserved,
         review,
         staged: staged && {
           afterReview: staged.session.afterReview,
@@ -277,6 +295,7 @@ function tutorToolActions(
     map,
     topics,
     readings,
+    reserved,
     review,
     staged,
   }: {
@@ -286,6 +305,8 @@ function tutorToolActions(
     map: KnowledgeMap;
     topics: Awaited<ReturnType<typeof loadStoredTopics>>;
     readings: Awaited<ReturnType<typeof loadStoredReadingSections>>;
+    /** The reserved exam's chunks, which no tool gives the AI. */
+    reserved: Set<string>;
     /** Whether the session is a review session, which sets `findProblems`' purpose. */
     review: boolean;
     /** The session's stages; null without a Topic. */
@@ -315,7 +336,9 @@ function tutorToolActions(
     sourceView(courseId, chunk);
   return {
     async searchMaterials(query) {
-      return (await searchChunks(supabase, courseId, query)).map(sourceOf);
+      return (await searchChunks(supabase, courseId, query, reserved)).map(
+        sourceOf,
+      );
     },
     isKc: (kcId) => kcById.has(kcId),
     findChunk: (chunkId) => findCourseChunk(supabase, courseId, chunkId),
@@ -403,7 +426,9 @@ function tutorToolActions(
       // Ids the model made up are no uuids, which the query would refuse.
       if (!UUID.test(sectionId)) return null;
       const section = await findReadingSection(supabase, courseId, sectionId);
-      if (!section) return null;
+      if (!section || section.chunkIds.some((id) => reserved.has(id))) {
+        return null;
+      }
       const chunks = await loadChunkSources(supabase, section.chunkIds);
       return {
         label: readingLabel(section),
@@ -450,7 +475,10 @@ function tutorToolActions(
       const kcs = ids.flatMap((id) => kcById.get(id) ?? []);
       const chunks = await loadChunkSources(
         supabase,
-        kcs.filter((kc) => wanted.has(kc.id)).flatMap((kc) => kc.sources),
+        kcs
+          .filter((kc) => wanted.has(kc.id))
+          .flatMap((kc) => kc.sources)
+          .filter((id) => !reserved.has(id)),
       );
       return {
         id: topic?.id ?? null,

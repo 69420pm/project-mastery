@@ -12,12 +12,14 @@ import { ensurePriorities, getPriorities } from "@/features/priorities/server";
 import {
   FitLine,
   MapFindingsCard,
+  mockExamPath,
   TodayCard,
   topicBadges,
 } from "@/features/study";
 import {
   getKcLearning,
   getMapFindings,
+  getOpenMockExam,
   getPlan,
   getTopicStates,
 } from "@/features/study/server";
@@ -47,6 +49,7 @@ export default async function CourseMapPage({
     topicStates,
     plan,
     mapFindings,
+    openMock,
   ] = await Promise.all([
     getCourse(courseId),
     getKnowledgeMap(courseId),
@@ -56,6 +59,7 @@ export default async function CourseMapPage({
     getTopicStates(courseId),
     getPlan(courseId),
     getMapFindings(courseId),
+    getOpenMockExam(courseId),
   ]);
   if (!course) notFound();
 
@@ -85,6 +89,10 @@ export default async function CourseMapPage({
               plan.today.next && topicPath(courseId, plan.today.next.id)
             }
             startHref={newChatPath(courseId)}
+            mock={{
+              courseId,
+              openHref: openMock && mockExamPath(courseId, openMock),
+            }}
           />
           <MapFindingsCard findings={mapFindings} />
         </>

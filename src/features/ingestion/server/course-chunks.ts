@@ -60,6 +60,25 @@ export async function getChunkPlaces(
   return places;
 }
 
+/**
+ * The ids of a Material's chunks. Reads on the admin client or a Student's
+ * session client, where Row Level Security leaves another Student's out.
+ */
+export async function loadMaterialChunkIds(
+  supabase: Supabase,
+  materialId: string,
+): Promise<string[]> {
+  const rows = await allRows("Loading the Material's chunks", (from, to) =>
+    supabase
+      .from("chunks")
+      .select("id")
+      .eq("material_id", materialId)
+      .order("id")
+      .range(from, to),
+  );
+  return rows.map(({ id }) => id);
+}
+
 /** A chunk with its text and where it is, as the AI cites it. */
 export type ChunkSource = {
   id: string;

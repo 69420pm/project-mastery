@@ -7,6 +7,7 @@ import { loadFields, openBrief } from "@/features/brief/server/brief-store";
 import type { BriefWithMessages, ExamFacts } from "@/features/brief/types";
 import { materialChunksPath } from "@/features/courses/server";
 import { getUser, requireUser } from "@/lib/auth/user";
+import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -36,7 +37,7 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     supabase
       .from("briefs")
       .select(
-        "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at",
+        "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at, reserved_exam_answered, reserved_exam_material_id",
       )
       .eq("course_id", courseId)
       .single(),
@@ -77,7 +78,31 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     notes: data.notes,
     notesUpdatedAt: data.notes_updated_at,
     excludedMaterials,
+    reservedExam: data.reserved_exam_answered
+      ? await loadReservedExamLink(
+          supabase,
+          courseId,
+          data.reserved_exam_material_id,
+        )
+      : null,
   };
+}
+
+async function loadReservedExamLink(
+  supabase: Supabase,
+  courseId: string,
+  materialId: string | null,
+): Promise<BriefWithMessages["reservedExam"]> {
+  if (materialId === null) return "none";
+  const { data, error } = await supabase
+    .from("materials")
+    .select("name")
+    .eq("id", materialId)
+    .maybeSingle();
+  if (error) failed("Loading the reserved exam", error);
+  return data
+    ? { name: data.name, href: materialChunksPath(courseId, materialId) }
+    : "none";
 }
 
 /**
@@ -101,6 +126,58 @@ export async function getExamFacts(
       data?.hours_per_week == null ? null : Number(data.hours_per_week),
     goal: (data?.goal ?? null) as ExamFacts["goal"],
   };
+}
+
+/**
+ * The Brief's answers on the exam's aids, read with `supabase`, a Student's
+ * session client or the admin client; each null when not answered or
+ * without a Brief.
+ */
+export async function getExamAids(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Pick<BriefFields, "openBook" | "formulaSheet" | "calculator">> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("open_book, formula_sheet, calculator")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) failed("Loading the exam's aids", error);
+  return {
+    openBook: data?.open_book ?? null,
+    formulaSheet: data?.formula_sheet ?? null,
+    calculator: data?.calculator ?? null,
+  };
+}
+
+/**
+ * The Course's active reserved exam Material, read with `supabase`, a
+ * Student's session client or the admin client; null when none is reserved,
+ * once a submitted Mock exam has used it, or without a Brief. While it is
+ * active, the tutor, problem generation and every mock but the final one
+ * leave its Exercises and chunks out.
+ */
+export async function getReservedExam(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("reserved_exam_material_id")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) failed("Loading the reserved exam", error);
+  const materialId = data?.reserved_exam_material_id ?? null;
+  if (materialId === null) return null;
+  const used = await supabase
+    .from("mock_exams")
+    .select("id")
+    .eq("course_id", courseId)
+    .eq("reserved_material_id", materialId)
+    .eq("status", "submitted")
+    .limit(1);
+  if (used.error) failed("Loading the final mock exam", used.error);
+  return used.data.length > 0 ? null : materialId;
 }
 
 /**

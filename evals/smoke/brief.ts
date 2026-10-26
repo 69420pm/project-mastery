@@ -7,7 +7,7 @@ import { result, type SmokeCheck } from "./smoke-check";
 /** What the Student tells the AI, one message per reply. */
 const MESSAGES = [
   "Exam is 2026-12-03, closed book, calculator allowed, written. I want a good grade and have 6 hours a week.",
-  "Skip the old exam file. The lecturer said heat exchangers are important.",
+  "Skip the lab manual. The lecturer said heat exchangers are important.",
 ];
 
 /** Sends one message through the Brief handler and returns the reply's text. */
@@ -55,13 +55,14 @@ async function send(
 /**
  * Tells the AI about an exam in a new Course's Brief, in two scripted
  * messages through the real handler, and checks what the tools stored. Then
- * answers a seeded open Finding and checks the stored answer.
+ * answers the reservation question on a seeded old exam and a seeded open
+ * Finding, and checks both stored answers.
  */
 export const briefSmoke: SmokeCheck = {
   name: "brief",
   usage:
-    "pnpm smoke brief (two scripted messages in a Course's Brief, then an answer to a seeded Finding)",
-  // One recorded call per reply (3), with slack for retries.
+    "pnpm smoke brief (two scripted messages in a Course's Brief, then the reserved exam and a seeded Finding)",
+  // One recorded call per reply (5), with slack for retries.
   maxCalls: 7,
   async run({ supabase, studentId }) {
     const { data: course, error } = await supabase
@@ -70,16 +71,28 @@ export const briefSmoke: SmokeCheck = {
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    // The gold course has no old exam, so one is seeded for the reservation
+    // question, beside the file the Student excludes.
     const materialId = randomUUID();
-    const material = await supabase.from("materials").insert({
-      id: materialId,
+    const examId = randomUUID();
+    const file = (id: string, name: string) => ({
+      id,
       owner: studentId,
       course_id: course.id,
-      name: "Old exam 2024",
+      name,
       media_type: "application/pdf",
       size_bytes: 1,
-      storage_path: `${studentId}/${course.id}/${materialId}`,
+      storage_path: `${studentId}/${course.id}/${id}`,
     });
+    const material = await supabase.from("materials").insert([
+      file(materialId, "Lab manual"),
+      {
+        ...file(examId, "Exam 2025"),
+        is_exam: true,
+        exam_year: 2025,
+        exam_total_points: 90,
+      },
+    ]);
     if (material.error) throw new Error(material.error.message);
 
     // The Brief runs as the Student, with Row Level Security as in the app.
@@ -121,6 +134,14 @@ export const briefSmoke: SmokeCheck = {
       ),
     );
     const excludedIds = excluded.data.map((row) => row.material_id);
+    await completeIntake(supabase, course.id);
+    const reservation = await answerReservation(
+      supabase,
+      client,
+      studentId,
+      course.id,
+      examId,
+    );
     const review = await answerSeededFinding(
       supabase,
       client,
@@ -136,7 +157,7 @@ export const briefSmoke: SmokeCheck = {
         String(b.formula_sheet),
       ),
       result(
-        "the old exam is excluded",
+        "the lab manual is excluded",
         excludedIds.length === 1 && excludedIds[0] === materialId,
         `${excludedIds.length} excluded`,
       ),
@@ -146,27 +167,17 @@ export const briefSmoke: SmokeCheck = {
         b.notes?.toLowerCase().includes("heat exchangers") ?? false,
         JSON.stringify(b.notes),
       ),
+      ...reservation,
       ...review,
     ];
   },
 };
 
-const FINDING_TEXT =
-  "Exercise 2 prints an efficiency of 48.2%, but its worked steps give 50.8%.";
-const FINDING_ANSWER = "The printed answer is wrong, 50.8% is right";
-
 /**
- * Completes intake, seeds one open `solution_mismatch` Finding, opens the
- * Brief (a static message, no model call) and answers it in one message.
+ * Completes intake directly: the scripted messages leave the formula sheet
+ * unanswered, and a missed answer is reported above.
  */
-async function answerSeededFinding(
-  supabase: AdminSupabase,
-  client: Supabase,
-  studentId: string,
-  courseId: string,
-) {
-  // The scripted messages leave the formula sheet unanswered, and a missed
-  // answer is reported above, so intake is completed here directly.
+async function completeIntake(supabase: AdminSupabase, courseId: string) {
   const done = await supabase
     .from("briefs")
     .update({
@@ -181,6 +192,62 @@ async function answerSeededFinding(
     })
     .eq("course_id", courseId);
   if (done.error) throw new Error(done.error.message);
+}
+
+/**
+ * With intake done and an old exam in the Course, the AI asks whether to
+ * keep it aside for the final Mock exam; the Student keeps it.
+ */
+async function answerReservation(
+  supabase: AdminSupabase,
+  client: Supabase,
+  studentId: string,
+  courseId: string,
+  examId: string,
+) {
+  const prompt = "What else do you need from me?";
+  console.info(`Student: ${prompt}`);
+  const asked = await send(client, studentId, courseId, prompt);
+  console.info(`AI: ${asked}`);
+  const answer = "Keep Exam 2025 aside for my final mock exam.";
+  console.info(`Student: ${answer}`);
+  console.info(`AI: ${await send(client, studentId, courseId, answer)}`);
+
+  const stored = await supabase
+    .from("briefs")
+    .select("reserved_exam_material_id, reserved_exam_answered")
+    .eq("course_id", courseId)
+    .single();
+  if (stored.error) throw new Error(stored.error.message);
+  return [
+    result(
+      "the AI asks about keeping the old exam",
+      asked.includes("Exam 2025"),
+      JSON.stringify(asked),
+    ),
+    result(
+      "the reserved exam is stored",
+      stored.data.reserved_exam_answered &&
+        stored.data.reserved_exam_material_id === examId,
+      JSON.stringify(stored.data),
+    ),
+  ];
+}
+
+const FINDING_TEXT =
+  "Exercise 2 prints an efficiency of 48.2%, but its worked steps give 50.8%.";
+const FINDING_ANSWER = "The printed answer is wrong, 50.8% is right";
+
+/**
+ * Seeds one open `solution_mismatch` Finding, opens the
+ * Brief (a static message, no model call) and answers it in one message.
+ */
+async function answerSeededFinding(
+  supabase: AdminSupabase,
+  client: Supabase,
+  studentId: string,
+  courseId: string,
+) {
   const { data: finding, error } = await supabase
     .from("findings")
     .insert({

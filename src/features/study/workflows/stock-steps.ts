@@ -15,6 +15,10 @@ import {
 } from "@/features/study/domain/problem-stock";
 import { kcState, utcDay } from "@/features/study/domain/replay";
 import {
+  loadReservedChunks,
+  withoutReserved,
+} from "@/features/study/server/reserved-exam";
+import {
   loadAskedProblems,
   loadLastUnassistedSuccess,
   loadSchedules,
@@ -91,12 +95,15 @@ export async function planProblems(
   if (!run.data) return null;
   const { owner, stock, topic_id: topicId } = run.data;
 
-  const [map, topics, problems, asked] = await Promise.all([
+  const [storedMap, topics, problems, asked, reserved] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadStoredTopics(supabase, courseId),
     loadCourseProblems(supabase, courseId),
     loadAskedProblems(supabase, courseId),
+    loadReservedChunks(supabase, courseId),
   ]);
+  // The reserved exam's Exercises are no stock and no variant source.
+  const map = withoutReserved(storedMap, reserved);
   const input = {
     exercises: map.exercises.map((exercise) => ({
       id: exercise.id,
@@ -201,7 +208,7 @@ async function dueKcs(
 }
 
 /** Inserts the planned Problems with their KCs. */
-async function queueProblems(
+export async function queueProblems(
   supabase: Supabase,
   owner: string,
   courseId: string,

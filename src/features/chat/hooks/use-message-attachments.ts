@@ -62,6 +62,7 @@ export function useMessageAttachments({
             failure: null,
             startFailed: false,
           },
+          exam: null,
         },
         ...current,
       ]);
