@@ -106,8 +106,8 @@ export function MockExamStatus({
       body = (
         <>
           <p role="status">
-            Grading {Math.min(mock.grading.done + 1, mock.grading.total)} of{" "}
-            {mock.grading.total} {mock.grading.total === 1 ? "task" : "tasks"}…
+            Grading task {Math.min(mock.grading.done + 1, mock.grading.total)}{" "}
+            of {mock.grading.total}…
           </p>
           <ol className="flex flex-col gap-3">
             {mock.tasks.map((task, index) => (

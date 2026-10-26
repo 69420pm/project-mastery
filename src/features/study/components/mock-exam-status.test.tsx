@@ -43,7 +43,7 @@ test("a submitted mock shows which task grading is on", () => {
     />,
   );
 
-  expect(screen.getByRole("status")).toHaveTextContent("Grading 3 of 3 tasks");
+  expect(screen.getByRole("status")).toHaveTextContent("Grading task 3 of 3…");
 });
 
 test("a graded mock shows the score against the prediction, per Topic and per task", () => {
