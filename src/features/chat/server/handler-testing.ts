@@ -89,6 +89,7 @@ function createDb() {
       attempts: [],
       memories: [],
       topics: [],
+      topic_notes: [],
       topic_kcs: [],
       topic_choices: [],
       reading_sections: [],
@@ -272,6 +273,7 @@ function createDb() {
         table === "study_sessions" ||
         table === "questions" ||
         table === "attempts" ||
+        table === "topic_notes" ||
         table === "mock_exams" ||
         table === "mock_items"
       ) {

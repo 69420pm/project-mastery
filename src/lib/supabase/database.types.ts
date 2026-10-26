@@ -2161,6 +2161,7 @@ export type Database = {
       study_sessions: {
         Row: {
           chat_id: string | null;
+          close_started_at: string | null;
           course_id: string;
           ended_at: string | null;
           id: string;
@@ -2169,6 +2170,7 @@ export type Database = {
           owner: string;
           rating: number | null;
           rating_note: string | null;
+          session_note: string | null;
           stage: string | null;
           started_at: string;
           topic_id: string | null;
@@ -2176,6 +2178,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           chat_id?: string | null;
+          close_started_at?: string | null;
           course_id: string;
           ended_at?: string | null;
           id?: string;
@@ -2184,12 +2187,14 @@ export type Database = {
           owner: string;
           rating?: number | null;
           rating_note?: string | null;
+          session_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
         };
         Update: {
           chat_id?: string | null;
+          close_started_at?: string | null;
           course_id?: string;
           ended_at?: string | null;
           id?: string;
@@ -2198,6 +2203,7 @@ export type Database = {
           owner?: string;
           rating?: number | null;
           rating_note?: string | null;
+          session_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
@@ -2316,6 +2322,43 @@ export type Database = {
             foreignKeyName: "topic_kcs_topic_id_fkey";
             columns: ["topic_id"];
             isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      topic_notes: {
+        Row: {
+          owner: string;
+          text: string;
+          topic_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          owner: string;
+          text: string;
+          topic_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          owner?: string;
+          text?: string;
+          topic_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_notes_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topic_notes_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: true;
             referencedRelation: "topics";
             referencedColumns: ["id"];
           },

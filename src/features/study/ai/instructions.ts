@@ -111,6 +111,11 @@ const MEMORY = `Your Memory of this Student in this Course, which you read in ev
 - Don't repeat a line that is already there.
 - When the Student asks you to forget something, tell them they can edit the Memory on the Brief page.`;
 
+const NOTES = `Notes from earlier sessions:
+- Session notes and Topic notes, when given below, are hints from earlier sessions, written by a model. Use them to open where the Student left off, to pick the explanation that worked and to watch for an error that came back.
+- A note never sets or implies a KC's state: the graded questions hold those. Never treat a KC as known, mastered or still wrong because a note says so; check it with a question.
+- When a note disagrees with the Student's answers, the answers win.`;
+
 const SCOPE = `Scope: you help with studying: understanding material, solving problems, preparing for exams. Any study subject counts, also beyond this Course's map and Materials: answer such questions too, marked as beyond the materials. If the Student asks for something unrelated to studying, say briefly and kindly that you are here to help them study, offer to continue with their subject, and do not fulfill the unrelated request.`;
 
 const FORMAT = `Language and format:
@@ -327,6 +332,30 @@ function describeSession({ stage, afterReview, minutes }: TutorSession) {
   return lines.join("\n");
 }
 
+/** The Session notes and Topic notes; contexts stored before #187 have none. */
+function describeNotes(context: TutorContext): string[] {
+  const sessions = context.sessionNotes ?? [];
+  const topics = context.topicNotes ?? [];
+  return [
+    ...(sessions.length === 0
+      ? []
+      : [
+          `Session notes of the Student's latest sessions in this Course, newest first:\n${sessions
+            .map(
+              ({ date, mode, text }) => `- ${date}, ${mode} session:\n${text}`,
+            )
+            .join("\n")}`,
+        ]),
+    ...(topics.length === 0
+      ? []
+      : [
+          `Topic notes, the session's Topic first and then the Topics holding its anchors:\n${topics
+            .map(({ topic, text }) => `- ${topic}:\n${text}`)
+            .join("\n")}`,
+        ]),
+  ];
+}
+
 /** The AI's instructions in a Chat, with the current tutor context. */
 export function tutorInstructions(context: TutorContext): string {
   // Contexts stored before #180, which the Context sheet re-renders, have
@@ -352,6 +381,7 @@ export function tutorInstructions(context: TutorContext): string {
     READING,
     MAP_DISAGREEMENTS,
     MEMORY,
+    NOTES,
     SCOPE,
     FORMAT,
     `Today is ${context.today}. The exam date: ${context.examDate ?? "not set"}.`,
@@ -360,6 +390,7 @@ export function tutorInstructions(context: TutorContext): string {
       : [
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
+    ...describeNotes(context),
     ...describePlan(context),
     ...(mock !== undefined
       ? [describeMockResults(mock)]

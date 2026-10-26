@@ -10,6 +10,7 @@ import type {
   KcStateName,
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
+import type { SessionMode } from "@/features/study/domain/modes";
 import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
@@ -79,6 +80,32 @@ export type TutorContext = {
    * first (`byPointsLost`); absent outside results sessions.
    */
   mockResults?: MockReviewItem[];
+  /**
+   * The Course's newest Session notes of other sessions, newest first;
+   * absent in contexts stored before #187.
+   */
+  sessionNotes?: SessionNoteEntry[];
+  /**
+   * In a learn session with a Topic, that Topic's note first, then the notes
+   * of the Topics holding its anchors; absent otherwise and in contexts
+   * stored before #187.
+   */
+  topicNotes?: TopicNoteEntry[];
+};
+
+/** A Session note as the AI is told of it. */
+export type SessionNoteEntry = {
+  /** The day the session ended, as YYYY-MM-DD. */
+  date: string;
+  mode: SessionMode;
+  text: string;
+};
+
+/** A Topic note as the AI is told of it. */
+export type TopicNoteEntry = {
+  /** The Topic's name. */
+  topic: string;
+  text: string;
 };
 
 /** A graded Mock exam's item as a Results session goes through it. */
