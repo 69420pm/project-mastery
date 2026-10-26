@@ -68,6 +68,17 @@ export const answerMapFindingSchema = z.object({
   status: z.enum(["accepted", "dismissed"]),
 });
 
+/** The input of the exam card's Save and Skip; no grade is a skip. */
+export const examResultSchema = z.object({
+  courseId: z.uuid(),
+  examDate: z.iso.date(),
+  grade: z
+    .string()
+    .trim()
+    .max(50, "Keep the grade under 50 characters.")
+    .nullable(),
+});
+
 /** The input of Mock exam and Assemble another. */
 export const queueMockExamSchema = z.object({ courseId: z.uuid() });
 

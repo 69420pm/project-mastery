@@ -1,17 +1,13 @@
 import "server-only";
-import type { FinalAnswer } from "@/features/knowledge-map";
 import {
   gradeExamCall,
   type ExamGrading,
   type GradeExamInput,
 } from "@/features/study/ai/grade-exam-call";
 import {
-  checkFinalValue,
-  parseFinalValue,
-} from "@/features/study/domain/final-answers";
-import {
   awardedPoints,
   checkedResult,
+  checkMockValue,
   mockScore,
   type MockCheck,
 } from "@/features/study/domain/mock-grading";
@@ -110,7 +106,7 @@ export async function gradeMockItem(itemId: string): Promise<void> {
     // The provider's daily quota: a later retry may get through.
     if (!result) throw new Error("The grade_exam call got no answer.");
     grading = read(result.output);
-    check = checkValue(source.keys, grading.finalValue);
+    check = checkMockValue(source.keys, grading.finalValue);
   }
 
   if (question) {
@@ -181,16 +177,6 @@ async function loadKcs(
     .in("id", kcIds);
   if (error) failed("Loading the item's KCs", error);
   return data;
-}
-
-/** The numeric check; null without keys or a readable final value. */
-function checkValue(
-  keys: FinalAnswer[] | null,
-  finalValue: string | null,
-): MockCheck {
-  if (!keys?.length || !finalValue) return null;
-  const value = parseFinalValue(finalValue);
-  return value === null ? null : checkFinalValue(value, keys);
 }
 
 /**

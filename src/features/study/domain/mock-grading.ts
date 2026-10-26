@@ -1,3 +1,8 @@
+import type { FinalAnswer } from "@/features/knowledge-map";
+import {
+  checkFinalValue,
+  parseFinalValue,
+} from "@/features/study/domain/final-answers";
 import type { AttemptResult } from "@/features/study/domain/replay";
 
 /**
@@ -27,6 +32,16 @@ export function awardedPoints(
   const max = check === "mismatch" ? Math.max(0, points - 1) : points;
   const sum = steps.reduce((total, step) => total + step.points, 0);
   return Math.min(max, Math.max(0, toHalf(sum)));
+}
+
+/** The numeric check; null without keys or a readable final value. */
+export function checkMockValue(
+  keys: FinalAnswer[] | null,
+  finalValue: string | null,
+): MockCheck {
+  if (!keys?.length || !finalValue) return null;
+  const value = parseFinalValue(finalValue);
+  return value === null ? null : checkFinalValue(value, keys);
 }
 
 /** A KC's result after the check: a mismatch turns `full` into `partial`. */

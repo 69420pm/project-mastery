@@ -53,12 +53,14 @@ test("Mock exam: start, answer one task, submit", async ({
     .getByRole("alertdialog")
     .getByRole("button", { name: "Submit" })
     .click();
-  await expect(page.getByText("Submitted. Grading comes next.")).toBeVisible();
 
-  const { data } = await admin
-    .from("mock_exams")
-    .select("status")
-    .eq("id", mockId)
-    .single();
-  expect(data?.status).toBe("submitted");
+  // Grading runs in a workflow with the mock AI, and the page polls.
+  await expect(
+    page.getByText(/We predicted \d+%, you scored \d+%/),
+  ).toBeVisible({ timeout: 60_000 });
+  await page
+    .getByRole("link", { name: "Go through it with the tutor" })
+    .click();
+  await expect(page).toHaveURL(/mode=results&mock=/);
+  await expect(page.getByText("Results", { exact: true })).toBeVisible();
 });

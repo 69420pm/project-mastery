@@ -3,6 +3,7 @@ import { disagreementEval } from "./disagreement";
 import type { EvalDefinition } from "./eval";
 import { generateEval, generateRealEval } from "./generate";
 import { gradeEval } from "./grade";
+import { gradeExamEval } from "./grade-exam";
 import { learnEval } from "./learn";
 import { readingEval } from "./reading";
 import { reviewEval } from "./review";
@@ -26,6 +27,7 @@ export const EVALS: RegisteredEval[] = [
   register(generateEval),
   register(generateRealEval),
   register(gradeEval),
+  register(gradeExamEval),
   register(learnEval),
   register(readingEval),
   register(reviewEval),

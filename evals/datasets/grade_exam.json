@@ -1,0 +1,463 @@
+{
+  "description": "The AI's grade_exam call on one subtask of a mock exam, on the jet-engines gold course (evals/gold/jet-engines): 26 subtasks in 3 mocks (thrust, the Brayton cycle and engine sections, efficiencies and engine types). Each gives the task, its points, the reference solution, the Student's answer and, for numeric tasks, the key the code checks the final value against. The expected points are drafts until the maintainer confirms them; a wrongFinal subtask has a final value off the key, so the points are capped at points - 1.",
+  "items": [
+    {
+      "id": "m1-thrust-full",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(a)**: A turbojet flying at $200\\text{ m/s}$ has an air mass flow rate of $50\\text{ kg/s}$ and an exhaust velocity of $600\\text{ m/s}$. The nozzle is perfectly expanded. Compute the net thrust.",
+        "points": 4,
+        "reference": "F = m_a (V_e - V_0) = 50 (600 - 200) = 20,000 N (20 kN). The nozzle is perfectly expanded, so the pressure term is zero.",
+        "answer": "Perfectly expanded nozzle, so no pressure term: F = mass flow × (V_e − V_0) = 50 × (600 − 200) = 20,000 N = 20 kN.",
+        "finalAnswers": [{ "label": "Net thrust", "value": 20, "unit": "kN" }],
+        "kcIds": ["KC05", "KC06"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 4,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m1-thrust-forgot-flight-speed",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(a)**: A turbojet flying at $200\\text{ m/s}$ has an air mass flow rate of $50\\text{ kg/s}$ and an exhaust velocity of $600\\text{ m/s}$. The nozzle is perfectly expanded. Compute the net thrust.",
+        "points": 4,
+        "reference": "F = m_a (V_e - V_0) = 50 (600 - 200) = 20,000 N (20 kN). The nozzle is perfectly expanded, so the pressure term is zero.",
+        "answer": "The nozzle is perfectly expanded, so thrust is mass flow times exhaust velocity: F = 50 × 600 = 30,000 N = 30 kN.",
+        "finalAnswers": [{ "label": "Net thrust", "value": 20, "unit": "kN" }],
+        "kcIds": ["KC05", "KC06"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": true
+      }
+    },
+    {
+      "id": "m1-thrust-arithmetic-slip",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(a)**: A turbojet flying at $200\\text{ m/s}$ has an air mass flow rate of $50\\text{ kg/s}$ and an exhaust velocity of $600\\text{ m/s}$. The nozzle is perfectly expanded. Compute the net thrust.",
+        "points": 4,
+        "reference": "F = m_a (V_e - V_0) = 50 (600 - 200) = 20,000 N (20 kN). The nozzle is perfectly expanded, so the pressure term is zero.",
+        "answer": "Perfectly expanded, so F = m (V_e − V_0) = 50 × (600 − 200) = 50 × 200 = 10,000 N = 10 kN.",
+        "finalAnswers": [{ "label": "Net thrust", "value": 20, "unit": "kN" }],
+        "kcIds": ["KC05", "KC06"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": true
+      }
+    },
+    {
+      "id": "m1-power-full",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(b)**: The turbojet of Ex. 7.2(a) flies at $200\\text{ m/s}$ and produces a net thrust of $20\\text{ kN}$. Compute the propulsive power it delivers to the aircraft.",
+        "points": 3,
+        "reference": "Propulsive power = F × V_0 = (20,000 N)(200 m/s) = 4,000,000 W = 4.0 MW.",
+        "answer": "Propulsive power is thrust times flight speed: 20,000 N × 200 m/s = 4,000,000 W = 4 MW.",
+        "finalAnswers": [
+          { "label": "Propulsive power", "value": 4, "unit": "MW" }
+        ],
+        "kcIds": ["KC06", "KC07"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m1-power-other-units",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(b)**: The turbojet of Ex. 7.2(a) flies at $200\\text{ m/s}$ and produces a net thrust of $20\\text{ kN}$. Compute the propulsive power it delivers to the aircraft.",
+        "points": 3,
+        "reference": "Propulsive power = F × V_0 = (20,000 N)(200 m/s) = 4,000,000 W = 4.0 MW.",
+        "answer": "P = F × V0 = 20 kN × 200 m/s = 4000 kW.",
+        "finalAnswers": [
+          { "label": "Propulsive power", "value": 4, "unit": "MW" }
+        ],
+        "kcIds": ["KC06", "KC07"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m1-power-wrong-speed",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Ex. 7.2(b)**: The turbojet of Ex. 7.2(a) flies at $200\\text{ m/s}$ and produces a net thrust of $20\\text{ kN}$. Compute the propulsive power it delivers to the aircraft.",
+        "points": 3,
+        "reference": "Propulsive power = F × V_0 = (20,000 N)(200 m/s) = 4,000,000 W = 4.0 MW.",
+        "answer": "Power is force times speed, and the exhaust speed is what moves the gas: 20,000 N × 600 m/s = 12 MW.",
+        "finalAnswers": [
+          { "label": "Propulsive power", "value": 4, "unit": "MW" }
+        ],
+        "kcIds": ["KC06", "KC07"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 1,
+        "wrongFinal": true
+      }
+    },
+    {
+      "id": "m1-jet-principle-full",
+      "input": {
+        "mock": "thrust",
+        "prompt": "Explain in your own words how a jet engine produces thrust, and name the law of motion behind it.",
+        "points": 3,
+        "reference": "The engine accelerates air rearward; by Newton's third law the air pushes the engine forward with an equal and opposite force. Thrust is the rate of change of momentum of the air through the engine.",
+        "answer": "The engine takes in air and speeds it up out of the back. By Newton's third law, pushing the air backward means the air pushes the engine forward. The thrust equals how fast the momentum of the air changes.",
+        "finalAnswers": null,
+        "kcIds": ["KC01", "KC02"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m1-jet-principle-vague",
+      "input": {
+        "mock": "thrust",
+        "prompt": "Explain in your own words how a jet engine produces thrust, and name the law of motion behind it.",
+        "points": 3,
+        "reference": "The engine accelerates air rearward; by Newton's third law the air pushes the engine forward with an equal and opposite force. Thrust is the rate of change of momentum of the air through the engine.",
+        "answer": "The engine pushes air out of the back and that moves the plane forward.",
+        "finalAnswers": null,
+        "kcIds": ["KC01", "KC02"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 1,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m1-turbofan-full",
+      "input": {
+        "mock": "thrust",
+        "prompt": "**Example 7.1**: A turbofan engine ingests air at $400\\text{ kg/s}$ while cruising at $250\\text{ m/s}$ and accelerates it to an average exhaust velocity of $320\\text{ m/s}$. The nozzle is perfectly expanded. Find the net thrust, and convert it to lbf to check that it is plausible for one engine of a regional aircraft.",
+        "points": 5,
+        "reference": "F = m (V_e - V_0) = 400 (320 - 250) = 28,000 N = 28 kN, roughly 6,300 lbf (1 lbf = 4.448 N), a typical size for one engine of a narrow-body regional aircraft.",
+        "answer": "F = 400 × (320 − 250) = 28,000 N = 28 kN. In lbf that is 28,000 / 4.448 ≈ 6,300 lbf, which is a reasonable size for one engine of a regional aircraft.",
+        "finalAnswers": [{ "label": "Net thrust", "value": 28, "unit": "kN" }],
+        "kcIds": ["KC04", "KC05", "KC06", "KC08"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 5,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-brayton-full",
+      "input": {
+        "mock": "cycle",
+        "prompt": "**Ex. 7.1**: An ideal Brayton cycle has a pressure ratio of $12$. Taking $\\gamma = 1.4$ for air, compute the thermal efficiency of the cycle.",
+        "points": 4,
+        "reference": "η_th = 1 - (1/r_p)^((γ-1)/γ) = 1 - (1/12)^0.2857 = 1 - 0.492 = 0.508, or about 50.8 %.",
+        "answer": "Ideal Brayton: η = 1 − (1/rp)^((γ−1)/γ) = 1 − (1/12)^(0.4/1.4) = 1 − (1/12)^0.2857 = 1 − 0.492 = 0.508, so about 50.8 %.",
+        "finalAnswers": [
+          { "label": "Thermal efficiency", "value": 0.508, "unit": null }
+        ],
+        "kcIds": ["KC22", "KC23", "KC25", "KC26"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 4,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-brayton-textbook-value",
+      "input": {
+        "mock": "cycle",
+        "prompt": "**Ex. 7.1**: An ideal Brayton cycle has a pressure ratio of $12$. Taking $\\gamma = 1.4$ for air, compute the thermal efficiency of the cycle.",
+        "points": 4,
+        "reference": "η_th = 1 - (1/r_p)^((γ-1)/γ) = 1 - (1/12)^0.2857 = 1 - 0.492 = 0.508, or about 50.8 %.",
+        "answer": "η = 1 − (1/rp)^((γ−1)/γ) with rp = 12 and γ = 1.4, which gives 46.5 %.",
+        "finalAnswers": [
+          { "label": "Thermal efficiency", "value": 0.508, "unit": null }
+        ],
+        "kcIds": ["KC22", "KC23", "KC25", "KC26"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": true
+      }
+    },
+    {
+      "id": "m2-brayton-wrong-formula",
+      "input": {
+        "mock": "cycle",
+        "prompt": "**Ex. 7.1**: An ideal Brayton cycle has a pressure ratio of $12$. Taking $\\gamma = 1.4$ for air, compute the thermal efficiency of the cycle.",
+        "points": 4,
+        "reference": "η_th = 1 - (1/r_p)^((γ-1)/γ) = 1 - (1/12)^0.2857 = 1 - 0.492 = 0.508, or about 50.8 %.",
+        "answer": "Efficiency is 1 minus the inverse of the pressure ratio: 1 − 1/12 = 0.917, so 91.7 %.",
+        "finalAnswers": [
+          { "label": "Thermal efficiency", "value": 0.508, "unit": null }
+        ],
+        "kcIds": ["KC22", "KC23", "KC25", "KC26"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 1,
+        "wrongFinal": true
+      }
+    },
+    {
+      "id": "m2-sections-full",
+      "input": {
+        "mock": "cycle",
+        "prompt": "Name the five sections of a turbojet in flow order, and say in one phrase what each does.",
+        "points": 5,
+        "reference": "Inlet (slows and diffuses the flow), compressor (raises the pressure 15 to 40 times), combustor (burns fuel continuously at 1800 to 2000 K), turbine (drives the compressor), nozzle (turns the energy into a high-velocity jet).",
+        "answer": "Inlet: slows the air down. Compressor: raises its pressure many times over. Combustor: burns fuel in the air at constant pressure. Turbine: extracts work to drive the compressor. Nozzle: expands the gas into a fast jet.",
+        "finalAnswers": null,
+        "kcIds": ["KC09", "KC10", "KC11", "KC12", "KC13", "KC14"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 5,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-sections-swapped",
+      "input": {
+        "mock": "cycle",
+        "prompt": "Name the five sections of a turbojet in flow order, and say in one phrase what each does.",
+        "points": 5,
+        "reference": "Inlet (slows and diffuses the flow), compressor (raises the pressure 15 to 40 times), combustor (burns fuel continuously at 1800 to 2000 K), turbine (drives the compressor), nozzle (turns the energy into a high-velocity jet).",
+        "answer": "Inlet: slows the air. Turbine: compresses the air. Combustor: burns fuel. Compressor: extracts work from the hot gas. Nozzle: makes the jet.",
+        "finalAnswers": null,
+        "kcIds": ["KC09", "KC10", "KC11", "KC12", "KC13", "KC14"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-cycle-mapping-full",
+      "input": {
+        "mock": "cycle",
+        "prompt": "Map the four processes of the ideal Brayton cycle to the components of a turbojet.",
+        "points": 4,
+        "reference": "1→2 isentropic compression: inlet and compressor. 2→3 constant-pressure heat addition: combustor. 3→4 isentropic expansion: turbine and nozzle. 4→1 constant-pressure heat rejection: the exhaust to the atmosphere.",
+        "answer": "1→2 isentropic compression happens in the compressor (after the inlet). 2→3 heat addition at constant pressure is the combustor. 3→4 isentropic expansion is the turbine and nozzle. 4→1 constant-pressure heat rejection is the hot exhaust mixing with the atmosphere.",
+        "finalAnswers": null,
+        "kcIds": ["KC16", "KC17", "KC18", "KC19", "KC20"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 4,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-cycle-mapping-half",
+      "input": {
+        "mock": "cycle",
+        "prompt": "Map the four processes of the ideal Brayton cycle to the components of a turbojet.",
+        "points": 4,
+        "reference": "1→2 isentropic compression: inlet and compressor. 2→3 constant-pressure heat addition: combustor. 3→4 isentropic expansion: turbine and nozzle. 4→1 constant-pressure heat rejection: the exhaust to the atmosphere.",
+        "answer": "Compression is the compressor and heat addition is the combustor. I don't remember the other two.",
+        "finalAnswers": null,
+        "kcIds": ["KC16", "KC17", "KC18", "KC19", "KC20"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m2-turbine-full",
+      "input": {
+        "mock": "cycle",
+        "prompt": "What is the job of the turbine in a turbojet?",
+        "points": 2,
+        "reference": "The turbine extracts work from the hot gas to drive the compressor; the rest of the energy goes to the nozzle.",
+        "answer": "It takes work out of the hot gas to turn the compressor through the shaft.",
+        "finalAnswers": null,
+        "kcIds": ["KC13"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-propulsive-efficiency-full",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Define the propulsive efficiency of an engine.",
+        "points": 2,
+        "reference": "The propulsive power (thrust times flight speed) divided by the power added to the air stream (the rate of increase of its kinetic energy).",
+        "answer": "Propulsive efficiency is the useful propulsive power, F × V0, divided by the kinetic energy per second the engine gives to the air.",
+        "finalAnswers": null,
+        "kcIds": ["KC28"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-propulsive-efficiency-wrong",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Define the propulsive efficiency of an engine.",
+        "points": 2,
+        "reference": "The propulsive power (thrust times flight speed) divided by the power added to the air stream (the rate of increase of its kinetic energy).",
+        "answer": "It is the share of the fuel's heat that the engine turns into work in the cycle.",
+        "finalAnswers": null,
+        "kcIds": ["KC28"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 0,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-bypass-full",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "What is the bypass ratio of a turbofan?",
+        "points": 2,
+        "reference": "The mass flow of air through the fan that bypasses the core divided by the mass flow through the core.",
+        "answer": "The air that goes around the core divided by the air that goes through the core.",
+        "finalAnswers": null,
+        "kcIds": ["KC33"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-engine-choice-ramjet",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Which engine type would you choose for a missile cruising at Mach 3? Give two reasons.",
+        "points": 4,
+        "reference": "A ramjet: at Mach 3 the ram compression is enough, so it needs no compressor or turbine, which makes it light and simple. A turbojet's compressor and turbine add weight and are limited by temperature.",
+        "answer": "A ramjet. At Mach 3 the inlet compresses the air by itself, so no compressor or turbine is needed. That makes it light and simple, and there are no turbine blades to overheat.",
+        "finalAnswers": null,
+        "kcIds": ["KC35", "KC36"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 4,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-engine-choice-regional",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Which engine type would you choose for a regional airliner cruising at Mach 0.8? Give two reasons.",
+        "points": 4,
+        "reference": "A turbofan: at subsonic speed a large bypass flow gives a high propulsive efficiency (large mass, small velocity increase) and low noise and fuel use.",
+        "answer": "A turbojet, because it is the simplest engine and it is fast.",
+        "finalAnswers": null,
+        "kcIds": ["KC31", "KC32", "KC36"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 1,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-why-turbofan-full",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Why is a turbofan more efficient than a turbojet at subsonic speed?",
+        "points": 4,
+        "reference": "Thrust is mass flow times the velocity change. The same thrust from a large mass flow with a small velocity increase needs less kinetic energy added to the stream than from a small mass flow at a high exhaust velocity, so the propulsive efficiency is higher.",
+        "answer": "Thrust = mass flow × ΔV. The fan moves a lot more air by a smaller ΔV for the same thrust, and the kinetic energy added to the air grows with ΔV squared, so less energy is wasted in the jet. The propulsive efficiency is higher.",
+        "finalAnswers": null,
+        "kcIds": ["KC29", "KC30", "KC32"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 4,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-why-turbofan-partial",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "Why is a turbofan more efficient than a turbojet at subsonic speed?",
+        "points": 4,
+        "reference": "Thrust is mass flow times the velocity change. The same thrust from a large mass flow with a small velocity increase needs less kinetic energy added to the stream than from a small mass flow at a high exhaust velocity, so the propulsive efficiency is higher.",
+        "answer": "The fan moves more air, so it makes more thrust.",
+        "finalAnswers": null,
+        "kcIds": ["KC29", "KC30", "KC32"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-power-full",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "A turbofan produces a net thrust of $30\\text{ kN}$ at a flight speed of $250\\text{ m/s}$. Compute the propulsive power.",
+        "points": 3,
+        "reference": "Propulsive power = F × V_0 = 30,000 N × 250 m/s = 7.5 MW.",
+        "answer": "P = F × V0 = 30,000 × 250 = 7,500,000 W = 7.5 MW.",
+        "finalAnswers": [
+          { "label": "Propulsive power", "value": 7.5, "unit": "MW" }
+        ],
+        "kcIds": ["KC07"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 3,
+        "wrongFinal": false
+      }
+    },
+    {
+      "id": "m3-power-off-by-ten",
+      "input": {
+        "mock": "efficiency",
+        "prompt": "A turbofan produces a net thrust of $30\\text{ kN}$ at a flight speed of $250\\text{ m/s}$. Compute the propulsive power.",
+        "points": 3,
+        "reference": "Propulsive power = F × V_0 = 30,000 N × 250 m/s = 7.5 MW.",
+        "answer": "Propulsive power is thrust times flight speed: 30,000 × 250 = 75,000,000 W = 75 MW.",
+        "finalAnswers": [
+          { "label": "Propulsive power", "value": 7.5, "unit": "MW" }
+        ],
+        "kcIds": ["KC07"]
+      },
+      "expectedOutput": {
+        "labelStatus": "draft",
+        "awarded": 2,
+        "wrongFinal": true
+      }
+    }
+  ]
+}

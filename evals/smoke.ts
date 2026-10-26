@@ -19,6 +19,7 @@ import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { briefSmoke } from "./smoke/brief";
 import { generateSmoke } from "./smoke/generate";
+import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapSmoke } from "./smoke/map";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
@@ -43,6 +44,7 @@ const CHECKS: SmokeCheck[] = [
   generateSmoke,
   reviewSmoke,
   mockSmoke,
+  gradeMockSmoke,
 ];
 
 /**

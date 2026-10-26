@@ -10,6 +10,7 @@ import {
 } from "@/features/knowledge-map/server";
 import { ensurePriorities, getPriorities } from "@/features/priorities/server";
 import {
+  ExamResultCard,
   FitLine,
   MapFindingsCard,
   mockExamPath,
@@ -18,6 +19,7 @@ import {
   topicBadges,
 } from "@/features/study";
 import {
+  getExamToReport,
   getKcLearning,
   getMapFindings,
   getOpenMockExam,
@@ -53,6 +55,7 @@ export default async function CourseMapPage({
     mapFindings,
     openMock,
     readiness,
+    examToReport,
   ] = await Promise.all([
     getCourse(courseId),
     getKnowledgeMap(courseId),
@@ -64,6 +67,7 @@ export default async function CourseMapPage({
     getMapFindings(courseId),
     getOpenMockExam(courseId),
     getReadiness(courseId),
+    getExamToReport(courseId),
   ]);
   if (!course) notFound();
 
@@ -100,6 +104,9 @@ export default async function CourseMapPage({
               openHref: openMock && mockExamPath(courseId, openMock),
             }}
           />
+          {examToReport && (
+            <ExamResultCard courseId={courseId} examDate={examToReport} />
+          )}
           <MapFindingsCard findings={mapFindings} />
         </>
       }
