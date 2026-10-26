@@ -139,7 +139,7 @@ const ANSWER = {
   next: "Next: nozzles.",
   topicNote: "Still says velocity alone makes thrust.",
   memoryLines: ["Prefers worked examples."],
-  condensedMemory: "Likes short answers.",
+  condensedLines: ["Likes short answers."],
 };
 
 beforeEach(() => {
@@ -177,7 +177,7 @@ test("a claimed session closes once with one call, and a second start stops at t
 });
 
 test("a condensed Memory that keeps the pinned lines is stored with the Memory's read time", async () => {
-  useCloseModel({ ...ANSWER, condensedMemory: `${PIN}\nLikes short answers.` });
+  useCloseModel({ ...ANSWER, condensedLines: [PIN, "Likes short answers."] });
   seedSession();
 
   await closeStudySession("s1");

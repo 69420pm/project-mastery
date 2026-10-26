@@ -15,7 +15,7 @@ Write:
 1. happened and next: the session note's two lines, without a label. happened (at most 150 characters): what happened in this session. next (at most 149 characters): what comes next.
 2. topicNote: the Topic's new note, replacing the current one, at most 1,500 characters. Only when writesTopicNote is true; otherwise null. Keep what still holds from the current note and add what this session showed.
 3. memoryLines: 0 to 3 new lines for the Memory, each at most 200 characters, without a date. Only the Student's preferences and context (how they like to study, their schedule, their exam situation), never what they know or can do. Leave out what the Memory already says. Usually there is nothing new: give none.
-4. condensedMemory: only when condensesMemory is true, the Memory rewritten to at most half its length, one entry per line, lines separated by line breaks ("\\n"): merge repeats into one line, drop what is outdated, keep the dates where useful. Lines that start with "!" are pinned: first write each of them, unchanged, character for character, each on its own line, with the "!"; never merge, shorten or leave out a pinned line. Then write the other entries. Write plain text only. Otherwise null.
+4. condensedLines: only when condensesMemory is true, the Memory rewritten to at most half its length as a list with one entry per line: merge repeats into one entry, drop what is outdated, keep the dates where useful. Lines that start with "!" are pinned: first list each of them, unchanged, character for character, as its own entry, with the "!"; never merge, shorten or leave out a pinned line. Then list the other entries. Plain text only. Otherwise null.
 
 Rules for the notes:
 - Record what clicked, the Student's recurring errors in their own words, and the explanation that worked.
@@ -30,7 +30,9 @@ const schema = z.object({
   next: z.string().trim().min(1).max(149),
   topicNote: z.string().trim().min(1).max(1_500).nullable(),
   memoryLines: z.array(z.string().trim().min(1).max(200)).max(3),
-  condensedMemory: z.string().trim().min(1).max(3_000).nullable(),
+  // An array too: a model asked for line breaks inside one text glued the
+  // lines together, pinned lines included.
+  condensedLines: z.array(z.string().trim().min(1).max(300)).max(60).nullable(),
 });
 
 /** The call for one session and how to read its notes. */
@@ -58,7 +60,10 @@ export function closeCall(input: CloseInput) {
         sessionNote: `${parsed.happened}\n${parsed.next}`,
         topicNote: input.writesTopicNote ? parsed.topicNote : null,
         memoryLines: parsed.memoryLines,
-        condensedMemory: input.condensesMemory ? parsed.condensedMemory : null,
+        condensedMemory:
+          input.condensesMemory && parsed.condensedLines
+            ? parsed.condensedLines.join("\n")
+            : null,
       };
     },
   };
