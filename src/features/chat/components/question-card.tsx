@@ -1,11 +1,11 @@
 "use client";
 
 import { CheckCircle2Icon, SendIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
+import { AnswerField } from "@/components/answer-field";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { chatMarkdownComponents } from "@/features/chat/components/citation-link";
 import type {
   AskedQuestion,
@@ -107,7 +107,6 @@ function AnswerBox({
 }) {
   const [text, setText] = useState("");
   const [confidence, setConfidence] = useState<number>();
-  const id = useId();
   const tooLong = text.length > MAX_MESSAGE_LENGTH;
   const submittable = canAnswer && text.trim() !== "" && !tooLong;
   return (
@@ -118,51 +117,13 @@ function AnswerBox({
         if (submittable) onSubmit(text, confidence);
       }}
     >
-      <label htmlFor={id} className="sr-only">
-        Your answer
-      </label>
-      <Textarea
-        id={id}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder="Your answer, with $math$ in LaTeX…"
-        aria-invalid={tooLong}
-        className="min-h-20"
-      />
-      {text.trim() !== "" && (
-        <div
-          aria-label="Preview"
-          className="rounded-md border border-dashed px-3 py-2"
-        >
-          <Markdown>{text}</Markdown>
-        </div>
-      )}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <div
-          role="radiogroup"
-          aria-label="How sure are you?"
-          className="mr-auto flex items-center gap-1.5"
-        >
-          <span className="text-muted-foreground" aria-hidden>
-            How sure are you?
-          </span>
-          {[1, 2, 3, 4].map((value) => (
-            <Button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={confidence === value}
-              aria-label={`Confidence ${value} of 4`}
-              size="icon-sm"
-              variant={confidence === value ? "default" : "outline"}
-              onClick={() =>
-                setConfidence(confidence === value ? undefined : value)
-              }
-            >
-              {value}
-            </Button>
-          ))}
-        </div>
+      <AnswerField
+        text={text}
+        onTextChange={setText}
+        confidence={confidence}
+        onConfidenceChange={setConfidence}
+        invalid={tooLong}
+      >
         {tooLong && (
           <p role="alert" className="mr-auto text-destructive">
             Keep your answer under {MAX_MESSAGE_LENGTH.toLocaleString("en-US")}{" "}
@@ -173,7 +134,7 @@ function AnswerBox({
           <SendIcon />
           Submit
         </Button>
-      </div>
+      </AnswerField>
     </form>
   );
 }

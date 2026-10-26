@@ -14,6 +14,14 @@ const ASSEMBLY_MS = 60 * 60 * 1000;
 export const STALE_ASSEMBLY = "Assembling took longer than an hour.";
 
 /**
+ * When a started mock's time is up. The database takes answers for one
+ * more minute, so an answer saved at 0 still lands.
+ */
+export function mockDeadline(startedAt: string, durationMinutes: number): Date {
+  return new Date(Date.parse(startedAt) + durationMinutes * 60_000);
+}
+
+/**
  * A stored mock's status at `now`: one still assembling an hour after it
  * was queued counts as failed, as `queue_mock_exam` then marks it.
  */

@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Markdown } from "@/components/markdown";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,15 +12,46 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MockExamButton } from "@/features/study/components/mock-exam-button";
+import { startMockExam } from "@/features/study/server/actions";
 import type { MockExamView } from "@/features/study/types";
+import { cn } from "@/lib/utils";
 
 /** How often the page refreshes while the mock assembles. */
 const ASSEMBLY_POLL_MS = 2000;
 
+/** Start on a ready mock: the page then shows its task sheet. */
+function StartButton({ mockId }: { mockId: string }) {
+  const router = useRouter();
+  const [message, setMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  return (
+    <div className="flex flex-col gap-2">
+      <Button
+        className="self-start"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await startMockExam({ mockId });
+            if (!result.ok) setMessage(result.message);
+            router.refresh();
+          })
+        }
+      >
+        Start
+      </Button>
+      {message && (
+        <p role="alert" className="text-destructive">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
- * A Mock exam's page before it starts (#185): its assembly's progress,
- * polled; once ready its minutes, item count and aids; once failed the
- * reason and Assemble another.
+ * A Mock exam's page outside its task sheet (#185): its assembly's
+ * progress, polled; once ready its minutes, item count, aids and Start;
+ * once failed the reason and Assemble another; once submitted the answers.
  */
 export function MockExamStatus({ mock }: { mock: MockExamView }) {
   const router = useRouter();
@@ -56,6 +89,41 @@ export function MockExamStatus({ mock }: { mock: MockExamView }) {
           {mock.final && (
             <p className="text-muted-foreground">This is your reserved exam.</p>
           )}
+          <StartButton mockId={mock.id} />
+        </>
+      );
+      break;
+    case "submitted":
+      body = (
+        <>
+          <p role="status">Submitted. Grading comes next.</p>
+          <ol className="flex flex-col gap-3">
+            {mock.tasks.map((task, index) => (
+              <li
+                key={task.questionId}
+                aria-label={`Task ${index + 1}`}
+                className="flex flex-col gap-2 rounded-md border p-3"
+              >
+                <p className="text-muted-foreground">
+                  Task {index + 1} · {task.points}{" "}
+                  {task.points === 1 ? "point" : "points"}
+                </p>
+                <Markdown>{task.prompt}</Markdown>
+                <div className="border-t pt-2">
+                  {task.answer ? (
+                    <Markdown>{task.answer}</Markdown>
+                  ) : (
+                    <p className="text-muted-foreground">No answer</p>
+                  )}
+                  {task.confidence !== null && (
+                    <p className="text-muted-foreground">
+                      Confidence {task.confidence} of 4
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
         </>
       );
       break;
@@ -82,7 +150,10 @@ export function MockExamStatus({ mock }: { mock: MockExamView }) {
     <Card
       role="region"
       aria-label="Mock exam"
-      className="w-full max-w-md gap-3 py-4"
+      className={cn(
+        "w-full gap-3 py-4",
+        mock.status === "submitted" ? "max-w-3xl" : "max-w-md",
+      )}
     >
       <CardHeader className="px-4">
         <CardTitle>Mock exam</CardTitle>

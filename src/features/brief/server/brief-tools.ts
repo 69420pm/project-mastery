@@ -14,6 +14,7 @@ import {
   saveBrief,
   type BriefFieldsUpdate,
 } from "@/features/brief/server/brief-store";
+import { getReservedExam } from "@/features/brief/server/queries";
 import type { Supabase } from "@/lib/supabase/types";
 
 /** Null, as the models send for a field they leave out, means "not given". */
@@ -48,10 +49,15 @@ export function briefToolActions(
       );
 
       // Only an old exam of the Course can be reserved; another id is dropped.
+      // Once a submitted mock used the reservation, it stays as it is.
       const reserved = given(input.reservedExamMaterialId);
       const reservable =
         reserved === "none" || context.exams.some(({ id }) => id === reserved);
-      if (reserved !== undefined && reservable) {
+      const used =
+        reserved !== undefined &&
+        context.reservedExam.materialId !== null &&
+        (await getReservedExam(supabase, courseId)) === null;
+      if (reserved !== undefined && reservable && !used) {
         fields.reserved_exam_material_id =
           reserved === "none" ? null : reserved;
         fields.reserved_exam_answered = true;
@@ -73,6 +79,8 @@ export function briefToolActions(
         reserved !== undefined &&
           !reservable &&
           `${reserved} is no old exam of the Course and was ignored: send the id of one, or "none".`,
+        used &&
+          "The reserved exam was ignored: the Student has taken it as their final mock exam, so it can no longer change.",
       ].filter(Boolean);
       return ["Saved.", ...ignored].join(" ");
     },

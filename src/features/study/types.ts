@@ -304,4 +304,21 @@ export type MockExamView = {
   aids: string[];
   /** Whether it is the reserved exam itself. */
   final: boolean;
+  /** When its time is up, in progress; null otherwise. */
+  deadline: string | null;
+  /** The server's time when the page loaded, which the countdown runs from. */
+  serverNow: string;
+  /** Its tasks in order, once started; empty before. */
+  tasks: MockTask[];
+};
+
+/** A task of a started Mock exam, with the Student's answer so far. */
+export type MockTask = {
+  questionId: string;
+  prompt: string;
+  points: number;
+  /** Null until saved. */
+  answer: string | null;
+  /** From 1 (unsure) to 4 (sure); null until given. */
+  confidence: number | null;
 };

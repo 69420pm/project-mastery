@@ -7,14 +7,21 @@ import {
   answerMapFindingSchema,
   endSessionSchema,
   flagProblemSchema,
+  mockExamSchema,
   queueMockExamSchema,
   rateSessionSchema,
   saveMemorySchema,
+  saveMockAnswerSchema,
   setTopicChoiceSchema,
   topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
 import { answerOpenMapFinding } from "@/features/study/server/map-findings";
 import { appendMemory } from "@/features/study/server/memory";
+import {
+  saveMockAnswer,
+  startMock,
+  submitMock,
+} from "@/features/study/server/mock-sheet";
 import { flagReadyProblem } from "@/features/study/server/problems";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
 import type {
@@ -207,6 +214,68 @@ export async function queueMockExam(input: {
   );
   if (!mockId) return { ok: false, message: "This Course was not found." };
   return { ok: true, data: { mockId } };
+}
+
+/** Start on a ready Mock exam's page: its task sheet opens. */
+export async function startMockExam(input: {
+  mockId: string;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(mockExamSchema, input);
+  if (!parsed.ok) return parsed;
+  if (!(await startMock(await createClient(), parsed.data.mockId))) {
+    return { ok: false, message: "This mock exam has started already." };
+  }
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Saves a mock task's answer and confidence when the Student leaves its
+ * box, while the mock runs.
+ */
+export async function saveMockTaskAnswer(input: {
+  questionId: string;
+  answer: string;
+  confidence: number | null;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(saveMockAnswerSchema, input);
+  if (!parsed.ok) return parsed;
+  const { questionId, answer, confidence } = parsed.data;
+  const saved = await saveMockAnswer(
+    await createClient(),
+    questionId,
+    answer,
+    confidence,
+    new Date(),
+  );
+  if (saved === "closed") {
+    return { ok: false, message: "Time is up: this answer was not saved." };
+  }
+  if (saved === "unknown") {
+    return { ok: false, message: "This task was not found." };
+  }
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Submit on the task sheet, and its countdown at 0: ends the Mock exam. One
+ * that is not in progress any more stays as it is.
+ */
+export async function submitMockExam(input: {
+  mockId: string;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(mockExamSchema, input);
+  if (!parsed.ok) return parsed;
+  await submitMock(await createClient(), parsed.data.mockId);
+  return { ok: true, data: undefined };
 }
 
 /**

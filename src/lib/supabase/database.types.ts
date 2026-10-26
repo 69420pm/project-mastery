@@ -2409,6 +2409,7 @@ export type Database = {
         Args: { p_session_id: string; p_stage: string };
         Returns: boolean;
       };
+      start_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       start_study_session_mode: {
         Args: { p_mode: string; p_session_id: string };
         Returns: boolean;
@@ -2417,6 +2418,7 @@ export type Database = {
         Args: { p_session_id: string; p_stage: string; p_topic_id: string };
         Returns: boolean;
       };
+      submit_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;

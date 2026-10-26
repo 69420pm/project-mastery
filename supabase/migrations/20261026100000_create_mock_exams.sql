@@ -245,3 +245,140 @@ revoke execute on function public.queue_mock_exam(uuid) from public, anon;
 grant execute on function public.queue_mock_exam(uuid) to authenticated;
 revoke execute on function public.release_mock_exam(uuid) from public, anon;
 grant execute on function public.release_mock_exam(uuid) to authenticated;
+
+-- Taking a mock -------------------------------------------------------------
+
+-- Starts the signed-in Student's ready mock: a `mock` Study session without
+-- a Chat, and one `mock_item` Question per item, tagged with the KCs of its
+-- Exercise or Problem. False, changing nothing, when the mock is not the
+-- caller's or not ready.
+create function public.start_mock_exam(p_mock_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_mock public.mock_exams;
+  v_session uuid;
+  v_item record;
+  v_question uuid;
+begin
+  select * into v_mock
+  from public.mock_exams m
+  where m.id = p_mock_id
+    and m.owner = (select auth.uid())
+    and m.status = 'ready'
+  for update;
+  if not found then
+    return false;
+  end if;
+
+  insert into public.study_sessions (owner, course_id, mode)
+  values (v_mock.owner, v_mock.course_id, 'mock')
+  returning id into v_session;
+
+  for v_item in
+    select i.id, i.prompt, i.exercise_id, i.problem_id
+    from public.mock_items i
+    where i.mock_id = p_mock_id
+    order by i.position
+  loop
+    insert into public.questions (owner, session_id, kind, prompt, exercise_id, problem_id)
+    values (v_mock.owner, v_session, 'mock_item', v_item.prompt, v_item.exercise_id, v_item.problem_id)
+    returning id into v_question;
+
+    insert into public.question_kcs (question_id, kc_id)
+    select v_question, k.kc_id from public.exercise_kcs k where k.exercise_id = v_item.exercise_id
+    union
+    select v_question, k.kc_id from public.problem_kcs k where k.problem_id = v_item.problem_id;
+
+    update public.mock_items set question_id = v_question where id = v_item.id;
+  end loop;
+
+  update public.mock_exams
+  set status = 'in_progress', started_at = now(), session_id = v_session
+  where id = p_mock_id;
+  return true;
+end;
+$$;
+
+comment on function public.start_mock_exam(uuid) is 'Starts the caller''s ready mock: a mock Study session without a Chat and one mock_item Question per item; false when it is not theirs or not ready.';
+
+-- A `mock_item` Question's answer and confidence change only while its mock
+-- is in progress and before its deadline: a minute after its time is up, so
+-- an answer saved at 0 still lands. Runs as the caller.
+create function private.check_mock_answer()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.mock_items i
+    join public.mock_exams m on m.id = i.mock_id
+    where i.question_id = new.id
+      and m.status = 'in_progress'
+      and now() < m.started_at + make_interval(mins => m.duration_minutes + 1)
+  ) then
+    raise exception 'The mock exam is not running'
+      using errcode = '55000';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function private.check_mock_answer() from public, anon, authenticated;
+
+create trigger questions_check_mock_answer
+before update on public.questions
+for each row
+when (
+  old.kind = 'mock_item'
+  and (
+    new.answer_text is distinct from old.answer_text
+    or new.confidence is distinct from old.confidence
+    or new.answered_at is distinct from old.answered_at
+  )
+)
+execute function private.check_mock_answer();
+
+-- Submits the signed-in Student's mock in progress and ends its session, at
+-- now or, past its deadline, at the deadline. False when it is not theirs
+-- or not in progress.
+create function public.submit_mock_exam(p_mock_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_session uuid;
+  v_at timestamptz;
+begin
+  update public.mock_exams m
+  set status = 'submitted',
+    submitted_at = least(now(), m.started_at + make_interval(mins => m.duration_minutes + 1))
+  where m.id = p_mock_id
+    and m.owner = (select auth.uid())
+    and m.status = 'in_progress'
+  returning m.session_id, m.submitted_at into v_session, v_at;
+  if not found then
+    return false;
+  end if;
+
+  update public.study_sessions s
+  set ended_at = v_at
+  where s.id = v_session and s.ended_at is null;
+  return true;
+end;
+$$;
+
+comment on function public.submit_mock_exam(uuid) is 'Submits the caller''s mock in progress and ends its session; false when it is not theirs or not in progress.';
+
+revoke execute on function public.start_mock_exam(uuid) from public, anon;
+grant execute on function public.start_mock_exam(uuid) to authenticated;
+revoke execute on function public.submit_mock_exam(uuid) from public, anon;
+grant execute on function public.submit_mock_exam(uuid) to authenticated;

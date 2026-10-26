@@ -90,6 +90,28 @@ describe("a tool result", () => {
     });
   });
 
+  test("saveBrief keeps a reserved exam that a submitted mock used", async () => {
+    seedBrief();
+    db.tables.materials[0]!.is_exam = true;
+    Object.assign(db.tables.briefs[0]!, {
+      reserved_exam_material_id: OLD_EXAM,
+      reserved_exam_answered: true,
+    });
+    db.tables.mock_exams.push({
+      id: "dddddddd-0000-4000-8000-000000000001",
+      owner: STUDENT,
+      course_id: COURSE,
+      reserved_material_id: OLD_EXAM,
+      status: "submitted",
+    });
+
+    const model = toolModel("saveBrief", { reservedExamMaterialId: "none" });
+    useMockModels({ brief: model });
+
+    expect(await lastPrompt(model)).toContain("it can no longer change");
+    expect(db.tables.briefs[0]?.reserved_exam_material_id).toBe(OLD_EXAM);
+  });
+
   test("answerFinding on the last open Finding says the Student is done", async () => {
     seedBrief();
     const scope = db.tables.findings.find((row) => row.id === SCOPE)!;
