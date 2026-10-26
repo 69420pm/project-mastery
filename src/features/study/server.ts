@@ -35,6 +35,7 @@ export {
 export { getMemory } from "./server/memory";
 export { getMockExam, getOpenMockExam } from "./server/mock-exams";
 export { getPlan } from "./server/plan";
+export { getReadiness } from "./server/readiness";
 export { loadProblemFlags } from "./server/problems";
 export {
   isAnswerable,

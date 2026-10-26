@@ -13,6 +13,7 @@ import {
   FitLine,
   MapFindingsCard,
   mockExamPath,
+  ReadinessLine,
   TodayCard,
   topicBadges,
 } from "@/features/study";
@@ -21,6 +22,7 @@ import {
   getMapFindings,
   getOpenMockExam,
   getPlan,
+  getReadiness,
   getTopicStates,
 } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
@@ -50,6 +52,7 @@ export default async function CourseMapPage({
     plan,
     mapFindings,
     openMock,
+    readiness,
   ] = await Promise.all([
     getCourse(courseId),
     getKnowledgeMap(courseId),
@@ -60,6 +63,7 @@ export default async function CourseMapPage({
     getPlan(courseId),
     getMapFindings(courseId),
     getOpenMockExam(courseId),
+    getReadiness(courseId),
   ]);
   if (!course) notFound();
 
@@ -76,6 +80,8 @@ export default async function CourseMapPage({
       priorities={priorities}
       learning={learning}
       topicStates={topicStates}
+      topicReadiness={readiness.topics}
+      readinessLine={<ReadinessLine readiness={readiness} />}
       topicBadges={Object.fromEntries(
         plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
       )}

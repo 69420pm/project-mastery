@@ -347,6 +347,18 @@ export type MockTask = {
   grade: MockTaskGrade | null;
 };
 
+/** A Course's Readiness for the map (see `readiness`). */
+export type CourseReadiness = {
+  /** Over every KC with a Priority, 0 to 1; null without Priorities. */
+  course: number | null;
+  /** Per Topic id, 0 to 1; a Topic without weighted KCs is missing. */
+  topics: Record<string, number>;
+  /** How many graded mocks check it; 0 means untested. */
+  mocks: number;
+  /** Whether it is projected to an exam date still ahead. */
+  onTheDay: boolean;
+};
+
 /** How a Mock exam's task was graded. */
 export type MockTaskGrade =
   | { status: "failed" }

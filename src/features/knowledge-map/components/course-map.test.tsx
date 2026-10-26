@@ -108,8 +108,10 @@ const renderMap = (
       priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
+      topicReadiness={{ t1: 0.624 }}
       topicBadges={{ t2: ["won't fit"] }}
       planLine={<FitLine plan={studyPlan} briefHref="/brief" />}
+      readinessLine={<p>Readiness line</p>}
     />,
   );
 
@@ -144,6 +146,16 @@ test("each card shows its Topic state and recall today", async () => {
   const other = screen.getByRole("link", { name: "Nozzles" });
   expect(within(other).getByLabelText("Topic state: New")).toBeVisible();
   expect(other).toHaveTextContent("Recall today 0%");
+});
+
+test("the header shows the Readiness line and a card its Readiness", async () => {
+  renderMap(map, topics);
+  expect(screen.getByText("Readiness line")).toBeVisible();
+  const card = await screen.findByRole("link", { name: "Momentum" });
+  expect(card).toHaveTextContent("Readiness 62%");
+  expect(screen.getByRole("link", { name: "Nozzles" })).not.toHaveTextContent(
+    "Readiness",
+  );
 });
 
 test("a built map without Topics asks for an update", () => {

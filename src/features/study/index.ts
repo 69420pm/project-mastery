@@ -7,6 +7,7 @@ export { CloseCard } from "./components/close-card";
 export { EndSessionButton } from "./components/end-session-button";
 export { MapFindingsCard } from "./components/map-findings-card";
 export { MemoryCard } from "./components/memory-card";
+export { ReadinessLine } from "./components/readiness-line";
 export { MockExamStatus } from "./components/mock-exam-status";
 export { MockTaskSheet } from "./components/mock-task-sheet";
 export { mockExamPath } from "./domain/mock-paths";
@@ -27,6 +28,7 @@ export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {
+  CourseReadiness,
   GradedKc,
   MockExamView,
   ProblemFlag,

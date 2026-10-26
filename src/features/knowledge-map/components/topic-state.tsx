@@ -40,13 +40,24 @@ export function PlanBadges({ badges = [] }: { badges?: string[] }) {
   );
 }
 
-/** A Topic's recall today as a labelled bar; 0 without a Topic state. */
-export function RecallBar({ topicState }: { topicState?: MapTopicState }) {
+/**
+ * A Topic's recall today as a labelled bar; 0 without a Topic state. With
+ * its Readiness (0 to 1), the label also gives that.
+ */
+export function RecallBar({
+  topicState,
+  readiness,
+}: {
+  topicState?: MapTopicState;
+  readiness?: number;
+}) {
   const percent = Math.round((topicState?.recall ?? 0) * 100);
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">
         Recall today {percent}%
+        {readiness !== undefined &&
+          ` · Readiness ${Math.round(readiness * 100)}%`}
       </span>
       <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
