@@ -12,6 +12,7 @@ import {
   seedChat,
   seedMap,
   send,
+  startedWorkflows,
   storedMessages,
   userMessage,
 } from "./handler-testing";
@@ -128,6 +129,24 @@ test("a Course without Topics gets a session without a Topic or stage", async ()
 
   expect(sessionOf(chatId)).toMatchObject({ topic_id: null, stage: null });
   expect(promptOf(model)).toContain("Session shape");
+});
+
+test("a session's first reply ends and closes the Course's idle sessions, not a running one", async () => {
+  useMockModels({ chat: mockTextModel("What shall we study?") });
+  const idle = seedSessionChat(3 * HOUR_MS);
+  const running = seedSessionChat(HOUR_MS);
+
+  await send({
+    chatId: randomUUID(),
+    courseId: COURSE,
+    message: userMessage("Hi"),
+  });
+
+  expect(sessionOf(idle.chatId).ended_at).toBe(idle.newest);
+  expect(sessionOf(running.chatId).ended_at).toBeNull();
+  expect(startedWorkflows).toEqual([
+    { name: "closeStudySession", args: [sessionOf(idle.chatId).id] },
+  ]);
 });
 
 test("a message to an ended session is refused, and one within 2 hours is answered", async () => {

@@ -38,6 +38,8 @@ export type {
   StudyPlan,
   TopicKnowledgeMap,
   TopicView,
+  SessionNoteEntry,
+  TopicNoteEntry,
   TutorContext,
   TutorToday,
 } from "./types";

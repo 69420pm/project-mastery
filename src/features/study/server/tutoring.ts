@@ -28,33 +28,26 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
+import { loadTutorNotes } from "@/features/study/server/notes";
 import { loadMockReview } from "@/features/study/server/mock-results";
 import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { loadPlan } from "@/features/study/server/plan";
 import { selectPracticeKcs } from "@/features/study/domain/practice";
 import { selectDueReviews } from "@/features/study/domain/reviews";
-import {
-  resumeStage,
-  startStage,
-  type Stage,
-} from "@/features/study/domain/stages";
-import type { TodayTopic } from "@/features/study/domain/today";
+import { type Stage } from "@/features/study/domain/stages";
+import { sessionStage } from "@/features/study/server/session-stage";
 import {
   loadDoneSections,
-  loadPreviousStage,
   loadStageSession,
   saveStage,
-  startSessionTopic,
-  type StageSession,
 } from "@/features/study/server/stages";
-import type { TutorContext, TutorSession } from "@/features/study/types";
+import type { TutorContext } from "@/features/study/types";
 import {
   findCourseChunk,
   insertMapFinding,
   loadMapFindingsByKc,
 } from "@/features/study/server/map-findings";
-import { queueProblemGeneration } from "@/features/study/server/problem-generation";
 import { searchChunks } from "@/features/study/server/search";
 import { tutorToday } from "@/features/study/server/tutor-today";
 import {
@@ -190,6 +183,13 @@ export async function startTutoring(
     resultsSession && session.mockId
       ? await loadMockReview(supabase, courseId, session.mockId, map.kcs)
       : null;
+  const notes = await loadTutorNotes(supabase, {
+    courseId,
+    sessionId: session?.id ?? null,
+    topic: staged?.topic ?? null,
+    topics,
+    map,
+  });
   return {
     context: {
       today: utcDay(now),
@@ -215,6 +215,7 @@ export async function startTutoring(
       ...(reviewQueue && { reviewQueue }),
       ...(practiceKcs && { practiceKcs }),
       ...(mockResults && { mockResults }),
+      ...notes,
     },
     tools: tutorTools(
       tutorToolActions(supabase, {
@@ -233,65 +234,6 @@ export async function startTutoring(
         },
       }),
     ),
-  };
-}
-
-/**
- * The session's Topic and stage. The first reply sets them, from the plan's
- * next Topic (`next`) and `startStage`; later replies read them. Null
- * without a Topic.
- */
-async function sessionStage(
-  supabase: Supabase,
-  {
-    courseId,
-    session,
-    next,
-    topics,
-    reviewsDue,
-    now,
-  }: {
-    courseId: string;
-    session: StageSession;
-    /** The Topic to set when the session has none; null to set none. */
-    next: TodayTopic | null;
-    topics: Awaited<ReturnType<typeof loadStoredTopics>>;
-    reviewsDue: boolean;
-    now: Date;
-  },
-): Promise<{ topic: TodayTopic; session: TutorSession } | null> {
-  const topicId = session.topicId ?? next?.id;
-  if (!topicId) return null;
-  const previous = await loadPreviousStage(
-    supabase,
-    topicId,
-    session.startedAt,
-  );
-  let { stage } = session;
-  if (session.topicId === null) {
-    stage = startStage(previous, reviewsDue);
-    if (!(await startSessionTopic(supabase, session.id, topicId, stage))) {
-      return null;
-    }
-    // Topic stock: the Topic's Problems are generated in the background.
-    await queueProblemGeneration(supabase, courseId, topicId);
-  }
-  const topic = topics.find(({ id }) => id === topicId);
-  if (!topic || stage === null) return null;
-  return {
-    topic: {
-      id: topic.id,
-      name: topic.name,
-      centralQuestion: topic.centralQuestion,
-      kcs: topic.kcs,
-    },
-    session: {
-      stage,
-      afterReview: resumeStage(previous),
-      minutes: Math.floor(
-        (now.getTime() - new Date(session.startedAt).getTime()) / 60_000,
-      ),
-    },
   };
 }
 
