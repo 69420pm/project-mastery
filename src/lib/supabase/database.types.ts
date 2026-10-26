@@ -286,6 +286,8 @@ export type Database = {
           open_book: boolean | null;
           owner: string;
           question_style: string | null;
+          reserved_exam_answered: boolean;
+          reserved_exam_material_id: string | null;
           scope_confirmed: boolean;
           updated_at: string;
         };
@@ -303,6 +305,8 @@ export type Database = {
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
+          reserved_exam_answered?: boolean;
+          reserved_exam_material_id?: string | null;
           scope_confirmed?: boolean;
           updated_at?: string;
         };
@@ -319,6 +323,8 @@ export type Database = {
           open_book?: boolean | null;
           owner?: string;
           question_style?: string | null;
+          reserved_exam_answered?: boolean;
+          reserved_exam_material_id?: string | null;
           scope_confirmed?: boolean;
           updated_at?: string;
         };
@@ -335,6 +341,13 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "briefs_reserved_exam_material_id_fkey";
+            columns: ["reserved_exam_material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
             referencedColumns: ["id"];
           },
         ];

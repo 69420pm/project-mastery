@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(10);
+select plan(14);
 
 insert into auth.users (id, email)
 values
@@ -93,6 +93,41 @@ select is(
   public.add_brief_note('aaaaaaaa-c000-0000-0000-000000000001', repeat('x', 20000)),
   false,
   'add_brief_note refuses notes past the limit'
+);
+
+-- The reserved exam.
+reset role;
+update public.materials set is_exam = true where id = 'aaaaaaaa-0000-0000-0000-0000000000f1';
+set local role authenticated;
+
+select ok(
+  public.save_brief(
+    'aaaaaaaa-c000-0000-0000-000000000001',
+    '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f1", "reserved_exam_answered": true}'
+  ),
+  'save_brief reserves an old exam of the Course'
+);
+
+select throws_ok(
+  $$select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f2"}')$$,
+  '23514',
+  null,
+  'a Material that is no old exam cannot be reserved'
+);
+
+select throws_ok(
+  $$update public.briefs set reserved_exam_material_id = 'bbbbbbbb-0000-0000-0000-0000000000f1' where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  '23514',
+  null,
+  'another Student''s Material cannot be reserved'
+);
+
+delete from public.materials where id = 'aaaaaaaa-0000-0000-0000-0000000000f1';
+
+select results_eq(
+  $$select reserved_exam_material_id, reserved_exam_answered from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$values (null::uuid, true)$$,
+  'deleting the reserved Material clears the reservation'
 );
 
 select * from finish();

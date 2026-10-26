@@ -479,6 +479,38 @@ describe("findProblems", () => {
     expect(result).not.toContain("Ex. 3");
   });
 
+  test("leaves the reserved exam's Exercises and source chunks out", async () => {
+    seedExercises();
+    db.tables.kc_sources.push({
+      owner: STUDENT,
+      course_id: COURSE,
+      kc_id: MAP.thrust,
+      chunk_id: chunkOf(1),
+    });
+    db.tables.briefs.push({
+      course_id: COURSE,
+      owner: STUDENT,
+      reserved_exam_material_id: EXAM,
+    });
+    const model = mockToolModel(
+      [
+        [
+          { toolName: "findProblems", input: { kcIds: [MAP.thrust] } },
+          { toolName: "getTopic", input: { kcIds: [MAP.thrust] } },
+        ],
+      ],
+      "Here.",
+    );
+    useMockModels({ chat: model });
+
+    await send(firstMessage());
+
+    const result = promptOf(model, 1);
+    expect(result).toContain("Ex. 3");
+    expect(result).not.toContain("Ex. 1");
+    expect(result).not.toContain("Compute the thrust of the engine.");
+  });
+
   test("says when the Course has no Exercises for the KCs", async () => {
     const model = finderModel([MAP.efficiency]);
     useMockModels({ chat: model });

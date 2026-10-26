@@ -273,7 +273,7 @@ export async function listMaterials(
   const { data, error } = await supabase
     .from("materials")
     .select(
-      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure, parse_start_failed",
+      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure, parse_start_failed, is_exam, exam_year, exam_total_points",
     )
     .eq("course_id", courseId)
     .order("created_at", { ascending: false });
@@ -291,5 +291,14 @@ export async function listMaterials(
       failure: row.parse_failure,
       startFailed: row.parse_start_failed,
     },
+    exam: row.is_exam
+      ? {
+          year: row.exam_year,
+          totalPoints:
+            row.exam_total_points === null
+              ? null
+              : Number(row.exam_total_points),
+        }
+      : null,
   }));
 }

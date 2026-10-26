@@ -8,16 +8,20 @@ import type { Supabase } from "@/lib/supabase/types";
 /** The most chunks a search gives. */
 const SEARCH_RESULTS = 4;
 
+/** How many more chunks a search reads when it leaves some out. */
+const OVERFETCH = 3;
+
 /**
- * The Course's embedded chunks nearest to `query` by meaning, nearest first.
- * The query is embedded like the chunks were, without an input type, and
- * metered for the signed-in Student. Throws a `TutorToolError` at the Daily
- * limit.
+ * The Course's embedded chunks nearest to `query` by meaning, nearest first,
+ * without the `excluded` ones (the reserved exam's). The query is embedded
+ * like the chunks were, without an input type, and metered for the
+ * signed-in Student. Throws a `TutorToolError` at the Daily limit.
  */
 export async function searchChunks(
   supabase: Supabase,
   courseId: string,
   query: string,
+  excluded: Set<string> = new Set(),
 ) {
   const embedded = await meteredEmbed(
     supabase,
@@ -32,14 +36,15 @@ export async function searchChunks(
   const { data, error } = await supabase.rpc("match_chunks", {
     p_course_id: courseId,
     p_embedding: JSON.stringify(embedded[0]),
-    p_count: SEARCH_RESULTS,
+    p_count: excluded.size === 0 ? SEARCH_RESULTS : SEARCH_RESULTS * OVERFETCH,
   });
   if (error) failed("Searching the chunks", error);
-  const chunks = await loadChunkSources(
-    supabase,
-    data.map(({ id }) => id),
-  );
+  const ids = data
+    .map(({ id }) => id)
+    .filter((id) => !excluded.has(id))
+    .slice(0, SEARCH_RESULTS);
+  const chunks = await loadChunkSources(supabase, ids);
   // Nearest first, which `loadChunkSources` does not keep.
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  return data.flatMap(({ id }) => byId.get(id) ?? []);
+  return ids.flatMap((id) => byId.get(id) ?? []);
 }

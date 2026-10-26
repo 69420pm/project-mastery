@@ -65,7 +65,7 @@ export function BriefPanel({
 }: {
   brief: Pick<
     BriefWithMessages,
-    "fields" | "notes" | "notesUpdatedAt" | "excludedMaterials"
+    "fields" | "notes" | "notesUpdatedAt" | "excludedMaterials" | "reservedExam"
   >;
   findings: FindingView[];
   plan: ReactNode;
@@ -76,6 +76,21 @@ export function BriefPanel({
       <h1 className="sr-only">Brief data</h1>
       <Section title="Exam">
         <ExamFacts fields={brief.fields} />
+        {brief.reservedExam && (
+          <p className="text-sm">
+            <span className="text-muted-foreground">Reserved exam: </span>
+            {brief.reservedExam === "none" ? (
+              "None"
+            ) : (
+              <Link
+                href={brief.reservedExam.href}
+                className="underline underline-offset-4"
+              >
+                {brief.reservedExam.name}
+              </Link>
+            )}
+          </p>
+        )}
       </Section>
       <Section title="Excluded Materials">
         {brief.excludedMaterials.length === 0 ? (

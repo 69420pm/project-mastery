@@ -43,6 +43,12 @@ export const saveBriefInputSchema = z.object({
     .describe(
       "True once the Student has said which Materials the exam covers, including when it covers all of them.",
     ),
+  reservedExamMaterialId: z
+    .string()
+    .nullish()
+    .describe(
+      'The id of the old exam the Student keeps unseen for their final Mock exam, or "none" when they keep none.',
+    ),
 });
 
 export type SaveBriefInput = z.infer<typeof saveBriefInputSchema>;

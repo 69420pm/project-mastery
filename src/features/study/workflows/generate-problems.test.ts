@@ -327,6 +327,25 @@ describe("Topic stock", () => {
     expect(db.tables.problem_runs[0]?.status).toBe("done");
   });
 
+  test("the reserved exam's Exercises are no stock and no variant source", async () => {
+    seedCourse(["k1"]);
+    db.tables.materials[0]!.is_exam = true;
+    db.tables.briefs.push({
+      course_id: COURSE,
+      owner: STUDENT,
+      reserved_exam_material_id: "m1",
+    });
+    seedRun("topic");
+    useGenerateModel(DRAFT);
+
+    await generateProblems(COURSE);
+
+    expect(queuedBy()).toEqual([
+      { source: "new", kcs: ["k1"], status: "ready" },
+      { source: "new", kcs: ["k1"], status: "ready" },
+    ]);
+  });
+
   test("ready unflagged and queued Problems count as stock; failed, flagged and asked ones don't", async () => {
     seedCourse(["k1", "k2", "k3"]);
     seedRun("topic");

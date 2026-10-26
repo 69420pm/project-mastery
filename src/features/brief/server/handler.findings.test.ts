@@ -90,6 +90,26 @@ describe("the review queue", () => {
     expect(askedAt(SCOPE)).toBeNull();
   });
 
+  test("with an old exam, the reservation question comes before the Findings", async () => {
+    seedBrief({ done: true });
+    Object.assign(db.tables.materials[0]!, { is_exam: true, exam_year: 2024 });
+    const model = mockTextModel("Keep it aside?");
+    useMockModels({ brief: model });
+
+    await open();
+    await send({ courseId: COURSE, message: userMessage("Done.") });
+
+    const prompt = JSON.stringify(model.doStreamCalls[0]!.prompt);
+    expect(prompt).toContain("Old exam 2024");
+    expect(prompt).toContain("from 2024");
+    expect(prompt).not.toContain("Finding 0");
+    expect(askedAt(MISMATCH)).toBeNull();
+
+    db.tables.briefs[0]!.reserved_exam_answered = true;
+    await open();
+    expect(askedAt(MISMATCH)).not.toBeNull();
+  });
+
   test("opening posts nothing while an asked Finding waits for its answer", async () => {
     seedBrief({ done: true });
     const scope = db.tables.findings.find((row) => row.id === SCOPE)!;

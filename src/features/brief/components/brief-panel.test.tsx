@@ -24,6 +24,7 @@ const brief: Props["brief"] = {
   notes: null,
   notesUpdatedAt: null,
   excludedMaterials: [],
+  reservedExam: null,
 };
 
 const plan: StudyPlan = {
@@ -52,6 +53,19 @@ const renderPanel = (
       memory={<p>Memory slot</p>}
     />,
   );
+
+test("shows the reserved exam as a line, or none once answered", () => {
+  const { unmount } = renderPanel({
+    brief: { reservedExam: { name: "Exam 2024", href: "/exam" } },
+  });
+  expect(screen.getByRole("link", { name: "Exam 2024" })).toHaveAttribute(
+    "href",
+    "/exam",
+  );
+  unmount();
+  renderPanel({ brief: { reservedExam: "none" } });
+  expect(screen.getByText("Reserved exam:")).toBeInTheDocument();
+});
 
 const finding = (overrides: Partial<FindingView>): FindingView => ({
   id: "f1",

@@ -11,9 +11,11 @@ import {
 } from "@/features/brief/domain/opening";
 import { STATIC_MODEL_ID } from "@/features/brief/domain/static-messages";
 import {
-  isIntakeDone,
+  asksFindings,
   type BriefContext,
   type BriefFields,
+  type ExamMaterial,
+  type ReservedExam,
 } from "@/features/brief/domain/intake";
 import type { BriefUIMessage } from "@/features/brief/types";
 import {
@@ -82,7 +84,13 @@ async function askNextFinding(
   supabase: Supabase,
   courseId: string,
 ): Promise<void> {
-  if (!isIntakeDone(await loadFields(supabase, courseId))) return;
+  const [brief, exams] = await Promise.all([
+    loadBrief(supabase, courseId),
+    loadExams(supabase, courseId),
+  ]);
+  if (!brief || !asksFindings(brief.fields, exams, brief.reservedExam)) {
+    return;
+  }
   const findings = await getOpenFindings(supabase, courseId);
   const next = findings[0];
   if (!next || findings.some(({ asked }) => asked)) return;
@@ -161,7 +169,7 @@ async function loadBrief(supabase: Supabase, courseId: string) {
   const { data, error } = await supabase
     .from("briefs")
     .select(
-      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes",
+      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, reserved_exam_material_id, reserved_exam_answered",
     )
     .eq("course_id", courseId)
     .maybeSingle();
@@ -177,7 +185,31 @@ async function loadBrief(supabase: Supabase, courseId: string) {
     calculator: data.calculator,
     scopeConfirmed: data.scope_confirmed,
   };
-  return { fields, notes: data.notes };
+  const reservedExam: ReservedExam = {
+    answered: data.reserved_exam_answered === true,
+    materialId: data.reserved_exam_material_id ?? null,
+  };
+  return { fields, notes: data.notes, reservedExam };
+}
+
+/** The Course's old exams, oldest upload first. */
+async function loadExams(
+  supabase: Supabase,
+  courseId: string,
+): Promise<ExamMaterial[]> {
+  return examsOf(await getMaterialList(courseId, supabase));
+}
+
+function examsOf(
+  materials: Awaited<ReturnType<typeof getMaterialList>>,
+): ExamMaterial[] {
+  return materials
+    .toReversed()
+    .flatMap(({ id, name, exam }) =>
+      exam
+        ? [{ id, name, year: exam.year, totalPoints: exam.totalPoints }]
+        : [],
+    );
 }
 
 /**
@@ -195,9 +227,11 @@ export async function loadContext(
     loadExcludedIds(supabase, courseId),
   ]);
   if (!brief) return null;
+  const exams = examsOf(materials);
   return {
     ...brief,
-    findings: isIntakeDone(brief.fields)
+    exams,
+    findings: asksFindings(brief.fields, exams, brief.reservedExam)
       ? await getOpenFindings(supabase, courseId)
       : [],
     // Oldest first, as the Student uploaded them.
@@ -229,6 +263,8 @@ export type BriefFieldsUpdate = Pick<
   | "formula_sheet"
   | "calculator"
   | "scope_confirmed"
+  | "reserved_exam_material_id"
+  | "reserved_exam_answered"
 >;
 
 /**

@@ -1,5 +1,9 @@
 import { findingQuestion, reviewQueue } from "@/features/brief/domain/findings";
-import type { BriefContext } from "@/features/brief/domain/intake";
+import {
+  suggestedReservation,
+  type BriefContext,
+  type ExamMaterial,
+} from "@/features/brief/domain/intake";
 import { aiTask } from "@/lib/ai/models";
 
 const ROLE = `You are the AI in Project Mastery, a study app for university students. You are talking with a Student about the exam they are preparing for, to learn what you need to plan their studying. Keep your replies short, and always reply in the language the Student writes in.`;
@@ -47,6 +51,39 @@ function describeMaterials({ materials }: BriefContext): string {
     .join("\n");
 }
 
+function describeExam({ name, year, totalPoints }: ExamMaterial): string {
+  return [
+    JSON.stringify(name),
+    year === null ? "year unknown" : `from ${year}`,
+    totalPoints === null ? "total points unknown" : `${totalPoints} points`,
+  ].join(", ");
+}
+
+const RESERVATION = `The reserved exam: the Student can keep one of the Course's old exams unseen, so that their final Mock exam is that real exam. You and the practice leave it out until then. Once the fixed answers are stored, and before anything else, ask whether they want to keep one aside and which, listing each old exam by its name, year and total points. Store the answer with saveBrief: reservedExamMaterialId with the exam's id, or "none" when they keep none.`;
+
+function describeReservation(context: BriefContext): string | null {
+  const { exams, reservedExam } = context;
+  if (exams.length === 0) return null;
+  const list = exams
+    .map((exam) => `- ${describeExam(exam)} (id ${exam.id})`)
+    .join("\n");
+  return `${RESERVATION}\n\nThe Course's old exams:\n${list}\n\n${reservationAnswer(exams, reservedExam)}`;
+}
+
+function reservationAnswer(
+  exams: ExamMaterial[],
+  { answered, materialId }: BriefContext["reservedExam"],
+): string {
+  if (answered) {
+    const kept = exams.find(({ id }) => id === materialId);
+    return `Answered: keep ${kept ? JSON.stringify(kept.name) : "none"}. When the Student changes their mind, store the new answer.`;
+  }
+  const suggested = suggestedReservation(exams);
+  return suggested
+    ? `Not answered yet. Suggest keeping the most recent, ${JSON.stringify(suggested.name)}.`
+    : "Not answered yet. With only one old exam, suggest keeping none, so that the Student can practise with it.";
+}
+
 const REVIEW = `Questions about the materials: the Course's Materials contain things only the Student can settle, such as a printed solution that does not match or a remark that limits what the exam covers. Ask them one at a time, each with its sources.
 - When the Student answers the question you are asking, call answerFinding with its id and their answer word for word. Then, in the same reply, ask the question the tool result gives you, or tell the Student the questions about the materials are done when it says none are left.
 - When the Student talks about something else, reply to that first, then ask the question again.
@@ -71,6 +108,7 @@ function briefInstructions(context: BriefContext): string {
     FLOW,
     `What the Student has told you so far:\n${describeAnswers(context)}`,
     `The Course's Materials:\n${describeMaterials(context)}`,
+    describeReservation(context),
     describeReview(context),
     `Today is ${new Date().toISOString().slice(0, 10)}.`,
   ]

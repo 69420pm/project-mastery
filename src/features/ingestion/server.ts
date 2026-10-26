@@ -15,6 +15,7 @@ export {
   loadChunkTexts,
   type ChunkText,
   loadExerciseSolutions,
+  loadMaterialChunkIds,
   type ChunkPoints,
 } from "./server/course-chunks";
 export { startPairing } from "./server/start-pairing";

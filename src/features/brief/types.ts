@@ -25,4 +25,9 @@ export type BriefWithMessages = {
   notesUpdatedAt: string | null;
   /** The Materials the exam excludes, oldest first, with their chunk page. */
   excludedMaterials: Array<{ id: string; name: string; href: string }>;
+  /**
+   * The Student's answer to the reservation question: the reserved old exam
+   * with its chunk page, or "none"; null before they answered.
+   */
+  reservedExam: { name: string; href: string } | "none" | null;
 };

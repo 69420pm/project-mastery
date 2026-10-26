@@ -141,6 +141,10 @@ _Avoid_: Quiz, prompt, task
 A timed Study session without help, assembled from old exams or from Problems in the exam's style, and graded afterwards per subtask.
 _Avoid_: Practice exam, test, simulation
 
+**Reserved exam**:
+An old exam the Student chose in the Brief to keep unseen for their final Mock exam. Until a submitted Mock exam has used it, the AI, Problem generation and the other Mock exams leave its Exercises and chunks out; afterwards it counts as an ordinary Material.
+_Avoid_: Held-back exam, hidden exam, final exam
+
 **Memory**:
 What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The Student can edit it on the Brief page.
 _Avoid_: Profile, notes (the Brief's notes are something else)

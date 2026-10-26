@@ -47,6 +47,16 @@ export function briefToolActions(
         }).filter(([, value]) => value !== undefined),
       );
 
+      // Only an old exam of the Course can be reserved; another id is dropped.
+      const reserved = given(input.reservedExamMaterialId);
+      const reservable =
+        reserved === "none" || context.exams.some(({ id }) => id === reserved);
+      if (reserved !== undefined && reservable) {
+        fields.reserved_exam_material_id =
+          reserved === "none" ? null : reserved;
+        fields.reserved_exam_answered = true;
+      }
+
       const excluded = given(input.excludedMaterialIds);
       // Only the Course's own Materials can be excluded; other ids are dropped.
       const known = new Set(context.materials.map(({ id }) => id));
@@ -57,9 +67,14 @@ export function briefToolActions(
         fields,
         excluded ? excluded.filter((id) => known.has(id)) : null,
       );
-      return unknown.length > 0
-        ? `Saved. These are no Material ids of the Course and were ignored: ${unknown.join(", ")}.`
-        : "Saved.";
+      const ignored = [
+        unknown.length > 0 &&
+          `These are no Material ids of the Course and were ignored: ${unknown.join(", ")}.`,
+        reserved !== undefined &&
+          !reservable &&
+          `${reserved} is no old exam of the Course and was ignored: send the id of one, or "none".`,
+      ].filter(Boolean);
+      return ["Saved.", ...ignored].join(" ");
     },
 
     async addNote(text) {
