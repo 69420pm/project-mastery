@@ -118,6 +118,27 @@ test("submits itself at 0, saving the open answer first", async () => {
   expect(refresh).toHaveBeenCalled();
 });
 
+test("submits only after a save still in flight has landed", async () => {
+  let land = () => {};
+  saveMockTaskAnswer.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        land = () => resolve({ ok: true, data: undefined });
+      }),
+  );
+  sheet(1);
+  const box = screen.getByRole("textbox");
+  fireEvent.change(box, { target: { value: "25 kN" } });
+  fireEvent.blur(box);
+
+  await act(async () => vi.advanceTimersByTime(60_000));
+  expect(submitMockExam).not.toHaveBeenCalled();
+
+  await act(async () => land());
+  expect(saveMockTaskAnswer).toHaveBeenCalledOnce();
+  expect(submitMockExam).toHaveBeenCalledExactlyOnceWith({ mockId: MOCK });
+});
+
 test("Submit asks first", async () => {
   sheet(30);
   fireEvent.click(screen.getByRole("button", { name: "Submit" }));

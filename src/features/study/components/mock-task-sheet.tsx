@@ -62,7 +62,19 @@ export function MockTaskSheet({
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  async function save(questionId: string, answer: Answer) {
+  // Each task's saves run one after another, so the last one lands last and
+  // submit can wait for one still in flight.
+  const saving = useRef<Record<string, Promise<void>>>({});
+
+  function save(questionId: string, answer: Answer): Promise<void> {
+    const next = (saving.current[questionId] ?? Promise.resolve())
+      .catch(() => {})
+      .then(() => persist(questionId, answer));
+    saving.current[questionId] = next;
+    return next;
+  }
+
+  async function persist(questionId: string, answer: Answer) {
     if (
       same(stored.current[questionId], answer) ||
       answer.text.length > MAX_MOCK_ANSWER_LENGTH
