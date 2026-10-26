@@ -2539,6 +2539,17 @@ export type Database = {
         Args: { p_session_id: string; p_stage: string; p_topic_id: string };
         Returns: boolean;
       };
+      store_session_close: {
+        Args: {
+          p_condensed_memory?: string;
+          p_memory_lines: string[];
+          p_memory_read_at?: string;
+          p_session_id: string;
+          p_session_note: string;
+          p_topic_note?: string;
+        };
+        Returns: boolean;
+      };
       submit_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
     };
     Enums: {

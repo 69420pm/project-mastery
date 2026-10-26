@@ -325,9 +325,18 @@ vi.mock("@/lib/auth/user", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 
+/** The workflows started, by name with their arguments; none runs. */
+export const startedWorkflows: Array<{ name: string; args: unknown[] }> = [];
+vi.mock("workflow/api", () => ({
+  start: async (workflow: { name: string }, args: unknown[]) => {
+    startedWorkflows.push({ name: workflow.name, args });
+  },
+}));
+
 beforeEach(() => {
   signedIn = STUDENT;
   db = createDb();
+  startedWorkflows.length = 0;
   vi.stubEnv("AI_DAILY_LIMIT_USD", "");
 });
 

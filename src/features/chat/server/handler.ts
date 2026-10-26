@@ -50,6 +50,7 @@ import {
 } from "@/features/courses/server";
 import {
   closeIdleSession,
+  endIdleSessions,
   endsReply,
   isAnswerable,
   recordAnswer,
@@ -341,9 +342,12 @@ async function streamReply({
     dataSchemas: { material: materialReferenceSchema },
   });
   // Read on every reply, so the candidates and dates are always current.
-  // The session's first reply sets its Topic and start stage.
+  // The session's first reply sets its Topic and start stage, and ends the
+  // Course's other sessions gone idle.
+  const firstReply = !history.some(({ role }) => role === "assistant");
+  if (firstReply) await endIdleSessions(supabase, chat.courseId, chat.id);
   const tutoring = await startTutoring(supabase, chat.courseId, chat.id, {
-    firstReply: !history.some(({ role }) => role === "assistant"),
+    firstReply,
   });
   const settings = chatReplySettings(tutoring.context);
   // What the provider reports when the call completes: its usage over all

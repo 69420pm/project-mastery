@@ -46,6 +46,7 @@ export {
 export { sessionEndedMessage } from "./schemas";
 export {
   closeIdleSession,
+  endIdleSessions,
   getSessionEnd,
   getSessionMode,
   startSessionMode,
@@ -62,6 +63,19 @@ export { assembleMock } from "./workflows/assemble-mock";
 // and the `grade_exam` eval, which runs the call without a database.
 export { gradeMock } from "./workflows/grade-mock";
 export { awardedPoints, checkMockValue } from "./domain/mock-grading";
+// For the `close` smoke check, which closes an ended session in process, and
+// the `close` eval, which runs the call without a database.
+export { closeStudySession } from "./workflows/close-study-session";
+export { closeCall } from "./ai/close-call";
+export {
+  buildCloseInput,
+  guardedNotes,
+  keepsPinnedLines,
+  pinnedLines,
+  type CloseInput,
+  type CloseNotes,
+  type CloseSource,
+} from "./domain/close";
 export {
   gradeExamCall,
   type ExamGrading,

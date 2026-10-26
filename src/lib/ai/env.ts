@@ -38,6 +38,7 @@ const schema = z
     AI_MODEL_PRIORITY: modelId,
     AI_MODEL_GENERATE: modelId,
     AI_MODEL_GRADE_EXAM: modelId,
+    AI_MODEL_CLOSE: modelId,
     AI_MODEL_EMBED: modelId,
     AI_MODEL_JUDGE: modelId,
   })
