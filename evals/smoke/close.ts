@@ -97,6 +97,7 @@ export const closeSmoke: SmokeCheck = {
       MESSAGES.map(([role, text], index) => ({
         chat_id: chatId,
         role,
+        model_id: role === "assistant" ? "mock" : null,
         parts: [{ type: "text", text }],
         created_at: new Date(
           Date.parse(started) + index * 60_000,

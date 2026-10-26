@@ -135,7 +135,8 @@ function seedSession(overrides: FakeRow = {}) {
 const session = () => db.tables.study_sessions[0]!;
 
 const ANSWER = {
-  sessionNote: "Learned momentum thrust.\nNext: nozzles.",
+  happened: "Learned momentum thrust.",
+  next: "Next: nozzles.",
   topicNote: "Still says velocity alone makes thrust.",
   memoryLines: ["Prefers worked examples."],
   condensedMemory: "Likes short answers.",
@@ -167,7 +168,7 @@ test("a claimed session closes once with one call, and a second start stops at t
   expect(stored).toEqual([
     {
       p_session_id: "s1",
-      p_session_note: ANSWER.sessionNote,
+      p_session_note: `${ANSWER.happened}\n${ANSWER.next}`,
       p_memory_lines: ANSWER.memoryLines,
       p_topic_note: ANSWER.topicNote,
     },
