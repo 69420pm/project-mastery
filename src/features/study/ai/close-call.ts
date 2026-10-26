@@ -12,7 +12,7 @@ import { aiTask } from "@/lib/ai/models";
 const INSTRUCTIONS = `You keep the notes of an AI tutor for a university course. A Student's study session just ended. You get JSON: the session's mode (learn, review, practice or results), its Topic (or null), the transcript of the session (student and tutor), the questions the tutor asked with the Student's answers and each attempt's result per knowledge component (KC) and the help given, the Topic's current note (or null) and the Memory, the tutor's notes about this Student for the whole course.
 
 Write:
-1. sessionNote: exactly two lines, at most 300 characters in all. Line 1: what happened in this session. Line 2: what comes next.
+1. sessionNote: exactly two lines separated by a line break ("\\n"), at most 300 characters in all, without a label. Line 1: what happened in this session. Line 2: what comes next.
 2. topicNote: the Topic's new note, replacing the current one, at most 1,500 characters. Only when writesTopicNote is true; otherwise null. Keep what still holds from the current note and add what this session showed.
 3. memoryLines: 0 to 3 new lines for the Memory, each at most 200 characters, without a date. Only the Student's preferences and context (how they like to study, their schedule, their exam situation), never what they know or can do. Leave out what the Memory already says. Usually there is nothing new: give none.
 4. condensedMemory: only when condensesMemory is true, the Memory rewritten to at most half its length: merge repeats, drop what is outdated, keep the dates where useful. Copy every line that starts with "!" exactly as it is, character for character. Otherwise null.
@@ -24,7 +24,12 @@ Rules for the notes:
 - Write for the tutor of a later session, plainly and specifically. No praise.`;
 
 const schema = z.object({
-  sessionNote: z.string().trim().min(1).max(300),
+  sessionNote: z
+    .string()
+    .trim()
+    .min(1)
+    .max(300)
+    .describe("Two lines: what happened, a line break, what comes next."),
   topicNote: z.string().trim().min(1).max(1_500).nullable(),
   memoryLines: z.array(z.string().trim().min(1).max(200)).max(3),
   condensedMemory: z.string().trim().min(1).max(3_000).nullable(),
