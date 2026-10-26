@@ -68,6 +68,9 @@ export const answerMapFindingSchema = z.object({
   status: z.enum(["accepted", "dismissed"]),
 });
 
+/** The input of Mock exam and Assemble another. */
+export const queueMockExamSchema = z.object({ courseId: z.uuid() });
+
 /** The input of the Memory card's Server Action. */
 export const saveMemorySchema = z.object({
   courseId: z.uuid(),

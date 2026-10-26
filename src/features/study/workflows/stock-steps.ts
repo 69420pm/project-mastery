@@ -208,7 +208,7 @@ async function dueKcs(
 }
 
 /** Inserts the planned Problems with their KCs. */
-async function queueProblems(
+export async function queueProblems(
   supabase: Supabase,
   owner: string,
   courseId: string,

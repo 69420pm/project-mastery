@@ -38,6 +38,7 @@ const TABLES = [
   "attempts",
   "chats",
   "briefs",
+  "mock_exams",
   "kc_priorities",
   "ai_usage",
 ] as const;
@@ -344,6 +345,32 @@ describe("Topic stock", () => {
       { source: "new", kcs: ["k1"], status: "ready" },
       { source: "new", kcs: ["k1"], status: "ready" },
     ]);
+  });
+
+  test("once a submitted mock used the reservation, its exam is an ordinary Material", async () => {
+    seedCourse(["k1"]);
+    db.tables.materials[0]!.is_exam = true;
+    db.tables.briefs.push({
+      course_id: COURSE,
+      owner: STUDENT,
+      reserved_exam_material_id: "m1",
+    });
+    db.tables.mock_exams.push({
+      id: "mock1",
+      course_id: COURSE,
+      status: "submitted",
+      reserved_material_id: "m1",
+    });
+    seedRun("topic");
+    useGenerateModel(DRAFT);
+
+    await generateProblems(COURSE);
+
+    expect(queuedBy()[0]).toEqual({
+      source: "variant",
+      kcs: ["k1"],
+      status: "ready",
+    });
   });
 
   test("ready unflagged and queued Problems count as stock; failed, flagged and asked ones don't", async () => {

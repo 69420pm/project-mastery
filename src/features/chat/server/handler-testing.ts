@@ -80,6 +80,7 @@ function createDb() {
       knowledge_map_builds: [],
       kc_priorities: [],
       briefs: [],
+      mock_exams: [],
       chunks: [],
       study_sessions: [],
       questions: [],

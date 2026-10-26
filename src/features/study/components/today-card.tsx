@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { MockExamButton } from "@/features/study/components/mock-exam-button";
 import { MODE_LABELS, type SessionMode } from "@/features/study/domain/modes";
 import type { StudyPlan } from "@/features/study/types";
 
@@ -18,19 +19,24 @@ import type { StudyPlan } from "@/features/study/types";
  * Review with reviews due, Practice with a learned in-plan Topic. Without a
  * map or Topics it says to build or update the map. The page passes the
  * links, since the map and the Chat belong to other features; without
- * `startHref`, as in a new Chat, there are no buttons.
+ * `startHref`, as in a new Chat, there are no buttons. With `mock`, Mock
+ * exam shows under Practice's condition, and Continue mock exam while a mock
+ * is open.
  */
 export function TodayCard({
   plan,
   mapHref,
   topicHref,
   startHref,
+  mock,
 }: {
   plan: Pick<StudyPlan, "hasMap" | "topics" | "today">;
   mapHref: string;
   /** The next Topic's page; null without one. */
   topicHref: string | null;
   startHref?: string;
+  /** The Course, and its open mock's page or null. */
+  mock?: { courseId: string; openHref: string | null };
 }) {
   const { reviews, next, hint } = plan.today;
   const mapLink = (text: string) => (
@@ -84,15 +90,13 @@ export function TodayCard({
   const modes: SessionMode[] = [];
   if (next) modes.push("learn");
   if (reviews) modes.push("review");
-  if (
-    plan.topics.some(
-      (t) =>
-        t.status === "in_plan" &&
-        ["learned", "solid", "needs_work"].includes(t.topicState.state),
-    )
-  ) {
-    modes.push("practice");
-  }
+  const practice = plan.topics.some(
+    (t) =>
+      t.status === "in_plan" &&
+      ["learned", "solid", "needs_work"].includes(t.topicState.state),
+  );
+  if (practice) modes.push("practice");
+  const showMock = mock && (mock.openHref !== null || practice);
   return (
     <Card
       role="region"
@@ -107,7 +111,7 @@ export function TodayCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2 px-4 text-sm">
         {body}
-        {ready && startHref && modes.length > 0 && (
+        {ready && startHref && (modes.length > 0 || showMock) && (
           <div className="flex flex-wrap gap-2">
             {modes.map((mode) => (
               <Button
@@ -121,6 +125,12 @@ export function TodayCard({
                 </Link>
               </Button>
             ))}
+            {showMock && (
+              <MockExamButton
+                courseId={mock.courseId}
+                openHref={mock.openHref}
+              />
+            )}
           </div>
         )}
       </CardContent>

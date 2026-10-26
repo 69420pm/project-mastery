@@ -33,6 +33,7 @@ export {
   type ProgramRun,
 } from "./server/math-runner";
 export { getMemory } from "./server/memory";
+export { getMockExam, getOpenMockExam } from "./server/mock-exams";
 export { getPlan } from "./server/plan";
 export { loadProblemFlags } from "./server/problems";
 export {

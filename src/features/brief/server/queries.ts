@@ -129,10 +129,33 @@ export async function getExamFacts(
 }
 
 /**
+ * The Brief's answers on the exam's aids, read with `supabase`, a Student's
+ * session client or the admin client; each null when not answered or
+ * without a Brief.
+ */
+export async function getExamAids(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Pick<BriefFields, "openBook" | "formulaSheet" | "calculator">> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("open_book, formula_sheet, calculator")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) failed("Loading the exam's aids", error);
+  return {
+    openBook: data?.open_book ?? null,
+    formulaSheet: data?.formula_sheet ?? null,
+    calculator: data?.calculator ?? null,
+  };
+}
+
+/**
  * The Course's active reserved exam Material, read with `supabase`, a
- * Student's session client or the admin client; null when none is reserved
- * or without a Brief. While it is active, the tutor, problem generation and
- * every mock but the final one leave its Exercises and chunks out.
+ * Student's session client or the admin client; null when none is reserved,
+ * once a submitted Mock exam has used it, or without a Brief. While it is
+ * active, the tutor, problem generation and every mock but the final one
+ * leave its Exercises and chunks out.
  */
 export async function getReservedExam(
   supabase: Supabase,
@@ -144,7 +167,17 @@ export async function getReservedExam(
     .eq("course_id", courseId)
     .maybeSingle();
   if (error) failed("Loading the reserved exam", error);
-  return data?.reserved_exam_material_id ?? null;
+  const materialId = data?.reserved_exam_material_id ?? null;
+  if (materialId === null) return null;
+  const used = await supabase
+    .from("mock_exams")
+    .select("id")
+    .eq("course_id", courseId)
+    .eq("reserved_material_id", materialId)
+    .eq("status", "submitted")
+    .limit(1);
+  if (used.error) failed("Loading the final mock exam", used.error);
+  return used.data.length > 0 ? null : materialId;
 }
 
 /**

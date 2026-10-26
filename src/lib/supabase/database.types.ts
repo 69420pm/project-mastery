@@ -1351,6 +1351,173 @@ export type Database = {
           },
         ];
       };
+      mock_exams: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          duration_minutes: number | null;
+          failure: string | null;
+          gaps_done: number;
+          gaps_total: number;
+          id: string;
+          owner: string;
+          predicted_score: number | null;
+          reserved_material_id: string | null;
+          session_id: string | null;
+          started_at: string | null;
+          status: string;
+          submitted_at: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          duration_minutes?: number | null;
+          failure?: string | null;
+          gaps_done?: number;
+          gaps_total?: number;
+          id?: string;
+          owner: string;
+          predicted_score?: number | null;
+          reserved_material_id?: string | null;
+          session_id?: string | null;
+          started_at?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          duration_minutes?: number | null;
+          failure?: string | null;
+          gaps_done?: number;
+          gaps_total?: number;
+          id?: string;
+          owner?: string;
+          predicted_score?: number | null;
+          reserved_material_id?: string | null;
+          session_id?: string | null;
+          started_at?: string | null;
+          status?: string;
+          submitted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mock_exams_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_exams_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_exams_reserved_material_id_fkey";
+            columns: ["reserved_material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_exams_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      mock_items: {
+        Row: {
+          exercise_id: string | null;
+          id: string;
+          mock_id: string;
+          owner: string;
+          points: number;
+          position: number;
+          predicted_success: number;
+          problem_id: string | null;
+          prompt: string;
+          question_id: string | null;
+          topic_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          exercise_id?: string | null;
+          id?: string;
+          mock_id: string;
+          owner: string;
+          points: number;
+          position: number;
+          predicted_success: number;
+          problem_id?: string | null;
+          prompt: string;
+          question_id?: string | null;
+          topic_id?: string | null;
+        };
+        Update: {
+          exercise_id?: string | null;
+          id?: string;
+          mock_id?: string;
+          owner?: string;
+          points?: number;
+          position?: number;
+          predicted_success?: number;
+          problem_id?: string | null;
+          prompt?: string;
+          question_id?: string | null;
+          topic_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mock_items_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_items_mock_id_fkey";
+            columns: ["mock_id"];
+            isOneToOne: false;
+            referencedRelation: "mock_exams";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_items_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_items_problem_id_fkey";
+            columns: ["problem_id"];
+            isOneToOne: false;
+            referencedRelation: "problems";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_items_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "questions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mock_items_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       prerequisite_links: {
         Row: {
           course_id: string;
@@ -2170,6 +2337,13 @@ export type Database = {
         Returns: boolean;
       };
       queue_material_parse: { Args: { material_id: string }; Returns: boolean };
+      queue_mock_exam: {
+        Args: { p_course_id: string };
+        Returns: {
+          mock_id: string;
+          queued: boolean;
+        }[];
+      };
       queue_priority_run: { Args: { course_id: string }; Returns: boolean };
       queue_problem_run: {
         Args: { p_course_id: string; p_topic_id?: string };
@@ -2187,6 +2361,7 @@ export type Database = {
         Args: { course_id: string };
         Returns: boolean;
       };
+      release_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       release_problem_run: { Args: { p_course_id: string }; Returns: boolean };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };

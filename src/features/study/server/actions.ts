@@ -7,6 +7,7 @@ import {
   answerMapFindingSchema,
   endSessionSchema,
   flagProblemSchema,
+  queueMockExamSchema,
   rateSessionSchema,
   saveMemorySchema,
   setTopicChoiceSchema,
@@ -181,6 +182,31 @@ export async function flagProblem(input: {
     return { ok: false, message: "This problem was flagged already." };
   }
   return { ok: true, data: undefined };
+}
+
+/**
+ * Mock exam on the Today card, and Assemble another: the Course's open Mock
+ * exam, or a new one whose assembly starts, for its page.
+ */
+export async function queueMockExam(input: {
+  courseId: string;
+}): Promise<ActionResult<{ mockId: string }>> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(queueMockExamSchema, input);
+  if (!parsed.ok) return parsed;
+
+  // Loaded on use: `workflow/api` fails to import in the component tests
+  // that reach this module (docs/agents/notes/workflow-imports.md).
+  const { queueMockAssembly } =
+    await import("@/features/study/server/mock-assembly");
+  const mockId = await queueMockAssembly(
+    await createClient(),
+    parsed.data.courseId,
+  );
+  if (!mockId) return { ok: false, message: "This Course was not found." };
+  return { ok: true, data: { mockId } };
 }
 
 /**

@@ -9,6 +9,7 @@ export {
 } from "./server/priority-input";
 export {
   getBrief,
+  getExamAids,
   getExamFacts,
   getIntakeDone,
   getReservedExam,
