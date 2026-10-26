@@ -12,12 +12,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MockExamButton } from "@/features/study/components/mock-exam-button";
+import { MockResultView } from "@/features/study/components/mock-result";
 import { startMockExam } from "@/features/study/server/actions";
 import type { MockExamView } from "@/features/study/types";
 import { cn } from "@/lib/utils";
 
-/** How often the page refreshes while the mock assembles. */
-const ASSEMBLY_POLL_MS = 2000;
+/** How often the page refreshes while the mock assembles or is graded. */
+const POLL_MS = 2000;
 
 /** Start on a ready mock: the page then shows its task sheet. */
 function StartButton({ mockId }: { mockId: string }) {
@@ -49,18 +50,26 @@ function StartButton({ mockId }: { mockId: string }) {
 }
 
 /**
- * A Mock exam's page outside its task sheet (#185): its assembly's
+ * A Mock exam's page outside its task sheet (#185, #186): its assembly's
  * progress, polled; once ready its minutes, item count, aids and Start;
- * once failed the reason and Assemble another; once submitted the answers.
+ * once failed the reason and Assemble another; once submitted the grading's
+ * progress, polled, and the answers; once graded its result.
  */
-export function MockExamStatus({ mock }: { mock: MockExamView }) {
+export function MockExamStatus({
+  mock,
+  tutorHref,
+}: {
+  mock: MockExamView;
+  /** A new Chat that goes through the graded mock. */
+  tutorHref: string;
+}) {
   const router = useRouter();
-  const assembling = mock.status === "assembling";
+  const polled = mock.status === "assembling" || mock.status === "submitted";
   useEffect(() => {
-    if (!assembling) return;
-    const timer = setInterval(() => router.refresh(), ASSEMBLY_POLL_MS);
+    if (!polled) return;
+    const timer = setInterval(() => router.refresh(), POLL_MS);
     return () => clearInterval(timer);
-  }, [assembling, router]);
+  }, [polled, router]);
 
   let body;
   switch (mock.status) {
@@ -96,7 +105,10 @@ export function MockExamStatus({ mock }: { mock: MockExamView }) {
     case "submitted":
       body = (
         <>
-          <p role="status">Submitted. Grading comes next.</p>
+          <p role="status">
+            Grading {Math.min(mock.grading.done + 1, mock.grading.total)} of{" "}
+            {mock.grading.total} {mock.grading.total === 1 ? "task" : "tasks"}…
+          </p>
           <ol className="flex flex-col gap-3">
             {mock.tasks.map((task, index) => (
               <li
@@ -127,6 +139,15 @@ export function MockExamStatus({ mock }: { mock: MockExamView }) {
         </>
       );
       break;
+    case "graded":
+      body = mock.result && (
+        <MockResultView
+          result={mock.result}
+          tasks={mock.tasks}
+          tutorHref={tutorHref}
+        />
+      );
+      break;
     case "failed":
       body = (
         <>
@@ -152,7 +173,9 @@ export function MockExamStatus({ mock }: { mock: MockExamView }) {
       aria-label="Mock exam"
       className={cn(
         "w-full gap-3 py-4",
-        mock.status === "submitted" ? "max-w-3xl" : "max-w-md",
+        mock.status === "submitted" || mock.status === "graded"
+          ? "max-w-3xl"
+          : "max-w-md",
       )}
     >
       <CardHeader className="px-4">

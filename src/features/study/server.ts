@@ -56,6 +56,14 @@ export { findProblems } from "./server/find-problems";
 export { generateProblems } from "./workflows/generate-problems";
 // For the `mock` smoke check, which assembles a queued mock in process.
 export { assembleMock } from "./workflows/assemble-mock";
+// For the `grade-mock` smoke check, which grades a submitted mock in process,
+// and the `grade_exam` eval, which runs the call without a database.
+export { gradeMock } from "./workflows/grade-mock";
+export {
+  gradeExamCall,
+  type ExamGrading,
+  type GradeExamInput,
+} from "./ai/grade-exam-call";
 // For the `generate` eval, which runs the workflow's call and check without
 // a database.
 export {

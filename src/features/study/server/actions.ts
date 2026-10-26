@@ -263,8 +263,8 @@ export async function saveMockTaskAnswer(input: {
 }
 
 /**
- * Submit on the task sheet, and its countdown at 0: ends the Mock exam. One
- * that is not in progress any more stays as it is.
+ * Submit on the task sheet, and its countdown at 0: ends the Mock exam and
+ * starts its grading. One that is not in progress any more stays as it is.
  */
 export async function submitMockExam(input: {
   mockId: string;
@@ -274,7 +274,12 @@ export async function submitMockExam(input: {
   }
   const parsed = parseActionInput(mockExamSchema, input);
   if (!parsed.ok) return parsed;
-  await submitMock(await createClient(), parsed.data.mockId);
+  if (await submitMock(await createClient(), parsed.data.mockId)) {
+    // Loaded on use, as `queueMockExam`'s assembly.
+    const { startMockGrading } =
+      await import("@/features/study/server/mock-grading");
+    await startMockGrading(parsed.data.mockId);
+  }
   return { ok: true, data: undefined };
 }
 

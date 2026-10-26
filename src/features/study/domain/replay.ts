@@ -19,8 +19,16 @@ export type AttemptHelp = "none" | "some" | "solution_shown";
 /** How the AI graded the Student's answer on a KC. */
 export type AttemptResult = "full" | "partial" | "wrong";
 
-/** `pre` for prequestions, which never schedule; `learn` otherwise. */
-export type AttemptKind = "pre" | "learn";
+/**
+ * `pre` for prequestions and `retry` for a Results session's questions,
+ * which never schedule; `mock` for a Mock exam's items and `learn`
+ * otherwise, which do.
+ */
+export type AttemptKind = "pre" | "learn" | "mock" | "retry";
+
+/** Whether attempts of a kind schedule their KC. */
+export const schedules = (kind: AttemptKind) =>
+  kind !== "pre" && kind !== "retry";
 
 /** The Brief's goal, which sets the desired retention. */
 export type Goal = "pass" | "good_grade" | "master_everything" | null;
@@ -47,7 +55,7 @@ export type MedianSeconds = Partial<Record<AttemptKind, number>>;
 
 /**
  * A taught KC's schedule: its FSRS card, null while the first session with
- * a non-`pre` attempt on it is still open.
+ * a scheduling attempt on it is still open.
  */
 export type KcSchedule = { card: Card | null };
 
@@ -209,8 +217,8 @@ function review(
 }
 
 /**
- * One KC's attempts as the replay schedules them; null without a non-`pre`
- * attempt. `first` is the first session with one, which teaches the KC.
+ * One KC's attempts as the replay schedules them; null without a scheduling
+ * attempt (`schedules`). `first` is the first session with one, which teaches the KC.
  * `reviews` are the first attempt of each later session, oldest first,
  * leaving out a session that ran alongside the first one and started
  * before its last attempt.
@@ -221,7 +229,7 @@ export function schedulingAttempts(attempts: ReplayAttempt[]): {
   reviews: ReplayAttempt[];
 } | null {
   const scheduling = attempts
-    .filter((attempt) => attempt.kind !== "pre")
+    .filter((attempt) => schedules(attempt.kind))
     .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
   const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
   if (sessions.length === 0) return null;
@@ -237,7 +245,7 @@ export function schedulingAttempts(attempts: ReplayAttempt[]): {
 }
 
 /**
- * Replays one KC's attempts into its schedule; null without a non-`pre`
+ * Replays one KC's attempts into its schedule; null without a scheduling
  * attempt. The first session with one creates the card once it has ended,
  * rated by its last attempt there and dated at it. In every later session,
  * only the first attempt is a review; the rest don't schedule

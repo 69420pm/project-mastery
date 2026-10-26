@@ -310,6 +310,25 @@ export type MockExamView = {
   serverNow: string;
   /** Its tasks in order, once started; empty before. */
   tasks: MockTask[];
+  /** How many tasks grading has finished, of all. */
+  grading: { done: number; total: number };
+  /** Once graded: the score against the prediction; null before. */
+  result: MockResult | null;
+};
+
+/** A graded Mock exam's score, over the tasks that could be graded. */
+export type MockResult = {
+  /** The share of points awarded, from 0 to 100. */
+  scorePercent: number;
+  /** The share Readiness predicted, from 0 to 100. */
+  predictedPercent: number;
+  /** Points per Topic, in task order; "Other" for tasks without a Topic. */
+  topics: Array<{ name: string; awarded: number; points: number }>;
+  /**
+   * The Course's graded questions answered with confidence 4, and how many
+   * of them were right (every attempt full); null without one.
+   */
+  sure: { right: number; total: number } | null;
 };
 
 /** A task of a started Mock exam, with the Student's answer so far. */
@@ -321,4 +340,20 @@ export type MockTask = {
   answer: string | null;
   /** From 1 (unsure) to 4 (sure); null until given. */
   confidence: number | null;
+  /**
+   * Once grading finished with it: its points and steps, or `failed` when
+   * it could not be graded; null before.
+   */
+  grade: MockTaskGrade | null;
 };
+
+/** How a Mock exam's task was graded. */
+export type MockTaskGrade =
+  | { status: "failed" }
+  | {
+      status: "graded";
+      pointsAwarded: number;
+      steps: Array<{ points: number; reason: string }>;
+      /** The final value against the key; null when unchecked. */
+      check: "match" | "mismatch" | null;
+    };

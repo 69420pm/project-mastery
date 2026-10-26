@@ -112,6 +112,16 @@ export const AI_TASKS = {
     override: "AI_MODEL_GENERATE",
   },
   /**
+   * One call per answered item of a submitted Mock exam: points per step
+   * with reasons, a result per KC and the final value, with structured
+   * output. Metered, but not refused at the Daily limit.
+   */
+  grade_exam: {
+    model: "xiaomi/mimo-v2.6-flash",
+    fallbacks: [],
+    override: "AI_MODEL_GRADE_EXAM",
+  },
+  /**
    * Chunk embeddings for pgvector. Changing the model or its dimensions means
    * re-embedding and a new `chunks.embedding` column size.
    */
