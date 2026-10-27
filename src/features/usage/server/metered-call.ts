@@ -33,6 +33,12 @@ type MeteredScope = {
   callFailed?: (error: unknown) => never;
 };
 
+/** A generate call's scope; `dailyLimit: "ignore"` makes it past the limit. */
+type GenerateScope = MeteredScope & {
+  task: AiTask;
+  dailyLimit?: "enforce" | "ignore";
+};
+
 /** A `generateText` call, with the settings `aiTask` gives. */
 type GenerateCall = Parameters<typeof generateText>[0] & {
   model: string;
@@ -45,11 +51,19 @@ type GenerateCall = Parameters<typeof generateText>[0] & {
  */
 export async function meteredGenerate(
   admin: AdminSupabase,
-  { studentId, task, traceName, callFailed }: MeteredScope & { task: AiTask },
+  {
+    studentId,
+    task,
+    traceName,
+    callFailed,
+    dailyLimit = "enforce",
+  }: GenerateScope,
   call: GenerateCall,
 ): Promise<{ readonly output: unknown } | null> {
-  const dailyLimit = await checkDailyLimit(admin, { studentId });
-  if (dailyLimit.level === "reached") return null;
+  if (dailyLimit === "enforce") {
+    const limit = await checkDailyLimit(admin, { studentId });
+    if (limit.level === "reached") return null;
+  }
 
   const result = await withTraceAttributes(
     { userId: studentId, traceName },

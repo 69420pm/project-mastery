@@ -194,6 +194,12 @@ export type MapTopicState = {
 export type MapTopicStates = Record<string, MapTopicState>;
 
 /**
+ * Each Topic's Readiness, 0 to 1, which the page passes in, by Topic id. A
+ * Topic missing here shows none.
+ */
+export type MapTopicReadiness = Record<string, number>;
+
+/**
  * The study plan's badges of each Topic, such as "won't fit", which the
  * page passes in, by Topic id. A Topic missing here has none.
  */

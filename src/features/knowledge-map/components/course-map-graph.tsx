@@ -26,6 +26,7 @@ import type {
   KnowledgeMapView,
   MapTopic,
   MapTopicBadges,
+  MapTopicReadiness,
   MapTopicState,
   MapTopicStates,
 } from "@/features/knowledge-map/types";
@@ -36,6 +37,7 @@ type TopicNodeData = {
   topic: MapTopic;
   href: string;
   topicState?: MapTopicState;
+  readiness?: number;
   badges: string[];
 };
 type BigIdeaNodeData = { name: string };
@@ -47,7 +49,7 @@ type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
  * opening the Topic page.
  */
 function TopicNodeView({ data }: NodeProps<TopicNode>) {
-  const { topic, href, topicState, badges } = data;
+  const { topic, href, topicState, readiness, badges } = data;
   return (
     <>
       <Handle
@@ -76,7 +78,7 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
         <div className="flex items-end gap-3">
           <TopicStateBadge topicState={topicState} />
           <div className="flex-1">
-            <RecallBar topicState={topicState} />
+            <RecallBar topicState={topicState} readiness={readiness} />
           </div>
         </div>
       </Link>
@@ -113,11 +115,13 @@ export function CourseMapGraph({
   map,
   topics,
   topicStates,
+  topicReadiness,
   topicBadges,
 }: {
   map: KnowledgeMapView;
   topics: MapTopic[];
   topicStates: MapTopicStates;
+  topicReadiness: MapTopicReadiness;
   topicBadges: MapTopicBadges;
 }) {
   const graph = useMemo(() => buildTopicGraph(topics, map), [topics, map]);
@@ -154,6 +158,7 @@ export function CourseMapGraph({
                 topic: node.topic,
                 href: topicPath(map.courseId, node.id),
                 topicState: topicStates[node.id],
+                readiness: topicReadiness[node.id],
                 badges: topicBadges[node.id] ?? [],
               },
             },
@@ -167,7 +172,7 @@ export function CourseMapGraph({
         markerEnd: { type: MarkerType.ArrowClosed },
       }));
     return { nodes, edges };
-  }, [graph, laidOut, map.courseId, topicStates, topicBadges]);
+  }, [graph, laidOut, map.courseId, topicStates, topicReadiness, topicBadges]);
 
   if (failed) {
     return (

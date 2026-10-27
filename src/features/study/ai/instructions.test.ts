@@ -177,3 +177,27 @@ test("hold the Memory under its heading when it is set", () => {
     `${MEMORY_HEADING}\n\n2026-10-01: Likes proofs.`,
   );
 });
+
+test("hold the Notes rules, and the notes when the context has them", () => {
+  const without = tutorInstructions(context);
+  expect(without).toContain("Notes from earlier sessions:");
+  expect(without).toContain("the answers win");
+  expect(without).not.toContain("Session notes of the Student's latest");
+  expect(without).not.toContain("Topic notes, the session's Topic first");
+
+  const withNotes = tutorInstructions({
+    ...context,
+    sessionNotes: [
+      {
+        date: "2026-10-25",
+        mode: "learn",
+        text: "Covered thrust.\nNext: drag.",
+      },
+    ],
+    topicNotes: [{ topic: "Thrust", text: "Mixes up mass flow and speed." }],
+  });
+  expect(withNotes).toContain(
+    "- 2026-10-25, learn session:\nCovered thrust.\nNext: drag.",
+  );
+  expect(withNotes).toContain("- Thrust:\nMixes up mass flow and speed.");
+});

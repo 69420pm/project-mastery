@@ -1,5 +1,13 @@
-/** The modes a Student starts a Study session in from the Today card. */
-export const SESSION_MODES = ["learn", "review", "practice"] as const;
+/**
+ * The modes a Student starts a Study session in: learn, review and practice
+ * from the Today card, results from a graded Mock exam's page.
+ */
+export const SESSION_MODES = [
+  "learn",
+  "review",
+  "practice",
+  "results",
+] as const;
 
 export type SessionMode = (typeof SESSION_MODES)[number];
 
@@ -16,4 +24,5 @@ export const MODE_LABELS: Record<SessionMode, string> = {
   learn: "Learn",
   review: "Review",
   practice: "Practice",
+  results: "Results",
 };

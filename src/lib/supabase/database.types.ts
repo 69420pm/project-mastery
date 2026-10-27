@@ -559,6 +559,49 @@ export type Database = {
           },
         ];
       };
+      exam_results: {
+        Row: {
+          course_id: string;
+          created_at: string;
+          exam_date: string;
+          grade: string | null;
+          id: string;
+          owner: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          course_id: string;
+          created_at?: string;
+          exam_date: string;
+          grade?: string | null;
+          id?: string;
+          owner?: string;
+        };
+        Update: {
+          course_id?: string;
+          created_at?: string;
+          exam_date?: string;
+          grade?: string | null;
+          id?: string;
+          owner?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exam_results_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exam_results_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exercise_kcs: {
         Row: {
           course_id: string;
@@ -1353,16 +1396,20 @@ export type Database = {
       };
       mock_exams: {
         Row: {
+          brier: number | null;
           course_id: string;
           created_at: string;
           duration_minutes: number | null;
           failure: string | null;
           gaps_done: number;
           gaps_total: number;
+          graded_at: string | null;
+          grading_started_at: string | null;
           id: string;
           owner: string;
           predicted_score: number | null;
           reserved_material_id: string | null;
+          score: number | null;
           session_id: string | null;
           started_at: string | null;
           status: string;
@@ -1370,32 +1417,40 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          brier?: number | null;
           course_id: string;
           created_at?: string;
           duration_minutes?: number | null;
           failure?: string | null;
           gaps_done?: number;
           gaps_total?: number;
+          graded_at?: string | null;
+          grading_started_at?: string | null;
           id?: string;
           owner: string;
           predicted_score?: number | null;
           reserved_material_id?: string | null;
+          score?: number | null;
           session_id?: string | null;
           started_at?: string | null;
           status?: string;
           submitted_at?: string | null;
         };
         Update: {
+          brier?: number | null;
           course_id?: string;
           created_at?: string;
           duration_minutes?: number | null;
           failure?: string | null;
           gaps_done?: number;
           gaps_total?: number;
+          graded_at?: string | null;
+          grading_started_at?: string | null;
           id?: string;
           owner?: string;
           predicted_score?: number | null;
           reserved_material_id?: string | null;
+          score?: number | null;
           session_id?: string | null;
           started_at?: string | null;
           status?: string;
@@ -1434,43 +1489,55 @@ export type Database = {
       };
       mock_items: {
         Row: {
+          check: string | null;
           exercise_id: string | null;
+          graded_at: string | null;
           id: string;
           mock_id: string;
           owner: string;
           points: number;
+          points_awarded: number | null;
           position: number;
           predicted_success: number;
           problem_id: string | null;
           prompt: string;
           question_id: string | null;
+          steps: Json | null;
           topic_id: string | null;
         };
         ComputedFields: never;
         Insert: {
+          check?: string | null;
           exercise_id?: string | null;
+          graded_at?: string | null;
           id?: string;
           mock_id: string;
           owner: string;
           points: number;
+          points_awarded?: number | null;
           position: number;
           predicted_success: number;
           problem_id?: string | null;
           prompt: string;
           question_id?: string | null;
+          steps?: Json | null;
           topic_id?: string | null;
         };
         Update: {
+          check?: string | null;
           exercise_id?: string | null;
+          graded_at?: string | null;
           id?: string;
           mock_id?: string;
           owner?: string;
           points?: number;
+          points_awarded?: number | null;
           position?: number;
           predicted_success?: number;
           problem_id?: string | null;
           prompt?: string;
           question_id?: string | null;
+          steps?: Json | null;
           topic_id?: string | null;
         };
         Relationships: [
@@ -2094,13 +2161,16 @@ export type Database = {
       study_sessions: {
         Row: {
           chat_id: string | null;
+          close_started_at: string | null;
           course_id: string;
           ended_at: string | null;
           id: string;
+          mock_id: string | null;
           mode: string;
           owner: string;
           rating: number | null;
           rating_note: string | null;
+          session_note: string | null;
           stage: string | null;
           started_at: string;
           topic_id: string | null;
@@ -2108,26 +2178,32 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           chat_id?: string | null;
+          close_started_at?: string | null;
           course_id: string;
           ended_at?: string | null;
           id?: string;
+          mock_id?: string | null;
           mode: string;
           owner: string;
           rating?: number | null;
           rating_note?: string | null;
+          session_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
         };
         Update: {
           chat_id?: string | null;
+          close_started_at?: string | null;
           course_id?: string;
           ended_at?: string | null;
           id?: string;
+          mock_id?: string | null;
           mode?: string;
           owner?: string;
           rating?: number | null;
           rating_note?: string | null;
+          session_note?: string | null;
           stage?: string | null;
           started_at?: string;
           topic_id?: string | null;
@@ -2145,6 +2221,13 @@ export type Database = {
             columns: ["course_id"];
             isOneToOne: false;
             referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_sessions_mock_id_fkey";
+            columns: ["mock_id"];
+            isOneToOne: false;
+            referencedRelation: "mock_exams";
             referencedColumns: ["id"];
           },
           {
@@ -2239,6 +2322,43 @@ export type Database = {
             foreignKeyName: "topic_kcs_topic_id_fkey";
             columns: ["topic_id"];
             isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      topic_notes: {
+        Row: {
+          owner: string;
+          text: string;
+          topic_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          owner: string;
+          text: string;
+          topic_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          owner?: string;
+          text?: string;
+          topic_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topic_notes_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topic_notes_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: true;
             referencedRelation: "topics";
             referencedColumns: ["id"];
           },
@@ -2393,6 +2513,7 @@ export type Database = {
         Args: { p_course_id: string };
         Returns: number;
       };
+      restart_mock_grading: { Args: { p_mock_id: string }; Returns: boolean };
       save_brief: {
         Args: {
           course_id: string;
@@ -2411,11 +2532,22 @@ export type Database = {
       };
       start_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       start_study_session_mode: {
-        Args: { p_mode: string; p_session_id: string };
+        Args: { p_mock_id?: string; p_mode: string; p_session_id: string };
         Returns: boolean;
       };
       start_study_session_topic: {
         Args: { p_session_id: string; p_stage: string; p_topic_id: string };
+        Returns: boolean;
+      };
+      store_session_close: {
+        Args: {
+          p_condensed_memory?: string;
+          p_memory_lines: string[];
+          p_memory_read_at?: string;
+          p_session_id: string;
+          p_session_note: string;
+          p_topic_note?: string;
+        };
         Returns: boolean;
       };
       submit_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };

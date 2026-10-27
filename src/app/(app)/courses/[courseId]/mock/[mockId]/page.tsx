@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { newChatPath } from "@/features/chat";
 import { MockExamStatus, MockTaskSheet, mockExamPath } from "@/features/study";
 import { getMockExam } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 
 /**
  * A Mock exam of the Course: its assembly, what it holds, its task sheet
- * while it runs, then the answers. An unknown mock, or another Student's,
+ * while it runs, then its grading and result. An unknown mock, or another Student's,
  * is not found.
  */
 export default async function MockExamPage({
@@ -27,7 +28,10 @@ export default async function MockExamPage({
   }
   return (
     <div className="flex justify-center p-4">
-      <MockExamStatus mock={mock} />
+      <MockExamStatus
+        mock={mock}
+        tutorHref={`${newChatPath(courseId)}?mode=results&mock=${mockId}`}
+      />
     </div>
   );
 }

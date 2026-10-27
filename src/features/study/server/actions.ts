@@ -6,6 +6,7 @@ import { briefPath } from "@/features/brief";
 import {
   answerMapFindingSchema,
   endSessionSchema,
+  examResultSchema,
   flagProblemSchema,
   mockExamSchema,
   queueMockExamSchema,
@@ -15,6 +16,7 @@ import {
   setTopicChoiceSchema,
   topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
+import { recordExamResult } from "@/features/study/server/exam-results";
 import { answerOpenMapFinding } from "@/features/study/server/map-findings";
 import { appendMemory } from "@/features/study/server/memory";
 import {
@@ -263,8 +265,8 @@ export async function saveMockTaskAnswer(input: {
 }
 
 /**
- * Submit on the task sheet, and its countdown at 0: ends the Mock exam. One
- * that is not in progress any more stays as it is.
+ * Submit on the task sheet, and its countdown at 0: ends the Mock exam and
+ * starts its grading. One that is not in progress any more stays as it is.
  */
 export async function submitMockExam(input: {
   mockId: string;
@@ -274,7 +276,12 @@ export async function submitMockExam(input: {
   }
   const parsed = parseActionInput(mockExamSchema, input);
   if (!parsed.ok) return parsed;
-  await submitMock(await createClient(), parsed.data.mockId);
+  if (await submitMock(await createClient(), parsed.data.mockId)) {
+    // Loaded on use, as `queueMockExam`'s assembly.
+    const { startMockGrading } =
+      await import("@/features/study/server/mock-grading");
+    await startMockGrading(parsed.data.mockId);
+  }
   return { ok: true, data: undefined };
 }
 
@@ -367,6 +374,27 @@ export async function answerMapFinding(
     parsed.data.id,
     parsed.data.status,
   );
+  revalidatePath("/", "layout");
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Save and Skip on the exam card: stores the Student's grade of a Course's
+ * exam, or none when they skip, once per exam date.
+ */
+export async function saveExamResult(input: {
+  courseId: string;
+  examDate: string;
+  grade: string | null;
+}): Promise<ActionResult> {
+  if (!(await getUser())) {
+    return { ok: false, message: "Sign in again to continue." };
+  }
+  const parsed = parseActionInput(examResultSchema, input);
+  if (!parsed.ok) return parsed;
+  if (!(await recordExamResult(await createClient(), parsed.data))) {
+    return { ok: false, message: "This Course was not found." };
+  }
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
 }

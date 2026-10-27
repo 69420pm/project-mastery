@@ -52,18 +52,23 @@ export async function getChat(
 
 /**
  * An unsaved Chat in a Course for the new Chat page. It is stored with its
- * first message, under this id.
+ * first message, under this id. A results Chat goes through the Mock exam
+ * `mockId`; without a well-formed one it is a learn Chat.
  */
 export function newChat(
   courseId: string,
   mode: SessionMode = "learn",
+  mockId?: unknown,
 ): ChatWithMessages {
+  const mock = z.uuid().safeParse(mockId);
+  const results = mode === "results" && mock.success;
   return {
     id: randomUUID(),
     courseId,
     title: null,
     messages: [],
-    mode,
+    mode: mode === "results" && !results ? "learn" : mode,
+    ...(results && { mockId: mock.data }),
     ended: false,
     problemFlags: {},
   };

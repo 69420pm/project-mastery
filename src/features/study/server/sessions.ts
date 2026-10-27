@@ -73,19 +73,23 @@ export async function getSessionMode(
 }
 
 /**
- * Switches a new Chat's session to review or practice. False, leaving it
- * learn, when it is not the caller's, has ended, has a Topic or a question.
+ * Switches a new Chat's session to review or practice, or to results on
+ * the graded Mock exam `mockId`. False, leaving it learn, when it is not
+ * the caller's, has ended, has a Topic or a question, or the mock is not
+ * the caller's graded mock of the Chat's Course.
  */
 export async function startSessionMode(
   supabase: Supabase,
   chatId: string,
   mode: SessionMode,
+  mockId?: string,
 ): Promise<boolean> {
   const session = await loadChatSession(supabase, chatId);
   if (!session) return false;
   const { data, error } = await supabase.rpc("start_study_session_mode", {
     p_session_id: session.id,
     p_mode: mode,
+    ...(mockId && { p_mock_id: mockId }),
   });
   if (error) failed("Setting the session's mode", error);
   return data === true;
@@ -110,9 +114,48 @@ export async function closeIdleSession(
 }
 
 /**
- * Ends the Chat's running Study session at `at`, and starts generating the
- * Course's review stock (#183). False when there is none to end: no
- * session, or one that ended already.
+ * Ends the Course's other running Study sessions that are idle at `now`,
+ * each at its newest message (#187), for the first reply of the session in
+ * `chatId`. It never throws, so it cannot fail the reply: errors are logged.
+ */
+export async function endIdleSessions(
+  supabase: Supabase,
+  courseId: string,
+  chatId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from("study_sessions")
+      .select("chat_id")
+      .eq("course_id", courseId)
+      .is("ended_at", null);
+    if (error) failed("Loading the running Study sessions", error);
+    const chatIds = data.flatMap(({ chat_id }) =>
+      chat_id !== null && chat_id !== chatId ? [chat_id] : [],
+    );
+    if (chatIds.length === 0) return;
+    const chats = await supabase
+      .from("chats")
+      .select("id, last_message_at")
+      .in("id", chatIds);
+    if (chats.error) failed("Loading the sessions' Chats", chats.error);
+    for (const chat of chats.data) {
+      const end = sessionEnd(
+        { endedAt: null, newestMessageAt: chat.last_message_at },
+        now,
+      );
+      if (end !== null) await endSession(supabase, chat.id, end);
+    }
+  } catch (error) {
+    console.error("Ending the idle Study sessions failed:", error);
+  }
+}
+
+/**
+ * Ends the Chat's running Study session at `at`, starts generating the
+ * Course's review stock (#183) and starts closing the session (#187).
+ * False when there is none to end: no session, or one that ended already.
  */
 export async function endSession(
   supabase: Supabase,
@@ -131,8 +174,15 @@ export async function endSession(
   // Loaded on use: `workflow/api` fails to import in the component tests
   // that reach this module through the Server Actions
   // (docs/agents/notes/workflow-imports.md).
-  const { queueProblemGeneration } =
-    await import("@/features/study/server/problem-generation");
+  const [{ queueProblemGeneration }, { startSessionClose }] = await Promise.all(
+    [
+      import("@/features/study/server/problem-generation"),
+      import("@/features/study/server/session-close"),
+    ],
+  );
+  // The close starts first: it never throws, and a failing generation
+  // queue must not leave the session without its notes.
+  await startSessionClose(ended.id);
   await queueProblemGeneration(supabase, ended.course_id, null);
   return true;
 }

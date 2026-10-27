@@ -50,6 +50,7 @@ import {
 } from "@/features/courses/server";
 import {
   closeIdleSession,
+  endIdleSessions,
   endsReply,
   isAnswerable,
   recordAnswer,
@@ -123,7 +124,7 @@ export async function respondInChat({
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, courseId, mode, message } = parsed.data;
+  const { chatId, courseId, mode, mockId, message } = parsed.data;
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -183,7 +184,7 @@ export async function respondInChat({
   if (chat === "no course") return refuse(404, courseNotFoundMessage);
   // Only a new Chat's first request can set the mode; a refusal leaves learn.
   if (!existing && mode && mode !== "learn") {
-    await startSessionMode(supabase, chat.id, mode);
+    await startSessionMode(supabase, chat.id, mode, mockId);
   }
 
   if (existing) await startReply(supabase, chat.id, replyId);
@@ -341,9 +342,12 @@ async function streamReply({
     dataSchemas: { material: materialReferenceSchema },
   });
   // Read on every reply, so the candidates and dates are always current.
-  // The session's first reply sets its Topic and start stage.
+  // The session's first reply sets its Topic and start stage, and ends the
+  // Course's other sessions gone idle.
+  const firstReply = !history.some(({ role }) => role === "assistant");
+  if (firstReply) await endIdleSessions(supabase, chat.courseId, chat.id);
   const tutoring = await startTutoring(supabase, chat.courseId, chat.id, {
-    firstReply: !history.some(({ role }) => role === "assistant"),
+    firstReply,
   });
   const settings = chatReplySettings(tutoring.context);
   // What the provider reports when the call completes: its usage over all

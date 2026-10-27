@@ -2,7 +2,16 @@ import "server-only";
 import { z } from "zod";
 import { getExamAids } from "@/features/brief/server";
 import { examProfile } from "@/features/study/domain/exam-profile";
-import { mockDeadline, mockStatus } from "@/features/study/domain/mock-paths";
+import { mockResultShares } from "@/features/study/domain/mock-grading";
+import {
+  gradingStalled,
+  mockDeadline,
+  mockStatus,
+} from "@/features/study/domain/mock-paths";
+import {
+  loadSureAnswers,
+  taskGrade,
+} from "@/features/study/server/mock-results";
 import type { MockExamView, MockTask } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { failed } from "@/lib/supabase/failed";
@@ -38,7 +47,8 @@ export async function getOpenMockExam(
  * Brief's aids and, once started, its tasks with their answers; null when
  * the ids are malformed or it is unknown, another Student's or of another
  * Course (show not-found). A mock in progress whose time is up is
- * submitted first.
+ * submitted first, and a submitted one's grading starts when it never did
+ * or stalled. Once graded, its result.
  */
 export async function getMockExam(
   courseId: string,
@@ -51,7 +61,7 @@ export async function getMockExam(
     supabase
       .from("mock_exams")
       .select(
-        "id, course_id, status, failure, created_at, started_at, gaps_total, gaps_done, duration_minutes, reserved_material_id, mock_items(position, prompt, points, question_id, questions(answer_text, confidence))",
+        "id, course_id, status, failure, created_at, started_at, grading_started_at, gaps_total, gaps_done, duration_minutes, reserved_material_id, mock_items(position, prompt, points, predicted_success, question_id, points_awarded, steps, check, graded_at, topics(name), questions(answer_text, confidence))",
       )
       .eq("id", mockId)
       .eq("course_id", courseId)
@@ -69,28 +79,45 @@ export async function getMockExam(
       p_mock_id: mockId,
     });
     if (submitted.error) failed("Submitting the mock exam", submitted.error);
+    if (submitted.data) await (await grading()).startMockGrading(mockId);
     ({ data, error } = await load());
     if (error) failed("Loading the mock exam", error);
     if (!data) return null;
     deadline = null;
+  } else if (gradingStalled(data, now)) {
+    await (await grading()).restartMockGrading(supabase, mockId);
   }
 
   const aids = await getExamAids(supabase, courseId);
-  const tasks: MockTask[] = data.mock_items
-    .toSorted((a, b) => a.position - b.position)
-    .flatMap((item) =>
-      item.question_id
-        ? [
-            {
-              questionId: item.question_id,
-              prompt: item.prompt,
+  const items = data.mock_items.toSorted((a, b) => a.position - b.position);
+  const tasks: MockTask[] = items.flatMap((item) =>
+    item.question_id
+      ? [
+          {
+            questionId: item.question_id,
+            prompt: item.prompt,
+            points: item.points,
+            answer: item.questions?.answer_text ?? null,
+            confidence: item.questions?.confidence ?? null,
+            grade: taskGrade(item),
+          },
+        ]
+      : [],
+  );
+  const result =
+    data.status === "graded"
+      ? {
+          ...mockResultShares(
+            items.map((item) => ({
               points: item.points,
-              answer: item.questions?.answer_text ?? null,
-              confidence: item.questions?.confidence ?? null,
-            },
-          ]
-        : [],
-    );
+              awarded: item.points_awarded,
+              predictedSuccess: item.predicted_success,
+              topic: item.topics?.name ?? null,
+            })),
+          ),
+          sure: await loadSureAnswers(supabase, courseId),
+        }
+      : null;
   return {
     id: data.id,
     courseId: data.course_id,
@@ -103,5 +130,17 @@ export async function getMockExam(
     deadline: deadline?.toISOString() ?? null,
     serverNow: now.toISOString(),
     tasks,
+    grading: {
+      done: items.filter((item) => item.graded_at !== null).length,
+      total: items.length,
+    },
+    result,
   };
 }
+
+/**
+ * Starting the grading workflow, loaded on use: `workflow/api` fails to
+ * import in the component tests that reach this module
+ * (docs/agents/notes/workflow-imports.md).
+ */
+const grading = () => import("@/features/study/server/mock-grading");

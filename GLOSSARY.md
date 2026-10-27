@@ -149,6 +149,18 @@ _Avoid_: Held-back exam, hidden exam, final exam
 What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The Student can edit it on the Brief page.
 _Avoid_: Profile, notes (the Brief's notes are something else)
 
+**Topic note**:
+What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. Each learn session on the Topic replaces it when it closes; the tutor reads it as a hint.
+_Avoid_: Topic summary, Topic memory
+
+**Session note**:
+Two lines the AI writes when a Study session closes: what happened and what is next. The tutor reads the last three of a Course as hints.
+_Avoid_: Session summary, session log
+
+**Pinned line**:
+A Memory line starting with `!`. Condensing the Memory keeps it word for word.
+_Avoid_: Starred line, protected line
+
 **Daily limit**:
 The most a Student's AI use may cost per day, measured in US dollars.
 _Avoid_: Quota, budget, allowance, credits

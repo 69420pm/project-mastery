@@ -59,6 +59,8 @@ export type ChatWithMessages = {
   messages: ChatUIMessage[];
   /** The mode of its Study session. */
   mode: SessionMode;
+  /** The graded Mock exam a new results Chat goes through. */
+  mockId?: string;
   /** Whether its Study session has ended, which makes it read-only. */
   ended: boolean;
   /** The flags of the generated Problems its questions posed, by Problem id. */

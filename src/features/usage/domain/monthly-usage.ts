@@ -33,6 +33,8 @@ const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   embed: "study",
   priority: "study",
   generate: "generation",
+  grade_exam: "study",
+  close: "study",
   judge: undefined,
 };
 

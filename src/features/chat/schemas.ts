@@ -105,7 +105,9 @@ export const chatRequestSchema = z.object({
   chatId: z.uuid(),
   courseId: z.uuid().optional(),
   /** The mode a new Chat's Study session starts in; learn without it. */
-  mode: z.enum(["learn", "review", "practice"]).optional(),
+  mode: z.enum(["learn", "review", "practice", "results"]).optional(),
+  /** The graded Mock exam a new results session goes through. */
+  mockId: z.uuid().optional(),
   message: studentMessageSchema,
 });
 

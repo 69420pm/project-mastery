@@ -156,6 +156,39 @@ describe("replayKc", () => {
     ).toEqual(replayKc([attempt("s1", "2026-10-01T10:00:00Z")], ALL_ENDED));
   });
 
+  test("never schedules from retry attempts", () => {
+    const retry = (createdAt: string) => ({
+      ...attempt("r1", createdAt, "wrong"),
+      kind: "retry" as const,
+    });
+    const learned = attempt("s1", "2026-10-01T10:00:00Z");
+
+    expect(replayKc([retry("2026-09-30T10:00:00Z")], ALL_ENDED)).toBeNull();
+    expect(
+      replayKc([learned, retry("2026-10-04T10:00:00Z")], ALL_ENDED),
+    ).toEqual(replayKc([learned], ALL_ENDED));
+  });
+
+  test("a mock session's attempts on a KC review it once, with the first", () => {
+    const mock = (createdAt: string, result: AttemptResult) => ({
+      ...attempt("m1", createdAt, result),
+      kind: "mock" as const,
+    });
+    const learned = attempt("s1", "2026-10-01T10:00:00Z");
+    const graded = [
+      learned,
+      mock("2026-10-04T10:00:00Z", "wrong"),
+      mock("2026-10-04T10:05:00Z", "full"),
+    ];
+
+    expect(replayKc(graded, ALL_ENDED)).toEqual(
+      replayKc(
+        [learned, attempt("s2", "2026-10-04T10:00:00Z", "wrong")],
+        ALL_ENDED,
+      ),
+    );
+  });
+
   test("creates the card once the first session ends, with its last attempt", () => {
     const first = [
       attempt("s1", "2026-10-01T10:00:00Z", "wrong"),
