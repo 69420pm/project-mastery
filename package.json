@@ -37,6 +37,7 @@
     "db:lint": "supabase db lint --local --fail-on error",
     "db:test": "supabase test db",
     "agent": "tsx --env-file-if-exists=.env.local tools/agent/cli.ts",
+    "gold": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/gold-cli.ts",
     "smoke": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke.ts",
     "retro": "tsx tools/retro/cli.ts",
     "sweep": "tsx tools/sweep/cli.ts"
