@@ -36,6 +36,7 @@ import {
   type JudgeCommandDeps,
 } from "./judge-commands";
 import { createEvalLangfuse } from "./langfuse";
+import { paceGatewayRequests } from "./pace";
 import { EVALS } from "./registry";
 
 // A few items at once: AI Gateway rate limits are generous, but one model
@@ -175,6 +176,9 @@ async function main() {
   if (process.env.CI) {
     throw new Error("Evals make real model calls and must not run in CI.");
   }
+
+  const gatewayRpm = Number(process.env.EVAL_GATEWAY_RPM);
+  if (gatewayRpm > 0) paceGatewayRequests(gatewayRpm);
 
   const [command, ...args] = process.argv.slice(2);
   if (command === "draft" || command === "calibrate") {
