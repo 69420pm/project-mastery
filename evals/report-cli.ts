@@ -8,7 +8,7 @@
 // Must come first: lets evals import modules that use Next.js.
 import "./next-aliases";
 import { isLangfuseConfigured } from "@/lib/tracing/env";
-import { loadFixture } from "./eval";
+import { loadFixtureIfPresent } from "./eval";
 import { createReportLangfuse } from "./langfuse";
 import { EVALS } from "./registry";
 import { buildReport, formatReport } from "./report";
@@ -21,11 +21,15 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  const inputs = await Promise.all(
+  // An eval whose private fixture is not on this machine has nothing to report.
+  const loaded = await Promise.all(
     EVALS.map(async (definition) => ({
       definition,
-      total: (await loadFixture(definition)).items.length,
+      fixture: await loadFixtureIfPresent(definition),
     })),
+  );
+  const inputs = loaded.flatMap(({ definition, fixture }) =>
+    fixture ? [{ definition, total: fixture.items.length }] : [],
   );
   console.info(formatReport(await buildReport(createReportLangfuse(), inputs)));
 }
