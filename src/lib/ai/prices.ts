@@ -51,6 +51,11 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   "cohere/embed-v5.0-fast": { input: 0.08, output: 0, cachedInput: 0 },
   "xiaomi/mimo-v2.6-flash": { input: 0.14, output: 0.28, cachedInput: 0.0028 },
   "alibaba/qwen3.7-flash": { input: 0.03, output: 0.13, cachedInput: 0.03 },
+  "minimax/minimax-m3.1-flash": {
+    input: 0.15,
+    output: 0.6,
+    cachedInput: 0.015,
+  },
   "deepseek/deepseek-v4.1-flash-1017": {
     input: 0.15,
     output: 0.6,
