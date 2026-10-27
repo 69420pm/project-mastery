@@ -175,6 +175,7 @@ const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
  */
 const ONLY_PROVIDERS: Record<string, readonly string[]> = {
   "xiaomi/mimo-v2.6-flash": ["deepinfra"],
+  "minimax/minimax-m3.1-flash": ["fireworks"],
 };
 
 /**
