@@ -16,12 +16,6 @@ export type TaskConfig = {
   fallbacks: readonly string[];
   /** Environment variable that overrides `model` without a code change. */
   override: keyof AiEnv;
-  /**
-   * Models a calibration compares for this task, in tie-break order: on equal
-   * agreement the first wins. Calibration only reports the winner; a change
-   * to `model` sets it.
-   */
-  candidates?: readonly string[];
 };
 
 /**
@@ -139,18 +133,6 @@ export const AI_TASKS = {
     model: "cohere/embed-v5.0-fast",
     fallbacks: [],
     override: "AI_MODEL_EMBED",
-  },
-  /**
-   * LLM-as-judge for evals: cheap, since an eval run judges every answer, and
-   * smarter than the small Google models. It is the Chat's family, which can
-   * favour the Chat's own answers, so `pnpm evals calibrate` compares it with
-   * Qwen, another family, which wins a tie.
-   */
-  judge: {
-    model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: [],
-    override: "AI_MODEL_JUDGE",
-    candidates: ["alibaba/qwen3.7-flash", "xiaomi/mimo-v2.6-flash"],
   },
 } as const satisfies Record<string, TaskConfig>;
 
@@ -271,18 +253,6 @@ function routeModels(env: AiEnv) {
  */
 export function aiTask(task: AiTask) {
   return taskSettings(task, modelIdFor(task));
-}
-
-/**
- * Call settings for one of a task's calibration candidates (`candidates`),
- * configured and traced like `aiTask`. Only calibration calls this.
- */
-export function aiTaskCandidate(task: AiTask, model: string) {
-  const config = taskConfig(task);
-  if (!config.candidates?.includes(model)) {
-    throw new Error(`Task "${task}" has no candidate "${model}".`);
-  }
-  return taskSettings(task, model);
 }
 
 function taskSettings(task: AiTask, model: string) {

@@ -32,8 +32,8 @@ const ALLOWED_FILES = [
   "src/lib/**/*.ts",
   // Next.js root files.
   "src/{proxy,instrumentation,instrumentation-client}.ts",
-  // Evaluation datasets and runner for AI behavior (ADR 0012), and smoke
-  // checks of feature paths (`pnpm smoke`).
+  // Smoke checks of feature paths (`pnpm smoke`), gold materials and the
+  // Langfuse scripts.
   "evals/*.ts",
   "evals/smoke/*.ts",
   // CLI that lets coding agents drive the running app (ADR 0015).

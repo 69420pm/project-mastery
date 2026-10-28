@@ -5,12 +5,6 @@ import "server-only";
 
 // Also in `index.ts`: `index.ts` loads React components, which fail outside
 // Next.js, so server code that smoke checks load imports it from here.
-export {
-  modeCall,
-  modeSchema,
-  studyTextSchema,
-  writingCall,
-} from "./ai/reading-calls";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export { checkAnnotations, checkStudyText } from "./domain/reading-checks";
 export { restrictMapToTopic } from "./domain/topic-map";
