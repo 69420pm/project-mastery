@@ -30,8 +30,7 @@ export type ModelPrice = {
  *   Chinese public holidays; this table has no time of day, so calls in those
  *   hours are recorded at half their cost.
  * - Qwen 3.7 Flash is priced at its tier under 32k input tokens, verified live
- *   on 2026-10-23; longer prompts cost more, and judge prompts stay under
- *   it. No cache price was checked, so cached input is priced as fresh input.
+ *   on 2026-10-23; longer prompts cost more. No cache price was checked, so cached input is priced as fresh input.
  */
 export const MODEL_PRICES: Record<string, ModelPrice> = {
   "google/gemini-3.1-flash-lite": {

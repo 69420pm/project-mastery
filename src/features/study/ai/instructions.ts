@@ -10,8 +10,8 @@ import type {
 
 /**
  * The AI's instructions in a Chat (#102): it tutors the Student from the
- * Course's Knowledge map. Changing them means running the `chat` eval
- * (`evals/chat.ts`, ADR 0012).
+ * Course's Knowledge map. Changing them means running the `tutor` smoke
+ * check (ADR 0012).
  */
 
 const ROLE = `You are the AI in Project Mastery, a study app for university students. You tutor the Student you are talking with in their Course, from its Knowledge map and its own Materials, with particular strength in university mathematics and STEM.`;

@@ -63,7 +63,7 @@ A learn session teaches one Topic in Stages: review, orient, prime, read, work, 
 - **Rebuild.** One `ask` of kind `rebuild` over all the Topic's KCs (`ask` takes up to 12 KC ids). Its grade is followed by a Knowledge map card that opens the Topic's part of the Knowledge map, with KC states, in the source pane (`getTopicKnowledgeMap`); while the reply streams it opens on its own. The pane shows one thing at a time.
 - **Stage bar** (`src/features/study/components/stage-bar.tsx`): above the messages, the eight stages with the current one marked and the earlier ones done; below `lg` only the current one. The Chat reads the stage from the stored tutor context and the `setStage` results.
 - **Close card** (`src/features/study/components/close-card.tsx`): it replaces the composer at `close` or once the session has ended. `getSessionSummary` gives the Topic's new state and each KC with attempts in the session with its state and next review, as if the session had ended. `rateStudySession` saves the Session rating, 1 to 5 with an optional note of at most 300 characters (`rating`, `rating_note`), and ends a running session. A Student may update only these and `ended_at`, on their own session.
-- **Checks:** `pnpm evals learn` (`evals/learn.ts`, live) runs two scripted sessions on the jet-engines gold course's first Topic with the real instructions and tools and in-memory actions, as `pnpm evals grade` does. A scripted Student answers each `ask` from a fixed answer per stage and kind, labelled per KC, and presses Done after each `showReading`; one is mostly right, the other has planted errors. Code checks the stage order, KC ids on every `ask`, the grades against the labels, no Exercise final value before the attempt, no ids or tool names in the text, at least 2 KCs per Work question on average, and reaching `close`. The gate is that both sessions pass, in at most 60 model calls.
+- **Checks:** `pnpm smoke tutor` runs a staged learn session on the jet-engines gold course; the tutoring itself is checked by hand ([ADR 0012](../adr/0012-ai-observability-and-evals.md)).
 
 ## Evidence and FSRS replay (#103, #174)
 
@@ -105,7 +105,7 @@ Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memorie
 - **Reply loop:** `src/features/chat/server/handler.ts` (steps, Daily limit, usage) and `src/features/chat/ai/reply.ts` (the instructions and the model settings).
 - **UI:** in `src/features/study/components/`: the fit line and the Topics that won't fit (`study-plan.tsx`), the Today card (`today-card.tsx`), Pin and Skip on the Topic page (`topic-choice-controls.tsx`, calling the `setTopicChoice` Server Action in `server/actions.ts`) and the Memory card on the Brief page (`memory-card.tsx`).
 - **Model:** the `chat` task in `AI_TASKS` in `src/lib/ai/models.ts`.
-- **Prompt changes:** run the `chat` eval, as ADR 0012 and [live-ai.md](../agents/live-ai.md) describe.
+- **Prompt changes:** run the `tutor` smoke check and try the change in the app, as ADR 0012 and [live-ai.md](../agents/live-ai.md) describe.
 
 ## Checks
 

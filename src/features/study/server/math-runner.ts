@@ -59,7 +59,7 @@ export type MathRunner = {
 
 /**
  * The runner process's source, as CommonJS passed to `node -e` so it loads
- * the same under Next.js, Vitest and the evals: it sends `ready` once mathjs
+ * the same under Next.js, Vitest and the smoke checks: it sends `ready` once mathjs
  * has loaded, takes one program, and sends the run's result. Every failure
  * rule but the length and time limits is here.
  */

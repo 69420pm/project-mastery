@@ -5,7 +5,7 @@ export const MONTHLY_CREDIT_USD = 5;
 
 /**
  * The parts of the monthly credit that Student spend draws on. The rest,
- * 25%, is eval spend, which `pnpm evals:report` shows.
+ * 25%, is left for development: smoke checks and local runs.
  */
 export const USAGE_BUCKETS = {
   study: { label: "Study", share: 0.6 },
@@ -14,8 +14,8 @@ export const USAGE_BUCKETS = {
 
 export type UsageBucket = keyof typeof USAGE_BUCKETS;
 
-/** The share of the credit eval spend draws on, outside the page's buckets. */
-export const EVAL_SHARE = 0.25;
+/** The share of the credit left for development, outside the page's buckets. */
+export const DEVELOPMENT_SHARE = 0.25;
 
 /**
  * Which bucket each task's spend counts against; `undefined` for tasks that
@@ -35,7 +35,6 @@ const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   generate: "generation",
   grade_exam: "study",
   close: "study",
-  judge: undefined,
 };
 
 function bucketOf(task: string): UsageBucket | undefined {

@@ -40,7 +40,6 @@ const schema = z
     AI_MODEL_GRADE_EXAM: modelId,
     AI_MODEL_CLOSE: modelId,
     AI_MODEL_EMBED: modelId,
-    AI_MODEL_JUDGE: modelId,
   })
   .refine(
     (env) =>

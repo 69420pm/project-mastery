@@ -11,7 +11,7 @@ import { shouldExportSpan } from "./export-filter";
  * 12). Node.js runtime only. Without Langfuse keys, or with the mock provider,
  * nothing is registered, so AI calls emit no telemetry at all.
  *
- * Returns the provider so short-lived processes (evals) can shut it down.
+ * Returns the provider so short-lived processes (smoke checks) can shut it down.
  */
 export function startTracing(): NodeTracerProvider | undefined {
   if (!isTracingEnabled()) return undefined;

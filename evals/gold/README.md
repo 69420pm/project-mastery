@@ -1,6 +1,6 @@
 # Gold courses
 
-A gold course is a Course whose Materials are AI-written, so they are safe to publish, and whose pipeline output is kept in the repo as a **snapshot**. Evals and manual testing load the snapshot instead of running the expensive pipeline (parse, map, topics, priorities, reading sections) again.
+A gold course is a Course whose Materials are AI-written, so they are safe to publish, and whose pipeline output is kept in the repo as a **snapshot**. Manual testing and smoke checks can load the snapshot instead of running the expensive pipeline (parse, map, topics, priorities, reading sections) again.
 
 ```
 evals/gold/<slug>/
@@ -31,4 +31,4 @@ Everything the pipeline stores for a Course: Materials and their pages, chunks w
 
 ## jet-engines
 
-The first gold course (`jet-engines/`) is a hand-checked fixture for the map eval and the scripted tutoring evals, without a snapshot.
+The first gold course (`jet-engines/`) is a hand-checked fixture for the smoke checks (`pnpm smoke map`, `tutor` and others), without a snapshot.

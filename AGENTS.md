@@ -48,4 +48,4 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 
 ## Live AI calls
 
-Tests and app runs use `AI_PROVIDER=mock`. Read [docs/agents/live-ai.md](docs/agents/live-ai.md) before any command that calls a real model: a smoke check, an eval or a single provider call.
+Tests and app runs use `AI_PROVIDER=mock`. Read [docs/agents/live-ai.md](docs/agents/live-ai.md) before any command that calls a real model: a smoke check or a single provider call.

@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash, Write
 
 You audit one unit's tests without changing anything: your prompt gives the unit and the sweep folder. [docs/agents/sweep.md](../../docs/agents/sweep.md) says where your inputs are, what a finding is and where yours go.
 
-Judge the tests against the **intended behaviour**: what the unit's spec issues, `docs/ARCHITECTURE.md`, the ADRs and `GLOSSARY.md` say it must do. The code shows what it does, which is the thing under test, never the standard. Tests are Vitest (`*.test.ts`), Playwright (`e2e/`), pgTAP (`supabase/tests/`) and evals (`evals/`); find each one that exercises the unit.
+Judge the tests against the **intended behaviour**: what the unit's spec issues, `docs/ARCHITECTURE.md`, the ADRs and `GLOSSARY.md` say it must do. The code shows what it does, which is the thing under test, never the standard. Tests are Vitest (`*.test.ts`), Playwright (`e2e/`) and pgTAP (`supabase/tests/`); find each one that exercises the unit.
 
 Coverage and surviving mutants are evidence, not targets. Find:
 
