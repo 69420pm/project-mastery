@@ -3,6 +3,7 @@
 import "server-only";
 
 export { chunkAnchor } from "./domain/chunk-anchor";
+export { withLease } from "./domain/parse-state";
 export { getMaterialChunks } from "./server/chunk-queries";
 export {
   type AdminChunk,

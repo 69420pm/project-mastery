@@ -7,7 +7,8 @@ import type {
   MaterialListItem,
   StoredMaterial,
 } from "@/features/courses/types";
-import { withLease, type ParseStatus } from "@/features/ingestion";
+import type { ParseStatus } from "@/features/ingestion";
+import { withLease } from "@/features/ingestion/server";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
