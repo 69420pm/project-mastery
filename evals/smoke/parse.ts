@@ -187,7 +187,9 @@ async function checkParse(
       .order("page_number"),
     supabase
       .from("chunks")
-      .select("position, page_from, page_to, label, markdown, embedding")
+      .select(
+        "position, page_from, page_to, label, markdown, embedding, part_id",
+      )
       .eq("material_id", materialId)
       .order("position"),
   ]);
@@ -276,8 +278,13 @@ async function checkParse(
         outOfRange.length === 0,
     ),
     result(
-      "every chunk is embedded",
-      chunkRows.every((c) => c.embedding !== null),
+      "every non-admin chunk is in a Part and embedded, no admin chunk is either",
+      chunkRows.every((c) =>
+        c.label === "admin"
+          ? c.part_id === null && c.embedding === null
+          : c.part_id !== null && c.embedding !== null,
+      ),
+      `${new Set(chunkRows.map((c) => c.part_id).filter(Boolean)).size} Parts`,
     ),
   ];
 }

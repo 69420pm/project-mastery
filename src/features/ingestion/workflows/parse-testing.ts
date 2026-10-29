@@ -42,6 +42,7 @@ type ParseTable =
   | "materials"
   | "material_pages"
   | "chunks"
+  | "parts"
   | "exercise_solutions"
   | "ai_usage";
 
@@ -61,6 +62,7 @@ export function createParseDb({
       materials: [] as FakeRow[],
       material_pages: [] as FakeRow[],
       chunks: [] as FakeRow[],
+      parts: [] as FakeRow[],
       exercise_solutions: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
@@ -92,17 +94,32 @@ export function createParseDb({
           (row) => row.id === args.p_material_id,
         );
         if (!material) return null;
+        const owned = {
+          owner: material.owner,
+          course_id: material.course_id,
+          material_id: material.id,
+        };
+        const parts: FakeRow[] = (args.p_parts as FakeRow[]).map((part) => ({
+          id: crypto.randomUUID(),
+          ...owned,
+          ...part,
+        }));
+        tables.parts = [
+          ...tables.parts.filter((part) => part.material_id !== material.id),
+          ...parts,
+        ];
         tables.chunks = [
-          ...tables.chunks.filter(
-            (chunk) => chunk.material_id !== args.p_material_id,
+          ...tables.chunks.filter((chunk) => chunk.material_id !== material.id),
+          ...(args.p_chunks as FakeRow[]).map(
+            ({ part_position, ...chunk }) => ({
+              id: crypto.randomUUID(),
+              ...owned,
+              ...chunk,
+              part_id:
+                parts.find((part) => part.position === part_position)?.id ??
+                null,
+            }),
           ),
-          ...(args.p_chunks as FakeRow[]).map((chunk) => ({
-            id: crypto.randomUUID(),
-            owner: material.owner,
-            course_id: material.course_id,
-            material_id: material.id,
-            ...chunk,
-          })),
         ];
         return null;
       },

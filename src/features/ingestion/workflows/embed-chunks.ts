@@ -36,8 +36,9 @@ function embedCallFailed(error: unknown): never {
 }
 
 /**
- * The embed step of a parse (step 4 of `parse-material.ts`): embeds the
- * markdown of every chunk that has no vector yet (task `embed`) and stores
+ * The embed step of a parse (`parse-material.ts`): embeds the markdown of
+ * every non-admin chunk that has no vector yet as a document (task `embed`;
+ * admin chunks are never searched or paired) and stores
  * the vectors, so a retry after a failure resumes with the chunks still
  * missing one. Each batch checks the Daily limit and records usage for the
  * Material's Student; a reached limit ends the step with that reason.
@@ -54,6 +55,7 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
     .select("id, markdown")
     .eq("material_id", materialId)
     .is("embedding", null)
+    .neq("label", "admin")
     .order("position");
   if (missing.error) failed("Loading the chunks to embed", missing.error);
 
@@ -64,7 +66,11 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
       supabase,
       { studentId, traceName: "parse-embed", callFailed: embedCallFailed },
       // The step retries, not the AI SDK as well: one request per attempt.
-      { values: batch.map((chunk) => chunk.markdown), maxRetries: 0 },
+      {
+        values: batch.map((chunk) => chunk.markdown),
+        maxRetries: 0,
+        asDocuments: true,
+      },
       // One transaction per batch. pgvector reads the text form "[0.1,0.2]".
       async (vectors) => {
         const { error } = await supabase.rpc("set_chunk_embeddings", {

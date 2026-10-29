@@ -385,6 +385,14 @@ export function fakeSupabase<Table extends string>(
         filters.push((row) => valueOf(row, column) === value);
         return builder;
       },
+      /** `neq`: like Postgres `<>`, a row without a value never matches. */
+      neq(column: string, value: unknown) {
+        filters.push((row) => {
+          const actual = valueOf(row, column) ?? null;
+          return actual !== null && actual !== value;
+        });
+        return builder;
+      },
       /** `is(column, null)`: the column has no value. */
       is(column: string, value: null) {
         filters.push((row) => (valueOf(row, column) ?? null) === value);

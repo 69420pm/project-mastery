@@ -5,7 +5,15 @@ import {
   definePDFJSModule,
   getDocumentProxy,
 } from "unpdf";
+import type { OutlineEntry } from "@/features/ingestion/domain/chapters";
 import { isBlankRender } from "@/features/ingestion/domain/pages";
+import {
+  fileUnreadableReason,
+  parseFailureError,
+} from "@/features/ingestion/domain/parse-failure";
+import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
+import { failed } from "@/lib/supabase/failed";
+import type { AdminSupabase } from "@/lib/supabase/types";
 
 /** A rendered page's long edge, in pixels. */
 const LONG_EDGE_PX = 2000;
@@ -72,9 +80,42 @@ export async function openPdf(bytes: Uint8Array) {
       .join("");
   }
 
+  /** The 1-based page an outline item points at; null when it points nowhere. */
+  async function outlinePage(dest: unknown): Promise<number | null> {
+    try {
+      const target =
+        typeof dest === "string" ? await pdf.getDestination(dest) : dest;
+      if (!Array.isArray(target)) return null;
+      const ref: unknown = target[0];
+      if (typeof ref === "number") return ref + 1;
+      return (await pdf.getPageIndex(ref as never)) + 1;
+    } catch {
+      return null;
+    }
+  }
+
   return {
     pageCount: pdf.numPages,
     pageText,
+    /**
+     * The PDF's outline (bookmarks) in document order, each entry with its
+     * level (1 at the top) and page; entries that point at no page are left
+     * out. Empty without an outline.
+     */
+    async outline(): Promise<OutlineEntry[]> {
+      const entries: OutlineEntry[] = [];
+      type Item = { title: string; dest: unknown; items: Item[] };
+      const walk = async (items: Item[], level: number) => {
+        for (const item of items) {
+          const page = await outlinePage(item.dest);
+          const title = item.title.trim();
+          if (page !== null && title) entries.push({ title, level, page });
+          await walk(item.items, level + 1);
+        }
+      };
+      await walk(((await pdf.getOutline()) ?? []) as Item[], 1);
+      return entries;
+    },
     /** Every page's text layer, in page order. */
     async pageTexts(): Promise<string[]> {
       const texts: string[] = [];
@@ -109,3 +150,27 @@ export async function openPdf(bytes: Uint8Array) {
 }
 
 export type OpenedPdf = Awaited<ReturnType<typeof openPdf>>;
+
+/**
+ * Opens a PDF Material from Storage. A missing file or one that is no
+ * readable PDF fails with the file's reason for the Student; a Storage
+ * failure does not.
+ */
+export async function openMaterialPdf(
+  supabase: AdminSupabase,
+  storagePath: string,
+): Promise<OpenedPdf> {
+  const { data, error } = await supabase.storage
+    .from(MATERIALS_BUCKET)
+    .download(storagePath);
+  if (error?.message === "Object not found") {
+    throw parseFailureError(fileUnreadableReason);
+  }
+  if (error) failed(`Reading ${storagePath}`, error);
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  try {
+    return await openPdf(bytes);
+  } catch {
+    throw parseFailureError(fileUnreadableReason);
+  }
+}

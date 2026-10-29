@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(21);
+select plan(20);
 
 insert into auth.users (id, email)
 values
@@ -87,9 +87,6 @@ select throws_ok(
 select throws_ok(
   $$update public.materials set parse_status = 'queued' where id = 'aaaaaaaa-1111-0000-0000-000000000001'$$,
   '42501', null, 'a Student cannot change the parse status');
-select throws_ok(
-  $$update public.materials set is_exam = true, exam_year = 2024 where id = 'aaaaaaaa-1111-0000-0000-000000000001'$$,
-  '42501', null, 'a Student cannot change the exam metadata');
 select throws_ok(
   $$insert into public.materials (id, course_id, name, media_type, size_bytes, storage_path, parse_status)
     values ('aaaaaaaa-1111-0000-0000-000000000009', 'aaaaaaaa-0000-0000-0000-000000000001', 'Forged', 'image/png', 10,

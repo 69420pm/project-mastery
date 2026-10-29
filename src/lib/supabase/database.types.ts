@@ -455,7 +455,6 @@ export type Database = {
           created_at: string;
           embedding: string | null;
           exercise_number: string | null;
-          figure: Json | null;
           id: string;
           label: string;
           markdown: string;
@@ -463,7 +462,7 @@ export type Database = {
           owner: string;
           page_from: number;
           page_to: number;
-          points: number | null;
+          part_id: string | null;
           position: number;
         };
         ComputedFields: never;
@@ -472,7 +471,6 @@ export type Database = {
           created_at?: string;
           embedding?: string | null;
           exercise_number?: string | null;
-          figure?: Json | null;
           id?: string;
           label: string;
           markdown: string;
@@ -480,7 +478,7 @@ export type Database = {
           owner: string;
           page_from: number;
           page_to: number;
-          points?: number | null;
+          part_id?: string | null;
           position: number;
         };
         Update: {
@@ -488,7 +486,6 @@ export type Database = {
           created_at?: string;
           embedding?: string | null;
           exercise_number?: string | null;
-          figure?: Json | null;
           id?: string;
           label?: string;
           markdown?: string;
@@ -496,7 +493,7 @@ export type Database = {
           owner?: string;
           page_from?: number;
           page_to?: number;
-          points?: number | null;
+          part_id?: string | null;
           position?: number;
         };
         Relationships: [
@@ -519,6 +516,13 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chunks_part_id_fkey";
+            columns: ["part_id"];
+            isOneToOne: false;
+            referencedRelation: "parts";
             referencedColumns: ["id"];
           },
         ];
@@ -1184,8 +1188,6 @@ export type Database = {
           course_id: string;
           created_at: string;
           exam_asked: boolean;
-          exam_total_points: number | null;
-          exam_year: number | null;
           heartbeat_at: string;
           id: string;
           is_exam: boolean | null;
@@ -1207,8 +1209,6 @@ export type Database = {
           course_id: string;
           created_at?: string;
           exam_asked?: boolean;
-          exam_total_points?: number | null;
-          exam_year?: number | null;
           heartbeat_at?: string;
           id?: string;
           is_exam?: boolean | null;
@@ -1229,8 +1229,6 @@ export type Database = {
           course_id?: string;
           created_at?: string;
           exam_asked?: boolean;
-          exam_total_points?: number | null;
-          exam_year?: number | null;
           heartbeat_at?: string;
           id?: string;
           is_exam?: boolean | null;
@@ -1488,6 +1486,74 @@ export type Database = {
             columns: ["topic_id"];
             isOneToOne: false;
             referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      parts: {
+        Row: {
+          chapter_title: string;
+          content_hash: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          material_id: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          position: number;
+          title: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chapter_title: string;
+          content_hash: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          material_id: string;
+          owner: string;
+          page_from: number;
+          page_to: number;
+          position: number;
+          title: string;
+        };
+        Update: {
+          chapter_title?: string;
+          content_hash?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          material_id?: string;
+          owner?: string;
+          page_from?: number;
+          page_to?: number;
+          position?: number;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "parts_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "parts_material_id_fkey";
+            columns: ["material_id"];
+            isOneToOne: false;
+            referencedRelation: "materials";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "parts_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2186,7 +2252,7 @@ export type Database = {
         Returns: boolean;
       };
       replace_material_chunks: {
-        Args: { p_chunks: Json; p_material_id: string };
+        Args: { p_chunks: Json; p_material_id: string; p_parts: Json };
         Returns: undefined;
       };
       request_exercise_pairing: {

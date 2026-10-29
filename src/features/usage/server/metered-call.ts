@@ -7,7 +7,12 @@ import {
 } from "@/features/usage/server/usage-store";
 import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { aiTask, answeringModel, type AiTask } from "@/lib/ai/models";
+import {
+  aiTask,
+  answeringModel,
+  EMBED_AS_DOCUMENTS,
+  type AiTask,
+} from "@/lib/ai/models";
 import type {
   AdminSupabase,
   SessionSupabase,
@@ -83,6 +88,16 @@ export async function meteredGenerate(
 }
 
 /**
+ * What to embed: `asDocuments` embeds the values as documents to be
+ * searched (chunks), not as search queries.
+ */
+type EmbedCall = {
+  values: string[];
+  maxRetries?: number;
+  asDocuments?: boolean;
+};
+
+/**
  * A metered `embedMany` call (task `embed`): the vectors of `values`, in
  * order. `store` runs before the usage is recorded, so a failure in the
  * bookkeeping and the step's retry never pay for the stored vectors again.
@@ -90,14 +105,14 @@ export async function meteredGenerate(
 export async function meteredEmbed(
   admin: AdminSupabase,
   scope: MeteredScope,
-  call: { values: string[]; maxRetries?: number },
+  call: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null>;
 /** With the Student's session client, usage is theirs by Row Level Security. */
 export async function meteredEmbed(
   supabase: SessionSupabase,
   scope: Omit<MeteredScope, "studentId">,
-  call: { values: string[]; maxRetries?: number },
+  call: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null>;
 export async function meteredEmbed(
@@ -107,7 +122,7 @@ export async function meteredEmbed(
     traceName,
     callFailed,
   }: Omit<MeteredScope, "studentId"> & { studentId?: string },
-  { values, maxRetries }: { values: string[]; maxRetries?: number },
+  { values, maxRetries, asDocuments }: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null> {
   // `checkDailyLimit` and `recordAiUsage` refuse the admin client without a
@@ -123,6 +138,12 @@ export async function meteredEmbed(
       embedMany({
         ...settings,
         ...(maxRetries === undefined ? {} : { maxRetries }),
+        ...(asDocuments && {
+          providerOptions: {
+            ...settings.providerOptions,
+            ...EMBED_AS_DOCUMENTS,
+          },
+        }),
         values,
       }),
   ).catch((error: unknown) => quotaAsNull(error, callFailed));

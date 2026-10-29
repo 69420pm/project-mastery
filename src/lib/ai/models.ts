@@ -115,6 +115,15 @@ export const AI_TASKS = {
 export type AiTask = keyof typeof AI_TASKS;
 
 /**
+ * Provider options of an `embed` call whose values are documents to be
+ * searched, such as chunks: Cohere's input type, which the Gateway takes
+ * (docs/agents/notes/cohere-embeddings.md).
+ */
+export const EMBED_AS_DOCUMENTS = {
+  cohere: { inputType: "search_document" },
+} as const;
+
+/**
  * Retries per call for retryable errors such as `429` from rate limits. The
  * AI SDK backs off exponentially and honors `retry-after`.
  */

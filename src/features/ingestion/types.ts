@@ -23,10 +23,7 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  /** What a figure chunk shows, in words. */
-  figure: { description: string } | null;
   exerciseNumber: string | null;
-  points: number | null;
   /** An exercise subtask's solution; null for other chunks. */
   solution: ExerciseSolution | null;
 };
@@ -48,6 +45,7 @@ export type MaterialChunks = {
   courseId: string;
   name: string;
   parseStatus: ParseStatus;
-  exam: { year: number | null; totalPoints: number | null } | null;
+  /** An old exam, as the Brief confirmed it. */
+  isExam: boolean;
   chunks: ChunkView[];
 };

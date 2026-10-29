@@ -110,6 +110,67 @@ describe("parsing a PDF Material", () => {
     ]);
   });
 
+  test("joins a unit continued on the next page, and stores every non-admin chunk in a Part", async () => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    useMockModels({
+      ingest: pageModel([
+        {
+          units: [
+            unit({
+              markdown: "# Limits\n\nA sequence converges when",
+              continuesOnNextPage: true,
+            }),
+            unit({ label: "admin", markdown: "Exam on 3 March." }),
+          ],
+        },
+        {
+          units: [
+            unit({ markdown: "its terms approach a limit." }),
+            unit({
+              label: "exercise",
+              markdown: "Show it.",
+              exerciseNumber: "1.2",
+            }),
+          ],
+        },
+      ]).model,
+    });
+
+    await parseMaterial(MATERIAL);
+
+    const chunks = db.tables.chunks.toSorted(
+      (a, b) => Number(a.position) - Number(b.position),
+    );
+    const parts = db.tables.parts.toSorted(
+      (a, b) => Number(a.position) - Number(b.position),
+    );
+    expect(
+      chunks.map((chunk) => [chunk.label, chunk.page_from, chunk.page_to]),
+    ).toEqual([
+      ["content", 1, 2],
+      ["admin", 1, 1],
+      ["exercise", 2, 2],
+    ]);
+    expect(parts).toEqual([
+      expect.objectContaining({
+        position: 0,
+        kind: "teaching",
+        title: "Limits",
+        chapter_title: "Limits",
+        page_from: 1,
+        page_to: 2,
+        content_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
+      expect.objectContaining({ position: 1, kind: "exercise", title: "1.2" }),
+    ]);
+    expect(chunks.map((chunk) => chunk.part_id)).toEqual([
+      parts[0]!.id,
+      null,
+      parts[1]!.id,
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+  });
+
   test("stores each page's result and language, and no page image in Storage", async () => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     useMockModels({

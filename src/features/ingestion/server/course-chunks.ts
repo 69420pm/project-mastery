@@ -171,11 +171,7 @@ export type ChunkText = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  /** What its figure shows; null without one. */
-  figureDescription: string | null;
 };
-
-const figureSchema = z.object({ description: z.string() }).nullable();
 
 /**
  * The texts of the chunks among `chunkIds` that `supabase` may read, by id;
@@ -192,7 +188,7 @@ export async function loadChunkTexts(
   for (let start = 0; start < ids.length; start += ID_SLICE) {
     const { data, error } = await supabase
       .from("chunks")
-      .select("id, page_from, page_to, label, markdown, figure")
+      .select("id, page_from, page_to, label, markdown")
       .in("id", ids.slice(start, start + ID_SLICE));
     if (error) failed("Loading the chunks", error);
     for (const chunk of data) {
@@ -202,8 +198,6 @@ export async function loadChunkTexts(
         pageTo: chunk.page_to,
         label: z.enum(CHUNK_LABELS).parse(chunk.label),
         markdown: chunk.markdown,
-        figureDescription:
-          figureSchema.safeParse(chunk.figure).data?.description ?? null,
       };
     }
   }

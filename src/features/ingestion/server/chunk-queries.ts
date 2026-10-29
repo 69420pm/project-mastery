@@ -12,8 +12,6 @@ import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
-const figureSchema = z.object({ description: z.string() }).nullable();
-
 /**
  * The signed-in Student's Material with its chunks in reading order, or null
  * when the id is malformed, unknown, another Student's, or signed out. Row
@@ -28,9 +26,7 @@ export async function getMaterialChunks(
 
   const material = await supabase
     .from("materials")
-    .select(
-      "id, course_id, name, parse_status, is_exam, exam_year, exam_total_points",
-    )
+    .select("id, course_id, name, parse_status, is_exam")
     .eq("id", materialId)
     .maybeSingle();
   if (material.error) {
@@ -42,16 +38,13 @@ export async function getMaterialChunks(
     supabase
       .from("chunks")
       .select(
-        "id, position, page_from, page_to, label, markdown, figure, exercise_number, points",
+        "id, position, page_from, page_to, label, markdown, exercise_number",
       )
       .eq("material_id", materialId)
       .order("position")
       .range(from, to),
   );
 
-  const figures = chunks.map((chunk) =>
-    figureSchema.parse(chunk.figure ?? null),
-  );
   const solutions = await exerciseSolutions(
     supabase,
     chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
@@ -63,25 +56,15 @@ export async function getMaterialChunks(
     courseId: row.course_id,
     name: row.name,
     parseStatus: row.parse_status as ParseStatus,
-    exam: row.is_exam
-      ? {
-          year: row.exam_year,
-          totalPoints:
-            row.exam_total_points === null
-              ? null
-              : Number(row.exam_total_points),
-        }
-      : null,
-    chunks: chunks.map((chunk, index) => ({
+    isExam: row.is_exam === true,
+    chunks: chunks.map((chunk) => ({
       id: chunk.id,
       position: chunk.position,
       pageFrom: chunk.page_from,
       pageTo: chunk.page_to,
       label: z.enum(CHUNK_LABELS).parse(chunk.label),
       markdown: chunk.markdown,
-      figure: figures[index] ?? null,
       exerciseNumber: chunk.exercise_number,
-      points: chunk.points === null ? null : Number(chunk.points),
       solution: solutions.get(chunk.id) ?? null,
     })),
   };

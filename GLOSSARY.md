@@ -16,6 +16,10 @@ _Avoid_: Subject, class, folder
 A file a Student uploaded to one Course, such as slides, a script, an exercise sheet or an old exam, under a name the Student can change.
 _Avoid_: File, document, upload, attachment
 
+**Part**:
+A run of one Material's chunks under one heading, found in code when the Material is parsed: a teaching Part holds content, an exercise Part one exercise or its solution. The map build extracts KCs from one Part at a time.
+_Avoid_: Section (a Reading section is something else), chapter
+
 **Brief**:
 What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Materials are old exams, the exam scope and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Materials whose names look like old exams, and asks once about each Material parsed after intake.
 _Avoid_: Preferences, intake form, onboarding

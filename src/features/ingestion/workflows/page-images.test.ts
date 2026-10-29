@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { describe, expect, test, vi } from "vitest";
+import { chapterLevel } from "@/features/ingestion/domain/chapters";
 
 vi.mock("server-only", () => ({}));
 
@@ -41,5 +42,40 @@ describe("openPdf", () => {
 
     expect((await pdf.renderPage(3)).blank).toBe(true);
     expect((await pdf.renderPage(1)).blank).toBe(false);
+  });
+
+  test.each([
+    [
+      "lecture-notes.pdf",
+      [
+        "Preliminaries: Logic, Sets and Maps",
+        "Algebraic Structures: Groups, Rings, Fields",
+        "Systems of Linear Equations",
+        "Vector Spaces",
+        "Linear Maps and Matrices",
+        "Determinants",
+        "Eigenvalues and Diagonalisation",
+      ],
+    ],
+    [
+      "past-exams.pdf",
+      ["Final Exam, Winter Term 2025/26", "Resit Exam, Winter Term 2025/26"],
+    ],
+  ])("the gold %s has the chapters %j", async (file, chapters) => {
+    const pdf = await openPdf(
+      new Uint8Array(
+        await readFile(
+          path.join(process.cwd(), "evals/gold/linear-algebra-I", file),
+        ),
+      ),
+    );
+    const outline = await pdf.outline();
+    const level = chapterLevel(outline);
+
+    expect(
+      outline
+        .filter((entry) => entry.level === level)
+        .map((entry) => entry.title),
+    ).toEqual(chapters);
   });
 });

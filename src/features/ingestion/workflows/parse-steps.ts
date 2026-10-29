@@ -11,14 +11,10 @@ import {
   mostCommonLanguage,
   overlayPages,
 } from "@/features/ingestion/domain/pages";
-import {
-  dailyLimitReason,
-  fileUnreadableReason,
-  parseFailureError,
-} from "@/features/ingestion/domain/parse-failure";
+import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import type { PageSkip } from "@/features/ingestion/types";
 import {
-  openPdf,
+  openMaterialPdf,
   type OpenedPdf,
 } from "@/features/ingestion/workflows/page-images";
 import { meteredGenerate } from "@/features/usage/server";
@@ -67,6 +63,7 @@ type ParseMaterialRow = {
   id: string;
   owner: string;
   course_id: string;
+  name: string;
   media_type: string;
   storage_path: string;
 };
@@ -83,7 +80,7 @@ export async function loadMaterial(
     .from("materials")
     .update({ heartbeat_at: new Date().toISOString() })
     .eq("id", materialId)
-    .select("id, owner, course_id, media_type, storage_path")
+    .select("id, owner, course_id, name, media_type, storage_path")
     .maybeSingle();
   if (error) failed("Loading the Material", error);
   return data;
@@ -93,24 +90,6 @@ async function download(supabase: AdminSupabase, path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).download(path);
   if (error) failed(`Reading ${path}`, error);
   return new Uint8Array(await data.arrayBuffer());
-}
-
-/**
- * Opens a PDF Material. A missing file or one that is no readable PDF fails
- * with the file's reason for the Student; a Storage failure does not.
- */
-async function openMaterialPdf(supabase: AdminSupabase, path: string) {
-  const { data, error } = await supabase.storage.from(BUCKET).download(path);
-  if (error?.message === "Object not found") {
-    throw parseFailureError(fileUnreadableReason);
-  }
-  if (error) failed(`Reading ${path}`, error);
-  const bytes = new Uint8Array(await data.arrayBuffer());
-  try {
-    return await openPdf(bytes);
-  } catch {
-    throw parseFailureError(fileUnreadableReason);
-  }
 }
 
 /** The page numbers of the Material's stored page results. */

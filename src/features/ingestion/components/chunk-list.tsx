@@ -25,10 +25,6 @@ function pageRange({ pageFrom, pageTo }: ChunkView): string {
     : `Pages ${pageFrom}–${pageTo}`;
 }
 
-function formatPoints(points: number): string {
-  return points === 1 ? "1 point" : `${points} points`;
-}
-
 type ChunkListProps = {
   material: MaterialChunks;
   /** Where "Back to materials" leads. */
@@ -47,8 +43,6 @@ export function ChunkList({
   backHref,
   materialHref,
 }: ChunkListProps) {
-  const { exam } = material;
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
       <PageHeader
@@ -61,16 +55,7 @@ export function ChunkList({
           </Button>
         }
         title={material.name}
-        description={
-          exam && (
-            <>
-              Old exam
-              {exam.year !== null && ` · ${exam.year}`}
-              {exam.totalPoints !== null &&
-                ` · ${formatPoints(exam.totalPoints)} in total`}
-            </>
-          )
-        }
+        description={material.isExam && "Old exam"}
       />
 
       {material.chunks.length === 0 ? (
@@ -111,18 +96,11 @@ function ChunkCard({
         {chunk.exerciseNumber !== null && (
           <span>Exercise {chunk.exerciseNumber}</span>
         )}
-        {chunk.points !== null && <span>{formatPoints(chunk.points)}</span>}
       </header>
       {/* The chunk's own headings, scaled to the card. */}
       <Markdown className="min-w-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base">
         {chunk.markdown}
       </Markdown>
-      {chunk.figure && (
-        <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <figcaption className="font-medium">Figure</figcaption>
-          <p className="text-muted-foreground">{chunk.figure.description}</p>
-        </figure>
-      )}
       {chunk.solution && (
         <SolutionLine solution={chunk.solution} materialHref={materialHref} />
       )}

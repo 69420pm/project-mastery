@@ -4,7 +4,7 @@ import { z } from "zod";
 
 /**
  * A gold Course's built content: what the pipeline stores for a Course
- * (Materials, chunks, Knowledge map, Topics, Reading sections and the Brief),
+ * (Materials, Parts, chunks, Knowledge map, Topics and the Brief),
  * without anything a Student did. `pnpm gold export` writes it
  * and `pnpm gold seed` loads it into a Student, so the tutor can be tried or
  * evaluated without running the pipeline again.
@@ -24,6 +24,7 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
     table: "material_pages",
     parent: { table: "materials", column: "material_id" },
   },
+  { table: "parts" },
   { table: "chunks" },
   { table: "knowledge_map_builds" },
   { table: "knowledge_map_chunks" },

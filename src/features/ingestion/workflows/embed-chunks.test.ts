@@ -86,6 +86,35 @@ describe("the embed step of a parse", () => {
     ]);
   });
 
+  test("embeds the chunks as documents and leaves admin chunks without a vector", async () => {
+    seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
+    const embed = mockEmbeddingModel(4);
+    useMockModels({
+      ingest: pageModel([
+        {
+          units: [
+            unit({ label: "admin", markdown: "The exam is on 3 March." }),
+            unit({ label: "content", markdown: "Alpha." }),
+          ],
+        },
+        { units: [] },
+      ]).model,
+      embed,
+    });
+
+    await parseMaterial(db.tables.materials[0]!.id as string);
+
+    expect(
+      db.tables.chunks.map((chunk) => [chunk.label, chunk.embedding ?? null]),
+    ).toEqual([
+      ["admin", null],
+      ["content", "[0.5,0.5,0.5,0.5]"],
+    ]);
+    expect(embed.doEmbedCalls[0]?.providerOptions).toMatchObject({
+      cohere: { inputType: "search_document" },
+    });
+  });
+
   test("refuses with the Daily limit reason, embedding nothing, when the limit is reached", async () => {
     seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
     const embed = mockEmbeddingModel(4);
@@ -95,6 +124,7 @@ describe("the embed step of a parse", () => {
       id: crypto.randomUUID(),
       material_id: db.tables.materials[0]!.id,
       position: 0,
+      label: "content",
       markdown: "Alpha.",
     });
     db.tables.ai_usage.push({
@@ -151,6 +181,7 @@ describe("the embed step of a parse", () => {
       id: crypto.randomUUID(),
       material_id: db.tables.materials[0]!.id,
       position: 0,
+      label: "content",
       markdown: "Alpha.",
     });
     const embed = mockEmbeddingModel(4);
@@ -171,6 +202,7 @@ describe("the embed step of a parse", () => {
       id: crypto.randomUUID(),
       material_id: db.tables.materials[0]!.id,
       position: 0,
+      label: "content",
       markdown: "Alpha.",
     });
     const embed = new MockEmbeddingModelV4({
@@ -214,6 +246,7 @@ describe("the embed step of a parse", () => {
       id: crypto.randomUUID(),
       material_id: db.tables.materials[0]!.id,
       position: 0,
+      label: "content",
       markdown: "Alpha.",
     });
     const embed = new MockEmbeddingModelV4({
