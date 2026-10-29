@@ -95,7 +95,7 @@ describe("the instructions", () => {
     expect(prompt).toContain(
       `- Thrust equation (id ${MAP.thrust}, procedure; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
     );
-    expect(prompt).toContain(`- Newton's second law (id ${MAP.prior})`);
+    expect(prompt).toContain(`- Newton's second law (id ${MAP.newton})`);
   });
 
   test("come from the context sent on the reply's start and saved with it", async () => {
@@ -308,8 +308,8 @@ describe("getTopic", () => {
     ],
     [
       "a KC outside the Topic",
-      { topicId: MAP.topic, kcIds: [MAP.thrust, MAP.prior] },
-      `These KCs are not in this Topic: ${MAP.prior}.`,
+      { topicId: MAP.topic, kcIds: [MAP.thrust, MAP.newton] },
+      `These KCs are not in this Topic: ${MAP.newton}.`,
     ],
     [
       "a KC outside the Course, read without a Topic",

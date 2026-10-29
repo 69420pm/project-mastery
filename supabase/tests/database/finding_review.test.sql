@@ -1,10 +1,10 @@
 -- Findings as a review queue (#85): a Student answers their own Findings
--- through the review columns only, an update keeps the answer, and a scope
--- Finding is a kind. Run with `pnpm db:test`.
+-- through the review columns only, and a scope Finding is a kind. Run with
+-- `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(8);
+select plan(7);
 
 insert into auth.users (id, email)
 values
@@ -39,24 +39,10 @@ select throws_ok(
   $$update public.findings set status = 'open'$$,
   '23514', null, 'an open Finding has no answer');
 reset role;
-
--- An update that keeps the Finding keeps its answer.
-insert into public.knowledge_map_builds (course_id, owner, status)
-values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'building');
-set local role service_role;
-select is(
-  public.apply_knowledge_map_update('aaaaaaaa-0000-0000-0000-000000000001',
-    '{"bigIdeas": [], "kcs": [], "prerequisites": [], "semanticLinks": [], "exercises": [],
-      "findings": [{"id": "ffffffff-0000-0000-0000-000000000001", "kind": "scope",
-        "text": "Slides 12–15 say heat exchangers are not examined. Should we skip them?",
-        "sources": []}]}',
-    '{}', '{}'),
-  true, 'the update runs');
-reset role;
 select results_eq(
   $$select status, answer from public.findings where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('answered', 'Yes, skip them.')$$,
-  'the update keeps the answer');
+  'the answer is stored');
 
 select throws_ok(
   $$insert into public.findings (owner, course_id, kind, text, position)

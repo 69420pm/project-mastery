@@ -294,7 +294,6 @@ export async function seedKc(
       name,
       description: "Thrust is mass flow times the change in velocity.",
       type: "procedure",
-      bloom: "apply",
       origin: "content",
       position: 0,
     })
@@ -308,7 +307,6 @@ export async function seedKc(
       big_idea_id: bigIdea.data.id,
       name: "Thrust basics",
       central_question: "What makes a rocket accelerate?",
-      why_it_matters: "Thrust drives every launch.",
       position: 0,
     })
     .select("id")

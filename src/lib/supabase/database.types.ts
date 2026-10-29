@@ -720,13 +720,9 @@ export type Database = {
           difficulty: number;
           final_answers: Json | null;
           id: string;
-          name: string;
           owner: string;
           position: number;
           question_chunk_id: string;
-          solution: string | null;
-          solution_status: string;
-          task_type: string;
         };
         ComputedFields: never;
         Insert: {
@@ -735,13 +731,9 @@ export type Database = {
           difficulty: number;
           final_answers?: Json | null;
           id?: string;
-          name: string;
           owner: string;
           position: number;
           question_chunk_id: string;
-          solution?: string | null;
-          solution_status: string;
-          task_type: string;
         };
         Update: {
           course_id?: string;
@@ -749,13 +741,9 @@ export type Database = {
           difficulty?: number;
           final_answers?: Json | null;
           id?: string;
-          name?: string;
           owner?: string;
           position?: number;
           question_chunk_id?: string;
-          solution?: string | null;
-          solution_status?: string;
-          task_type?: string;
         };
         Relationships: [
           {
@@ -993,8 +981,7 @@ export type Database = {
       };
       kcs: {
         Row: {
-          big_idea_id: string | null;
-          bloom: string | null;
+          big_idea_id: string;
           course_id: string;
           created_at: string;
           description: string;
@@ -1007,8 +994,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
-          big_idea_id?: string | null;
-          bloom?: string | null;
+          big_idea_id: string;
           course_id: string;
           created_at?: string;
           description: string;
@@ -1020,8 +1006,7 @@ export type Database = {
           type: string;
         };
         Update: {
-          big_idea_id?: string | null;
-          bloom?: string | null;
+          big_idea_id?: string;
           course_id?: string;
           created_at?: string;
           description?: string;
@@ -1588,7 +1573,6 @@ export type Database = {
       prerequisite_links: {
         Row: {
           course_id: string;
-          extraction_confidence: number;
           from_kc: string;
           id: string;
           owner: string;
@@ -1597,7 +1581,6 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           course_id: string;
-          extraction_confidence: number;
           from_kc: string;
           id?: string;
           owner: string;
@@ -1605,7 +1588,6 @@ export type Database = {
         };
         Update: {
           course_id?: string;
-          extraction_confidence?: number;
           from_kc?: string;
           id?: string;
           owner?: string;
@@ -1806,7 +1788,6 @@ export type Database = {
           source: string;
           statement: string | null;
           status: string;
-          task_type: string | null;
           topic_id: string | null;
         };
         ComputedFields: never;
@@ -1826,7 +1807,6 @@ export type Database = {
           source: string;
           statement?: string | null;
           status?: string;
-          task_type?: string | null;
           topic_id?: string | null;
         };
         Update: {
@@ -1845,7 +1825,6 @@ export type Database = {
           source?: string;
           statement?: string | null;
           status?: string;
-          task_type?: string | null;
           topic_id?: string | null;
         };
         Relationships: [
@@ -2098,66 +2077,6 @@ export type Database = {
           },
         ];
       };
-      semantic_links: {
-        Row: {
-          core_type: string;
-          course_id: string;
-          from_kc: string;
-          id: string;
-          label: string;
-          owner: string;
-          to_kc: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          core_type: string;
-          course_id: string;
-          from_kc: string;
-          id?: string;
-          label: string;
-          owner: string;
-          to_kc: string;
-        };
-        Update: {
-          core_type?: string;
-          course_id?: string;
-          from_kc?: string;
-          id?: string;
-          label?: string;
-          owner?: string;
-          to_kc?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "semantic_links_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "semantic_links_from_kc_fkey";
-            columns: ["from_kc"];
-            isOneToOne: false;
-            referencedRelation: "kcs";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "semantic_links_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "semantic_links_to_kc_fkey";
-            columns: ["to_kc"];
-            isOneToOne: false;
-            referencedRelation: "kcs";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       study_sessions: {
         Row: {
           chat_id: string | null;
@@ -2374,7 +2293,6 @@ export type Database = {
           name: string;
           owner: string;
           position: number;
-          why_it_matters: string;
         };
         ComputedFields: never;
         Insert: {
@@ -2386,7 +2304,6 @@ export type Database = {
           name: string;
           owner: string;
           position: number;
-          why_it_matters: string;
         };
         Update: {
           big_idea_id?: string;
@@ -2397,7 +2314,6 @@ export type Database = {
           name?: string;
           owner?: string;
           position?: number;
-          why_it_matters?: string;
         };
         Relationships: [
           {
@@ -2434,15 +2350,6 @@ export type Database = {
       };
       append_memory: {
         Args: { course_id: string; text: string };
-        Returns: boolean;
-      };
-      apply_knowledge_map_update: {
-        Args: {
-          p_check_report: Json;
-          p_chunk_ids: string[];
-          p_course_id: string;
-          p_map: Json;
-        };
         Returns: boolean;
       };
       match_chunks: {
@@ -2500,14 +2407,6 @@ export type Database = {
           p_material_id: string;
         };
         Returns: undefined;
-      };
-      replace_reading_sections: {
-        Args: { p_course_id: string; p_mark_built?: boolean; p_sections: Json };
-        Returns: boolean;
-      };
-      replace_topics: {
-        Args: { p_course_id: string; p_topics: Json };
-        Returns: boolean;
       };
       request_exercise_pairing: {
         Args: { p_course_id: string };

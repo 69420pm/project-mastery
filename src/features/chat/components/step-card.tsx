@@ -110,8 +110,7 @@ function StepDetails({ detail }: { detail: StepDetail }) {
               <p>
                 <span className="font-medium">{exercise.name}</span>{" "}
                 <span className="text-muted-foreground">
-                  · {SOURCE_LABELS[exercise.source]} ·{" "}
-                  {exercise.taskType && `${exercise.taskType} · `}difficulty{" "}
+                  · {SOURCE_LABELS[exercise.source]} · difficulty{" "}
                   {exercise.difficulty}/3
                 </span>
               </p>

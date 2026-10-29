@@ -175,7 +175,7 @@ const flagMapInputSchema = z.object({
   kind: z
     .enum(MAP_FINDING_KINDS)
     .describe(
-      "missing_link: the sources link the two KCs, as a prerequisite or semantic link, and the map doesn't; wrong_link: the map links them and the sources contradict it; wrong_description: the sources contradict the KC's description.",
+      "missing_link: the sources show one KC builds on the other, and the map doesn't link them; wrong_link: the map links them and the sources contradict it; wrong_description: the sources contradict the KC's description.",
     ),
   kcId: z
     .string()
@@ -186,7 +186,7 @@ const flagMapInputSchema = z.object({
     .string()
     .nullish()
     .describe(
-      "For a link kind, the id of kcId's prerequisite or semantic neighbour; omit it for wrong_description.",
+      "For a link kind, the id of kcId's prerequisite; omit it for wrong_description.",
     ),
   chunkId: z
     .string()
@@ -360,7 +360,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     findProblems: tool({
       description:
-        "Find up to 3 Problems for the given KCs that test any of them and that the Student has not attempted yet: Exercises of this Course first, then Problems generated for it, ranked to vary and step up in difficulty. Each comes with its source (old_exam, exercise, or a generated variant of an Exercise or new Problem), its question, the KCs it tests, a link to cite (null for a generated Problem) and its solution, labelled with its status. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A disputed solution, or a generated one without a program, may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Problems for the given KCs that test any of them and that the Student has not attempted yet: Exercises of this Course first, then Problems generated for it, ranked to vary and step up in difficulty. Each comes with its source (old_exam, exercise, or a generated variant of an Exercise or new Problem), its question, the KCs it tests, a link to cite (null for a generated Problem) and its solution, labelled with where it comes from. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A generated solution without a program may be wrong: check it yourself before relying on it.",
       inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => actions.findProblems(kcIds),
     }),
@@ -449,7 +449,7 @@ async function flagMap(
   }
   if (input.kind !== "wrong_description" && !linked) {
     throw new TutorToolError(
-      `A ${input.kind} Finding links two KCs: give the prerequisite or semantic neighbour of kcId as linkedKcId.`,
+      `A ${input.kind} Finding links two KCs: give the prerequisite of kcId as linkedKcId.`,
     );
   }
   if (linked === input.kcId) {

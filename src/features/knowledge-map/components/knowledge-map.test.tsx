@@ -52,7 +52,6 @@ const kc = (id: string, name: string): KcView => ({
   name,
   description: `About ${name}.`,
   type: "concept",
-  bloom: "apply",
   origin: "content",
   sources: [],
 });
@@ -68,18 +67,12 @@ const map: KnowledgeMapView = {
       kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles")],
     },
   ],
-  priorKnowledge: [],
-  prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [
-    { from: "k1", to: "k2", coreType: "causes", label: "speeds up" },
-  ],
+  prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [
     {
       id: "e1",
       name: "Ex. 7.2b",
-      taskType: "calculate",
       kcs: ["k2"],
-      solutionStatus: "disputed",
       difficulty: 3,
       question: "Find the exit speed.",
       solution: "About 2 km/s.",
@@ -136,10 +129,10 @@ test("clicking a KC node opens its panel", async () => {
   );
   expect(section("Overview")).toHaveTextContent("About Momentum.");
   expect(section("Priority")).toHaveTextContent("No Priority yet.");
-  expect(section("Links")).toHaveTextContent("speeds up");
+  expect(section("Links")).toHaveTextContent("Nozzles");
 });
 
-test("an Exercise node shows its solution status and opens its panel", async () => {
+test("an Exercise node shows its difficulty and opens its panel", async () => {
   renderMap({
     k2: {
       state: "learning",
@@ -156,13 +149,13 @@ test("an Exercise node shows its solution status and opens its panel", async () 
     },
   });
   const node = await screen.findByRole("button", { name: "Ex. 7.2b" });
-  expect(node).toHaveTextContent("HardDisputed");
+  expect(node).toHaveTextContent("Hard");
   fireEvent.click(node);
 
   const panel = screen.getByRole("complementary", { name: "Exercise details" });
   const section = (name: string) => within(panel).getByRole("region", { name });
   expect(section("Question")).toHaveTextContent("Find the exit speed.");
-  expect(section("Solution")).toHaveTextContent("an AI solution disagrees");
+  expect(section("Solution")).toHaveTextContent("Show the solution");
   expect(section("Attempts")).toHaveTextContent("Wrongno helpNozzles");
 
   // A KC it tests selects that KC.

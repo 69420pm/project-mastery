@@ -45,7 +45,6 @@ const kc = (id: string) => ({
   name: id,
   description: "",
   type: "concept" as const,
-  bloom: null,
   origin: "content" as const,
   sources: [],
 });
@@ -60,9 +59,7 @@ const map: KnowledgeMapView = {
   bigIdeas: [
     { id: "b1", name: "Thrust", description: "", kcs: [kc("k1"), kc("k2")] },
   ],
-  priorKnowledge: [],
-  prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [],
+  prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [],
   checkReport: null,
   canBuild: true,

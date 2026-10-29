@@ -20,7 +20,7 @@ import {
   OPEN,
   OTHER_COURSE,
   OTHER_OPEN,
-  PRIOR,
+  K3,
   T1,
   T2,
 } from "./readers-testing";
@@ -86,9 +86,7 @@ describe("getKnowledgeMap", () => {
       courseId,
       build: null,
       bigIdeas: [],
-      priorKnowledge: [],
       prerequisites: [],
-      semanticLinks: [],
       exercises: [],
       checkReport: null,
       canBuild: false,
@@ -109,7 +107,7 @@ describe("getKnowledgeMap", () => {
       [C1, "p. 1"],
       [C2, "pp. 2–3"],
     ]);
-    expect(thrust).toMatchObject({ id: K2, type: "procedure", bloom: "apply" });
+    expect(thrust).toMatchObject({ id: K2, type: "procedure" });
     expect(thrust?.sources).toEqual([
       {
         chunkId: C2,
@@ -119,23 +117,16 @@ describe("getKnowledgeMap", () => {
         markdown: `Text of ${C2}`,
       },
     ]);
-    expect(view.priorKnowledge.map((kc) => [kc.id, kc.sources])).toEqual([
-      [PRIOR, []],
-    ]);
-    expect(view.prerequisites).toEqual([{ from: K1, to: K2, confidence: 0.8 }]);
-    expect(view.semanticLinks).toEqual([
-      { from: K2, to: K1, coreType: "causes", label: "uses" },
-    ]);
+    expect(view.prerequisites).toEqual([{ from: K1, to: K2 }]);
+    // Labelled by where its question is printed; no solution is paired.
     expect(view.exercises).toEqual([
       {
         id: EXERCISE,
-        name: "Ex. 1",
-        taskType: "compute thrust",
+        name: "Lecture 1 p. 4",
         kcs: [K1, K2],
-        solutionStatus: "generated",
         difficulty: 2,
         question: `Text of ${C3}`,
-        solution: "F = 10 N.",
+        solution: null,
       },
     ]);
     expect(view.checkReport?.uncoveredChunks).toEqual(["Notes p. 1"]);
@@ -147,7 +138,6 @@ describe("getKnowledgeMap", () => {
     ["kcs", "Loading the KCs failed"],
     ["kc_sources", "Loading the KC sources failed"],
     ["prerequisite_links", "Loading the prerequisites failed"],
-    ["semantic_links", "Loading the semantic links failed"],
     ["exercises", "Loading the exercises failed"],
     ["exercise_kcs", "Loading the exercise KCs failed"],
   ])("throws when reading %s fails", async (table, message) => {
@@ -237,7 +227,6 @@ describe("loadCourseTopics", () => {
         bigIdeaId: BIG_IDEA,
         name: "One",
         centralQuestion: "One?",
-        whyItMatters: "It matters.",
         kcs: [{ id: K1, name: "Momentum" }],
         anchors: [],
         readingSections: [
@@ -296,11 +285,9 @@ describe("loadStoredMap", () => {
     expect(map.kcs.map((kc) => [kc.id, kc.bigIdea, kc.sources])).toEqual([
       [K1, BIG_IDEA, [C1, C2]],
       [K2, BIG_IDEA, [C2]],
-      [PRIOR, null, []],
+      [K3, BIG_IDEA, []],
     ]);
-    expect(map.prerequisites).toEqual([
-      { from: K1, to: K2, extractionConfidence: 0.8 },
-    ]);
+    expect(map.prerequisites).toEqual([{ from: K1, to: K2 }]);
     // An Exercise's KCs in map order.
     expect(map.exercises[0]).toMatchObject({
       questionChunk: C3,

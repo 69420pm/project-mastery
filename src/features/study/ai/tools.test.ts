@@ -171,7 +171,7 @@ describe("flagMap", () => {
   });
 
   test.each([
-    [{ linkedKcId: null }, "give the prerequisite or semantic neighbour"],
+    [{ linkedKcId: null }, "give the prerequisite of kcId"],
     [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
     [{ kind: "wrong_description" }, "omit linkedKcId"],
     [{ linkedKcId: "kc-1" }, "two different KCs"],

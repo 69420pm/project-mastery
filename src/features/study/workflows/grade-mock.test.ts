@@ -93,7 +93,6 @@ function seedMock() {
   }
   t.exercises.push({
     id: "x1",
-    solution: "F = ṁ Δv = 17.5 kN.",
     question_chunk_id: "c1",
     final_answers: [{ label: "F", value: 17.5, unit: "kN" }],
   });

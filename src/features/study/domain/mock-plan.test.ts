@@ -3,7 +3,6 @@ import { examProfile, itemMinutes } from "./exam-profile";
 import {
   fillMock,
   mockTotals,
-  planFinalMock,
   planGaps,
   planMock,
   predictedSuccess,
@@ -106,10 +105,9 @@ describe("fillMock", () => {
     ]);
   });
 
-  test("leaves out seen, disputed, flagged and reserved items, and those of other Topics", () => {
+  test("leaves out seen, flagged and reserved items, and those of other Topics", () => {
     const filled = fillMock([{ topicId: "t1", difficulty: 1 }], topicKcs, [
       candidate("seen", "old_exam", 1, { seen: true }),
-      candidate("disputed", "old_exam", 1, { disputed: true }),
       candidate("reserved", "old_exam", 1, { reserved: true }),
       candidate("flagged", "variant", 1, { flagged: true }),
       candidate("other", "exercise", 1, { kcs: ["k2"] }),
@@ -163,16 +161,6 @@ describe("planGaps", () => {
     }));
     expect(planGaps(many, topicKcs, [], {})).toHaveLength(6);
   });
-});
-
-test("the final mock is the reserved exam's non-disputed Exercises in order", () => {
-  expect(
-    planFinalMock([
-      { id: "a" },
-      { id: "b", disputed: true },
-      { id: "c", disputed: false },
-    ]).map(({ id }) => id),
-  ).toEqual(["a", "c"]);
 });
 
 test("a mock lasts its items' minutes, so dropped slots shorten it, and scores points times success", () => {

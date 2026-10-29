@@ -7,13 +7,7 @@ import {
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
 import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
-import {
-  BLOOM_LEVELS,
-  checkReportSchema,
-  KC_TYPES,
-  SEMANTIC_LINK_TYPES,
-  SOLUTION_STATUSES,
-} from "@/features/knowledge-map/schemas";
+import { checkReportSchema, KC_TYPES } from "@/features/knowledge-map/schemas";
 import type {
   KcSourceView,
   KcView,
@@ -39,9 +33,7 @@ export async function getKnowledgeMap(
     courseId,
     build: null,
     bigIdeas: [],
-    priorKnowledge: [],
     prerequisites: [],
-    semanticLinks: [],
     exercises: [],
     checkReport: null,
     canBuild: false,
@@ -57,7 +49,6 @@ export async function getKnowledgeMap(
     kcs,
     sources,
     prerequisites,
-    semantic,
     materials,
     exercises,
     exerciseKcs,
@@ -76,7 +67,7 @@ export async function getKnowledgeMap(
     allRows("Loading the KCs", (from, to) =>
       supabase
         .from("kcs")
-        .select("id, big_idea_id, name, description, type, bloom, origin")
+        .select("id, big_idea_id, name, description, type, origin")
         .eq("course_id", courseId)
         .order("position")
         .order("id")
@@ -94,15 +85,7 @@ export async function getKnowledgeMap(
     allRows("Loading the prerequisites", (from, to) =>
       supabase
         .from("prerequisite_links")
-        .select("from_kc, to_kc, extraction_confidence")
-        .eq("course_id", courseId)
-        .order("id")
-        .range(from, to),
-    ),
-    allRows("Loading the semantic links", (from, to) =>
-      supabase
-        .from("semantic_links")
-        .select("from_kc, to_kc, core_type, label")
+        .select("from_kc, to_kc")
         .eq("course_id", courseId)
         .order("id")
         .range(from, to),
@@ -111,9 +94,7 @@ export async function getKnowledgeMap(
     allRows("Loading the exercises", (from, to) =>
       supabase
         .from("exercises")
-        .select(
-          "id, name, task_type, solution_status, solution, difficulty, question_chunk_id",
-        )
+        .select("id, difficulty, question_chunk_id")
         .eq("course_id", courseId)
         .order("position")
         .order("id")
@@ -181,8 +162,7 @@ export async function getKnowledgeMap(
     name: kc.name,
     description: kc.description,
     type: z.enum(KC_TYPES).parse(kc.type),
-    bloom: z.enum(BLOOM_LEVELS).nullable().parse(kc.bloom),
-    origin: z.enum(["content", "exercise", "prior"]).parse(kc.origin),
+    origin: z.enum(["content", "exercise"]).parse(kc.origin),
     sources: sourcesOf(kc.id),
   });
 
@@ -202,17 +182,9 @@ export async function getKnowledgeMap(
       ...bigIdea,
       kcs: kcs.filter((kc) => kc.big_idea_id === bigIdea.id).map(kcView),
     })),
-    priorKnowledge: kcs.filter((kc) => kc.big_idea_id === null).map(kcView),
     prerequisites: prerequisites.map((link) => ({
       from: link.from_kc,
       to: link.to_kc,
-      confidence: Number(link.extraction_confidence),
-    })),
-    semanticLinks: semantic.map((link) => ({
-      from: link.from_kc,
-      to: link.to_kc,
-      coreType: z.enum(SEMANTIC_LINK_TYPES).parse(link.core_type),
-      label: link.label,
     })),
     exercises: exercises.map((exercise) => {
       const tested = new Set(
@@ -220,24 +192,21 @@ export async function getKnowledgeMap(
           .filter((link) => link.exercise_id === exercise.id)
           .map((link) => link.kc_id),
       );
+      const question = chunkById.get(exercise.question_chunk_id);
       return {
         id: exercise.id,
-        name: exercise.name,
-        taskType: exercise.task_type,
+        name: question
+          ? `${question.materialName} p. ${question.pageFrom}`
+          : "Exercise",
         kcs: kcs.filter((kc) => tested.has(kc.id)).map((kc) => kc.id),
-        solutionStatus: z
-          .enum(SOLUTION_STATUSES)
-          .parse(exercise.solution_status),
         difficulty: z
           .union([z.literal(1), z.literal(2), z.literal(3)])
           .parse(exercise.difficulty),
-        question: chunkById.get(exercise.question_chunk_id)?.markdown ?? null,
-        // A generated solution is stored; a printed one is its paired chunk.
+        question: question?.markdown ?? null,
+        // A printed solution is the question's paired chunk.
         solution:
-          exercise.solution ??
           chunkById.get(pairedSolutions[exercise.question_chunk_id] ?? "")
-            ?.markdown ??
-          null,
+            ?.markdown ?? null,
       };
     }),
     checkReport: report && {

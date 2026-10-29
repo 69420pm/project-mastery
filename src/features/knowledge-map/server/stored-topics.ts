@@ -17,7 +17,7 @@ export async function loadStoredTopics(
     allRows("Loading the topics", (from, to) =>
       supabase
         .from("topics")
-        .select("id, big_idea_id, name, central_question, why_it_matters")
+        .select("id, big_idea_id, name, central_question")
         .eq("course_id", courseId)
         .order("position")
         .range(from, to),
@@ -37,7 +37,6 @@ export async function loadStoredTopics(
     bigIdea: topic.big_idea_id,
     name: topic.name,
     centralQuestion: topic.central_question,
-    whyItMatters: topic.why_it_matters,
     kcs: topicKcs
       .filter((row) => row.topic_id === topic.id)
       .map((row) => row.kc_id),

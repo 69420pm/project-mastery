@@ -15,9 +15,14 @@ values
 insert into public.courses (id, owner, name)
 values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines');
 
-insert into public.kcs (id, owner, course_id, name, description, type, bloom, origin, position)
+insert into public.big_ideas (id, owner, course_id, name, description, position)
+values ('9b9b9b9b-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+  'aaaaaaaa-0000-0000-0000-000000000001', 'Mechanics', 'Forces.', 0);
+
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position)
 values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'Newton''s laws', 'Force pairs.', 'prior', null, 'prior', 0);
+  'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
+  'Newton''s laws', 'Force pairs.', 'fact', 'content', 0);
 
 -- No built map: no run.
 set local role authenticated;

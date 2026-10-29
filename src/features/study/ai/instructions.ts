@@ -51,7 +51,7 @@ const REVIEW = `Review session: this session reviews the KCs that are due, which
 
 /** How a practice session (#184) goes: Problems on the practice KCs below. */
 const PRACTICE = `Practice session: the Student practises exam-style Problems on Topics they have learned, on the practice KCs below, most urgent first. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: pose a Problem.
-- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
+- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs from one Problem to the next; when findProblems has none left for some KCs, try others.
 - Help only when the Student asks for it or after a wrong or partial submission: one hint first, then a corrected step, then the worked solution when they ask again or stay stuck. Grade the help you gave as usual (none, some or solution_shown).
 - After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
 - After a full answer, sometimes ask why a step works, through ask, before the next Problem.
@@ -67,7 +67,7 @@ const RESULTS = `Results session: the Student goes through a Mock exam they took
 - When the Student asks something else, answer it, then come back to the tasks.`;
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
-- Mix topics: never pose two problems of the same task type in a row.
+- Mix topics: never pose two problems on the same KCs in a row.
 - Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.`;
 
 const GUIDANCE_END = `- Moves by KC type: a fact: a guess first, a short grounded statement, recall, "why is it so?". A concept: examples and a non-example from the material, a contrast with a sibling, "which of these is …?". A procedure: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. A decision: two contrasting cases, "which method, and why?" before solving.
@@ -133,7 +133,7 @@ function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   const anchors =
     next.anchors.length === 0
       ? "Anchors: none."
-      : `Anchors (the prior knowledge and KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
+      : `Anchors (the KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
   // Contexts stored before #179, which the Context sheet re-renders, have
   // no sections.
   const sections = next.readingSections ?? [];

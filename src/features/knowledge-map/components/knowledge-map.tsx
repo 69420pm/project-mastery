@@ -173,7 +173,7 @@ function selectedPanel({
   onSelect: (id: string) => void;
 }): { label: string; panel: ReactNode } | null {
   if (id === null) return null;
-  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+  const kcs = map.bigIdeas.flatMap((b) => b.kcs);
   const kc = kcs.find((k) => k.id === id);
   if (kc) {
     return {

@@ -9,11 +9,7 @@ import {
 /** A Course: chunks l1–l2 in "Lecture", l3 in "Sheet 1", e1–e2 in "Exam 2024". */
 function course(overrides: Partial<PriorityInput> = {}): PriorityInput {
   return {
-    kcs: ["a", "b", "c", "d"].map((id) => ({
-      id,
-      prior: false,
-      sources: ["l1"],
-    })),
+    kcs: ["a", "b", "c", "d"].map((id) => ({ id, sources: ["l1"] })),
     prerequisites: [],
     exercises: [],
     chunks: {
@@ -179,12 +175,12 @@ describe("priorities", () => {
     expect(result.a?.multiplier).toBe(1);
   });
 
-  test("exclude a non-prior KC taught only by excluded Materials", () => {
+  test("exclude a KC taught only by excluded Materials", () => {
     const input = course({
       kcs: [
-        { id: "a", prior: false, sources: ["l1", "l3"] },
-        { id: "b", prior: false, sources: ["l1", "e1"] },
-        { id: "c", prior: true, sources: ["l1"] },
+        { id: "a", sources: ["l1", "l3"] },
+        { id: "b", sources: ["l1", "e1"] },
+        { id: "c", sources: [] },
       ],
       exercises: [{ questionChunk: "l1", kcs: ["a", "b", "c"] }],
     });

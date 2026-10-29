@@ -95,7 +95,6 @@ function runInput({
     input: {
       kcs: map.kcs.map((kc) => ({
         id: kc.id,
-        prior: kc.origin === "prior",
         sources: kc.sources,
       })),
       prerequisites: map.prerequisites.map(({ from, to }) => ({ from, to })),

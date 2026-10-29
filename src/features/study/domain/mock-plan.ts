@@ -86,8 +86,6 @@ export type MockCandidate = {
   difficulty: number;
   /** Asked as a question already. */
   seen: boolean;
-  /** An Exercise whose given solution disagrees with the build's. */
-  disputed?: boolean;
   /** A Problem the Student flagged. */
   flagged?: boolean;
   /** An Exercise of the active reserved exam. */
@@ -99,7 +97,7 @@ export type MockCandidate = {
  * order (unseen old-exam Exercises, unseen Exercises, unseen ready variants,
  * unseen ready new Problems) that tests a KC of the slot's Topic, at the
  * nearest difficulty within that source, earlier candidates first on a tie.
- * Disputed, flagged, reserved and seen candidates never fill a slot, and no
+ * Flagged, reserved and seen candidates never fill a slot, and no
  * candidate fills two.
  */
 export function fillMock<Candidate extends MockCandidate>(
@@ -108,9 +106,7 @@ export function fillMock<Candidate extends MockCandidate>(
   candidates: Candidate[],
 ): Array<Candidate | null> {
   const used = new Set<string>();
-  const usable = candidates.filter(
-    (c) => !c.seen && !c.disputed && !c.flagged && !c.reserved,
-  );
+  const usable = candidates.filter((c) => !c.seen && !c.flagged && !c.reserved);
   return slots.map((slot) => {
     const kcs = topicKcs.get(slot.topicId) ?? [];
     const matching = usable.filter(
@@ -154,9 +150,7 @@ export type GapProblem =
 export function planGaps(
   slots: Array<MockSlot | null>,
   topicKcs: Map<string, string[]>,
-  exercises: Array<
-    Pick<MockCandidate, "id" | "kcs" | "difficulty" | "seen" | "disputed">
-  >,
+  exercises: Array<Pick<MockCandidate, "id" | "kcs" | "difficulty" | "seen">>,
   priorities: Record<string, number>,
 ): Array<{ slot: number; problem: GapProblem }> {
   const varied = new Set<string>();
@@ -166,7 +160,7 @@ export function planGaps(
     const kcs = topicKcs.get(slot.topicId) ?? [];
     let best: (typeof exercises)[number] | null = null;
     for (const exercise of exercises) {
-      if (!exercise.seen || exercise.disputed || varied.has(exercise.id)) {
+      if (!exercise.seen || varied.has(exercise.id)) {
         continue;
       }
       if (!exercise.kcs.some((kc) => kcs.includes(kc))) continue;
@@ -203,13 +197,6 @@ export function planGaps(
     }
   });
   return gaps;
-}
-
-/** The final mock: the reserved exam's non-disputed Exercises, in order. */
-export function planFinalMock<Exercise extends { disputed?: boolean }>(
-  examExercises: Exercise[],
-): Exercise[] {
-  return examExercises.filter((exercise) => !exercise.disputed);
 }
 
 /**

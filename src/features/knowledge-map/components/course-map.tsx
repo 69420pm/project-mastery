@@ -65,7 +65,7 @@ export function CourseMap({
   /** The study feature's Today card, shown above the graph. */
   today?: ReactNode;
 }) {
-  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
+  const kcs = map.bigIdeas.flatMap((b) => b.kcs);
   const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building || priorities.running);

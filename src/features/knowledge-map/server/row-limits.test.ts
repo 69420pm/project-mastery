@@ -55,7 +55,6 @@ function createDb() {
           name: `KC ${i}`,
           description: "",
           type: "concept",
-          bloom: null,
           origin: "content",
           position: i,
         }),
@@ -68,26 +67,12 @@ function createDb() {
           id: i,
           from_kc: kcId(i),
           to_kc: kcId((i + 1) % COUNT),
-          extraction_confidence: "1",
-        }),
-      ),
-      semantic_links: each((i) =>
-        ofCourse({
-          id: i,
-          from_kc: kcId(i),
-          to_kc: kcId((i + 2) % COUNT),
-          core_type: "causes",
-          label: "uses",
         }),
       ),
       exercises: each((i) =>
         ofCourse({
           id: `exercise-${n(i)}`,
           question_chunk_id: chunkId(i),
-          name: `Ex. ${i}`,
-          task_type: "compute",
-          solution_status: "generated",
-          solution: "42",
           difficulty: 1,
           position: i,
         }),
@@ -144,7 +129,6 @@ describe("past the row limit", () => {
       chunkId(COUNT - 1),
     ]);
     expect(view.prerequisites).toHaveLength(COUNT);
-    expect(view.semanticLinks).toHaveLength(COUNT);
     expect(view.exercises).toHaveLength(COUNT);
     expect(view.exercises.at(-1)).toMatchObject({
       kcs: [kcId(COUNT - 1)],

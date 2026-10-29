@@ -142,7 +142,7 @@ export type TutorToday = {
     centralQuestion: string;
     /** In teaching order; `taught` when it has an FSRS schedule. */
     kcs: Array<{ id: string; name: string; type: string; taught: boolean }>;
-    /** Prerequisites from outside the Topic, prior KCs included. */
+    /** Prerequisites from outside the Topic. */
     anchors: Array<{ id: string; name: string }>;
     /**
      * The Topic's Reading sections in order. Contexts stored before #179
@@ -189,8 +189,6 @@ export type ProblemView = {
    */
   source: ProblemSource;
   name: string;
-  /** Null for a generated Problem without one. */
-  taskType: string | null;
   /** 1 to 3. */
   difficulty: number;
   /** The question's Markdown. */

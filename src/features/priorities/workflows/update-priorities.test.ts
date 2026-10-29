@@ -32,7 +32,6 @@ function createDb() {
       kcs: [] as FakeRow[],
       kc_sources: [] as FakeRow[],
       prerequisite_links: [] as FakeRow[],
-      semantic_links: [] as FakeRow[],
       exercises: [] as FakeRow[],
       exercise_kcs: [] as FakeRow[],
       findings: [] as FakeRow[],
@@ -130,7 +129,6 @@ function seedCourse() {
     name,
     description: `${name}.`,
     type: "concept",
-    bloom: "apply",
     origin: "content",
     position,
   });
@@ -149,16 +147,11 @@ function seedCourse() {
     course_id: COURSE,
     from_kc: "k1",
     to_kc: "k2",
-    extraction_confidence: 0.9,
   });
   t.exercises.push({
     id: "x1",
     course_id: COURSE,
     question_chunk_id: EXAM,
-    name: "Ex. 1",
-    task_type: "compute thrust",
-    solution_status: "given",
-    solution: null,
     difficulty: 2,
     position: 0,
   });

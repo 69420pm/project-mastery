@@ -53,25 +53,19 @@ export const AI_TASKS = {
     fallbacks: [],
     override: "AI_MODEL_INGEST",
   },
-  /** Builds a Course's Knowledge map from its chunks, one call per step. */
+  /** Builds a Course's Knowledge map from its chunks. */
   map: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_MAP",
   },
-  /**
-   * One exercise subtask of a Knowledge map build: its KCs, task type and a
-   * solution to check the given one against. Calls add medium thinking.
-   */
+  /** The Exercises of a Knowledge map build and the KCs they test. */
   exercise: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_EXERCISE",
   },
-  /**
-   * One call per Big idea of a Knowledge map build that groups its new KCs
-   * into Topics, with structured output.
-   */
+  /** Names the Topics of a Knowledge map build, with structured output. */
   topic: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],

@@ -1,9 +1,4 @@
-import type {
-  BloomLevel,
-  KcType,
-  SemanticLinkType,
-  SolutionStatus,
-} from "@/features/knowledge-map/schemas";
+import type { KcType } from "@/features/knowledge-map/schemas";
 import type {
   CheckReportView,
   KcView,
@@ -18,22 +13,11 @@ export const TYPE_NAMES: Record<KcType, string> = {
   concept: "Concept",
   procedure: "Procedure",
   decision: "Decision",
-  prior: "Prior knowledge",
-};
-
-export const BLOOM_NAMES: Record<BloomLevel, string> = {
-  remember: "Remember",
-  understand: "Understand",
-  apply: "Apply",
-  analyze: "Analyze",
-  evaluate: "Evaluate",
-  create: "Create",
 };
 
 export const ORIGIN_NAMES: Record<KcView["origin"], string> = {
   content: "Taught by the materials",
   exercise: "Needed by an exercise the materials don't teach",
-  prior: "Assumed by the materials",
 };
 
 export const RESULT_NAMES: Record<MapAttempt["result"], string> = {
@@ -53,32 +37,6 @@ export const STATE_NAMES: Record<MapKcLearning[string]["state"], string> = {
   learning: "Learning",
   due: "Due",
   known: "Known",
-};
-
-export const SEMANTIC_LINK_NAMES: Record<SemanticLinkType, string> = {
-  is_a: "Is a",
-  part_of: "Part of",
-  contrasts_with: "Contrasts with",
-  causes: "Causes",
-  special_case_of: "Special case of",
-  applies_in: "Applies in",
-  other: "Other",
-};
-
-export const SOLUTION_STATUS_NAMES: Record<SolutionStatus, string> = {
-  given: "Given",
-  generated: "AI-generated",
-  verified: "Verified",
-  disputed: "Disputed",
-};
-
-/** What each solution status means for the Student. */
-export const SOLUTION_STATUS_NOTES: Record<SolutionStatus, string> = {
-  given: "From the Materials, not checked.",
-  generated: "The Materials have none, so the AI wrote one: check it yourself.",
-  verified: "From the Materials, and an AI solution agrees.",
-  disputed:
-    "From the Materials, but an AI solution disagrees: check it before relying on it.",
 };
 
 export const DIFFICULTY_NAMES: Record<1 | 2 | 3, string> = {

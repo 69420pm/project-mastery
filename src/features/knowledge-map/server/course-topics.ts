@@ -20,10 +20,9 @@ export type CourseTopic = {
   bigIdeaId: string;
   name: string;
   centralQuestion: string;
-  whyItMatters: string;
   /** In teaching order. */
   kcs: TopicKc[];
-  /** Prerequisites from outside the Topic, prior KCs included, in map order. */
+  /** Prerequisites from outside the Topic, in map order. */
   anchors: TopicKc[];
   /** The Topic's stored Reading sections, in order. */
   readingSections: ReadingSection[];
@@ -61,7 +60,6 @@ export async function loadCourseTopics(
     bigIdeaId: topic.bigIdea,
     name: topic.name,
     centralQuestion: topic.centralQuestion,
-    whyItMatters: topic.whyItMatters,
     kcs: topic.kcs.map(listed),
     anchors: topicAnchors(topic.kcs, map),
     readingSections: sections.get(topic.id) ?? [],

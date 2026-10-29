@@ -11,7 +11,6 @@ import {
   DIFFICULTY_NAMES,
   HELP_NAMES,
   RESULT_NAMES,
-  SOLUTION_STATUS_NOTES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import { exerciseAttempts } from "@/features/knowledge-map/domain/map-details";
 import type {
@@ -19,13 +18,12 @@ import type {
   KcView,
   MapKcLearning,
 } from "@/features/knowledge-map/types";
-import { SolutionBadge } from "./solution-badge";
 import { Fact, formatDate, NodeButton, None, Section } from "./panel-parts";
 
 /**
- * Every stat about one Exercise: its task type, difficulty and the KCs it
- * tests, its question, its solution with the solution's status, and the
- * Student's attempts at it. Clicking a KC calls `onSelect` with its id.
+ * Every stat about one Exercise: its difficulty and the KCs it tests, its
+ * question, its printed solution, and the Student's attempts at it.
+ * Clicking a KC calls `onSelect` with its id.
  */
 export function ExercisePanel({
   exercise,
@@ -47,7 +45,6 @@ export function ExercisePanel({
           <Markdown>{exercise.name}</Markdown>
         </div>
         <dl className="flex flex-col gap-1">
-          <Fact label="Task type">{exercise.taskType}</Fact>
           <Fact label="Difficulty">
             {DIFFICULTY_NAMES[exercise.difficulty]}
           </Fact>
@@ -79,12 +76,6 @@ export function ExercisePanel({
       </Section>
 
       <Section title="Solution">
-        <div className="flex flex-col gap-1">
-          <SolutionBadge status={exercise.solutionStatus} />
-          <p className="text-sm text-muted-foreground">
-            {SOLUTION_STATUS_NOTES[exercise.solutionStatus]}
-          </p>
-        </div>
         {exercise.solution ? (
           <Collapsible className="rounded-md border text-sm">
             <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2 text-left">
@@ -96,7 +87,7 @@ export function ExercisePanel({
             </CollapsibleContent>
           </Collapsible>
         ) : (
-          <None>No solution.</None>
+          <None>No solution in the Materials</None>
         )}
       </Section>
 

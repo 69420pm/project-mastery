@@ -10,7 +10,7 @@ export const id = (n: number) =>
 export const [LECTURE, NOTES] = [id(1), id(2)];
 // c1–c3 are Lecture 1's pages 1, 2–3 and 4; d1 is page 1 of the later Notes.
 export const [C1, C2, C3, D1] = [id(11), id(12), id(13), id(14)];
-export const [BIG_IDEA, K1, K2, PRIOR, EXERCISE] = [
+export const [BIG_IDEA, K1, K2, K3, EXERCISE] = [
   id(21),
   id(22),
   id(23),
@@ -23,7 +23,6 @@ const topicText = (name: string) => ({
   course_id: COURSE,
   name,
   central_question: `${name}?`,
-  why_it_matters: "It matters.",
 });
 
 export function createDb() {
@@ -120,13 +119,12 @@ export function createDb() {
       ]),
       kcs: ofCourse([
         {
-          id: PRIOR,
-          big_idea_id: null,
+          id: K3,
+          big_idea_id: BIG_IDEA,
           name: "Newton",
           description: "F = ma.",
-          type: "prior",
-          bloom: null,
-          origin: "prior",
+          type: "fact",
+          origin: "exercise",
           position: 2,
         },
         {
@@ -135,7 +133,6 @@ export function createDb() {
           name: "Thrust equation",
           description: "F = m(v2 - v1).",
           type: "procedure",
-          bloom: "apply",
           origin: "content",
           position: 1,
         },
@@ -145,7 +142,6 @@ export function createDb() {
           name: "Momentum",
           description: "m v.",
           type: "concept",
-          bloom: "understand",
           origin: "content",
           position: 0,
         },
@@ -155,21 +151,11 @@ export function createDb() {
         { kc_id: K1, chunk_id: C1 },
         { kc_id: K1, chunk_id: C2 },
       ]),
-      prerequisite_links: ofCourse([
-        // Postgres returns a numeric as text.
-        { id: 1, from_kc: K1, to_kc: K2, extraction_confidence: "0.8" },
-      ]),
-      semantic_links: ofCourse([
-        { id: 1, from_kc: K2, to_kc: K1, core_type: "causes", label: "uses" },
-      ]),
+      prerequisite_links: ofCourse([{ id: 1, from_kc: K1, to_kc: K2 }]),
       exercises: ofCourse([
         {
           id: EXERCISE,
           question_chunk_id: C3,
-          name: "Ex. 1",
-          task_type: "compute thrust",
-          solution_status: "generated",
-          solution: "F = 10 N.",
           difficulty: 2,
           position: 0,
         },

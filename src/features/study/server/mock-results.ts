@@ -71,20 +71,19 @@ export async function loadItemSource(
   if (item.exercise_id === null) return { reference: null, keys: null };
   const { data, error } = await supabase
     .from("exercises")
-    .select("solution, question_chunk_id, final_answers")
+    .select("question_chunk_id, final_answers")
     .eq("id", item.exercise_id)
     .maybeSingle();
   if (error) failed("Loading the item's Exercise", error);
   if (!data) return { reference: null, keys: null };
-  let reference = data.solution;
-  if (reference === null) {
-    const paired = (await loadExerciseSolutions(supabase, courseId))[
-      data.question_chunk_id
-    ];
-    if (paired) {
-      const [chunk] = await loadChunkSources(supabase, [paired]);
-      reference = chunk?.markdown ?? null;
-    }
+  // The printed solution, when the Materials have one.
+  let reference: string | null = null;
+  const paired = (await loadExerciseSolutions(supabase, courseId))[
+    data.question_chunk_id
+  ];
+  if (paired) {
+    const [chunk] = await loadChunkSources(supabase, [paired]);
+    reference = chunk?.markdown ?? null;
   }
   return { reference, keys: keysOf(data.final_answers) };
 }

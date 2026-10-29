@@ -51,12 +51,12 @@ test("colours follow the chosen attribute", () => {
     "var(--muted-foreground)",
   );
   expect(kcColor("bigIdea", kc, bigIdeas)).toBe("red");
-  expect(kcColor("bigIdea", { ...kc, bigIdeaId: null }, bigIdeas)).toBe(
+  expect(kcColor("bigIdea", { ...kc, bigIdeaId: "gone" }, bigIdeas)).toBe(
     "var(--muted-foreground)",
   );
 });
 
-test("the legend lists one entry per Big idea, plus prior knowledge", () => {
+test("the legend lists one entry per Big idea", () => {
   const entries = legendEntries(
     "bigIdea",
     [
@@ -66,11 +66,7 @@ test("the legend lists one entry per Big idea, plus prior knowledge", () => {
     TYPE_NAMES,
     STATE_NAMES,
   );
-  expect(entries.map((e) => e.label)).toEqual([
-    "Forces",
-    "Energy",
-    "Prior knowledge",
-  ]);
+  expect(entries.map((e) => e.label)).toEqual(["Forces", "Energy"]);
   expect(legendEntries("state", [], TYPE_NAMES, STATE_NAMES)).toHaveLength(4);
 });
 
@@ -82,15 +78,13 @@ test("saved settings fall back to the defaults when missing or invalid", () => {
     JSON.stringify({
       colorBy: "nonsense",
       sizeByPriority: true,
-      layers: { exercises: false, semanticLinks: { causes: false, is_a: 3 } },
+      layers: { exercises: false },
     }),
   );
   expect(parsed.colorBy).toBe("state");
   expect(parsed.sizeByPriority).toBe(true);
   expect(parsed.layers.exercises).toBe(false);
   expect(parsed.layers.prerequisites).toBe(true);
-  expect(parsed.layers.semanticLinks.causes).toBe(false);
-  expect(parsed.layers.semanticLinks.is_a).toBe(true);
 });
 
 test("a malformed saved `layers` falls back key by key", () => {
@@ -100,17 +94,12 @@ test("a malformed saved `layers` falls back key by key", () => {
     expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "bigIdea" });
   }
   const parsed = layers({
-    priorKnowledge: false,
     exercises: "false",
-    solutionBadges: false,
     prerequisites: 0,
     bigIdeaGroups: false,
-    semanticLinks: "none",
   });
   expect(parsed.layers).toEqual({
     ...DEFAULT_SETTINGS.layers,
-    priorKnowledge: false,
-    solutionBadges: false,
     bigIdeaGroups: false,
   });
 });

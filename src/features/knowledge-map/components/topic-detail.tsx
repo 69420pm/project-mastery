@@ -17,9 +17,8 @@ import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
 
 /**
  * A Topic's page: its name, Big idea, Topic state and recall today, central
- * question and why it matters,
- * its anchors (each linking to the Topic that holds it; prior knowledge is
- * plain text), its KCs in teaching order, its Reading sections and the
+ * question, its anchors (each linking to the Topic that holds it, or plain
+ * text without one), its KCs in teaching order, its Reading sections and the
  * Topics before and after it. Below sits the KC graph restricted to the
  * Topic and its anchors. `topics` are all the Course's Topics in Course
  * order; `map`, `priorities` and `learning` are what `KnowledgeMap` takes.
@@ -73,9 +72,6 @@ export function TopicDetail({
       <div className="flex max-w-3xl flex-col gap-4 text-sm">
         <Section title="Central question">
           <p>{topic.centralQuestion}</p>
-        </Section>
-        <Section title="Why it matters">
-          <p>{topic.whyItMatters}</p>
         </Section>
         {topic.anchors.length > 0 && (
           <Section title="Anchors">

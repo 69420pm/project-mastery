@@ -7,8 +7,6 @@
 /** A KC as the base reads it. */
 type PriorityKc = {
   id: string;
-  /** Prior knowledge, which no Brief exclusion removes. */
-  prior: boolean;
   /** The chunks that teach it. */
   sources: string[];
 };
@@ -134,7 +132,7 @@ function baseOf(factors: BaseFactors, hasExamPoints: boolean): number {
 }
 
 /**
- * The code exclusion: a non-prior KC whose source chunks all belong to
+ * The code exclusion: a KC whose source chunks all belong to
  * Materials the Brief excludes gets ×0, with the reason naming them. Null
  * for any other KC.
  */
@@ -143,7 +141,7 @@ function exclusionOf(
   input: Pick<PriorityInput, "chunks" | "materials">,
   excludedMaterialIds: ReadonlySet<string>,
 ): { multiplier: 0; reason: string } | null {
-  if (kc.prior || kc.sources.length === 0) return null;
+  if (kc.sources.length === 0) return null;
   const materialIds = kc.sources.map(
     (id) => input.chunks[id]?.materialId ?? "",
   );

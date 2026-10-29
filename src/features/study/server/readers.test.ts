@@ -20,7 +20,7 @@ const [PRIOR, THRUST, EFFICIENCY, NOZZLE] = [1, 2, 3, 4].map(
 const MAP = {
   bigIdeas: [{ id: "big", name: "Thrust generation" }],
   kcs: [
-    { id: PRIOR, name: "Newton's second law", type: "prior", bigIdea: null },
+    { id: PRIOR, name: "Newton's second law", type: "fact", bigIdea: "big" },
     { id: THRUST, name: "Thrust equation", type: "procedure", bigIdea: "big" },
     {
       id: EFFICIENCY,

@@ -38,7 +38,6 @@ async function seedReading(owner: string, courseId: string): Promise<string> {
     name: "Thrust equation",
     description: "Thrust is mass flow times the change in velocity.",
     type: "procedure",
-    bloom: "apply",
     origin: "content",
     position: 0,
   });
@@ -47,7 +46,6 @@ async function seedReading(owner: string, courseId: string): Promise<string> {
     big_idea_id: bigIdea,
     name: "Thrust basics",
     central_question: "What makes a rocket accelerate?",
-    why_it_matters: "Thrust drives every launch.",
     position: 0,
   });
   const link = await admin

@@ -25,7 +25,6 @@ const TABLES = [
   "kcs",
   "kc_sources",
   "prerequisite_links",
-  "semantic_links",
   "exercises",
   "exercise_kcs",
   "findings",
@@ -110,7 +109,6 @@ beforeEach(() => {
 
 const DRAFT = {
   change: "new_values",
-  taskType: "compute thrust",
   statement: "A turbojet takes in {{mass_flow}}. Compute the thrust.",
   solution: "The thrust is {{thrust_kN}}.",
   program: "mass_flow = 50 kg/s\nthrust_kN = to(mass_flow * 350 m/s, kN)",
@@ -172,7 +170,6 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       name: `KC ${id}`,
       description: `${id}.`,
       type: "concept",
-      bloom: "apply",
       origin: "content",
       position,
     });
@@ -182,7 +179,6 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       big_idea_id: "b1",
       name: `Topic ${position + 1}`,
       central_question: "Why?",
-      why_it_matters: "Planes.",
       position,
     });
     t.topic_kcs.push({
@@ -192,7 +188,7 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       position: 0,
     });
   });
-  const exercise = (id: string, kc: string, position: number, more = {}) => {
+  const exercise = (id: string, kc: string, position: number) => {
     t.chunks.push({
       id: `cccccccc-0000-4000-8000-00000000000${position}`,
       ...owned,
@@ -205,21 +201,15 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     t.exercises.push({
       id,
       ...owned,
-      name: `Ex. ${id}`,
       question_chunk_id: `cccccccc-0000-4000-8000-00000000000${position}`,
-      task_type: "compute thrust",
-      solution_status: "given",
-      solution: null,
       difficulty: 2,
       position,
       final_answers: null,
-      ...more,
     });
     t.exercise_kcs.push({ ...owned, exercise_id: id, kc_id: kc });
   };
   exercise("x1", "k1", 0);
   exercise("x2", "k2", 1);
-  exercise("x3", "k1", 2, { solution_status: "disputed" });
   const at = new Date(Date.now() - 3 * DAY_MS).toISOString();
   t.study_sessions.push({ id: "s0", ...owned, chat_id: null, ended_at: at });
   t.questions.push({
@@ -306,7 +296,7 @@ test("a mock without items left fails with the reason", async () => {
   expect(items()).toEqual([]);
 });
 
-test("in the final week with a reservation, the mock is that exam's non-disputed Exercises in order", async () => {
+test("in the final week with a reservation, the mock is that exam's Exercises in order", async () => {
   seedCourse({ exam: true });
   db.tables.briefs.push({
     ...owned,

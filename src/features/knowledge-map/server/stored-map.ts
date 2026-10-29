@@ -4,30 +4,12 @@ import {
   type KnowledgeMap,
 } from "@/features/knowledge-map/schemas";
 import { allRows } from "@/lib/supabase/all-rows";
-import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
+import type { Supabase } from "@/lib/supabase/types";
 
 /**
- * What an update reads of a Course's stored Knowledge map: the map itself,
- * with stored row ids as its ids, and the chunks earlier updates processed.
- * The build workflow reads them on the admin client, scoped to the Course,
- * and the Chat reads the map on the Student's session client.
+ * A Course's stored Knowledge map, with stored row ids as its ids. The Chat,
+ * the plan and the workflows read it.
  */
-
-/** The ids of the Course's chunks that an update has processed. */
-export async function loadProcessedChunkIds(
-  supabase: AdminSupabase,
-  courseId: string,
-): Promise<string[]> {
-  const rows = await allRows("Loading the processed chunks", (from, to) =>
-    supabase
-      .from("knowledge_map_chunks")
-      .select("chunk_id")
-      .eq("course_id", courseId)
-      .order("chunk_id")
-      .range(from, to),
-  );
-  return rows.map((row) => row.chunk_id);
-}
 
 /** A Finding the Student has answered in the Brief. */
 type AnsweredFinding = {
@@ -60,7 +42,6 @@ export async function loadStoredMap(
     kcs,
     sources,
     prerequisites,
-    semanticLinks,
     exercises,
     exerciseKcs,
     findings,
@@ -78,7 +59,7 @@ export async function loadStoredMap(
     allRows("Loading the KCs", (from, to) =>
       supabase
         .from("kcs")
-        .select("id, big_idea_id, name, description, type, bloom, origin")
+        .select("id, big_idea_id, name, description, type, origin")
         .eq("course_id", courseId)
         .order("position")
         .range(from, to),
@@ -95,15 +76,7 @@ export async function loadStoredMap(
     allRows("Loading the prerequisites", (from, to) =>
       supabase
         .from("prerequisite_links")
-        .select("from_kc, to_kc, extraction_confidence")
-        .eq("course_id", courseId)
-        .order("id")
-        .range(from, to),
-    ),
-    allRows("Loading the semantic links", (from, to) =>
-      supabase
-        .from("semantic_links")
-        .select("from_kc, to_kc, core_type, label")
+        .select("from_kc, to_kc")
         .eq("course_id", courseId)
         .order("id")
         .range(from, to),
@@ -111,9 +84,7 @@ export async function loadStoredMap(
     allRows("Loading the exercises", (from, to) =>
       supabase
         .from("exercises")
-        .select(
-          "id, question_chunk_id, name, task_type, solution_status, solution, difficulty, final_answers",
-        )
+        .select("id, question_chunk_id, difficulty, final_answers")
         .eq("course_id", courseId)
         .order("position")
         .range(from, to),
@@ -175,7 +146,6 @@ export async function loadStoredMap(
       name: kc.name,
       description: kc.description,
       type: kc.type,
-      bloom: kc.bloom,
       bigIdea: kc.big_idea_id,
       origin: kc.origin,
       sources: sources
@@ -185,21 +155,10 @@ export async function loadStoredMap(
     prerequisites: prerequisites.map((link) => ({
       from: link.from_kc,
       to: link.to_kc,
-      extractionConfidence: Number(link.extraction_confidence),
-    })),
-    semanticLinks: semanticLinks.map((link) => ({
-      from: link.from_kc,
-      to: link.to_kc,
-      coreType: link.core_type,
-      label: link.label,
     })),
     exercises: exercises.map((exercise) => ({
       id: exercise.id,
-      name: exercise.name,
       questionChunk: exercise.question_chunk_id,
-      taskType: exercise.task_type,
-      solutionStatus: exercise.solution_status,
-      solution: exercise.solution,
       difficulty: exercise.difficulty,
       kcs: exerciseKcs
         .filter((link) => link.exercise_id === exercise.id)

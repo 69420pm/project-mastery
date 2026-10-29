@@ -18,7 +18,6 @@ import {
   FlaskConicalOffIcon,
   UnlinkIcon,
   GitForkIcon,
-  LibraryIcon,
   LightbulbIcon,
   ListOrderedIcon,
   type LucideIcon,
@@ -27,10 +26,7 @@ import {
 import { useMemo } from "react";
 import { Markdown } from "@/components/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import type {
-  KcType,
-  SemanticLinkType,
-} from "@/features/knowledge-map/schemas";
+import type { KcType } from "@/features/knowledge-map/schemas";
 import {
   bigIdeaColors,
   type ColorBy,
@@ -67,7 +63,6 @@ import type {
   MapPriorities,
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
-import { SolutionBadge } from "./solution-badge";
 import { ZoomControls } from "./zoom-controls";
 
 const TYPE_ICONS: Record<KcType, LucideIcon> = {
@@ -75,7 +70,6 @@ const TYPE_ICONS: Record<KcType, LucideIcon> = {
   concept: LightbulbIcon,
   procedure: ListOrderedIcon,
   decision: GitForkIcon,
-  prior: LibraryIcon,
 };
 
 const BADGE_ICONS: Record<CheckBadgeKind, LucideIcon> = {
@@ -98,20 +92,6 @@ const STATE_MARKERS: Record<KcState, { name: string; className: string }> = {
 };
 
 /**
- * Each Semantic link type's colour, readable on both themes' canvas; "other"
- * stays neutral.
- */
-export const SEMANTIC_LINK_COLORS: Record<SemanticLinkType, string> = {
-  is_a: "oklch(0.6 0.16 265)",
-  part_of: "oklch(0.62 0.13 200)",
-  contrasts_with: "oklch(0.6 0.19 27)",
-  causes: "oklch(0.68 0.15 75)",
-  special_case_of: "oklch(0.6 0.17 320)",
-  applies_in: "oklch(0.6 0.14 150)",
-  other: "var(--muted-foreground)",
-};
-
-/**
  * `related`: highlighted by the focus without being the selected node.
  */
 type KcNodeData = {
@@ -130,7 +110,6 @@ type ExerciseNodeData = {
   exercise: ExerciseView;
   selected: boolean;
   related: boolean;
-  badge: boolean;
 };
 type KcNode = Node<KcNodeData, "kc">;
 type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
@@ -219,9 +198,9 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
   );
 }
 
-/** An Exercise: its name, difficulty and, if shown, its solution status. */
+/** An Exercise: its label and difficulty. */
 function ExerciseNodeView({ data }: NodeProps<ExerciseNode>) {
-  const { exercise, selected, related, badge } = data;
+  const { exercise, selected, related } = data;
   return (
     <>
       <Handles source={false} />
@@ -244,9 +223,8 @@ function ExerciseNodeView({ data }: NodeProps<ExerciseNode>) {
             <Markdown>{exercise.name}</Markdown>
           </span>
         </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="text-muted-foreground">
           {DIFFICULTY_NAMES[exercise.difficulty]}
-          {badge && <SolutionBadge status={exercise.solutionStatus} />}
         </span>
       </button>
     </>
@@ -306,25 +284,14 @@ function flowEdge(edge: MapGraphEdge, focus: Focus | null): Edge {
       };
     case "tests":
       return { ...common, style: { ...EDGE_STYLES.tests, ...width } };
-    case "semantic": {
-      const color = SEMANTIC_LINK_COLORS[edge.coreType];
-      return {
-        ...common,
-        label: edge.label,
-        style: { stroke: color, strokeDasharray: "6 4", ...width },
-        labelStyle: { fill: color, fontSize: 11 },
-        labelBgStyle: { fill: "var(--background)" },
-        markerEnd: { type: MarkerType.Arrow, color },
-      };
-    }
   }
 }
 
 /**
  * The Knowledge map as a graph laid out left to right in learning order,
  * with the layers `layers` switches on: each Big idea a box of its KCs,
- * prior knowledge leftmost, Exercises right of the KCs they test,
- * Prerequisites as arrows and Semantic links dashed. A skeleton shows until
+ * Exercises right of the KCs they test and Prerequisites as arrows. A
+ * skeleton shows until
  * the first layout. Clicking a KC, Exercise or Big idea calls `onSelect`
  * with its id, and clicking the empty canvas calls `onClear`.
  *
@@ -361,9 +328,7 @@ export function MapGraph({
   const { nodes, edges } = useMemo(() => {
     const layouts = laidOut ? nodeLayouts(laidOut) : new Map<string, never>();
     const kcs = new Map(
-      [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge].map(
-        (kc) => [kc.id, kc],
-      ),
+      map.bigIdeas.flatMap((b) => b.kcs).map((kc) => [kc.id, kc]),
     );
     const exercises = new Map(map.exercises.map((e) => [e.id, e]));
     const bigIdeaName = new Map(map.bigIdeas.map((b) => [b.id, b.name]));
@@ -438,7 +403,6 @@ export function MapGraph({
               exercise: exercises.get(node.id)!,
               selected,
               related,
-              badge: layers.solutionBadges,
             },
           };
         }
@@ -460,7 +424,7 @@ export function MapGraph({
               {
                 state,
                 type: kc.type,
-                bigIdeaId: kcBigIdea.get(node.id) ?? null,
+                bigIdeaId: kcBigIdea.get(node.id) ?? "",
                 fraction,
               },
               bigIdeaColor,
@@ -480,7 +444,6 @@ export function MapGraph({
     map,
     learning,
     priorities,
-    layers,
     colorBy,
     sizeByPriority,
     selectedId,

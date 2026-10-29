@@ -41,7 +41,7 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
       "Its KCs in teaching order:",
       "- Nozzle shape (id k1, concept; taught)",
       "- Exit velocity (id k2, procedure; not taught yet)",
-      "Anchors (the prior knowledge and KCs of other Topics it docks onto):",
+      "Anchors (the KCs of other Topics it docks onto):",
       "- Momentum (id p1)",
     ].join("\n"),
   );

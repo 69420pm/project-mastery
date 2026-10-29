@@ -10,7 +10,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  BLOOM_NAMES,
   checkFlags,
   HELP_NAMES,
   ORIGIN_NAMES,
@@ -26,8 +25,6 @@ import type {
 } from "@/features/knowledge-map/types";
 import { PriorityBadge, PriorityReasons, StateBadge } from "./kc-priority";
 import { Fact, formatDate, NodeButton, None, Section } from "./panel-parts";
-
-const percent = (value: number) => `${Math.round(value * 100)}%`;
 
 /** A KC named in the panel; clicking it selects that KC. */
 function KcButton({
@@ -59,12 +56,7 @@ export function KcPanel({
   priorities: MapPriorities;
   onSelect: (kcId: string) => void;
 }) {
-  const kcs = new Map(
-    [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge].map((k) => [
-      k.id,
-      k,
-    ]),
-  );
+  const kcs = new Map(map.bigIdeas.flatMap((b) => b.kcs).map((k) => [k.id, k]));
   const bigIdea = map.bigIdeas.find((b) => b.kcs.some((k) => k.id === kc.id));
   const learned = learning[kc.id];
   const priority = priorities.kcs[kc.id];
@@ -72,9 +64,6 @@ export function KcPanel({
   const attempted = attemptedExercises(learning);
   const needs = map.prerequisites.filter((link) => link.to === kc.id);
   const neededBy = map.prerequisites.filter((link) => link.from === kc.id);
-  const semantic = map.semanticLinks.filter(
-    (link) => link.from === kc.id || link.to === kc.id,
-  );
   const exercises = map.exercises.filter((e) => e.kcs.includes(kc.id));
   const flags = checkFlags(map.checkReport, kc.name);
 
@@ -89,7 +78,6 @@ export function KcPanel({
         </div>
         <dl className="flex flex-col gap-1">
           <Fact label="Type">{TYPE_NAMES[kc.type]}</Fact>
-          {kc.bloom && <Fact label="Bloom level">{BLOOM_NAMES[kc.bloom]}</Fact>}
           <Fact label="Origin">{ORIGIN_NAMES[kc.origin]}</Fact>
           {bigIdea && (
             <Fact label="Big idea">
@@ -158,57 +146,17 @@ export function KcPanel({
       <Section title="Links">
         <LinkList title="Needs" empty="No Prerequisites.">
           {needs.map((link) => (
-            <li key={link.from} className="flex gap-2">
+            <li key={link.from}>
               <KcButton kc={kcs.get(link.from)} onSelect={onSelect} />
-              <span className="text-muted-foreground">
-                {percent(link.confidence)} sure
-              </span>
             </li>
           ))}
         </LinkList>
         <LinkList title="Needed by" empty="No KC builds on it.">
           {neededBy.map((link) => (
-            <li key={link.to} className="flex gap-2">
+            <li key={link.to}>
               <KcButton kc={kcs.get(link.to)} onSelect={onSelect} />
-              <span className="text-muted-foreground">
-                {percent(link.confidence)} sure
-              </span>
             </li>
           ))}
-        </LinkList>
-        <LinkList title="Related" empty="No semantic links.">
-          {semantic.map((link, index) => {
-            // "this → label → other", or "other → label → this".
-            const outgoing = link.from === kc.id;
-            const label = (
-              <span className="text-muted-foreground">
-                {outgoing ? "→ " : ""}
-                <i>{link.label}</i>
-                {outgoing ? "" : " →"}
-              </span>
-            );
-            const other = (
-              <KcButton
-                kc={kcs.get(outgoing ? link.to : link.from)}
-                onSelect={onSelect}
-              />
-            );
-            return (
-              <li key={index} className="flex flex-wrap gap-x-2">
-                {outgoing ? (
-                  <>
-                    {label}
-                    {other}
-                  </>
-                ) : (
-                  <>
-                    {other}
-                    {label}
-                  </>
-                )}
-              </li>
-            );
-          })}
         </LinkList>
       </Section>
 
