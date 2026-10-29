@@ -722,6 +722,7 @@ export type Database = {
       };
       exercise_solutions: {
         Row: {
+          candidates_hash: string | null;
           course_id: string;
           created_at: string;
           exercise_chunk_id: string;
@@ -732,6 +733,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          candidates_hash?: string | null;
           course_id: string;
           created_at?: string;
           exercise_chunk_id: string;
@@ -741,6 +743,7 @@ export type Database = {
           status: string;
         };
         Update: {
+          candidates_hash?: string | null;
           course_id?: string;
           created_at?: string;
           exercise_chunk_id?: string;

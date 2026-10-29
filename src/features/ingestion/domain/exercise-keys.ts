@@ -1,5 +1,21 @@
-import { normalizeExerciseNumber } from "@/features/ingestion/domain/exercise-pairing";
 import type { ChunkLabel } from "@/features/ingestion/types";
+
+/**
+ * An exercise number as a comparable key: what comes before its first digit
+ * ("Aufgabe", "Lösung zu") is dropped, and the rest is read as its numbers
+ * and letters, so "7.2b" and "Aufgabe 7.2 b)" are both "7.2.b". Null
+ * without a number.
+ */
+export function normalizeExerciseNumber(number: string | null): string | null {
+  if (number === null) return null;
+  const text = number.normalize("NFKC").toLowerCase();
+  const firstDigit = text.search(/\d/);
+  if (firstDigit === -1) return null;
+  const parts = text.slice(firstDigit).match(/\d+|\p{L}+/gu) ?? [];
+  return parts
+    .map((part) => (/^\d+$/.test(part) ? String(Number(part)) : part))
+    .join(".");
+}
 
 /** A chunk of one Material, in reading order, as keying sees it. */
 export type KeyedChunk = { label: ChunkLabel; exerciseNumber: string | null };

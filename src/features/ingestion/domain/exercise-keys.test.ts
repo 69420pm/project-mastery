@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { joinUnits } from "@/features/ingestion/domain/chunk-joining";
 import {
   exerciseKeys,
+  normalizeExerciseNumber,
   rootKey,
 } from "@/features/ingestion/domain/exercise-keys";
 import type { ChunkLabel } from "@/features/ingestion/types";
@@ -46,6 +47,14 @@ test("b) on the page after its exercise keys under it", () => {
     { pageNumber: 2, units: [unit("b) Folgern Sie.", "b)")] },
   ]);
   expect(exerciseKeys(chunks)).toEqual(["7.2", "7.2.b"]);
+});
+
+test("a number is read the same however it is printed", () => {
+  expect(normalizeExerciseNumber("Aufgabe 7.2 b)")).toBe("7.2.b");
+  expect(normalizeExerciseNumber("Lösung zu 7.2(b)")).toBe("7.2.b");
+  expect(normalizeExerciseNumber("Exercise 7.2 B")).toBe("7.2.b");
+  expect(normalizeExerciseNumber("Task 03")).toBe("3");
+  expect(normalizeExerciseNumber("Teil b")).toBeNull();
 });
 
 test("the root of a key is its leading numbers", () => {

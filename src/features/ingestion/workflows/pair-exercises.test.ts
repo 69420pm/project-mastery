@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { MockEmbeddingModelV4 } from "ai/test";
 import sharp from "sharp";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
@@ -74,7 +75,7 @@ const pairByMarkdown =
   });
 
 describe("pairing exercises with solutions", () => {
-  test("pairs exercises with solutions in a separate Material by number", async () => {
+  test("pairs a solution sheet that covers the exercise sheet's keys, without a call", async () => {
     upload(SHEET, "Sheet 7");
     upload(SOLUTIONS, "Solutions 7");
     const { model, pairingPrompts } = pageModel([
@@ -166,9 +167,9 @@ describe("pairing exercises with solutions", () => {
     ]);
   });
 
-  test("pairs what numbers leave by content, and the rest has no solution", async () => {
+  test("pairs what keys leave by content, and an unchanged shortlist is not asked again", async () => {
     upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
+    upload(SOLUTIONS, "Sheet 7 Lösung");
     const { model, pairingPrompts } = pageModel(
       [
         {
@@ -206,12 +207,13 @@ describe("pairing exercises with solutions", () => {
         status: "paired",
       },
     ]);
-    // One content call, offered only what the numbers left.
+    // One content call, offered only what the keys left, each exercise
+    // with its candidates.
     expect(pairingPrompts).toHaveLength(1);
     const offered = sentPairing(pairingPrompts[0]);
-    expect(offered.exercises.map((e) => e.markdown)).toEqual([
-      "Bonus: compute pi to 3 digits.",
-      "Integrate x^2.",
+    expect(offered.exercises.map((e) => [e.markdown, e.candidates])).toEqual([
+      ["Bonus: compute pi to 3 digits.", ["s1"]],
+      ["Integrate x^2.", ["s1"]],
     ]);
     expect(offered.solutions.map((s) => s.markdown)).toEqual([
       "pi is about 3.14.",
@@ -222,21 +224,77 @@ describe("pairing exercises with solutions", () => {
       owner: STUDENT,
       task: "ingest",
     });
+
+    const stored = storedPairs(db);
+    await pairCourse(COURSE);
+    expect(pairingPrompts).toHaveLength(1);
+    expect(storedPairs(db)).toEqual(stored);
   });
 
-  test("with the Daily limit reached, what numbers leave has no solution, without a call", async () => {
+  test("an exercise without a candidate at cosine 0.5 has no solution, without a call", async () => {
     upload(SHEET, "Sheet 7");
     upload(SOLUTIONS, "Solutions 7");
     const { model, pairingPrompts } = pageModel([
       { units: [exercise(null, "Bonus task.")] },
+      { units: [solution(null, "Unrelated answer.")] },
+    ]);
+    // The two chunks point in orthogonal directions.
+    const embed = new MockEmbeddingModelV4({
+      doEmbed: async ({ values }) => ({
+        embeddings: values.map((value) =>
+          value.startsWith("Bonus") ? [1, 0, 0] : [0, 1, 0],
+        ),
+        usage: undefined,
+        warnings: [],
+      }),
+    });
+    useMockModels({ ingest: model, embed });
+
+    await parseMaterial(SHEET);
+    await parseMaterial(SOLUTIONS);
+
+    expect(pairingPrompts).toHaveLength(0);
+    expect(storedPairs(db)).toEqual([
+      { exercise: "Bonus task.", solution: null, status: "no_solution" },
+    ]);
+  });
+
+  test("asks about 10 exercises per call", async () => {
+    upload(SHEET, "Sheet 7");
+    upload(SOLUTIONS, "Solutions 7");
+    const tasks = Array.from({ length: 12 }, (_, i) => `Bonus task ${i}.`);
+    const { model, pairingPrompts } = pageModel([
+      { units: tasks.map((task) => exercise(null, task)) },
       { units: [solution(null, "Bonus answer.")] },
     ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(SHEET);
+    await parseMaterial(SOLUTIONS);
+
+    expect(
+      pairingPrompts.map((prompt) => sentPairing(prompt).exercises.length),
+    ).toEqual([10, 2]);
+  });
+
+  test("with the Daily limit reached, what keys leave has no solution, without a call", async () => {
+    upload(SHEET, "Sheet 7");
+    upload(SOLUTIONS, "Solutions 7");
+    const { model, pairingPrompts } = pageModel(
+      [
+        { units: [exercise(null, "Bonus task.")] },
+        { units: [solution(null, "Bonus answer.")] },
+      ],
+      pairByMarkdown([["Bonus task.", "Bonus answer."]]),
+    );
     useMockModels({ ingest: model });
     await parseMaterial(SHEET);
     await parseMaterial(SOLUTIONS);
     expect(pairingPrompts).toHaveLength(1);
 
-    // Spend the Daily limit, then pair again.
+    // The shortlist changes, the Daily limit is spent, and pairing runs
+    // again.
+    for (const row of db.tables.exercise_solutions) row.candidates_hash = null;
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
     db.tables.ai_usage.push({
       owner: STUDENT,

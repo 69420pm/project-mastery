@@ -24,6 +24,7 @@ import { generateSmoke } from "./smoke/generate";
 import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
+import { pairSmoke } from "./smoke/pair";
 import { parseSmoke } from "./smoke/parse";
 import { reviewSmoke } from "./smoke/review";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
@@ -32,6 +33,7 @@ import { tutorSmoke } from "./smoke/tutor";
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
 const CHECKS: SmokeCheck[] = [
   parseSmoke,
+  pairSmoke,
   briefSmoke,
   tutorSmoke,
   mapFindingsSmoke,

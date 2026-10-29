@@ -159,6 +159,7 @@ export function createParseDb({
                 exercise_chunk_id: pair.exercise_chunk_id,
                 solution_chunk_id: solution?.id ?? null,
                 status: solution ? "paired" : "no_solution",
+                candidates_hash: pair.candidates_hash ?? null,
               };
             }),
         ];
@@ -280,7 +281,12 @@ export const isPageCall = (prompt: unknown) =>
 
 /** What a content-matching call of pairing offered, by id. */
 export type SentPairing = {
-  exercises: Array<{ id: string; number: string | null; markdown: string }>;
+  exercises: Array<{
+    id: string;
+    number: string | null;
+    markdown: string;
+    candidates: string[];
+  }>;
   solutions: Array<{ id: string; number: string | null; markdown: string }>;
 };
 
