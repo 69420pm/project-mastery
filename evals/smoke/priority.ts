@@ -1,70 +1,79 @@
 import { updatePriorities } from "@/features/priorities/server";
-import { insertGoldMap } from "./gold-map";
+import { seedGoldCourse } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
-const NOTES =
-  "The lecturer stressed propulsive efficiency. Ramjets are not examined this year.";
-
 /**
- * Inserts the jet-engines gold map and a Brief whose notes stress
- * propulsive efficiency and drop ramjets, without model calls, then runs
- * the real `updatePriorities`, whose one call adjusts the multipliers.
+ * Seeds the gold course with Brief notes that stress a KC of its first Big
+ * idea and drop its last Big idea, without model calls, then runs the real
+ * `updatePriorities`, whose one call adjusts the multipliers.
  */
 export const prioritySmoke: SmokeCheck = {
   name: "priority",
-  usage: `pnpm smoke priority (the jet-engines gold map and a Brief with notes, then one priority run)`,
+  usage: `pnpm smoke priority (the gold course and a Brief with notes, then one priority run)`,
   // One adjustment call, with slack for a retry.
   maxCalls: 2,
   async run({ supabase, studentId }) {
-    const { data: course, error } = await supabase
-      .from("courses")
-      .insert({ owner: studentId, name: "Smoke check" })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    const owned = { owner: studentId, course_id: course.id };
-    const { gold, id } = await insertGoldMap(supabase, studentId, course.id);
-    const briefs = await supabase.from("briefs").insert({
-      ...owned,
-      notes: NOTES,
-      notes_updated_at: new Date().toISOString(),
-    });
+    const gold = await seedGoldCourse(supabase, studentId);
+    const { courseId } = gold;
+    const owned = { owner: studentId, course_id: courseId };
+    const stressed = gold.kcs.find(
+      (kc) => kc.bigIdeaId === gold.bigIdeas[0]?.id,
+    );
+    const dropped = gold.bigIdeas.at(-1);
+    if (!stressed || !dropped || dropped.id === gold.bigIdeas[0]?.id) {
+      throw new Error("The gold course needs 2 Big ideas.");
+    }
+    const notes = `The lecturer stressed ${stressed.name}. ${dropped.name} is not examined this year.`;
+    const briefs = await supabase
+      .from("briefs")
+      .update({ notes, notes_updated_at: new Date().toISOString() })
+      .eq("course_id", courseId);
     if (briefs.error) throw new Error(`briefs: ${briefs.error.message}`);
+    // The snapshot's run is done; this one is the Brief's.
+    const cleared = await supabase
+      .from("priority_runs")
+      .delete()
+      .eq("course_id", courseId);
+    if (cleared.error) throw new Error(cleared.error.message);
     const runs = await supabase
       .from("priority_runs")
       .insert({ ...owned, status: "running" });
     if (runs.error) throw new Error(`priority_runs: ${runs.error.message}`);
 
-    await updatePriorities(course.id);
+    await updatePriorities(courseId);
 
     const [run, stored] = await Promise.all([
       supabase
         .from("priority_runs")
         .select("status, failure_reason, adjustments")
-        .eq("course_id", course.id)
+        .eq("course_id", courseId)
         .single(),
       supabase
         .from("kc_priorities")
         .select("kc_id, priority, multiplier, reasons")
-        .eq("course_id", course.id),
+        .eq("course_id", courseId),
     ]);
     if (run.error) throw new Error(run.error.message);
     if (stored.error) throw new Error(stored.error.message);
+    console.info(`Notes: ${notes}`);
     console.info(`Adjustment: ${JSON.stringify(run.data.adjustments)}`);
     const byKc = new Map(stored.data.map((row) => [row.kc_id, row]));
-    const named = (pattern: RegExp) =>
-      gold.kcs
-        .filter((kc) => pattern.test(kc.name))
-        .map((kc) => ({ name: kc.name, row: byKc.get(id(kc.id)) }));
-    const efficiency = named(/propulsive efficiency/i);
-    const ramjet = named(/^ramjet$/i)[0];
-    const show = (kcs: typeof efficiency) =>
+    const show = (kcs: typeof gold.kcs) =>
       kcs
-        .map(
-          ({ name, row }) =>
-            `${name} ×${row?.multiplier} ${JSON.stringify(row?.reasons)}`,
-        )
+        .map((kc) => {
+          const row = byKc.get(kc.id);
+          return `${kc.name} ×${row?.multiplier} ${JSON.stringify(row?.reasons)}`;
+        })
         .join("; ");
+    const droppedKcs = gold.kcs.filter((kc) => kc.bigIdeaId === dropped.id);
+    const zeroed = droppedKcs.filter((kc) => {
+      const row = byKc.get(kc.id);
+      return (
+        Number(row?.priority) === 0 &&
+        Number(row?.multiplier) === 0 &&
+        (row?.reasons.length ?? 0) > 0
+      );
+    });
 
     return [
       result(
@@ -74,21 +83,18 @@ export const prioritySmoke: SmokeCheck = {
       ),
       result(
         "every KC has a priority",
-        gold.kcs.every((kc) => byKc.has(id(kc.id))),
+        gold.kcs.every((kc) => byKc.has(kc.id)),
         `${stored.data.length} of ${gold.kcs.length}`,
       ),
       result(
-        "a propulsive-efficiency KC gets a multiplier above 1",
-        efficiency.some(({ row }) => Number(row?.multiplier) > 1),
-        show(efficiency),
+        `${stressed.name} gets a multiplier above 1`,
+        Number(byKc.get(stressed.id)?.multiplier) > 1,
+        show([stressed]),
       ),
       result(
-        "the Ramjet KC gets 0, with a reason",
-        ramjet !== undefined &&
-          Number(ramjet.row?.priority) === 0 &&
-          Number(ramjet.row?.multiplier) === 0 &&
-          (ramjet.row?.reasons.length ?? 0) > 0,
-        ramjet && show([ramjet]),
+        `a KC of ${dropped.name} gets 0, with a reason`,
+        zeroed.length > 0,
+        show(droppedKcs.slice(0, 3)),
       ),
     ];
   },

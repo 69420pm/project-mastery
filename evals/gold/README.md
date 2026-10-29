@@ -29,13 +29,9 @@ Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use th
 
 Everything the pipeline stores for a Course: Materials and their pages, chunks with embeddings, the Knowledge map, Exercises, Findings, Topics, Reading sections, priorities and the Brief. It holds nothing a Student did (Chats, attempts, Memory, generated Problems, mock exams). A seed gives every row a new id, so it can be run again and in parallel Students. A new table with Course content must be added to `SNAPSHOT_TABLES`.
 
-## jet-engines
-
-The first gold course (`jet-engines/`) is a hand-checked fixture for the smoke checks (`pnpm smoke map`, `tutor` and others), without a snapshot.
-
 ## linear-algebra-I
 
-The gold course of the Knowledge map pipeline v2 (#222), which replaces `jet-engines/`. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
+The gold course of the Knowledge map pipeline v2 (#222). The smoke checks that need a built map (`tutor`, `generate`, `review`, `mock`, `grade-mock`, `close`, `map-findings`, `priority`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
 
 | File                | Pages of the script | What it holds                                                                                |
 | ------------------- | ------------------- | -------------------------------------------------------------------------------------------- |

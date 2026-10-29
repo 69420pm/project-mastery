@@ -14,34 +14,25 @@
  * database only; makes no model calls.
  */
 import { parseArgs } from "node:util";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import {
-  decodeSnapshot,
   encodeSnapshot,
-  examDateIn,
   extensionOf,
-  remapSnapshot,
   SNAPSHOT_TABLES,
   type Snapshot,
 } from "../gold-snapshot";
+import { GOLD_DIR, readSnapshot, seedSnapshot, table } from "./gold-seed";
 
-const GOLD_DIR = "evals/gold";
 const GOLD_EMAIL = process.env.GOLD_EMAIL ?? "gold@example.com";
 const GOLD_PASSWORD = process.env.GOLD_PASSWORD ?? "gold-password";
 const DEFAULT_EXAM_IN_DAYS = 42;
 const PAGE = 1000;
-const INSERT_BATCH = 100;
 
 type Row = Record<string, unknown>;
-
-// Table names here come from SNAPSHOT_TABLES, not from the generated types.
-function table(supabase: AdminSupabase, name: string) {
-  return supabase.from(name as "kcs");
-}
 
 async function readAll(
   supabase: AdminSupabase,
@@ -154,60 +145,19 @@ async function removeCourse(
 }
 
 async function seedCourse(slug: string, examInDays: number) {
-  const dir = path.join(GOLD_DIR, slug);
-  const snapshot = decodeSnapshot(
-    await readFile(path.join(dir, "snapshot.json.gz")),
-  );
+  const snapshot = await readSnapshot(slug);
   const supabase = createAdminClient();
   const studentId = await goldStudent(supabase);
   await removeCourse(supabase, studentId, snapshot.courseName);
-
-  const { data: course, error } = await supabase
-    .from("courses")
-    .insert({
-      owner: studentId,
-      name: snapshot.courseName,
-      pairing_requested: snapshot.pairingRequested,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  // Creating a Course may add its Brief; the snapshot's replaces it.
-  await supabase.from("briefs").delete().eq("course_id", course.id);
-
-  const { tables, materialIds } = remapSnapshot(snapshot, studentId, course.id);
-  for (const row of tables.briefs ?? []) {
-    row.exam_date = examDateIn(examInDays);
-  }
-  for (const { table: name } of SNAPSHOT_TABLES) {
-    const rows = tables[name] ?? [];
-    for (let i = 0; i < rows.length; i += INSERT_BATCH) {
-      const { error: insertError } = await table(supabase, name).insert(
-        rows.slice(i, i + INSERT_BATCH) as never,
-      );
-      if (insertError) throw new Error(`${name}: ${insertError.message}`);
-    }
-  }
-
-  const files = await readdir(path.join(dir, "materials"));
-  for (const material of tables.materials ?? []) {
-    const oldId = Object.keys(materialIds).find(
-      (id) => materialIds[id] === material.id,
-    ) as string;
-    const file = files.find((f) => f.startsWith(`${oldId}.`));
-    if (!file) throw new Error(`No file for Material ${oldId} in ${dir}`);
-    const { error: uploadError } = await supabase.storage
-      .from(MATERIALS_BUCKET)
-      .upload(
-        material.storage_path as string,
-        await readFile(path.join(dir, "materials", file)),
-        { contentType: material.media_type as string },
-      );
-    if (uploadError) throw new Error(uploadError.message);
-  }
+  const courseId = await seedSnapshot(
+    supabase,
+    slug,
+    snapshot,
+    studentId,
+    examInDays,
+  );
   console.info(
-    `Seeded "${snapshot.courseName}" for ${GOLD_EMAIL} (password ${GOLD_PASSWORD}), exam in ${examInDays} days: /courses/${course.id}/map`,
+    `Seeded "${snapshot.courseName}" for ${GOLD_EMAIL} (password ${GOLD_PASSWORD}), exam in ${examInDays} days: /courses/${courseId}/map`,
   );
 }
 
@@ -215,12 +165,10 @@ async function list() {
   const entries = await readdir(GOLD_DIR, { withFileTypes: true });
   for (const entry of entries.filter((e) => e.isDirectory())) {
     try {
-      const snapshot = decodeSnapshot(
-        await readFile(path.join(GOLD_DIR, entry.name, "snapshot.json.gz")),
-      );
+      const snapshot = await readSnapshot(entry.name);
       console.info(`${entry.name}: "${snapshot.courseName}"`);
     } catch {
-      // A folder without a snapshot, such as the jet-engines fixtures.
+      // A folder without a snapshot yet, before its gold run.
     }
   }
 }

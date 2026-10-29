@@ -31,7 +31,6 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
   { table: "kcs" },
   { table: "kc_sources" },
   { table: "prerequisite_links" },
-  { table: "semantic_links" },
   { table: "exercises" },
   { table: "exercise_kcs" },
   { table: "exercise_solutions" },

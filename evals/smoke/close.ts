@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { closeStudySession, pinnedLines } from "@/features/study/server";
+import { insertRows, seedGoldCourse } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
-import { insertGoldCourse, insertRows } from "./tutor";
 
 const PINS = [
   "!Never explain with car analogies, they confuse me.",
@@ -25,56 +25,48 @@ function longMemory(): string {
   return lines.join("\n");
 }
 
-const MESSAGES = [
-  ["user", "Let's start studying."],
-  [
-    "assistant",
-    "Today is Thrust from momentum. Question: why does a jet engine produce thrust?",
-  ],
-  [
-    "user",
-    "Because the hot exhaust pushes against the still air behind the engine.",
-  ],
-  [
-    "assistant",
-    "Not quite: the engine pushes air backwards and, by Newton's third law, the air pushes the engine forwards. Thrust is the change in the air's momentum per second. Try again.",
-  ],
-  [
-    "user",
-    "Ok, so thrust is mass flow times the change in velocity, F = m (Ve - V0). I prefer to see a worked number first.",
-  ],
-  [
-    "assistant",
-    "Yes. With 50 kg/s, Ve = 600 m/s and V0 = 200 m/s that is 20 kN.",
-  ],
-] as const;
+const WRONG_ANSWER = "I'm not sure, I think it is just a name to memorise.";
+
+/** Six messages of a short session on `topic`, built from its first KC. */
+function messages(
+  topic: { name: string; centralQuestion: string },
+  kc: { name: string; description: string },
+) {
+  return [
+    ["user", "Let's start studying."],
+    ["assistant", `Today is ${topic.name}. Question: ${topic.centralQuestion}`],
+    ["user", WRONG_ANSWER],
+    ["assistant", `Not quite: ${kc.description} Try again.`],
+    [
+      "user",
+      `Ok, so ${kc.name}: ${kc.description} I prefer to see a worked example first.`,
+    ],
+    ["assistant", "Yes, exactly."],
+  ] as const;
+}
 
 /**
- * The gold Course with a short ended learn session on its first Topic (six
- * messages, one graded Question with two KCs) and a Memory of about 3,100
- * characters with two pinned lines. The real `closeStudySession` runs in
- * process once (one model call). Checks that the session has a two-line
- * note, that the Topic has a note of at most 1,500 characters and that
- * every pinned line is still in the Memory.
+ * The gold course with a short ended learn session on its first Topic (six
+ * messages, one Question on two of its KCs, graded wrong) and a Memory of
+ * about 3,100 characters with two pinned lines. The real
+ * `closeStudySession` runs in process once (one model call). Checks that
+ * the session has a two-line note, that the Topic has a note of at most
+ * 1,500 characters and that every pinned line is still in the Memory.
  */
 export const closeSmoke: SmokeCheck = {
   name: "close",
   usage:
-    "pnpm smoke close (the gold Course with an ended learn session and a Memory over 3,000 characters with two pinned lines, closed once)",
+    "pnpm smoke close (the gold course with an ended learn session and a Memory over 3,000 characters with two pinned lines, closed once)",
   // The spec's budget: the one close call.
   maxCalls: 1,
   async run({ supabase, studentId }) {
-    const { courseId, id } = await insertGoldCourse(supabase, studentId);
-    const topics = await supabase
-      .from("topics")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("position")
-      .limit(1);
-    if (topics.error || !topics.data[0]) {
-      throw new Error(`The gold Course has no Topic: ${topics.error?.message}`);
-    }
-    const topic = topics.data[0];
+    const gold = await seedGoldCourse(supabase, studentId);
+    const { courseId } = gold;
+    const topic = gold.topics[0];
+    if (!topic) throw new Error("The gold course has no Topic.");
+    const kcs = topic.kcs.slice(0, 2);
+    const firstKc = gold.kcs.find((kc) => kc.id === kcs[0]);
+    if (!firstKc) throw new Error("The gold course's first Topic has no KC.");
 
     const chatId = randomUUID();
     await insertRows(supabase, "chats", [
@@ -94,7 +86,7 @@ export const closeSmoke: SmokeCheck = {
     await insertRows(
       supabase,
       "chat_messages",
-      MESSAGES.map(([role, text], index) => ({
+      messages(topic, firstKc).map(([role, text], index) => ({
         chat_id: chatId,
         role,
         model_id: role === "assistant" ? "mock" : null,
@@ -105,7 +97,6 @@ export const closeSmoke: SmokeCheck = {
       })),
     );
 
-    const kcs = ["KC05", "KC06"];
     const questionId = randomUUID();
     await insertRows(supabase, "questions", [
       {
@@ -113,10 +104,9 @@ export const closeSmoke: SmokeCheck = {
         owner: studentId,
         session_id: sessionId,
         kind: "question",
-        prompt: "Why does a jet engine produce thrust?",
+        prompt: topic.centralQuestion,
         asked_at: started,
-        answer_text:
-          "Because the hot exhaust pushes against the still air behind the engine.",
+        answer_text: WRONG_ANSWER,
         answered_at: started,
         graded_at: started,
       },
@@ -124,7 +114,7 @@ export const closeSmoke: SmokeCheck = {
     await insertRows(
       supabase,
       "question_kcs",
-      kcs.map((kc) => ({ question_id: questionId, kc_id: id(kc) })),
+      kcs.map((kc) => ({ question_id: questionId, kc_id: kc })),
     );
     await insertRows(
       supabase,
@@ -133,7 +123,7 @@ export const closeSmoke: SmokeCheck = {
         owner: studentId,
         question_id: questionId,
         session_id: sessionId,
-        kc_id: id(kc),
+        kc_id: kc,
         kind: "learn",
         result: "wrong",
         help: "none",
