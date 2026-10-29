@@ -32,3 +32,13 @@ Everything the pipeline stores for a Course: Materials and their pages, chunks w
 ## jet-engines
 
 The first gold course (`jet-engines/`) is a hand-checked fixture for the smoke checks (`pnpm smoke map`, `tutor` and others), without a snapshot.
+
+## linear-algebra-I
+
+The gold course of the Knowledge map pipeline v2 (#222), which replaces `jet-engines/`. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
+
+| File                | Pages of the script | What it holds                                                                                |
+| ------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `lecture-notes.pdf` | 1–38                | Course information (admission, exam format and dates) and Chapters 1–7                       |
+| `exercises.pdf`     | 39–44               | Exercises 1–25; solutions to the 11 marked (S); printed results for Exercises 7 and 17       |
+| `past-exams.pdf`    | 45–55               | Final and Resit exam of winter term 2025/26, 6 problems each, each followed by its solutions |
