@@ -21,7 +21,7 @@ What a Student told the AI about a Course's exam: its date, their goal, weekly h
 _Avoid_: Preferences, intake form, onboarding
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components and Prerequisites, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -33,7 +33,7 @@ One of the few main themes of a Course's Knowledge map, which groups its Knowled
 _Avoid_: Theme, chapter, module
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Prior knowledge is a KC the Materials assume but do not teach.
+One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Every KC sits in one Big idea.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
@@ -52,12 +52,8 @@ _Avoid_: Passage, excerpt, reading
 A link saying one KC must be learned before another. The Prerequisites of a Knowledge map form no cycle.
 _Avoid_: Dependency, requirement
 
-**Semantic link**:
-A named relation between two KCs, such as "is a" or "contrasts with", that orders no learning.
-_Avoid_: Relation, edge, association
-
 **Exercise**:
-One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a task type, a difficulty and whether its solution was verified, disputed or generated. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
+One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers and the solution printed in the Materials, if any. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
 _Avoid_: Task, assignment
 
 **Problem**:
