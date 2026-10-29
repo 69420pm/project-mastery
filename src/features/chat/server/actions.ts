@@ -99,8 +99,7 @@ export async function deleteChat(input: {
 
 /**
  * A source of the Course for the source pane, read as the Student: a
- * Reading section with its mode and texts, or a cited chunk's Material and
- * pages. A source of another Course, or another Student's, is not found.
+ * Reading section's or a cited chunk's Material and pages. A source of another Course, or another Student's, is not found.
  */
 export async function openSource(input: {
   courseId: string;
@@ -123,11 +122,6 @@ export async function openSource(input: {
         materialName: section.materialName,
         pageFrom: section.pageFrom,
         pageTo: section.pageTo,
-        reading: {
-          mode: section.mode,
-          annotations: section.annotations,
-          studyText: section.studyText,
-        },
       },
     };
   }
@@ -140,7 +134,6 @@ export async function openSource(input: {
       materialName: chunk.materialName,
       pageFrom: chunk.pageFrom,
       pageTo: chunk.pageTo,
-      reading: null,
     },
   };
 }

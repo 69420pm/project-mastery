@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { materialChunksPath } from "@/features/courses/server";
 import { chunkAnchor } from "@/features/ingestion/server";
+import { readingSectionId } from "@/features/knowledge-map/domain/topic-reading";
 import type { Supabase } from "@/lib/supabase/types";
 import {
   BIG_IDEA,
@@ -9,6 +10,7 @@ import {
   C2,
   C3,
   COURSE,
+  D1,
   createDb,
   EXERCISE,
   id,
@@ -152,20 +154,17 @@ describe("loadCourseTopics", () => {
         anchors: [],
         readingSections: [
           {
-            id: id(51),
+            id: readingSectionId(T1, {
+              materialId: LECTURE,
+              pageFrom: 1,
+              pageTo: 3,
+            }),
             materialId: LECTURE,
             materialName: "Lecture 1",
             pageFrom: 1,
             pageTo: 3,
             chunkIds: [C1, C2],
-            mode: "annotated",
-            reason: "Reason.",
-            annotations: [
-              { page: 2, note: "Momentum is mass times velocity." },
-            ],
-            studyText: null,
           },
-          expect.objectContaining({ id: id(52), mode: "original" }),
         ],
       },
       expect.objectContaining({
@@ -173,18 +172,30 @@ describe("loadCourseTopics", () => {
         kcs: [{ id: K2, name: "Thrust equation" }],
         anchors: [{ id: K1, name: "Momentum" }],
         readingSections: [
-          expect.objectContaining({
-            chunkIds: [C2],
-            mode: "study_text",
-            studyText: "Text. [p. 2]",
-          }),
+          expect.objectContaining({ chunkIds: [C2], pageFrom: 2, pageTo: 3 }),
         ],
       }),
     ]);
   });
 
-  test("gives a Topic without stored sections none", async () => {
-    db.tables.reading_sections = [];
+  test("keeps section ids across reads and over an unrelated map update", async () => {
+    const ids = async () =>
+      (await loadCourseTopics(COURSE)).map((topic) =>
+        topic.readingSections.map((section) => section.id),
+      );
+    const before = await ids();
+    expect(await ids()).toEqual(before);
+
+    // Thrust equation now also cites a page of the later Notes.
+    db.tables.kc_sources.push({ course_id: COURSE, kc_id: K2, chunk_id: D1 });
+    const after = await ids();
+    expect(after[0]).toEqual(before[0]);
+    expect(after[1]).toEqual([before[1]![0], expect.any(String)]);
+    expect(after[1]![1]).not.toBe(before[1]![0]);
+  });
+
+  test("gives a Topic whose KCs cite no chunk no sections", async () => {
+    db.tables.kc_sources = [];
     const topics = await loadCourseTopics(COURSE);
     expect(topics.map((topic) => topic.readingSections)).toEqual([[], []]);
   });

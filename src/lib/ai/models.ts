@@ -72,15 +72,6 @@ export const AI_TASKS = {
     override: "AI_MODEL_TOPIC",
   },
   /**
-   * Two calls per new Reading section of a Knowledge map build: its reading
-   * mode, then its annotations or study text, with structured output.
-   */
-  reading: {
-    model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: [],
-    override: "AI_MODEL_READING",
-  },
-  /**
    * One call per generated Problem, a variant of an Exercise or a new
    * Problem, with structured output and medium thinking; a draft whose
    * program fails goes back once.

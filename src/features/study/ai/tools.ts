@@ -139,11 +139,6 @@ export type QuestionToGrade = {
   finalAnswers: FinalAnswer[] | null;
 };
 
-/** A stored Reading section as `showReading` reads it. */
-export type ReadingToShow = Omit<ReadingView, "studyText"> & {
-  studyText: string | null;
-};
-
 /** What the numeric check found: null when it didn't apply. */
 export type FinalValueCheck = "match" | "mismatch" | null;
 
@@ -278,7 +273,7 @@ export type TutorToolActions = {
     kcIds: string[],
   ) => Promise<{ problems: ProblemView[]; note?: string }>;
   /** A Reading section of the Course; null for any other id. */
-  findReading: (sectionId: string) => Promise<ReadingToShow | null>;
+  findReading: (sectionId: string) => Promise<ReadingView | null>;
   /** Appends one line to the Course's Memory. */
   remember: (text: string) => Promise<void>;
   /**
@@ -389,7 +384,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     showReading: tool({
       description:
-        "Open a Reading section of the course's pages for the Student to read, with the question they read it for: it shows on a reading card, opens the pages beside the Chat and ends your reply. Write a short lead-in first, and don't repeat the question in your text. Returns the section's label, its mode, its chunks' Markdown in order and, in study_text mode, the study text the Student reads, so you can ask about what they read.",
+        "Open a Reading section of the course's pages for the Student to read, with the question they read it for: it shows on a reading card, opens the pages beside the Chat and ends your reply. Write a short lead-in first, and don't repeat the question in your text. Returns the section's label and its chunks' Markdown in order, so you can ask about what they read.",
       inputSchema: showReadingInputSchema,
       execute: async ({ sectionId }) => showReading(actions, sectionId),
     }),
@@ -409,10 +404,7 @@ export function tutorTools(actions: TutorToolActions) {
   };
 }
 
-/**
- * The `showReading` call: a Reading section of the Course, with its study
- * text only when the Student reads that.
- */
+/** The `showReading` call: a Reading section of the Course. */
 async function showReading(
   actions: TutorToolActions,
   sectionId: string,
@@ -423,10 +415,7 @@ async function showReading(
       `${sectionId} is no Reading section of this Course: use a section id listed for the next Topic.`,
     );
   }
-  const { studyText, ...reading } = section;
-  return reading.mode === "study_text" && studyText !== null
-    ? { ...reading, studyText }
-    : reading;
+  return section;
 }
 
 /** Lower case with whitespace collapsed, as `flagMap` compares quotes. */

@@ -49,7 +49,7 @@ Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS
 _Avoid_: Topic status, Topic progress
 
 **Reading section**:
-A part of a Topic's source pages, about one to three pages in Material order, stored per Course with a reading mode: `original` (the pages as they are), `annotated` (the pages with notes on their gaps) or `study_text` (a text written from them).
+A part of a Topic's source pages, about one to three pages in Material order, cut when read from the chunks its KCs cite. The Student reads the pages as they are.
 _Avoid_: Passage, excerpt, reading
 
 **Prerequisite**:
@@ -117,7 +117,7 @@ One ongoing conversation between a Student and the AI within one Course, kept un
 _Avoid_: Conversation, thread
 
 **Source pane**:
-The pane beside a Chat that shows one thing at a time: a Material's own pages, a Reading section in its reading mode, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
+The pane beside a Chat that shows one thing at a time: a Material's own pages, at a Reading section or a citation, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:

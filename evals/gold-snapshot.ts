@@ -36,7 +36,6 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
   { table: "exercise_solutions" },
   { table: "topics" },
   { table: "topic_kcs", parent: { table: "topics", column: "topic_id" } },
-  { table: "reading_sections" },
   { table: "briefs" },
   { table: "brief_excluded_materials" },
   { table: "exam_scopes" },
@@ -89,8 +88,8 @@ function replaceIds(value: unknown, ids: Map<string, string>): unknown {
 
 /**
  * The snapshot's rows for a new Student and Course. Every row id gets a new
- * id, and each place that holds an old id (foreign keys, `chunk_ids` arrays,
- * ids inside jsonb) is rewritten to match; `owner`, `course_id` and each
+ * id, and each place that holds an old id (foreign keys, ids inside jsonb)
+ * is rewritten to match; `owner`, `course_id` and each
  * Material's `storage_path` point at the new Student and Course. Returns the
  * new ids of the Materials by old id, which name the files to upload.
  */

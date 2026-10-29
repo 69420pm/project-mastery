@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { readingSections, topicAnchors, type ChunkSpan } from "./topic-reading";
+import {
+  readingSectionId,
+  readingSections,
+  topicAnchors,
+  topicReadingSections,
+  type ChunkSpan,
+} from "./topic-reading";
 
 const span = (
   id: string,
@@ -94,5 +100,24 @@ describe("readingSections", () => {
 
   test("is empty without cited chunks", () => {
     expect(readingSections([], [span("a", "m1", 1)])).toEqual([]);
+  });
+});
+
+describe("readingSectionId", () => {
+  const DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+
+  test("is the UUID v5 of the Material and pages in the Topic's namespace", () => {
+    // Python: uuid.uuid5(uuid.NAMESPACE_DNS, "x:1-1")
+    expect(
+      readingSectionId(DNS, { materialId: "x", pageFrom: 1, pageTo: 1 }),
+    ).toBe("596cc3a2-cf78-5da4-84e0-a52b5d9a51cd");
+  });
+
+  test("changes with the pages, not with the chunks", () => {
+    const [one] = topicReadingSections(DNS, ["a"], [span("a", "m1", 1)]);
+    const [same] = topicReadingSections(DNS, ["b"], [span("b", "m1", 1)]);
+    const [other] = topicReadingSections(DNS, ["a"], [span("a", "m1", 1, 2)]);
+    expect(same!.id).toBe(one!.id);
+    expect(other!.id).not.toBe(one!.id);
   });
 });

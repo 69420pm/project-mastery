@@ -37,7 +37,6 @@ const COURSE_TABLES = [
   "chunks",
   "memories",
   "topics",
-  "reading_sections",
   "map_findings",
   "problems",
   "problem_kcs",
@@ -88,7 +87,6 @@ function createDb() {
       topic_notes: [],
       topic_kcs: [],
       topic_choices: [],
-      reading_sections: [],
       map_findings: [],
       problems: [],
       problem_kcs: [],
@@ -97,7 +95,6 @@ function createDb() {
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
       chunks: { material_id: "materials" },
-      reading_sections: { material_id: "materials" },
       topic_kcs: { topic_id: "topics" },
       topic_choices: { topic_id: "topics" },
       questions: {
@@ -444,6 +441,8 @@ export const MAP = {
   efficiency: "aaaaaaaa-0000-4000-8000-000000000003",
   /** The one Topic, holding thrust then efficiency. */
   topic: "aaaaaaaa-7000-4000-8000-000000000001",
+  /** The Topic's one Reading section, over both chunks, pp. 3–5. */
+  section: "e87776f6-8933-50bb-99f7-f7c34c83ee12",
   material: "aaaaaaaa-a000-4000-8000-000000000001",
   chunks: [
     "aaaaaaaa-c400-4000-8000-000000000001",
@@ -496,6 +495,7 @@ export function seedMap() {
     ...owned,
     id: MAP.material,
     name: "Lecture 7",
+    parse_status: "parsed",
     created_at: "2025-12-01T00:00:00.000Z",
   });
   MAP.chunks.forEach((id, position) => {

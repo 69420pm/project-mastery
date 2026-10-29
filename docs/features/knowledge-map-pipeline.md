@@ -12,7 +12,7 @@ flowchart LR
   pair --> chunks
   press([Build or Update map]) --> build[buildKnowledgeMap<br/>per Course]
   chunks --> build
-  build --> map[(Knowledge map,<br/>Topics, Reading sections)]
+  build --> map[(Knowledge map,<br/>Topics)]
   brief([Message in the Brief]) --> reply[Brief reply<br/>streamed]
   reply --> briefRows[(briefs, old exams,<br/>exam scopes)]
   map --> reply
@@ -74,7 +74,7 @@ A step runs passes until every subtask has a row, at most 3, then throws and ret
 
 **Map Findings** come from tutoring: the tutor's `flagMap` tool files a `missing_link`, `wrong_link` or `wrong_description` in `map_findings` with a quote that code checks is in the cited chunk, and the Student accepts or dismisses it on the Course map (`answerMapFinding`).
 
-**Read:** `loadCourseTopics(courseId)` returns the Topics in Course order with their KCs in teaching order, their anchors (Prerequisites of their KCs from outside the Topic, in map order, derived on each read) and their stored Reading sections. An Exercise's label is "<Material> p. N" of its question chunk, and its solution is the paired solution chunk's Markdown, or none.
+**Read:** `loadCourseTopics(courseId)` returns the Topics in Course order with their KCs in teaching order, their anchors (Prerequisites of their KCs from outside the Topic, in map order, derived on each read) and their Reading sections, cut on each read from the chunks their KCs cite, with UUID v5 ids of Topic, Material and pages. An Exercise's label is "<Material> p. N" of its question chunk, and its solution is the paired solution chunk's Markdown, or none.
 
 ## 3. Brief
 
@@ -125,13 +125,12 @@ Every table has an `owner` and Row Level Security; Students read their own rows,
 | `exercises`, `exercise_kcs`                            | The build                                               | Exercises with difficulty and `final_answers`, and their KCs                                                                          |
 | `map_findings`                                         | The tutor (`flagMap`), the Student (`answerMapFinding`) | The tutor's map Findings                                                                                                              |
 | `topics`, `topic_kcs`                                  | The build                                               | Topics in Course order with central question, their KCs in teaching order                                                             |
-| `reading_sections`                                     | The build                                               | Each Topic's sections: Material, pages, chunks, mode, reason, `annotations` or `study_text`                                           |
 | `briefs`, `brief_excluded_materials`, `brief_messages` | The Brief                                               | Exam facts, notes, reservation, excluded Materials, the conversation                                                                  |
 | `exam_scopes`                                          | The Brief (`set_exam_scope`)                            | One exam scope per Big idea or Topic, `excluded` or `emphasized`, in the Student's words                                              |
 | `materials.is_exam`, `materials.exam_asked`            | The Brief (`save_brief`)                                | Which Materials are old exams, and which the Brief has asked about                                                                    |
 | `ai_usage`                                             | Every model call                                        | Task, model, tokens and cost per call                                                                                                 |
 
-Deleting a Material cascades its pages, chunks, their pairs, sources and processed marks, and its Reading sections; the map itself changes only at the next Update map. Deleting a Course cascades everything.
+Deleting a Material cascades its pages, chunks, their pairs, sources and processed marks; the map itself changes only at the next Update map. Deleting a Course cascades everything.
 
 ## Where to change things
 
@@ -142,7 +141,7 @@ Deleting a Material cascades its pages, chunks, their pairs, sources and process
 ## Checks
 
 - `pnpm test:run` runs the workflows in-process against `fakeSupabase` and mock models, with the helpers in `parse-testing.ts` and `handler-testing.ts`: the parse (`parse-material*.test.ts`, `chunk-material`, `embed-chunks`, `pair-exercises`) and the Brief handler (`handler*.test.ts`). The pure rules have tests beside them in each `domain/`.
-- `pnpm db:test` covers the policies and database functions in `supabase/tests/database/`: `material_parsing`, `queue_material_parse`, `replace_material_chunks`, `set_chunk_embeddings`, `exercise_solutions`, `knowledge_map`, `exercises`, `topics`, `reading_sections`, `map_findings`, `brief_writes`, `exam_scopes` and others.
+- `pnpm db:test` covers the policies and database functions in `supabase/tests/database/`: `material_parsing`, `queue_material_parse`, `replace_material_chunks`, `set_chunk_embeddings`, `exercise_solutions`, `knowledge_map`, `exercises`, `topics`, `map_findings`, `brief_writes`, `exam_scopes` and others.
 - `pnpm smoke <name>` runs a stage on a live model, so [live-ai.md](../agents/live-ai.md) applies. Those that need a built map seed the `linear-algebra-I` gold course ([evals/gold/README.md](../../evals/gold/README.md)), and stop until its snapshot exists:
   - `parse`: a PDF or image through the real parse; can write the chunks to a file.
   - `map-findings`: the gold course with a reversed Prerequisite; the Student disputes it in a Chat and the AI files a Finding.

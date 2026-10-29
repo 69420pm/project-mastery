@@ -92,7 +92,8 @@ const QUESTIONS = `Graded questions:
 
 const READING = `Guided reading:
 - Before you teach a KC that is not taught yet and that a Reading section listed below covers, open that section with showReading and a purpose question the reading answers. Write a short lead-in first; showReading ends your reply while the Student reads.
-- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, before you open any other section, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
+- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, before you open any other section, and don't restate it. After a wrong answer, explain only the part that was wrong.
+- The Student reads the pages as they are. Explain a hard page in the Chat when they ask, or when the work stage shows a gap it left.`;
 
 const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
 - The map is extracted by models and can be wrong: a missing link, a wrong prerequisite, a KC description that drifts from its source. Order of trust: the course's sources, then the map, then your own knowledge, then the Student's claim. A Student's statement alone never changes anything, and you never edit the map.
@@ -123,12 +124,6 @@ const FORMAT = `Language and format:
 - Format answers in Markdown.
 - Write all mathematics in LaTeX: inline math between single dollar signs, like $f'(x) = 2x$, and displayed equations between double dollar signs on their own lines, like $$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$$. Never write math as plain text or Unicode symbols, and never use \\( \\) or \\[ \\] delimiters.`;
 
-const READING_MODES = {
-  original: "original pages",
-  annotated: "pages with notes",
-  study_text: "study text",
-} as const;
-
 function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   const anchors =
     next.anchors.length === 0
@@ -143,7 +138,7 @@ function describeTopic(next: NonNullable<TutorToday["next"]>): string {
     anchors,
     sections.length === 0
       ? "Reading sections: none."
-      : `Its Reading sections, the course's pages on it in order:\n${sections.map((s) => `- ${s.label} (section id ${s.id}, ${READING_MODES[s.mode]})`).join("\n")}`,
+      : `Its Reading sections, the course's pages on it in order:\n${sections.map((s) => `- ${s.label} (section id ${s.id})`).join("\n")}`,
   ].join("\n");
 }
 

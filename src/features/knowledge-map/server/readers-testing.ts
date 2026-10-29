@@ -48,27 +48,6 @@ export function createDb() {
     page_to: pages[1],
     markdown: `Text of ${chunkId}`,
   });
-  const section = (
-    sectionId: string,
-    topicId: string,
-    position: number,
-    mode: string,
-    chunkIds: string[],
-    annotations: unknown,
-    studyText: string | null = null,
-  ) => ({
-    id: sectionId,
-    topic_id: topicId,
-    material_id: LECTURE,
-    position,
-    page_from: position + 1,
-    page_to: position + 3,
-    chunk_ids: chunkIds,
-    mode,
-    reason: "Reason.",
-    annotations,
-    study_text: studyText,
-  });
   const ofCourse = (rows: FakeRow[]) =>
     rows.map((row) => ({ course_id: COURSE, ...row }));
   return fakeSupabase({
@@ -164,27 +143,9 @@ export function createDb() {
         { topic_id: T2, kc_id: K2, position: 0 },
         { topic_id: T1, kc_id: K1, position: 0 },
       ],
-      // Stored against Topic order, which the reader restores.
-      reading_sections: ofCourse([
-        section(id(52), T1, 1, "original", [C3], null),
-        section(
-          id(51),
-          T1,
-          0,
-          "annotated",
-          [C1, C2],
-          [{ page: 2, note: "Momentum is mass times velocity." }],
-        ),
-        section(id(53), T2, 0, "study_text", [C2], null, "Text. [p. 2]"),
-        {
-          ...section(id(54), id(43), 0, "original", [D1], null),
-          course_id: OTHER_COURSE,
-        },
-      ]),
     },
     foreignKeys: {
       topic_kcs: { topic_id: "topics" },
-      reading_sections: { material_id: "materials" },
     },
   });
 }

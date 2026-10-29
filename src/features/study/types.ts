@@ -222,25 +222,18 @@ export type GradedKc = {
   result: AttemptResult;
 } & KcState;
 
-/** How a Student reads a Reading section's pages. */
-export type ReadingMode = "original" | "annotated" | "study_text";
-
 /** A Reading section as the AI is told of it. */
 export type ReadingSectionView = {
   id: string;
   /** Its Material and pages, such as "Lecture 3, pp. 12–14". */
   label: string;
-  mode: ReadingMode;
 };
 
 /** A Reading section as `showReading` returns it. */
 export type ReadingView = {
   label: string;
-  mode: ReadingMode;
   /** Its chunks' Markdown, in reading order. */
   chunks: string[];
-  /** The study text the Student reads; only in `study_text` mode. */
-  studyText?: string;
 };
 
 /**

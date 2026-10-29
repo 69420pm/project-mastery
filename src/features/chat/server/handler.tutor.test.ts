@@ -339,27 +339,8 @@ describe("getTopic", () => {
 });
 
 describe("guided reading", () => {
-  const SECTION = "aaaaaaaa-5000-4000-8000-000000000001";
-
-  /** A study-text Reading section of the Topic over both chunks. */
-  function seedSection() {
-    seedMap();
-    db.tables.reading_sections.push({
-      id: SECTION,
-      owner: STUDENT,
-      course_id: COURSE,
-      topic_id: MAP.topic,
-      material_id: MAP.material,
-      position: 0,
-      page_from: 3,
-      page_to: 5,
-      chunk_ids: [...MAP.chunks],
-      mode: "study_text",
-      reason: "Dense derivation.",
-      annotations: null,
-      study_text: "Thrust in short: $F$.",
-    });
-  }
+  // Cut on read from the chunks the Topic's KCs cite; the id pins the cut.
+  const SECTION = MAP.section;
 
   test("the instructions list the next Topic's sections, and showReading ends the reply with the section's text", async () => {
     const model = mockToolModel(
@@ -374,12 +355,12 @@ describe("guided reading", () => {
       "Never reached.",
     );
     useMockModels({ chat: model });
-    seedSection();
+    seedMap();
 
     const reply = await send(firstMessage());
 
     expect(promptOf(model, 0)).toContain(
-      `- Lecture 7, pp. 3–5 (section id ${SECTION}, study text)`,
+      `- Lecture 7, pp. 3–5 (section id ${SECTION})`,
     );
     expect(model.doStreamCalls).toHaveLength(1);
     expect(reply.text).toBe("");
@@ -391,19 +372,17 @@ describe("guided reading", () => {
     ).find(({ type }) => type === "tool-showReading");
     expect(part?.output).toEqual({
       label: "Lecture 7, pp. 3–5",
-      mode: "study_text",
       chunks: [
         "Chunk 0: $F = \\dot m (v_e - v_0)$",
         "Chunk 1: $F = \\dot m (v_e - v_0)$",
       ],
-      studyText: "Thrust in short: $F$.",
     });
   });
 
   test("a Done is stored with its section and reaches the model with the prefix", async () => {
     const model = mockTextModel("What makes thrust, then?");
     useMockModels({ chat: model });
-    seedSection();
+    seedMap();
     const done = {
       ...userMessage("Done reading."),
       metadata: { readingSectionId: SECTION },

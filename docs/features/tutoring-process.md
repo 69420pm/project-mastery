@@ -51,6 +51,8 @@ A reply streams one call with the `chat` task's model, with the instructions and
 
 An Exercise's solution is the one printed in the Materials, labelled `from the Materials`, or none, labelled so that the AI solves it with the Student; a generated Problem's says whether code computed its numbers. A refused call, such as an id that is not of the Course, a KC listed twice or a full Memory, throws a `TutorToolError`. The model reads its message and the reply goes on.
 
+`showReading` opens a Reading section, which `loadCourseTopics` cuts on each read (ADR 0020), and returns its label and its chunks' Markdown. The Student reads the pages as they are in the Source pane; there are no reading modes, and the AI explains a hard page in the Chat when the Student asks or the work stage shows a gap.
+
 The guidance is prompt text, not code. In a session with a Topic, one block per Stage gives its purpose, when to skip it and how to teach in it (see below). In a session without a Topic, the AI starts with due reviews, then teaches what comes next: it docks, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems on the same KCs in a row, and it keeps an Exercise's solution back until the Student has tried.
 
 ## Learn session Stages (#180)
