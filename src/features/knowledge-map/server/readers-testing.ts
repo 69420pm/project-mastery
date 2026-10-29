@@ -56,6 +56,7 @@ export function createDb() {
         material(NOTES, "Notes", "2026-01-02"),
         material(LECTURE, "Lecture 1", "2026-01-01"),
       ],
+      material_pages: [],
       // Stored against reading order, which the readers restore.
       chunks: [
         chunk(D1, NOTES, 0, [1, 1]),

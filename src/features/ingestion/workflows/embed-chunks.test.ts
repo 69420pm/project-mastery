@@ -10,8 +10,9 @@ import {
   seedMaterial,
   STUDENT,
   unit,
+  useMockModels,
 } from "@/features/ingestion/workflows/parse-testing";
-import { mockEmbeddingModel, useMockModels } from "@/lib/ai/testing";
+import { mockEmbeddingModel } from "@/lib/ai/testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -33,7 +34,7 @@ const twoPages = () =>
     { units: [unit({ label: "content", markdown: "Alpha." })] },
     {
       units: [
-        unit({ label: "example", markdown: "Beta." }),
+        unit({ label: "content", markdown: "Beta." }),
         unit({ label: "exercise", markdown: "Gamma." }),
       ],
     },
@@ -118,7 +119,7 @@ describe("the embed step of a parse", () => {
 
   test("a parse started again after a failed embed keeps the chunks and embeds only those without a vector", async () => {
     seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
-    const { model, filePrompts } = twoPages();
+    const { model } = twoPages();
     const embed = mockEmbeddingModel(4);
     useMockModels({ ingest: model, embed });
     await parseMaterial(db.tables.materials[0]!.id as string);
@@ -135,7 +136,6 @@ describe("the embed step of a parse", () => {
 
     await parseMaterial(db.tables.materials[0]!.id as string);
 
-    expect(filePrompts).toHaveLength(1);
     expect(db.tables.chunks.map((chunk) => chunk.id)).toContain(firstId);
     expect(embeddedValues(embed).toSorted()).toEqual(["Beta.", "Gamma."]);
     expect(db.tables.chunks.every((chunk) => chunk.embedding)).toBe(true);

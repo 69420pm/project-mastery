@@ -14,11 +14,8 @@ import type {
 
 const LABEL_NAMES: Record<ChunkLabel, string> = {
   content: "Content",
-  definition: "Definition",
-  example: "Example",
   exercise: "Exercise",
   solution: "Solution",
-  figure: "Figure",
   admin: "Admin",
 };
 

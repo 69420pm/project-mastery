@@ -1,106 +1,53 @@
 import "server-only";
-import {
-  fileCallSettings,
-  fileMessages,
-  fileResultSchema,
-} from "@/features/ingestion/ai/file-chunks";
 import { storedUnitsSchema } from "@/features/ingestion/ai/page-units";
-import {
-  chunksFromFileResult,
-  coverageProblems,
-  materialUnits,
-  type MaterialUnit,
-} from "@/features/ingestion/domain/file-chunks";
-import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
-import {
-  loadMaterial,
-  type ParseOutcome,
-} from "@/features/ingestion/workflows/parse-steps";
-import { meteredGenerate } from "@/features/usage/server";
+import { loadMaterial } from "@/features/ingestion/workflows/parse-steps";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 
 /**
- * The file call of a parse (step 3 of `parse-material.ts`): one text call
- * (task `ingest`) over all the Material's units groups them into its final
- * chunks and finds exam metadata. Code checks that every unit lands in
- * exactly one chunk and every page is covered, or the step throws and
- * retries. The chunks replace any earlier ones in one transaction.
+ * The chunk step of a parse (`parse-material.ts`): every unit of the
+ * Material's read pages becomes a chunk, in reading order, with its label,
+ * its page and its exercise number as printed. The chunks replace any
+ * earlier ones in one transaction.
  */
-export async function chunkMaterial(materialId: string): Promise<ParseOutcome> {
+export async function chunkMaterial(materialId: string): Promise<void> {
   "use step";
   const supabase = createAdminClient();
   const material = await loadMaterial(supabase, materialId);
-  if (!material) return { ok: true };
-  const studentId = material.owner;
+  if (!material) return;
 
   // Chunks are written in one transaction after every page is read, so
   // existing ones are complete: a parse started again after a failed embed
-  // keeps them, and their vectors, instead of paying for another file call.
+  // keeps them, and their vectors.
   const existing = await supabase
     .from("chunks")
     .select("id")
     .eq("material_id", materialId)
     .limit(1);
   if (existing.error) failed("Loading the chunks", existing.error);
-  if (existing.data.length > 0) return { ok: true };
+  if (existing.data.length > 0) return;
 
   const pages = await supabase
     .from("material_pages")
     .select("page_number, units")
-    .eq("material_id", materialId);
+    .eq("material_id", materialId)
+    .order("page_number");
   if (pages.error) failed("Loading the page results", pages.error);
-  const units = materialUnits(
-    pages.data.map((page) => ({
-      pageNumber: page.page_number,
-      units: storedUnitsSchema.parse(page.units),
-    })),
-  );
-  const pageNumbers = pages.data.map((page) => page.page_number);
-  if (!hasUnits(units)) {
-    throw new Error("The Material's pages have no units to chunk.");
-  }
+  const chunks = pages.data
+    .flatMap((page) =>
+      storedUnitsSchema.parse(page.units).map((unit) => ({
+        page_from: page.page_number,
+        page_to: page.page_number,
+        label: unit.label,
+        markdown: unit.markdown,
+        exercise_number: unit.exerciseNumber,
+      })),
+    )
+    .map((chunk, position) => ({ position, ...chunk }));
 
-  const result = await meteredGenerate(
-    supabase,
-    { studentId, task: "ingest", traceName: "parse-file" },
-    { ...fileCallSettings(units), messages: fileMessages(units) },
-  );
-  if (!result) return { ok: false, reason: dailyLimitReason };
-
-  const ids = units.map((unit) => unit.id) as [string, ...string[]];
-  const { chunks, exam } = fileResultSchema(ids).parse(result.output);
-  const problems = coverageProblems(units, chunks, pageNumbers);
-  if (problems.length > 0) {
-    throw new Error(
-      `The file call's chunks do not cover the Material: ${problems.join(" ")}`,
-    );
-  }
-
-  const oldExam = exam?.isOldExam ? exam : null;
   const replaced = await supabase.rpc("replace_material_chunks", {
     p_material_id: materialId,
-    p_chunks: chunksFromFileResult(units, chunks).map((chunk) => ({
-      position: chunk.position,
-      page_from: chunk.pageFrom,
-      page_to: chunk.pageTo,
-      label: chunk.label,
-      markdown: chunk.markdown,
-      figure: chunk.figure,
-      exercise_number: chunk.exerciseNumber,
-      points: chunk.points,
-    })),
-    p_is_exam: oldExam !== null,
-    // Left out when unknown: the function's default is null.
-    p_exam_year: oldExam?.year ?? undefined,
-    p_exam_total_points: oldExam?.totalPoints ?? undefined,
+    p_chunks: chunks,
   });
   if (replaced.error) failed("Storing the chunks", replaced.error);
-  return { ok: true };
-}
-
-function hasUnits(
-  units: MaterialUnit[],
-): units is [MaterialUnit, ...MaterialUnit[]] {
-  return units.length > 0;
 }

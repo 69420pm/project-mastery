@@ -7,6 +7,7 @@ export {
   isParseRunning,
   parseStateLabel,
   type ParseState,
+  withLease,
 } from "./domain/parse-state";
 export { startMaterialParse } from "./server/actions";
 export type { ParseStatus } from "./types";

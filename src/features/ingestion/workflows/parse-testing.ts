@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { MockLanguageModelV4 } from "ai/test";
+import { vi } from "vitest";
 import {
   mockEmbeddingModel,
   useMockModels as useModels,
@@ -28,10 +29,12 @@ export const BUCKET = MATERIALS_BUCKET;
 
 /**
  * `useMockModels` for a parse test: the `embed` task answers too, unless the
- * test gives its own, because every parse ends by embedding its chunks.
+ * test gives its own, because every parse ends by embedding its chunks. One
+ * page call runs at a time, so canned page results answer pages in order.
  */
 export function useMockModels(models: Parameters<typeof useModels>[0]) {
   useModels({ embed: mockEmbeddingModel(), ...models });
+  vi.stubEnv("AI_CONCURRENCY", "1");
 }
 
 type ParseTable =
@@ -101,13 +104,6 @@ export function createParseDb({
             ...chunk,
           })),
         ];
-        Object.assign(material, {
-          is_exam: args.p_is_exam,
-          exam_year: args.p_is_exam ? (args.p_exam_year ?? null) : null,
-          exam_total_points: args.p_is_exam
-            ? (args.p_exam_total_points ?? null)
-            : null,
-        });
         return null;
       },
       // supabase/migrations/…_create_exercise_solutions.sql; tested with
@@ -235,6 +231,7 @@ export function seedMaterial(
     parse_status: "queued",
     pages_total: null,
     pages_done: 0,
+    heartbeat_at: new Date().toISOString(),
   });
   db.files.seed(BUCKET, storagePath, { body, contentType: mediaType });
 }
@@ -244,44 +241,13 @@ export const unit = (overrides: Record<string, unknown>) => ({
   markdown: "",
   label: "content",
   exerciseNumber: null,
-  points: null,
-  figure: null,
   continuesFromPreviousPage: false,
   continuesOnNextPage: false,
   ...overrides,
 });
 
-type CannedPage = { units: Array<Record<string, unknown>> };
-
-export type CannedFileResult = {
-  chunks: Array<{
-    unitIds: string[];
-    label: string;
-    exerciseNumber: string | null;
-    points: number | null;
-  }>;
-  exam: {
-    isOldExam: boolean;
-    year: number | null;
-    totalPoints: number | null;
-  } | null;
-};
-
-/**
- * A file call's answer when a test gives none: one chunk per unit the call
- * offered, with the unit's own label, number and points.
- */
-export function answerFileCall(filePrompt: unknown): CannedFileResult {
-  return {
-    chunks: sentUnits(filePrompt).map((offered) => ({
-      unitIds: [String(offered.id)],
-      label: String(offered.label),
-      exerciseNumber: (offered.exerciseNumber as string | null) ?? null,
-      points: (offered.points as number | null) ?? null,
-    })),
-    exam: null,
-  };
-}
+/** A canned page result; its language is `en` unless it gives one. */
+type CannedPage = { language?: string; units: Array<Record<string, unknown>> };
 
 type Prompt = Array<{ role: string; content: unknown }>;
 
@@ -324,31 +290,25 @@ export const sentPairing = (prompt: unknown) =>
 
 /**
  * The `ingest` model of a parse: answers each page call (it carries the page
- * image) with the next canned page result, the file call with `file`, or
- * one chunk per offered unit, and pairing's content-matching call with
- * `pairing` of what it offered, or no pairs. Remembers what each kind of
- * call was sent.
+ * image) with the next canned page result, and pairing's content-matching
+ * call with `pairing` of what it offered, or no pairs. Remembers what each
+ * kind of call was sent.
  */
 export function pageModel(
   pages: CannedPage[],
-  file?: CannedFileResult,
   pairing?: (sent: SentPairing) => CannedPairing | Promise<CannedPairing>,
 ) {
   const prompts: unknown[] = [];
-  const filePrompts: unknown[] = [];
   const pairingPrompts: unknown[] = [];
   const model = new MockLanguageModelV4({
     doGenerate: async ({ prompt }) => {
       let answer: unknown;
       if (isPageCall(prompt)) {
         prompts.push(prompt);
-        answer = pages[prompts.length - 1] ?? { units: [] };
-      } else if (isPairingCall(prompt)) {
+        answer = { language: "en", units: [], ...pages[prompts.length - 1] };
+      } else {
         pairingPrompts.push(prompt);
         answer = pairing ? await pairing(sentPairing(prompt)) : { pairs: [] };
-      } else {
-        filePrompts.push(prompt);
-        answer = file ?? answerFileCall(prompt);
       }
       return {
         content: [{ type: "text", text: JSON.stringify(answer) }],
@@ -366,7 +326,7 @@ export function pageModel(
       };
     },
   });
-  return { model, prompts, filePrompts, pairingPrompts };
+  return { model, prompts, pairingPrompts };
 }
 
 /** The image parts each page call sent, as media types. */
@@ -380,15 +340,6 @@ export function sentImages(prompts: unknown[]) {
   );
 }
 
-/** The units a file call offered, parsed from its text. */
-export function sentUnits(filePrompt: unknown) {
-  return (
-    JSON.parse(promptText(filePrompt)) as {
-      units: Array<Record<string, unknown>>;
-    }
-  ).units;
-}
-
 /** The stored chunks in reading order, with the columns tests compare. */
 export function storedChunks(db: ParseDb) {
   return db.tables.chunks
@@ -400,6 +351,5 @@ export function storedChunks(db: ParseDb) {
       label: chunk.label,
       markdown: chunk.markdown,
       exercise_number: chunk.exercise_number,
-      points: chunk.points,
     }));
 }

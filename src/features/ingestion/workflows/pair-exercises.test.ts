@@ -121,7 +121,6 @@ describe("pairing exercises with solutions", () => {
         { units: [exercise(null, "Bonus task.")] },
         { units: [solution(null, "Bonus answer.")] },
       ],
-      undefined,
       (sent) => {
         statusDuringPairing.push(
           db.tables.materials.find((m) => m.id === SOLUTIONS)?.parse_status,
@@ -186,7 +185,6 @@ describe("pairing exercises with solutions", () => {
           ],
         },
       ],
-      undefined,
       pairByMarkdown([["Bonus: compute pi to 3 digits.", "pi is about 3.14."]]),
     );
     useMockModels({ ingest: model });
@@ -218,9 +216,8 @@ describe("pairing exercises with solutions", () => {
     expect(offered.solutions.map((s) => s.markdown)).toEqual([
       "pi is about 3.14.",
     ]);
-    // Page call, file call, embedding and content call, each recorded for
-    // the Student.
-    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(4);
+    // Page call, embedding and content call, each recorded for the Student.
+    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(3);
     expect(db.tables.ai_usage.at(-1)).toMatchObject({
       owner: STUDENT,
       task: "ingest",
@@ -358,7 +355,6 @@ describe("pairing exercises with solutions", () => {
         { units: [exercise(null, "Bonus task.")] },
         { units: [solution(null, "Bonus answer.")] },
       ],
-      undefined,
       async (sent) => {
         pairingCalls += 1;
         // The first pass is held in its call and pairs; the second does not.

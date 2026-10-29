@@ -42,7 +42,7 @@ beforeEach(() => {
           position: 0,
           page_from: 1,
           page_to: 1,
-          label: "figure",
+          label: "content",
           markdown: "Plot",
           figure: { description: "A parabola.", page: 2, box: BOX },
           exercise_number: null,

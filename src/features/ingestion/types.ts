@@ -1,15 +1,15 @@
 /** The kinds of chunk a parse labels, one per chunk. */
 export const CHUNK_LABELS = [
   "content",
-  "definition",
-  "example",
   "exercise",
   "solution",
-  "figure",
   "admin",
 ] as const;
 
 export type ChunkLabel = (typeof CHUNK_LABELS)[number];
+
+/** Why a parse stored a page without reading it (`material_pages.skipped`). */
+export type PageSkip = "blank" | "overlay" | "unreadable";
 
 /** Where a Material's parse stands. */
 export type ParseStatus =

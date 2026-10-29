@@ -39,7 +39,7 @@ function renderList(chunks: ChunkView[], exam: MaterialChunks["exam"] = null) {
 
 test("a figure chunk shows its description and no image", () => {
   const { container } = renderList([
-    chunk({ label: "figure", figure: { description: "A parabola." } }),
+    chunk({ label: "content", figure: { description: "A parabola." } }),
   ]);
 
   expect(screen.getByText("A parabola.")).toBeTruthy();

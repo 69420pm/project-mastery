@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, email)
 values
@@ -20,6 +20,14 @@ values
     'aaaaaaaa-0000-0000-0000-000000000001', 'Chapter 7', 'application/pdf', 1000,
     '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/aaaaaaaa-1111-0000-0000-000000000001',
     'parsing');
+
+-- A parse whose workflow died: no heartbeat for an hour.
+insert into public.materials (id, owner, course_id, name, media_type, size_bytes, storage_path, parse_status, heartbeat_at)
+values
+  ('aaaaaaaa-1111-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000001', 'Stalled', 'application/pdf', 1000,
+    '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/aaaaaaaa-1111-0000-0000-000000000002',
+    'parsing', now() - interval '1 hour');
 
 -- Queueing needs a parsed Material and none parsing, and the owner.
 set local role authenticated;
@@ -39,6 +47,10 @@ select is(public.queue_knowledge_map_build('aaaaaaaa-0000-0000-0000-000000000001
 select is(public.queue_knowledge_map_build('aaaaaaaa-0000-0000-0000-000000000001'), false,
   'a second press while it runs starts nothing');
 select is((select status from public.knowledge_map_builds), 'building', 'the build is running');
+select is(
+  (select parse_status || ': ' || parse_failure from public.materials where id = 'aaaaaaaa-1111-0000-0000-000000000002'),
+  'failed: The parse stopped. Parse again.',
+  'a parse without a heartbeat for 30 minutes does not hold the build back: it failed');
 
 -- Students cannot write the map.
 select throws_ok(

@@ -35,6 +35,7 @@ function createDb() {
           is_exam: false,
         },
       ] as FakeRow[],
+      material_pages: [] as FakeRow[],
       chunks: each((i) => ({
         id: chunkId(i),
         material_id: MATERIAL,

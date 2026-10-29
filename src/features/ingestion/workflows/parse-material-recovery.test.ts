@@ -3,12 +3,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
-  answerFileCall,
   createParseDb,
   isPageCall,
-  type CannedFileResult,
   useMockModels,
 } from "@/features/ingestion/workflows/parse-testing";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
@@ -35,10 +33,14 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 const { parseMaterial } = await import("./parse-material");
-const { readPage } = await import("./parse-steps");
+const { readPages } = await import("./parse-steps");
 
 beforeEach(() => {
   db = createDb();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 async function seedLecture() {
@@ -77,37 +79,59 @@ function deleteMaterial() {
 }
 
 const pageResult = (markdown: string) => ({
+  language: "en",
   units: [
     {
       markdown,
       label: "content",
       exerciseNumber: null,
-      points: null,
-      figure: null,
       continuesFromPreviousPage: false,
       continuesOnNextPage: false,
     },
   ],
 });
 
-type Answer = { units: unknown[] } | Error;
+type Answer = { language?: string; units: unknown } | Error;
+
+/** A 429 of the provider's daily quota (docs/agents/live-ai.md). */
+const dailyQuotaError = () =>
+  new APICallError({
+    message: "Quota exceeded",
+    url: "https://example.test",
+    requestBodyValues: {},
+    statusCode: 429,
+    responseBody: JSON.stringify({
+      error: {
+        code: 429,
+        status: "RESOURCE_EXHAUSTED",
+        details: [
+          {
+            "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+            violations: [
+              {
+                quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+              },
+            ],
+          },
+        ],
+      },
+    }),
+    isRetryable: false,
+  });
 
 /**
  * A page model that answers the n-th page call with `answers[n]`: a page
- * result, or an error it throws. It counts its page calls. The file call
- * gets one chunk per unit and is not counted.
+ * result, or an error it throws. It counts its page calls.
  */
 function pageModel(answers: Answer[], onCall?: (call: number) => void) {
   let calls = 0;
   const model = new MockLanguageModelV4({
     doGenerate: async ({ prompt }) => {
-      let answer: Answer | CannedFileResult;
+      let answer: Answer = { units: [] };
       if (isPageCall(prompt)) {
-        answer = answers[calls++] ?? { units: [] };
+        answer = answers[calls++] ?? { language: "en", units: [] };
         onCall?.(calls);
         if (answer instanceof Error) throw answer;
-      } else {
-        answer = answerFileCall(prompt);
       }
       return {
         content: [{ type: "text", text: JSON.stringify(answer) }],
@@ -130,69 +154,40 @@ function pageModel(answers: Answer[], onCall?: (call: number) => void) {
 
 const material = () => db.tables.materials[0];
 
-describe("a page that cannot be read", () => {
-  test("fails the parse with a reason that names the page", async () => {
-    await seedLecture();
-    useMockModels({
-      ingest: pageModel([pageResult("Page one"), new Error("bad output")])
-        .model,
-    });
+const storedPages = () =>
+  db.tables.material_pages
+    .toSorted((a, b) => Number(a.page_number) - Number(b.page_number))
+    .map((page) => [page.page_number, page.skipped ?? null]);
 
-    await parseMaterial(MATERIAL);
+describe("a page whose call fails", () => {
+  test.each([
+    ["throws", new Error("bad output")],
+    ["answers no page result", { units: "nope" }],
+  ])(
+    "when the call %s, is stored unreadable without units, and the parse ends parsed",
+    async (_, answer) => {
+      await seedLecture();
+      useMockModels({
+        ingest: pageModel([pageResult("Page one"), answer]).model,
+      });
 
-    expect(material()).toMatchObject({
-      parse_status: "failed",
-      parse_failure: "The AI could not read page 2",
-      pages_done: 1,
-    });
-    expect(db.tables.chunks).toEqual([]);
-  });
+      await parseMaterial(MATERIAL);
 
-  test("a retry reads only the missing page and finishes the parse", async () => {
-    await seedLecture();
-    useMockModels({
-      ingest: pageModel([pageResult("Page one"), new Error("bad output")])
-        .model,
-    });
-    await parseMaterial(MATERIAL);
-
-    const retried = pageModel([pageResult("Page two")]);
-    useMockModels({ ingest: retried.model });
-    await parseMaterial(MATERIAL);
-
-    expect(retried.calls()).toBe(1);
-    expect(material()).toMatchObject({
-      parse_status: "parsed",
-      parse_failure: null,
-      pages_total: 2,
-      pages_done: 2,
-    });
-    expect(
-      db.tables.chunks.map((chunk) => [chunk.page_from, chunk.markdown]),
-    ).toEqual([
-      [1, "Page one"],
-      [2, "Page two"],
-    ]);
-    // One call per page, the file call and the embed call of the finished parse.
-    expect(db.tables.ai_usage).toHaveLength(4);
-  });
-});
-
-describe("a page call whose answer is not a page result", () => {
-  test("fails the parse with a reason that names the page", async () => {
-    await seedLecture();
-    useMockModels({
-      ingest: pageModel([pageResult("Page one"), { units: "nope" } as never])
-        .model,
-    });
-
-    await parseMaterial(MATERIAL);
-
-    expect(material()).toMatchObject({
-      parse_status: "failed",
-      parse_failure: "The AI could not read page 2",
-    });
-  });
+      expect(material()).toMatchObject({
+        parse_status: "parsed",
+        parse_failure: null,
+        pages_done: 2,
+      });
+      expect(storedPages()).toEqual([
+        [1, null],
+        [2, "unreadable"],
+      ]);
+      expect(db.tables.material_pages[1]?.units).toEqual([]);
+      expect(db.tables.chunks.map((chunk) => chunk.markdown)).toEqual([
+        "Page one",
+      ]);
+    },
+  );
 });
 
 describe("a failure of the app's own services", () => {
@@ -203,7 +198,7 @@ describe("a failure of the app's own services", () => {
     const model = pageModel([pageResult("Page one")]);
     useMockModels({ ingest: model.model });
     // The file opens for the page count, then Storage fails to read it again
-    // for the first page.
+    // for the read step.
     const from = db.storage.from;
     let downloads = 0;
     db.storage.from = (bucket: string) => {
@@ -248,64 +243,44 @@ describe("a file that cannot be opened", () => {
 });
 
 describe("the daily quota of the model provider", () => {
-  test("a 429 for the daily quota fails the parse as a Daily limit, with no further calls", async () => {
+  test("a 429 for the daily quota fails the parse as a Daily limit, and Retry resumes at the first page without a row", async () => {
     await seedLecture();
-    const model = pageModel([
-      new APICallError({
-        message: "Quota exceeded",
-        url: "https://example.test",
-        requestBodyValues: {},
-        statusCode: 429,
-        responseBody: JSON.stringify({
-          error: {
-            code: 429,
-            status: "RESOURCE_EXHAUSTED",
-            details: [
-              {
-                "@type": "type.googleapis.com/google.rpc.QuotaFailure",
-                violations: [
-                  {
-                    quotaId:
-                      "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
-                  },
-                ],
-              },
-            ],
-          },
-        }),
-        isRetryable: false,
-      }),
-    ]);
-    useMockModels({ ingest: model.model });
+    const first = pageModel([pageResult("Page one"), dailyQuotaError()]);
+    useMockModels({ ingest: first.model });
 
     await parseMaterial(MATERIAL);
 
-    expect(model.calls()).toBe(1);
+    expect(first.calls()).toBe(2);
     expect(material()).toMatchObject({
       parse_status: "failed",
       parse_failure: "Daily limit reached",
     });
+    expect(storedPages()).toEqual([[1, null]]);
+
+    const retried = pageModel([pageResult("Page two")]);
+    useMockModels({ ingest: retried.model });
+    await parseMaterial(MATERIAL);
+
+    expect(retried.calls()).toBe(1);
+    expect(material()).toMatchObject({ parse_status: "parsed", pages_done: 2 });
+    expect(
+      db.tables.chunks.map((chunk) => [chunk.page_from, chunk.markdown]),
+    ).toEqual([
+      [1, "Page one"],
+      [2, "Page two"],
+    ]);
   });
 });
 
 describe("deleting the Material while it parses", () => {
   test("stops the parse quietly and leaves no rows or files behind", async () => {
     await seedLecture();
-    const withFigure = {
-      units: [
-        {
-          ...pageResult("Plot of $y = x^2$").units[0],
-          label: "figure",
-          figure: {
-            description: "A parabola.",
-            box: { x: 0.1, y: 0.2, width: 0.5, height: 0.25 },
-          },
-        },
-      ],
-    };
-    const model = pageModel([withFigure, pageResult("Page two")], (call) => {
-      if (call === 1) deleteMaterial();
-    });
+    const model = pageModel(
+      [pageResult("Page one"), pageResult("Page two")],
+      (call) => {
+        if (call === 1) deleteMaterial();
+      },
+    );
     useMockModels({ ingest: model.model });
 
     await parseMaterial(MATERIAL);
@@ -365,24 +340,64 @@ describe("a started parse", () => {
 
     expect(statuses[0]).toBe("parsing");
   });
+
+  test("sets the heartbeat with every step", async () => {
+    await seedLecture();
+    material()!.heartbeat_at = "2026-01-01T00:00:00.000Z";
+    useMockModels({ ingest: pageModel([]).model });
+
+    await readPages(MATERIAL, [1]);
+
+    expect(Date.parse(String(material()?.heartbeat_at))).toBeGreaterThan(
+      Date.now() - 60_000,
+    );
+  });
 });
 
-describe("a page step that runs again after it stored its page", () => {
-  test("neither calls the model nor records usage again, and keeps one page result", async () => {
+describe("a read step", () => {
+  test("run again after it stored its page neither calls the model nor records usage again", async () => {
     await seedLecture();
-    const page = { pageNumber: 1 };
     const model = pageModel([pageResult("Page one"), pageResult("Again")]);
     useMockModels({ ingest: model.model });
 
-    const first = await readPage(MATERIAL, page);
-    const retried = await readPage(MATERIAL, page);
+    const first = await readPages(MATERIAL, [1]);
+    const retried = await readPages(MATERIAL, [1]);
 
-    expect([first, retried]).toEqual([{ ok: true }, { ok: true }]);
+    expect([first, retried]).toEqual([
+      { ok: true, left: [] },
+      { ok: true, left: [] },
+    ]);
     expect(model.calls()).toBe(1);
     expect(db.tables.ai_usage).toHaveLength(1);
-    expect(db.tables.material_pages).toEqual([
-      expect.objectContaining({ page_number: 1 }),
-    ]);
+    expect(storedPages()).toEqual([[1, null]]);
     expect(material()).toMatchObject({ pages_done: 1 });
+  });
+
+  test("starts no call after its time box and leaves the rest to the next step, which reads only those", async () => {
+    await seedLecture();
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    // Each page call takes 200 seconds.
+    const model = pageModel(
+      [pageResult("Page one"), pageResult("Page two")],
+      () => {
+        now += 200_000;
+      },
+    );
+    useMockModels({ ingest: model.model });
+
+    const step = await readPages(MATERIAL, [1, 2]);
+
+    expect(step).toEqual({ ok: true, left: [2] });
+    expect(storedPages()).toEqual([[1, null]]);
+
+    await parseMaterial(MATERIAL);
+
+    expect(model.calls()).toBe(2);
+    expect(storedPages()).toEqual([
+      [1, null],
+      [2, null],
+    ]);
+    expect(material()).toMatchObject({ parse_status: "parsed" });
   });
 });

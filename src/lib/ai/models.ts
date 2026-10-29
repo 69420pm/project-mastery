@@ -15,7 +15,7 @@ export type TaskConfig = {
    */
   fallbacks: readonly string[];
   /** Environment variable that overrides `model` without a code change. */
-  override: keyof AiEnv;
+  override: Extract<keyof AiEnv, `AI_MODEL_${string}`>;
 };
 
 /**

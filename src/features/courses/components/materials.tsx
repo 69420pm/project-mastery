@@ -289,8 +289,20 @@ function ParseStateLine({
           View chunks
         </Link>
       )}
+      {parse.status === "parsed" && parse.unreadablePages.length > 0 && (
+        <span className="text-muted-foreground">
+          {unreadablePagesText(parse.unreadablePages)}
+        </span>
+      )}
     </span>
   );
+}
+
+/** "Page 3 could not be read", "Pages 3, 7 could not be read". */
+function unreadablePagesText(pages: number[]): string {
+  return pages.length === 1
+    ? `Page ${pages[0]} could not be read`
+    : `Pages ${pages.join(", ")} could not be read`;
 }
 
 /**

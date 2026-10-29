@@ -1134,26 +1134,32 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          language: string | null;
           material_id: string;
           owner: string;
           page_number: number;
+          skipped: string | null;
           units: NonNullable<Json>;
         };
         ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;
+          language?: string | null;
           material_id: string;
           owner: string;
           page_number: number;
+          skipped?: string | null;
           units: NonNullable<Json>;
         };
         Update: {
           created_at?: string;
           id?: string;
+          language?: string | null;
           material_id?: string;
           owner?: string;
           page_number?: number;
+          skipped?: string | null;
           units?: NonNullable<Json>;
         };
         Relationships: [
@@ -1180,8 +1186,10 @@ export type Database = {
           exam_asked: boolean;
           exam_total_points: number | null;
           exam_year: number | null;
+          heartbeat_at: string;
           id: string;
           is_exam: boolean | null;
+          language: string | null;
           media_type: string;
           name: string;
           owner: string;
@@ -1201,8 +1209,10 @@ export type Database = {
           exam_asked?: boolean;
           exam_total_points?: number | null;
           exam_year?: number | null;
+          heartbeat_at?: string;
           id?: string;
           is_exam?: boolean | null;
+          language?: string | null;
           media_type: string;
           name: string;
           owner?: string;
@@ -1221,8 +1231,10 @@ export type Database = {
           exam_asked?: boolean;
           exam_total_points?: number | null;
           exam_year?: number | null;
+          heartbeat_at?: string;
           id?: string;
           is_exam?: boolean | null;
+          language?: string | null;
           media_type?: string;
           name?: string;
           owner?: string;
@@ -2174,13 +2186,7 @@ export type Database = {
         Returns: boolean;
       };
       replace_material_chunks: {
-        Args: {
-          p_chunks: Json;
-          p_exam_total_points?: number;
-          p_exam_year?: number;
-          p_is_exam: boolean;
-          p_material_id: string;
-        };
+        Args: { p_chunks: Json; p_material_id: string };
         Returns: undefined;
       };
       request_exercise_pairing: {

@@ -38,6 +38,9 @@ const schema = z
     AI_MODEL_GRADE_EXAM: modelId,
     AI_MODEL_CLOSE: modelId,
     AI_MODEL_EMBED: modelId,
+    // How many page calls one parse step makes at a time: 1 on the free
+    // credit, which allows 5 requests per minute.
+    AI_CONCURRENCY: optional(z.coerce.number().int().min(1).max(16)).default(4),
   })
   .refine(
     (env) =>
