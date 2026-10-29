@@ -102,7 +102,6 @@ const renderMap = (
     <CourseMap
       map={view}
       topics={mapTopics}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}

@@ -13,38 +13,34 @@ flowchart LR
   press([Build or Update map]) --> build[buildKnowledgeMap<br/>per Course]
   chunks --> build
   build --> map[(Knowledge map,<br/>Topics, Reading sections)]
-  open([Course map page opens]) --> prio[updatePriorities<br/>per Course]
-  map --> prio
   brief([Message in the Brief]) --> reply[Brief reply<br/>streamed]
   reply --> briefRows[(briefs, Finding answers)]
-  briefRows --> prio
   map --> reply
-  prio --> priorities[(kc_priorities)]
+  map --> prio[Priorities<br/>computed when read]
+  briefRows --> prio
 ```
 
-| Run                                       | Started by                                                                              | Model calls (task)                                                          | Writes                                                                                     |
-| ----------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Parse (`parseMaterial`, workflow)         | Upload (`registerMaterial`), Parse or Retry (`startMaterialParse`)                      | `ingest`: 1 per page, 1 per Material, ≤ 1 pairing; `embed`: 1 per 20 chunks | `materials`, `material_pages`, `chunks`, `exercise_solutions`, `courses.pairing_requested` |
-| Pairing (`pairCourse`, workflow)          | Deleting a Material (`deleteMaterial`)                                                  | ≤ 1 (`ingest`)                                                              | `exercise_solutions`, `courses.pairing_requested`                                          |
-| Build (`buildKnowledgeMap`, workflow)     | Build or Update map on the Course map (`startKnowledgeMapBuild`)                        | None while #222 rebuilds it                                                 | `knowledge_map_builds`                                                                     |
-| Brief (route handler, streamed)           | The Student sends a message on the Brief page                                           | 1 streamed reply of ≤ 5 steps (`brief`)                                     | `briefs`, `brief_excluded_materials`, `brief_messages`, `findings` (answers)               |
-| Priorities (`updatePriorities`, workflow) | The Course map page opens (`ensurePriorities`) and something changed since the last run | ≤ 1 (`priority`)                                                            | `priority_runs`, `kc_priorities`                                                           |
+| Run                                   | Started by                                                         | Model calls (task)                                                          | Writes                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Parse (`parseMaterial`, workflow)     | Upload (`registerMaterial`), Parse or Retry (`startMaterialParse`) | `ingest`: 1 per page, 1 per Material, ≤ 1 pairing; `embed`: 1 per 20 chunks | `materials`, `material_pages`, `chunks`, `exercise_solutions`, `courses.pairing_requested` |
+| Pairing (`pairCourse`, workflow)      | Deleting a Material (`deleteMaterial`)                             | ≤ 1 (`ingest`)                                                              | `exercise_solutions`, `courses.pairing_requested`                                          |
+| Build (`buildKnowledgeMap`, workflow) | Build or Update map on the Course map (`startKnowledgeMapBuild`)   | None while #222 rebuilds it                                                 | `knowledge_map_builds`                                                                     |
+| Brief (route handler, streamed)       | The Student sends a message on the Brief page                      | 1 streamed reply of ≤ 5 steps (`brief`)                                     | `briefs`, `brief_excluded_materials`, `brief_messages`, `findings` (answers)               |
 
 Every model call checks the Student's Daily limit first and records its tokens and cost in `ai_usage` under its task (see [Daily limit, retries and failures](#daily-limit-retries-and-failures)).
 
 ## Starting a run, once
 
-Each run has a status (on the Material, or a row per Course), and a database function moves it to its running state only when no run is going, so a double click or two tabs start one workflow. The functions are `security definer`, check that the caller owns the Course or Material, and return whether they queued. The Server Action (or, for Priorities, the page's `ensurePriorities`) then calls `start()` of the workflow; if that throws, a second function records it, so the page offers the button again.
+Each run has a status (on the Material, or a row per Course), and a database function moves it to its running state only when no run is going, so a double click or two tabs start one workflow. The functions are `security definer`, check that the caller owns the Course or Material, and return whether they queued. The Server Action then calls `start()` of the workflow; if that throws, a second function records it, so the page offers the button again.
 
-| Run        | Queue function and its condition                                                                                                                                                                                                                                                       | When `start()` fails                                                                                   |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Parse      | A new Material is inserted `queued` (column default). `queue_material_parse` moves it to `queued` from `not_parsed`, `failed`, or `queued` with `parse_start_failed`, and clears `parse_failure` and `parse_start_failed`.                                                             | `record_parse_start_failure` sets `parse_start_failed`: the page shows "Not started" and offers Parse. |
-| Build      | `queue_knowledge_map_build` upserts `knowledge_map_builds` to `building` (clearing `failure_reason`, setting `started_at`) when the Course has a `parsed` Material, none `queued` or `parsing`, and no build is `building`.                                                            | `record_knowledge_map_build_start_failure` sets `failed` with "The build could not start. Try again."  |
-| Priorities | `queue_priority_run` upserts `priority_runs` to `running` with `computed_at = now()` when the map has a `finished_at`, no run is `running`, and the last `computed_at` is older than the newest of the build's `finished_at`, the Brief's `updated_at` and any `findings.answered_at`. | `record_priority_run_start_failure` sets `failed` with "The priorities could not be computed."         |
+| Run   | Queue function and its condition                                                                                                                                                                                            | When `start()` fails                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Parse | A new Material is inserted `queued` (column default). `queue_material_parse` moves it to `queued` from `not_parsed`, `failed`, or `queued` with `parse_start_failed`, and clears `parse_failure` and `parse_start_failed`.  | `record_parse_start_failure` sets `parse_start_failed`: the page shows "Not started" and offers Parse. |
+| Build | `queue_knowledge_map_build` upserts `knowledge_map_builds` to `building` (clearing `failure_reason`, setting `started_at`) when the Course has a `parsed` Material, none `queued` or `parsing`, and no build is `building`. | `record_knowledge_map_build_start_failure` sets `failed` with "The build could not start. Try again."  |
 
 Pairing has no status row: its passes are ordered by `courses.pairing_requested` (see [Pairing](#pairing)).
 
-Workflow steps run without a signed-in Student, on the admin client, and scope every query to the Course or Material and its owner themselves. Each step first checks its run is still current (the Material exists, the build is `building`, the run is `running`) and does nothing otherwise, so a deleted Course or Material stops a run quietly. The pages poll while a run is going: the Materials page while a Material is waiting or parsing, the Course map while the build is `building` or the priority run `running`.
+Workflow steps run without a signed-in Student, on the admin client, and scope every query to the Course or Material and its owner themselves. Each step first checks its run is still current (the Material exists, the build is `building`, the run is `running`) and does nothing otherwise, so a deleted Course or Material stops a run quietly. The pages poll while a run is going: the Materials page while a Material is waiting or parsing, the Course map while the build is `building`.
 
 ## 1. Parse
 
@@ -95,28 +91,22 @@ The Brief is a conversation, not a workflow (`src/features/brief/`, route `/api/
 | `addNote`       | Appends the Student's words to `briefs.notes` (at most 20,000 characters) through `add_brief_note`, which sets `notes_updated_at`.                                                                                                                              |
 | `answerFinding` | Sets an open Finding of the Course to `answered` with the answer verbatim and `answered_at`; an answer is never replaced. The result names the next Finding to ask, which is marked asked once the reply is stored.                                             |
 
-Any write to `briefs` bumps its `updated_at`, and every answer sets `answered_at`, so both make the next opening of the Course map queue a priority run.
-
 ## 4. Priorities
 
-`updatePriorities(courseId)` in `src/features/priorities/workflows/update-priorities.ts`, queued by `ensurePriorities` when the Course map page opens (see [Starting a run, once](#starting-a-run-once)).
+Computed on every read, with no model call and nothing stored: `loadKcPriorities(supabase, courseId)` for the plan, reviews, readiness and the mock and stock steps, and `getPriorities(courseId)` for the map pages, both in `src/features/priorities/server/priorities.ts`. They read the stored map and Topics, every chunk's Material, the Materials' `is_exam` and the Brief's excluded Materials. Per KC (code, `domain/priority.ts`):
 
-1. **Load** (`loadRunInput`): the stored map with its answered Findings and `finished_at`, every chunk's Material and points, the Materials' `is_exam`, the Brief's notes, `notes_updated_at` and excluded Materials, and the run's stored `adjustments` and `adjusted_at`.
-2. **Plan the adjustment** (code). Without notes and without answered Findings: no call, every adjustment is 1. Otherwise the model is asked when it never adjusted, or the notes, a Finding answer or the map changed after `adjusted_at`; else the stored adjustment is reused.
-3. **Adjust** (`adjustPriorities`, when planned): **call** task `priority`, trace `priority-adjust`, no reasoning. Sent: the notes, the answered Findings (text and answer), the big ideas and the KCs, by ids `B1…` and `K1…`. Answered: entries only for big ideas or KCs the Student said something about, each a multiplier from 0 to 2 with a one-line reason. A KC's entry overrides its big idea's; multipliers are clamped to 0–2. At the Daily limit the stored adjustment is reused and `adjusted_at` stays, so the next run asks again.
-4. **Compute** (code, `domain/priority.ts`):
-   - **Base** per KC: `0.5 × exam + 0.25 × exercises + 0.25 × dependents`, each normalized to the largest value. _Exam_ is the points of old-exam Exercises (question chunk with points in an `is_exam` Material) split equally across their KCs; _exercises_ counts the Exercises that test the KC; _dependents_ counts the KCs that need it, directly or through Prerequisites. Without any old-exam points, the base is `0.5 × exercises + 0.5 × dependents`.
-   - **Multiplier:** 0 when every source chunk of a KC is in a Material the Brief excludes, with the reason "Excluded: you skip <Materials>"; otherwise the adjustment.
-   - **Priority** = base × multiplier, with one reason per factor that counts ("4 points in old exams", "Tested by 2 Exercises", "3 KCs build on it") and the adjustment's reason.
-5. **Store** through `replace_kc_priorities`, one transaction: replaces the Course's `kc_priorities` (`priority`, `multiplier`, `reasons`), marks the run `done` and, when the model answered or the plan skipped it, stores `adjustments` and sets `adjusted_at` to the run's `computed_at`. A failure marks the run `failed` with "The priorities could not be computed." and keeps the old priorities.
+- **Priority** = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare).
+- **oldExamShare:** the KC's Exercises whose question chunk is in an `is_exam` Material, divided by the most any KC of the Course has (0 when that is 0). The Reserved exam counts. **exerciseShare:** the same over all the KC's Exercises.
+- **scope:** 0 when every source chunk of the KC is in a Material the Brief excludes, else 1.
+- **Reasons:** "Tested in N old-exam Exercises", "Tested in N Exercises", or "Excluded: you skip <Materials>".
 
-The Course map shows each KC's level: `excluded` with multiplier 0, otherwise `high`, `medium` or `low` by tertiles of the KCs above 0. The study plan and the due reviews weigh Topics and KCs by Priority ([tutoring-process.md](tutoring-process.md)). Not built: neither the Brief's goal nor a KC's attempts affect Priorities, and the diagnostic (#51, step 5) has no code yet.
+Without old exams and Exercises every KC gets 0.25, so course order decides. The Course map shows each KC's level: `excluded` at 0, otherwise `high`, `medium` or `low` by tertiles. The study plan and the due reviews weigh Topics and KCs by Priority ([tutoring-process.md](tutoring-process.md)). Not built: neither the Brief's goal nor a KC's attempts affect Priorities, and the diagnostic (#51, step 5) has no code yet.
 
 ## Daily limit, retries and failures
 
-- **Daily limit.** `AI_DAILY_LIMIT_USD` per Student per UTC day; without it nothing is limited. Workflow calls go through `meteredGenerate` and `meteredEmbed` (`src/features/usage/server/metered-call.ts`): check the limit for the Material's or Course's owner, run the traced call, record the usage in `ai_usage` under its task with the answering model. A reached limit, or the provider's used-up daily quota, returns null, which each step turns into its outcome: a parse fails with "Daily limit reached", pairing after a delete leaves pairs `no_solution`, a priority run reuses its stored adjustment.
+- **Daily limit.** `AI_DAILY_LIMIT_USD` per Student per UTC day; without it nothing is limited. Workflow calls go through `meteredGenerate` and `meteredEmbed` (`src/features/usage/server/metered-call.ts`): check the limit for the Material's or Course's owner, run the traced call, record the usage in `ai_usage` under its task with the answering model. A reached limit, or the provider's used-up daily quota, returns null, which each step turns into its outcome: a parse fails with "Daily limit reached", pairing after a delete leaves pairs `no_solution`.
 - **Retries.** The AI SDK retries a call up to 3 times on retryable errors (embeddings in a parse excepted), and Vercel Workflow retries a failed step up to 3 times. A step whose output fails its schema or a code check throws, so the whole call is made again.
-- **Tracing.** Every call carries the Student as user and its trace name (`parse-page`, `priority-adjust`, …) for Langfuse ([ADR 0012](../adr/0012-ai-observability-and-evals.md)).
+- **Tracing.** Every call carries the Student as user and its trace name (`parse-page`, `brief-reply`, …) for Langfuse ([ADR 0012](../adr/0012-ai-observability-and-evals.md)).
 
 ## Tables
 
@@ -138,23 +128,21 @@ Every table has an `owner` and Row Level Security; Students read their own rows,
 | `topics`, `topic_kcs`                                  | The build                                                               | Topics in Course order with central question, their KCs in teaching order                                                             |
 | `reading_sections`                                     | The build                                                               | Each Topic's sections: Material, pages, chunks, mode, reason, `annotations` or `study_text`                                           |
 | `briefs`, `brief_excluded_materials`, `brief_messages` | The Brief                                                               | Exam facts, notes, reservation, excluded Materials, the conversation                                                                  |
-| `priority_runs`, `kc_priorities`                       | The queue function, the priority run                                    | The run's status, `computed_at`, stored `adjustments` and `adjusted_at`; each KC's Priority, multiplier and reasons                   |
 | `ai_usage`                                             | Every model call                                                        | Task, model, tokens and cost per call                                                                                                 |
 
 Deleting a Material cascades its pages, chunks, their pairs, sources and processed marks, and its Reading sections; the map itself changes only at the next Update map. Deleting a Course cascades everything.
 
 ## Where to change things
 
-- **Code:** the workflows and their steps in `src/features/ingestion/workflows/`, `knowledge-map/workflows/` and `priorities/workflows/`; the Brief handler and tools in `brief/server/`. Prompts and output schemas sit in each feature's `ai/`, pure rules in `domain/` with tests beside them.
+- **Code:** the workflows and their steps in `src/features/ingestion/workflows/`, and `knowledge-map/workflows/`, Priority in `priorities/domain/priority.ts`; the Brief handler and tools in `brief/server/`. Prompts and output schemas sit in each feature's `ai/`, pure rules in `domain/` with tests beside them.
 - **Models:** each task's model is in `AI_TASKS` in `src/lib/ai/models.ts`, overridable with its `AI_MODEL_*` variable; every model needs a price in `src/lib/ai/prices.ts`.
 - **Database:** the functions named here are in `supabase/migrations/`; the newest definition of each wins.
 
 ## Checks
 
-- `pnpm test:run` runs the workflows in-process against `fakeSupabase` and mock models, with the helpers in `parse-testing.ts` and `handler-testing.ts`: the parse (`parse-material*.test.ts`, `chunk-material`, `embed-chunks`, `pair-exercises`), `update-priorities` and the Brief handler (`handler*.test.ts`). The pure rules have tests beside them in each `domain/`.
-- `pnpm db:test` covers the policies and database functions in `supabase/tests/database/`: `material_parsing`, `queue_material_parse`, `replace_material_chunks`, `set_chunk_embeddings`, `exercise_solutions`, `knowledge_map`, `exercises`, `topics`, `reading_sections`, `map_findings`, `finding_review`, `brief_writes`, `kc_priorities` and others.
+- `pnpm test:run` runs the workflows in-process against `fakeSupabase` and mock models, with the helpers in `parse-testing.ts` and `handler-testing.ts`: the parse (`parse-material*.test.ts`, `chunk-material`, `embed-chunks`, `pair-exercises`) and the Brief handler (`handler*.test.ts`). The pure rules have tests beside them in each `domain/`.
+- `pnpm db:test` covers the policies and database functions in `supabase/tests/database/`: `material_parsing`, `queue_material_parse`, `replace_material_chunks`, `set_chunk_embeddings`, `exercise_solutions`, `knowledge_map`, `exercises`, `topics`, `reading_sections`, `map_findings`, `finding_review`, `brief_writes` and others.
 - `pnpm smoke <name>` runs a stage on a live model, so [live-ai.md](../agents/live-ai.md) applies. Those that need a built map seed the `linear-algebra-I` gold course ([evals/gold/README.md](../../evals/gold/README.md)), and stop until its snapshot exists:
   - `parse`: a PDF or image through the real parse; can write the chunks to a file.
   - `map-findings`: the gold course with a reversed Prerequisite; the Student disputes it in a Chat and the AI files a Finding.
   - `brief`: scripted messages in a Brief, then the reserved exam and a seeded Finding.
-  - `priority`: the gold course and a Brief with notes, then one priority run.

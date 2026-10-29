@@ -334,31 +334,28 @@ export async function findChunkSpan(
   );
 }
 
-/** A chunk's printed points and its Material, as Priorities weighs them. */
-export type ChunkPoints = {
-  id: string;
-  materialId: string;
-  materialName: string;
-  /** Whether its Material is an old exam. */
-  isExam: boolean;
-  /** As printed; null when the chunk prints none. */
-  points: number | null;
+/** A Course's chunks' Materials, as Priorities weighs them. */
+export type ChunkMaterials = {
+  /** Each chunk's Material id by chunk id. */
+  chunkMaterials: Record<string, string>;
+  /** The Course's Materials by id: name and whether it is an old exam. */
+  materials: Record<string, { name: string; isExam: boolean }>;
 };
 
 /**
- * Every chunk of the Course with its printed points, Material name and
- * whether the Material is an old exam. For workflows on the admin client,
- * so it scopes the reads to the Course itself.
+ * Every chunk of the Course with its Material, and the Course's Materials.
+ * Scopes the reads to the Course, so it reads on the admin client or a
+ * Student's session client alike.
  */
-export async function loadChunkPoints(
-  supabase: AdminSupabase,
+export async function loadChunkMaterials(
+  supabase: Supabase,
   courseId: string,
-): Promise<ChunkPoints[]> {
+): Promise<ChunkMaterials> {
   const [chunks, materials] = await Promise.all([
     allRows("Loading the chunks", (from, to) =>
       supabase
         .from("chunks")
-        .select("id, material_id, points")
+        .select("id, material_id")
         .eq("course_id", courseId)
         .order("id")
         .range(from, to),
@@ -369,18 +366,15 @@ export async function loadChunkPoints(
       .eq("course_id", courseId),
   ]);
   if (materials.error) failed("Loading the Materials", materials.error);
-  const material = new Map(materials.data.map((m) => [m.id, m]));
-  return chunks.flatMap((chunk) => {
-    const of = material.get(chunk.material_id);
-    if (!of) return [];
-    return [
-      {
-        id: chunk.id,
-        materialId: chunk.material_id,
-        materialName: of.name,
-        isExam: of.is_exam === true,
-        points: chunk.points === null ? null : Number(chunk.points),
-      },
-    ];
-  });
+  return {
+    chunkMaterials: Object.fromEntries(
+      chunks.map((chunk) => [chunk.id, chunk.material_id]),
+    ),
+    materials: Object.fromEntries(
+      materials.data.map((m) => [
+        m.id,
+        { name: m.name, isExam: m.is_exam === true },
+      ]),
+    ),
+  };
 }

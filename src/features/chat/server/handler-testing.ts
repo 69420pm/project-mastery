@@ -33,7 +33,7 @@ const COURSE_TABLES = [
   "findings",
   "finding_sources",
   "knowledge_map_builds",
-  "kc_priorities",
+  "brief_excluded_materials",
   "briefs",
   "chunks",
   "memories",
@@ -76,7 +76,7 @@ function createDb() {
       findings: [],
       finding_sources: [],
       knowledge_map_builds: [],
-      kc_priorities: [],
+      brief_excluded_materials: [],
       briefs: [],
       mock_exams: [],
       mock_items: [],
@@ -494,13 +494,6 @@ export function seedMap() {
     { topic_id: MAP.topic, kc_id: MAP.thrust, position: 0 },
     { topic_id: MAP.topic, kc_id: MAP.efficiency, position: 1 },
   );
-  db.tables.kc_priorities.push({
-    ...owned,
-    kc_id: MAP.thrust,
-    priority: 0.8,
-    multiplier: 1,
-    reasons: [],
-  });
   db.tables.materials.push({
     ...owned,
     id: MAP.material,

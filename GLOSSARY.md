@@ -66,7 +66,7 @@ A map Finding is one the tutor files in a Study session when the Course's source
 _Avoid_: Issue, error, erratum
 
 **Priority**:
-How much a KC matters for this Student's exam, from old exams, Exercises, the Knowledge map and the Brief.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, and from the Materials the Brief excludes. Without old exams or Exercises every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:

@@ -39,8 +39,7 @@ const TABLES = [
   "chats",
   "chat_messages",
   "briefs",
-  "kc_priorities",
-  "priority_runs",
+  "brief_excluded_materials",
   "ai_usage",
 ] as const;
 

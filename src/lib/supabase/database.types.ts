@@ -878,56 +878,6 @@ export type Database = {
           },
         ];
       };
-      kc_priorities: {
-        Row: {
-          course_id: string;
-          kc_id: string;
-          multiplier: number;
-          owner: string;
-          priority: number;
-          reasons: string[];
-        };
-        ComputedFields: never;
-        Insert: {
-          course_id: string;
-          kc_id: string;
-          multiplier: number;
-          owner: string;
-          priority: number;
-          reasons?: string[];
-        };
-        Update: {
-          course_id?: string;
-          kc_id?: string;
-          multiplier?: number;
-          owner?: string;
-          priority?: number;
-          reasons?: string[];
-        };
-        Relationships: [
-          {
-            foreignKeyName: "kc_priorities_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "kc_priorities_kc_id_fkey";
-            columns: ["kc_id"];
-            isOneToOne: true;
-            referencedRelation: "kcs";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "kc_priorities_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       kc_sources: {
         Row: {
           chunk_id: string;
@@ -1620,52 +1570,6 @@ export type Database = {
             columns: ["to_kc"];
             isOneToOne: false;
             referencedRelation: "kcs";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      priority_runs: {
-        Row: {
-          adjusted_at: string | null;
-          adjustments: NonNullable<Json>;
-          computed_at: string;
-          course_id: string;
-          failure_reason: string | null;
-          owner: string;
-          status: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          adjusted_at?: string | null;
-          adjustments?: NonNullable<Json>;
-          computed_at?: string;
-          course_id: string;
-          failure_reason?: string | null;
-          owner: string;
-          status: string;
-        };
-        Update: {
-          adjusted_at?: string | null;
-          adjustments?: NonNullable<Json>;
-          computed_at?: string;
-          course_id?: string;
-          failure_reason?: string | null;
-          owner?: string;
-          status?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "priority_runs_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: true;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "priority_runs_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2371,7 +2275,6 @@ export type Database = {
           queued: boolean;
         }[];
       };
-      queue_priority_run: { Args: { course_id: string }; Returns: boolean };
       queue_problem_run: {
         Args: { p_course_id: string; p_topic_id?: string };
         Returns: boolean;
@@ -2384,18 +2287,10 @@ export type Database = {
         Args: { material_id: string };
         Returns: boolean;
       };
-      record_priority_run_start_failure: {
-        Args: { course_id: string };
-        Returns: boolean;
-      };
       release_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       release_problem_run: { Args: { p_course_id: string }; Returns: boolean };
       replace_exercise_solutions: {
         Args: { p_course_id: string; p_pairs: Json; p_request: number };
-        Returns: boolean;
-      };
-      replace_kc_priorities: {
-        Args: { p_adjustments?: Json; p_course_id: string; p_priorities: Json };
         Returns: boolean;
       };
       replace_material_chunks: {

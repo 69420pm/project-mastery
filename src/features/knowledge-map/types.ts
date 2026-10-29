@@ -113,18 +113,14 @@ export type ReviewFinding = {
 
 /**
  * The KC priorities the map page shows, which the page passes in: each KC's
- * level, value, multiplier and reasons by KC id (none before the first run),
- * whether a run is running and why the last one failed.
+ * level, value and reasons by KC id.
  */
 export type MapPriorities = {
-  running: boolean;
-  failureReason: string | null;
   kcs: Record<
     string,
     {
       level: "high" | "medium" | "low" | "excluded";
       value: number;
-      multiplier: number;
       reasons: string[];
     }
   >;

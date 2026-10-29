@@ -24,7 +24,6 @@ import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
 import { parseSmoke } from "./smoke/parse";
-import { prioritySmoke } from "./smoke/priority";
 import { reviewSmoke } from "./smoke/review";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 import { tutorSmoke } from "./smoke/tutor";
@@ -33,7 +32,6 @@ import { tutorSmoke } from "./smoke/tutor";
 const CHECKS: SmokeCheck[] = [
   parseSmoke,
   briefSmoke,
-  prioritySmoke,
   tutorSmoke,
   mapFindingsSmoke,
   generateSmoke,
@@ -130,7 +128,6 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_EXERCISE",
   "AI_MODEL_TOPIC",
   "AI_MODEL_READING",
-  "AI_MODEL_PRIORITY",
   "AI_MODEL_GENERATE",
   "AI_MODEL_GRADE_EXAM",
   "AI_MODEL_CLOSE",

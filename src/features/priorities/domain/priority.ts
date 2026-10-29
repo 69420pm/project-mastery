@@ -1,223 +1,151 @@
 /**
- * The Priority of each KC of a Course for the Student's exam (#86): a base
- * from old exams, Exercises and the prerequisite graph, times a multiplier.
- * Pure code; the `updatePriorities` workflow feeds it the stored map.
+ * The Priority of each KC of a Course for the Student's exam, computed when
+ * read from old exams, Exercises and what the Brief excludes or stresses:
+ *
+ *   Priority = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare)
+ *
+ * Pure code; `server/priorities.ts` feeds it the stored map and Brief.
  */
 
-/** A KC as the base reads it. */
+/** A KC as Priority reads it. */
 type PriorityKc = {
   id: string;
+  bigIdeaId: string;
+  /** Null when no Topic holds it. */
+  topicId: string | null;
   /** The chunks that teach it. */
   sources: string[];
 };
 
-/** What the base is computed from. */
+/** A Student-confirmed statement about one Big idea or Topic. */
+export type ExamScope = {
+  bigIdeaId: string | null;
+  topicId: string | null;
+  scope: "excluded" | "emphasized";
+  words: string;
+};
+
+/** What Priority is computed from. */
 export type PriorityInput = {
   kcs: PriorityKc[];
-  /** `from` must be learned before `to`. */
-  prerequisites: Array<{ from: string; to: string }>;
   exercises: Array<{ questionChunk: string; kcs: string[] }>;
-  /** The Course's chunks by id: their Material and printed points. */
-  chunks: Record<string, { materialId: string; points: number | null }>;
+  /** Each chunk's Material by chunk id. */
+  chunkMaterials: Record<string, string>;
   /** The Course's Materials by id. */
   materials: Record<string, { name: string; isExam: boolean }>;
+  /** The Materials the Brief excludes. */
+  excludedMaterialIds: string[];
+  examScopes: ExamScope[];
 };
 
-/** A KC's three base factors, each from 0 to 1, with the raw counts. */
-export type BaseFactors = {
-  exam: number;
-  exercises: number;
-  dependents: number;
-  examPoints: number;
-  exerciseCount: number;
-  dependentCount: number;
-};
+export type PriorityLevel = "high" | "medium" | "low" | "excluded";
 
-/** A KC's stored Priority. */
+/** A KC's Priority with the map page's level and reasons. */
 export type KcPriority = {
   kcId: string;
   priority: number;
-  multiplier: number;
+  level: PriorityLevel;
   reasons: string[];
 };
-
-/** Each value divided by the largest; all 0 when the largest is 0. */
-function normalized(values: Map<string, number>): Map<string, number> {
-  const max = Math.max(0, ...values.values());
-  return new Map(
-    [...values].map(([id, value]) => [id, max > 0 ? value / max : 0]),
-  );
-}
-
-/** For each KC, how many KCs need it directly or through Prerequisites. */
-function dependentCounts(
-  kcIds: string[],
-  prerequisites: PriorityInput["prerequisites"],
-): Map<string, number> {
-  const next = new Map<string, string[]>();
-  for (const { from, to } of prerequisites) {
-    next.set(from, [...(next.get(from) ?? []), to]);
-  }
-  return new Map(
-    kcIds.map((id) => {
-      const seen = new Set<string>();
-      const stack = [...(next.get(id) ?? [])];
-      while (stack.length > 0) {
-        const kc = stack.pop() as string;
-        if (kc === id || seen.has(kc)) continue;
-        seen.add(kc);
-        stack.push(...(next.get(kc) ?? []));
-      }
-      return [id, seen.size];
-    }),
-  );
-}
-
-/**
- * Each KC's points in old exams: an Exercise counts when its question chunk
- * has points and belongs to an exam Material, and its points are split
- * equally across its KCs.
- */
-function examPoints(input: PriorityInput): Map<string, number> {
-  const points = new Map(input.kcs.map((kc) => [kc.id, 0]));
-  for (const exercise of input.exercises) {
-    const chunk = input.chunks[exercise.questionChunk];
-    const kcs = [...new Set(exercise.kcs)].filter((id) => points.has(id));
-    if (chunk?.points == null || kcs.length === 0) continue;
-    if (!input.materials[chunk.materialId]?.isExam) continue;
-    for (const id of kcs) {
-      points.set(id, (points.get(id) ?? 0) + chunk.points / kcs.length);
-    }
-  }
-  return points;
-}
-
-/** Each KC's base factors. */
-export function baseFactors(input: PriorityInput): Map<string, BaseFactors> {
-  const ids = input.kcs.map((kc) => kc.id);
-  const points = examPoints(input);
-  const counts = new Map(ids.map((id) => [id, 0]));
-  for (const exercise of input.exercises) {
-    for (const id of new Set(exercise.kcs)) {
-      if (counts.has(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
-    }
-  }
-  const dependents = dependentCounts(ids, input.prerequisites);
-  const exam = normalized(points);
-  const exercises = normalized(counts);
-  const graph = normalized(dependents);
-  return new Map(
-    ids.map((id) => [
-      id,
-      {
-        exam: exam.get(id) ?? 0,
-        exercises: exercises.get(id) ?? 0,
-        dependents: graph.get(id) ?? 0,
-        examPoints: points.get(id) ?? 0,
-        exerciseCount: counts.get(id) ?? 0,
-        dependentCount: dependents.get(id) ?? 0,
-      },
-    ]),
-  );
-}
-
-/**
- * The base: `0.5 · exam + 0.25 · exercises + 0.25 · dependents`, or
- * `0.5 · exercises + 0.5 · dependents` when the Course has no exam points.
- */
-function baseOf(factors: BaseFactors, hasExamPoints: boolean): number {
-  return hasExamPoints
-    ? 0.5 * factors.exam + 0.25 * factors.exercises + 0.25 * factors.dependents
-    : 0.5 * factors.exercises + 0.5 * factors.dependents;
-}
-
-/**
- * The code exclusion: a KC whose source chunks all belong to
- * Materials the Brief excludes gets ×0, with the reason naming them. Null
- * for any other KC.
- */
-function exclusionOf(
-  kc: PriorityKc,
-  input: Pick<PriorityInput, "chunks" | "materials">,
-  excludedMaterialIds: ReadonlySet<string>,
-): { multiplier: 0; reason: string } | null {
-  if (kc.sources.length === 0) return null;
-  const materialIds = kc.sources.map(
-    (id) => input.chunks[id]?.materialId ?? "",
-  );
-  if (!materialIds.every((id) => excludedMaterialIds.has(id))) return null;
-  const names = [...new Set(materialIds)]
-    .map((id) => input.materials[id]?.name ?? "a Material")
-    .toSorted();
-  return { multiplier: 0, reason: `Excluded: you skip ${names.join(", ")}` };
-}
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count === 1 ? one : many}`;
 
-/** Why the base is what it is, one line per factor that counts. */
-function baseReasons(factors: BaseFactors): string[] {
-  const points = Math.round(factors.examPoints * 10) / 10;
-  return [
-    points > 0 && `${plural(points, "point", "points")} in old exams`,
-    factors.exerciseCount > 0 &&
-      `Tested by ${plural(factors.exerciseCount, "Exercise", "Exercises")}`,
-    factors.dependentCount > 0 &&
-      `${plural(factors.dependentCount, "KC builds", "KCs build")} on it`,
-  ].filter((reason) => reason !== false);
+/** How many Exercises, and old-exam Exercises, test each KC. */
+function exerciseCounts(input: PriorityInput) {
+  const counts = new Map(
+    input.kcs.map((kc) => [kc.id, { exercises: 0, oldExam: 0 }]),
+  );
+  for (const exercise of input.exercises) {
+    const material = input.chunkMaterials[exercise.questionChunk];
+    const oldExam = material !== undefined && input.materials[material]?.isExam;
+    for (const id of new Set(exercise.kcs)) {
+      const count = counts.get(id);
+      if (!count) continue;
+      count.exercises += 1;
+      if (oldExam) count.oldExam += 1;
+    }
+  }
+  return counts;
 }
 
 /**
- * Every KC's Priority: base × multiplier, where the multiplier is the code
- * exclusion times `adjust` (1 when the model did not adjust it), with the
- * adjustment's reasons after the base's.
+ * A KC's scope factor and its reason: 0 when all its sources are in
+ * excluded Materials, else its Topic's exam scope, else its Big idea's.
  */
-export function priorities(
+function scopeOf(
+  kc: PriorityKc,
   input: PriorityInput,
-  excludedMaterialIds: ReadonlySet<string>,
-  adjust: (kcId: string) => { multiplier: number; reasons: string[] } = () => ({
-    multiplier: 1,
-    reasons: [],
-  }),
-): KcPriority[] {
-  const factors = baseFactors(input);
-  const hasExamPoints = [...factors.values()].some((f) => f.examPoints > 0);
-  return input.kcs.map((kc) => {
-    const kcFactors = factors.get(kc.id) as BaseFactors;
-    const excluded = exclusionOf(kc, input, excludedMaterialIds);
-    const adjustment = adjust(kc.id);
-    const multiplier = (excluded?.multiplier ?? 1) * adjustment.multiplier;
-    return {
-      kcId: kc.id,
-      priority: baseOf(kcFactors, hasExamPoints) * multiplier,
-      multiplier,
-      reasons: excluded
-        ? [excluded.reason]
-        : [...baseReasons(kcFactors), ...adjustment.reasons],
-    };
-  });
+  excluded: ReadonlySet<string>,
+): { factor: number; reason: string | null } {
+  const materials = kc.sources.map((id) => input.chunkMaterials[id] ?? "");
+  if (materials.length > 0 && materials.every((id) => excluded.has(id))) {
+    const names = [...new Set(materials)]
+      .map((id) => input.materials[id]?.name ?? "a Material")
+      .toSorted();
+    return { factor: 0, reason: `Excluded: you skip ${names.join(", ")}` };
+  }
+  const scope =
+    input.examScopes.find(
+      (s) => kc.topicId !== null && s.topicId === kc.topicId,
+    ) ?? input.examScopes.find((s) => s.bigIdeaId === kc.bigIdeaId);
+  if (!scope) return { factor: 1, reason: null };
+  return scope.scope === "excluded"
+    ? { factor: 0, reason: `Excluded in the Brief: ${scope.words}` }
+    : { factor: 2, reason: `Emphasized in the Brief: ${scope.words}` };
 }
 
-export type PriorityLevel = "high" | "medium" | "low" | "excluded";
-
 /**
- * The map page's badge per KC: "high", "medium" or "low" by tertiles of
- * priority among the KCs above 0, "excluded" when its multiplier is 0, and
- * "low" for any other KC at 0, such as one no exam, Exercise or KC needs.
- * Equal priorities get the same level: a KC's level follows how many KCs
- * rank strictly above it.
+ * The map page's level per KC: "excluded" at Priority 0, else "high",
+ * "medium" or "low" by tertiles of the other KCs. Equal priorities get the
+ * same level: a KC's level follows how many KCs rank strictly above it.
  */
-export function priorityLevels(
-  values: Array<{ kcId: string; priority: number; multiplier: number }>,
-): Map<string, PriorityLevel> {
-  const positive = values.filter((value) => value.priority > 0);
-  return new Map(
-    values.map(({ kcId, priority, multiplier }) => {
-      if (multiplier <= 0) return [kcId, "excluded"];
-      if (priority <= 0) return [kcId, "low"];
-      const above = positive.filter((other) => other.priority > priority);
-      const share = above.length / positive.length;
+function levelsOf(values: Array<{ kcId: string; priority: number }>) {
+  const ranked = values.filter((value) => value.priority > 0);
+  return new Map<string, PriorityLevel>(
+    values.map(({ kcId, priority }) => {
+      if (priority <= 0) return [kcId, "excluded"];
+      const above = ranked.filter((other) => other.priority > priority);
+      const share = above.length / ranked.length;
       return [kcId, share < 1 / 3 ? "high" : share < 2 / 3 ? "medium" : "low"];
     }),
   );
+}
+
+/** Every KC's Priority, level and reasons, in the order of `input.kcs`. */
+export function kcPriorities(input: PriorityInput): KcPriority[] {
+  const counts = exerciseCounts(input);
+  const maxOldExam = Math.max(0, ...[...counts.values()].map((c) => c.oldExam));
+  const maxExercises = Math.max(
+    0,
+    ...[...counts.values()].map((c) => c.exercises),
+  );
+  const excluded = new Set(input.excludedMaterialIds);
+  const values = input.kcs.map((kc) => {
+    const count = counts.get(kc.id) ?? { exercises: 0, oldExam: 0 };
+    const scope = scopeOf(kc, input, excluded);
+    const oldExamShare = maxOldExam > 0 ? count.oldExam / maxOldExam : 0;
+    const exerciseShare = maxExercises > 0 ? count.exercises / maxExercises : 0;
+    const reasons =
+      scope.factor === 0
+        ? [scope.reason as string]
+        : [
+            count.oldExam > 0 &&
+              `Tested in ${plural(count.oldExam, "old-exam Exercise", "old-exam Exercises")}`,
+            count.exercises > 0 &&
+              `Tested in ${plural(count.exercises, "Exercise", "Exercises")}`,
+            scope.reason,
+          ].filter((reason) => typeof reason === "string");
+    return {
+      kcId: kc.id,
+      priority:
+        scope.factor * (0.25 + 0.5 * oldExamShare + 0.25 * exerciseShare),
+      reasons,
+    };
+  });
+  const levels = levelsOf(values);
+  return values.map((value) => ({
+    ...value,
+    level: levels.get(value.kcId) ?? "low",
+  }));
 }

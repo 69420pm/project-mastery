@@ -124,7 +124,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       topic={detail}
       topics={topics}
       map={map}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
+      priorities={{ kcs: {} }}
       learning={{}}
       topicState={{ state: "solid", recall: 0.91 }}
       badges={["pinned", "won't fit"]}

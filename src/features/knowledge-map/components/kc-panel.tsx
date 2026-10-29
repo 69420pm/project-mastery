@@ -134,7 +134,6 @@ export function KcPanel({
             </div>
             <dl className="flex flex-col gap-1">
               <Fact label="Value">{priority.value.toFixed(2)}</Fact>
-              <Fact label="Multiplier">×{priority.multiplier}</Fact>
             </dl>
             <PriorityReasons priority={priority} />
           </>

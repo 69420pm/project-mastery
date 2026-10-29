@@ -31,7 +31,6 @@ const BUCKET_BY_TASK: Record<AiTask, UsageBucket | undefined> = {
   topic: "study",
   reading: "study",
   embed: "study",
-  priority: "study",
   generate: "generation",
   grade_exam: "study",
   close: "study",

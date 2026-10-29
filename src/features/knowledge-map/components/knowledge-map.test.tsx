@@ -87,10 +87,8 @@ const renderMap = (learning: MapKcLearning = {}) =>
     <KnowledgeMap
       map={map}
       priorities={{
-        running: false,
-        failureReason: null,
         kcs: {
-          k2: { level: "high", value: 0.8, multiplier: 1, reasons: ["Exam"] },
+          k2: { level: "high", value: 0.8, reasons: ["Exam"] },
         },
       }}
       learning={learning}
@@ -213,13 +211,7 @@ const withOrphan = {
 };
 
 const renderWith = (view: KnowledgeMapView) =>
-  render(
-    <KnowledgeMap
-      map={view}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
-      learning={{}}
-    />,
-  );
+  render(<KnowledgeMap map={view} priorities={{ kcs: {} }} learning={{}} />);
 
 test("a KC node shows its check-report badges", async () => {
   renderWith(withOrphan);

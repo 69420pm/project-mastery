@@ -7,7 +7,7 @@ export { getMaterialChunks } from "./server/chunk-queries";
 export {
   findChunkSpan,
   getChunkPlaces,
-  loadChunkPoints,
+  loadChunkMaterials,
   loadCourseChunkSpans,
   loadCourseChunks,
   type ChunkSpan,
@@ -16,7 +16,7 @@ export {
   type ChunkText,
   loadExerciseSolutions,
   loadMaterialChunkIds,
-  type ChunkPoints,
+  type ChunkMaterials,
 } from "./server/course-chunks";
 export { startPairing } from "./server/start-pairing";
 export { startParse } from "./server/start-parse";

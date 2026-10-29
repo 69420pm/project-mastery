@@ -35,7 +35,6 @@ const schema = z
     AI_MODEL_EXERCISE: modelId,
     AI_MODEL_TOPIC: modelId,
     AI_MODEL_READING: modelId,
-    AI_MODEL_PRIORITY: modelId,
     AI_MODEL_GENERATE: modelId,
     AI_MODEL_GRADE_EXAM: modelId,
     AI_MODEL_CLOSE: modelId,

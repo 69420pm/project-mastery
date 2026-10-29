@@ -1,242 +1,144 @@
-import { describe, expect, test } from "vitest";
-import {
-  baseFactors,
-  priorities,
-  priorityLevels,
-  type PriorityInput,
-} from "./priority";
+import { describe, expect, it } from "vitest";
+import { kcPriorities, type KcPriority, type PriorityInput } from "./priority";
 
-/** A Course: chunks l1–l2 in "Lecture", l3 in "Sheet 1", e1–e2 in "Exam 2024". */
-function course(overrides: Partial<PriorityInput> = {}): PriorityInput {
+const kc = (
+  id: string,
+  topicId: string | null = null,
+  sources = [`c-${id}`],
+) => ({
+  id,
+  bigIdeaId: "b1",
+  topicId,
+  sources,
+});
+
+function input(overrides: Partial<PriorityInput> = {}): PriorityInput {
   return {
-    kcs: ["a", "b", "c", "d"].map((id) => ({ id, sources: ["l1"] })),
-    prerequisites: [],
+    kcs: [kc("a", "t1"), kc("b", "t1"), kc("c", "t2")],
     exercises: [],
-    chunks: {
-      l1: { materialId: "lecture", points: null },
-      l2: { materialId: "lecture", points: null },
-      l3: { materialId: "sheet", points: 4 },
-      e1: { materialId: "exam", points: 6 },
-      e2: { materialId: "exam", points: 2 },
+    chunkMaterials: {
+      "c-a": "notes",
+      "c-b": "notes",
+      "c-c": "slides",
+      q1: "exam",
+      q2: "sheet",
+      q3: "sheet",
     },
     materials: {
-      lecture: { name: "Lecture", isExam: false },
-      sheet: { name: "Sheet 1", isExam: false },
+      notes: { name: "Notes", isExam: false },
+      slides: { name: "Slides", isExam: false },
+      sheet: { name: "Sheet", isExam: false },
       exam: { name: "Exam 2024", isExam: true },
     },
+    excludedMaterialIds: [],
+    examScopes: [],
     ...overrides,
   };
 }
 
-const factor = (
-  input: PriorityInput,
-  key: "exam" | "exercises" | "dependents",
-) =>
-  Object.fromEntries(
-    [...baseFactors(input)].map(([id, factors]) => [id, factors[key]]),
-  );
+const byId = (values: KcPriority[]) =>
+  Object.fromEntries(values.map((value) => [value.kcId, value])) as Record<
+    "a" | "b" | "c",
+    KcPriority
+  >;
 
-describe("base factors", () => {
-  test("exam points are split across an exam Exercise's KCs, over the largest sum", () => {
-    const input = course({
-      exercises: [
-        // A KC listed twice counts once.
-        { questionChunk: "e1", kcs: ["a", "b", "b"] },
-        { questionChunk: "e2", kcs: ["a"] },
-        // Points outside an exam Material count nothing.
-        { questionChunk: "l3", kcs: ["c"] },
-      ],
-    });
-    // a: 3 + 2 = 5, b: 3.
-    expect(factor(input, "exam")).toEqual({ a: 1, b: 0.6, c: 0, d: 0 });
-  });
-
-  test("Exercises using a KC, over the most", () => {
-    const input = course({
-      exercises: [
-        { questionChunk: "l1", kcs: ["a", "b"] },
-        { questionChunk: "l2", kcs: ["a"] },
-      ],
-    });
-    expect(factor(input, "exercises")).toEqual({ a: 1, b: 0.5, c: 0, d: 0 });
-  });
-
-  test("dependents count KCs that need it directly or indirectly", () => {
-    const input = course({
-      prerequisites: [
-        { from: "a", to: "b" },
-        { from: "b", to: "c" },
-        { from: "a", to: "c" },
-      ],
-    });
-    expect(factor(input, "dependents")).toEqual({ a: 1, b: 0.5, c: 0, d: 0 });
-  });
-
-  test.each<[string, Partial<PriorityInput>, Record<string, number>]>([
-    [
-      "a cycle counts each other KC once, never the KC itself",
-      {
-        prerequisites: [
-          { from: "a", to: "b" },
-          { from: "b", to: "c" },
-          { from: "c", to: "a" },
-        ],
-      },
-      { a: 2, b: 2, c: 2, d: 0 },
-    ],
-    [
-      "a Prerequisite naming an unknown KC adds only known ones",
-      {
-        prerequisites: [
-          { from: "a", to: "x" },
-          { from: "x", to: "b" },
-        ],
-      },
-      { a: 2, b: 0, c: 0, d: 0 },
-    ],
-  ])("dependents: %s", (_, overrides, expected) => {
-    const counts = Object.fromEntries(
-      [...baseFactors(course(overrides))].map(([id, f]) => [
-        id,
-        f.dependentCount,
-      ]),
-    );
-    expect(counts).toEqual(expected);
-  });
-
-  test.each([
-    ["a duplicate KC id counts once", ["a", "a"]],
-    ["an unknown KC id counts nothing and takes no share", ["a", "zz"]],
-  ])("an exam Exercise: %s", (_, kcs) => {
-    const factors = baseFactors(
-      course({ exercises: [{ questionChunk: "e1", kcs }] }),
-    );
-    expect(
-      [...factors].map(([id, f]) => [id, f.exerciseCount, f.examPoints]),
-    ).toEqual([
-      ["a", 1, 6],
-      ["b", 0, 0],
-      ["c", 0, 0],
-      ["d", 0, 0],
+describe("kcPriorities", () => {
+  it("gives every KC 0.25 without old exams, Exercises or exam scopes", () => {
+    expect(kcPriorities(input()).map((value) => value.priority)).toEqual([
+      0.25, 0.25, 0.25,
     ]);
   });
 
-  test.each([
-    ["a non-exam Material", "l3"],
-    ["a chunk without points", "l1"],
-    ["an unknown chunk", "nope"],
-  ])("points of %s count nothing", (_, questionChunk) => {
-    const factors = baseFactors(
-      course({ exercises: [{ questionChunk, kcs: ["a"] }] }),
+  it("weighs old-exam and all Exercises as shares of the Course's most", () => {
+    const result = byId(
+      kcPriorities(
+        input({
+          exercises: [
+            { questionChunk: "q1", kcs: ["a", "a"] },
+            { questionChunk: "q2", kcs: ["a", "b"] },
+            { questionChunk: "q3", kcs: ["b"] },
+          ],
+        }),
+      ),
     );
-    expect(factors.get("a")?.examPoints).toBe(0);
-  });
-
-  test("a largest value of 0 makes the factor 0 for every KC", () => {
-    expect(factor(course(), "exam")).toEqual({ a: 0, b: 0, c: 0, d: 0 });
-  });
-});
-
-describe("priorities", () => {
-  const byKc = (input: PriorityInput, excluded: string[] = []) =>
-    Object.fromEntries(
-      priorities(input, new Set(excluded)).map((p) => [p.kcId, p]),
-    );
-
-  test("weigh exam points half and Exercises and dependents a quarter each", () => {
-    const result = byKc(
-      course({
-        exercises: [
-          { questionChunk: "e1", kcs: ["a"] },
-          { questionChunk: "l1", kcs: ["b"] },
-        ],
-        prerequisites: [{ from: "c", to: "a" }],
-      }),
-    );
-    expect(result.a?.priority).toBe(0.75);
-    expect(result.b?.priority).toBe(0.25);
-    expect(result.c?.priority).toBe(0.25);
-    expect(result.a?.reasons).toEqual([
-      "6 points in old exams",
-      "Tested by 1 Exercise",
+    expect(result.a.priority).toBe(0.25 + 0.5 + 0.25);
+    expect(result.b.priority).toBe(0.25 + 0.25);
+    expect(result.c.priority).toBe(0.25);
+    expect(result.a.reasons).toEqual([
+      "Tested in 1 old-exam Exercise",
+      "Tested in 2 Exercises",
     ]);
-    expect(result.c?.reasons).toEqual(["1 KC builds on it"]);
+    expect([result.a.level, result.b.level, result.c.level]).toEqual([
+      "high",
+      "medium",
+      "low",
+    ]);
   });
 
-  test("without exam points, weigh Exercises and dependents half each", () => {
-    const result = byKc(
-      course({
-        exercises: [{ questionChunk: "l1", kcs: ["a"] }],
-        prerequisites: [{ from: "b", to: "a" }],
-      }),
+  it("lets a Topic's exam scope win over its Big idea's", () => {
+    const result = byId(
+      kcPriorities(
+        input({
+          examScopes: [
+            {
+              bigIdeaId: "b1",
+              topicId: null,
+              scope: "excluded",
+              words: "No chapter 1",
+            },
+            {
+              bigIdeaId: null,
+              topicId: "t1",
+              scope: "emphasized",
+              words: "Bases come up a lot",
+            },
+          ],
+        }),
+      ),
     );
-    expect(result.a?.priority).toBe(0.5);
-    expect(result.b?.priority).toBe(0.5);
-    expect(result.a?.multiplier).toBe(1);
+    expect(result.a.priority).toBe(0.5);
+    expect(result.a.reasons).toEqual([
+      "Emphasized in the Brief: Bases come up a lot",
+    ]);
+    expect(result.c).toMatchObject({
+      priority: 0,
+      level: "excluded",
+      reasons: ["Excluded in the Brief: No chapter 1"],
+    });
   });
 
-  test("exclude a KC taught only by excluded Materials", () => {
-    const input = course({
-      kcs: [
-        { id: "a", sources: ["l1", "l3"] },
-        { id: "b", sources: ["l1", "e1"] },
-        { id: "c", sources: [] },
-      ],
-      exercises: [{ questionChunk: "l1", kcs: ["a", "b", "c"] }],
-    });
-    const result = byKc(input, ["lecture", "sheet"]);
+  it("excludes a KC whose every source is in an excluded Material", () => {
+    const result = byId(
+      kcPriorities(
+        input({
+          kcs: [kc("a", null, ["c-a", "c-c"]), kc("c")],
+          excludedMaterialIds: ["notes", "slides"],
+          examScopes: [
+            {
+              bigIdeaId: "b1",
+              topicId: null,
+              scope: "emphasized",
+              words: "All of it",
+            },
+          ],
+        }),
+      ),
+    );
     expect(result.a).toMatchObject({
       priority: 0,
-      multiplier: 0,
-      reasons: ["Excluded: you skip Lecture, Sheet 1"],
+      level: "excluded",
+      reasons: ["Excluded: you skip Notes, Slides"],
     });
-    expect(result.b?.multiplier).toBe(1);
-    expect(result.c?.multiplier).toBe(1);
-  });
-});
-
-describe("priority levels", () => {
-  test("split the KCs above 0 into tertiles; ×0 is excluded, other 0s low", () => {
-    const levels = priorityLevels([
-      ...[0.9, 0.8, 0.5, 0.4, 0.2, 0.1].map((priority, index) => ({
-        kcId: `k${index}`,
-        priority,
-        multiplier: 1,
-      })),
-      { kcId: "unused", priority: 0, multiplier: 1 },
-      { kcId: "skipped", priority: 0, multiplier: 0 },
-    ]);
-    expect([...levels.values()]).toEqual([
-      "high",
-      "high",
-      "medium",
-      "medium",
-      "low",
-      "low",
-      "low",
-      "excluded",
-    ]);
+    expect(result.c.priority).toBe(0);
   });
 
-  test.each([
-    ["priority 0 with multiplier 1", "low", 0, 1],
-    ["a lone positive priority", "high", 0.3, 1],
-    ["multiplier 0 with a priority", "excluded", 0.3, 0],
-  ])("give %s the level %s", (_, level, priority, multiplier) => {
-    const levels = priorityLevels([{ kcId: "a", priority, multiplier }]);
-    expect(levels.get("a")).toBe(level);
-  });
-
-  test("give equal priorities one level", () => {
-    const levels = priorityLevels([
-      { kcId: "a", priority: 0.5, multiplier: 1 },
-      { kcId: "b", priority: 0.5, multiplier: 1 },
-      { kcId: "c", priority: 0.1, multiplier: 1 },
-    ]);
-    expect(Object.fromEntries(levels)).toEqual({
-      a: "high",
-      b: "high",
-      c: "low",
-    });
+  it("keeps a KC with one source outside the excluded Materials", () => {
+    const result = kcPriorities(
+      input({
+        kcs: [kc("a", null, ["c-a", "c-c"])],
+        excludedMaterialIds: ["notes"],
+      }),
+    );
+    expect(result[0]).toMatchObject({ priority: 0.25, level: "high" });
   });
 });

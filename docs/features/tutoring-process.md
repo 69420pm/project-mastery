@@ -94,7 +94,7 @@ Every reply checks the Student's Daily limit first and is refused with 429 at th
 ## Tables
 
 - **Student state:** `attempts` (owner, Course, KC, optional Exercise, `correct`, `help`, `created_at`), insert-only for the Student and with Row Level Security that requires the KC and the Exercise to be of the Course. `memories` (one row per Course, owner, `text`, `updated_at`). `topic_choices` (owner, Topic, `choice` pinned or skipped, `created_at`, one row per Topic), which the Student reads, writes and deletes only for Topics of their own Courses; the owner is set by the database and only `topic_id`, `choice` and `created_at` are granted for insert and update.
-- **Read:** `briefs` (exam date, weekly hours, goal), `kc_priorities`, the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`, `topics`), `chunks`, `exercise_solutions`, and for the measured pace `study_sessions`, `questions` and `chat_messages`.
+- **Read:** `briefs` (exam date, weekly hours, goal), `brief_excluded_materials` and `materials` (for Priority), the map tables (`kcs`, `kc_sources`, `prerequisite_links`, `exercises`, `exercise_kcs`, `topics`), `chunks`, `exercise_solutions`, and for the measured pace `study_sessions`, `questions` and `chat_messages`.
 - **Written elsewhere:** `ai_usage`. The `append_memory` function (`security invoker`) writes the Memory line.
 
 Migrations: `20261016100000_create_attempts.sql`, `20261016110000_create_memories.sql` and `20261016120000_create_append_memory.sql` and `20261024140000_create_topic_choices.sql`.

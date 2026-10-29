@@ -12,7 +12,6 @@ import { STATE_NAMES, TYPE_NAMES } from "./kc-labels";
 const priority = (level: "high" | "excluded", value: number) => ({
   level,
   value,
-  multiplier: 1,
   reasons: [],
 });
 

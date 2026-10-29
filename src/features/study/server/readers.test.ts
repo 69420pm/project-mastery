@@ -54,10 +54,6 @@ function createDb() {
   return fakeSupabase({
     tables: {
       briefs: [] as FakeRow[],
-      kc_priorities: [
-        { course_id: COURSE, kc_id: THRUST, priority: "0.8" },
-        { course_id: COURSE, kc_id: NOZZLE, priority: "0.1" },
-      ] as FakeRow[],
       study_sessions: [
         // Ended four days ago; the other one's Chat had a message just now.
         { id: SESSION, course_id: COURSE, chat_id: null, ended_at: at(-4) },
@@ -79,6 +75,10 @@ vi.mock("@/lib/auth/user", () => ({
   getUser: async () => (signedIn ? { id: "student" } : null),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
+vi.mock("@/features/priorities/server", () => ({
+  loadKcPriorities: async (_: unknown, courseId: string) =>
+    courseId === COURSE ? { [THRUST]: 0.8, [NOZZLE]: 0.1 } : {},
+}));
 vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   loadStoredMap: async () => map,
