@@ -37,11 +37,17 @@ export const saveBriefInputSchema = z.object({
     .describe(
       "The ids of every Material the exam does not cover. Replaces the stored set; [] includes all.",
     ),
+  examMaterialIds: z
+    .array(z.string())
+    .nullish()
+    .describe(
+      "The ids of every Material that is an old exam, as the Student said. Replaces the stored set; [] when none is.",
+    ),
   scopeConfirmed: z
     .boolean()
     .nullish()
     .describe(
-      "True once the Student has said which Materials the exam covers, including when it covers all of them.",
+      "True once the Student has answered the scope step: which Materials the exam covers, which are old exams, and whether the exam leaves out or stresses a Big idea or Topic.",
     ),
   reservedExamMaterialId: z
     .string()
@@ -62,17 +68,36 @@ export const addNoteInputSchema = z.object({
     .describe("The Student's statement, word for word as they wrote it."),
 });
 
-/** What `answerFinding` takes: a question about the materials and the answer. */
-const answerFindingInputSchema = z.object({
-  findingId: z
+/**
+ * What `setExamScope` takes: one Big idea or Topic, whether the exam leaves
+ * it out or stresses it (null removes the scope), and the Student's words.
+ */
+export const setExamScopeInputSchema = z.object({
+  bigIdeaId: z
     .string()
-    .describe("The id of the question the Student answered."),
-  answer: z
+    .nullish()
+    .describe("The Big idea's id; leave out when giving a Topic."),
+  topicId: z
+    .string()
+    .nullish()
+    .describe("The Topic's id; leave out when giving a Big idea."),
+  scope: z
+    .enum(["excluded", "emphasized"])
+    .nullable()
+    .describe(
+      "excluded when the exam leaves it out, emphasized when it stresses it, null to remove the stored scope.",
+    ),
+  words: z
     .string()
     .min(1)
-    .max(2000)
-    .describe("The Student's answer, word for word as they wrote it."),
+    .max(500)
+    .nullish()
+    .describe(
+      "The Student's confirmation, quoted word for word from their message.",
+    ),
 });
+
+export type SetExamScopeInput = z.infer<typeof setExamScopeInputSchema>;
 
 /**
  * What the tools do with the Student's answers. Each returns the message
@@ -81,7 +106,7 @@ const answerFindingInputSchema = z.object({
 export type BriefToolActions = {
   saveBrief: (input: SaveBriefInput) => Promise<string>;
   addNote: (text: string) => Promise<string>;
-  answerFinding: (findingId: string, answer: string) => Promise<string>;
+  setExamScope: (input: SetExamScopeInput) => Promise<string>;
 };
 
 /** The model gets this when an action throws. */
@@ -111,12 +136,11 @@ export function briefTools(actions: BriefToolActions) {
       inputSchema: addNoteInputSchema,
       execute: ({ text }) => run(() => actions.addNote(text)),
     }),
-    answerFinding: tool({
+    setExamScope: tool({
       description:
-        "Store the Student's answer to a question about the Course's materials, verbatim. The result says which question to ask next.",
-      inputSchema: answerFindingInputSchema,
-      execute: ({ findingId, answer }) =>
-        run(() => actions.answerFinding(findingId, answer)),
+        "Store that the exam leaves out or stresses one Big idea or Topic, once the Student has confirmed it in their own words. Pass their words verbatim. scope null removes it.",
+      inputSchema: setExamScopeInputSchema,
+      execute: (input) => run(() => actions.setExamScope(input)),
     }),
   };
 }

@@ -42,15 +42,6 @@ export type ExerciseSolution =
     }
   | { status: "no_solution" };
 
-/** A Finding about a chunk, as the chunk view shows it. */
-export type ChunkFinding = {
-  id: string;
-  text: string;
-  status: "open" | "answered";
-  /** The Student's answer; null while the Finding is open. */
-  answer: string | null;
-};
-
 /** A parsed Material with its chunks, for the chunk view. */
 export type MaterialChunks = {
   materialId: string;

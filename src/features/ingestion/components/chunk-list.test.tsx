@@ -19,11 +19,7 @@ function chunk(overrides: Partial<ChunkView>): ChunkView {
   };
 }
 
-function renderList(
-  chunks: ChunkView[],
-  findings: React.ComponentProps<typeof ChunkList>["findings"] = {},
-  exam: MaterialChunks["exam"] = null,
-) {
+function renderList(chunks: ChunkView[], exam: MaterialChunks["exam"] = null) {
   const material: MaterialChunks = {
     materialId: "m1",
     courseId: "course",
@@ -37,8 +33,6 @@ function renderList(
       material={material}
       backHref="/materials"
       materialHref={(id) => `/materials/${id}`}
-      briefHref="/brief"
-      findings={findings}
     />,
   );
 }
@@ -52,40 +46,13 @@ test("a figure chunk shows its description and no image", () => {
   expect(container.querySelector("img, canvas")).toBeNull();
 });
 
-test("open and answered Findings show under their chunks", () => {
-  renderList([chunk({ id: "c1" }), chunk({ id: "c2", position: 1 })], {
-    c1: [{ id: "f1", text: "Open finding", status: "open", answer: null }],
-    c2: [
-      {
-        id: "f2",
-        text: "Answered finding",
-        status: "answered",
-        answer: "My answer",
-      },
-    ],
-  });
-
-  const [first, second] = screen.getAllByRole("article");
-  expect(within(first!).getByText("Open finding")).toBeTruthy();
-  expect(within(first!).getByText("Open")).toBeTruthy();
-  expect(
-    within(first!)
-      .getByRole("link", { name: "Answer in the Brief" })
-      .getAttribute("href"),
-  ).toBe("/brief");
-  expect(within(second!).getByText("Answered finding")).toBeTruthy();
-  expect(within(second!).getByText("Answered")).toBeTruthy();
-  expect(within(second!).getByText("My answer")).toBeTruthy();
-  expect(within(second!).queryByRole("link", { name: /Brief/ })).toBeNull();
-});
-
 test.each([
   [{ year: 2024, totalPoints: 60 }, "Old exam · 2024 · 60 points in total"],
   [{ year: null, totalPoints: 1 }, "Old exam · 1 point in total"],
   [{ year: 2023, totalPoints: null }, "Old exam · 2023"],
   [{ year: null, totalPoints: null }, "Old exam"],
 ])("an exam %o has the header %s", (exam, header) => {
-  renderList([chunk({})], {}, exam);
+  renderList([chunk({})], exam);
 
   expect(screen.getByText(header).tagName).toBe("P");
 });

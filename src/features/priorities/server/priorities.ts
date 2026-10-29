@@ -1,6 +1,9 @@
 import "server-only";
 import { z } from "zod";
-import { loadExcludedMaterialIds } from "@/features/brief/server";
+import {
+  loadExamScopes,
+  loadExcludedMaterialIds,
+} from "@/features/brief/server";
 import { loadChunkMaterials } from "@/features/ingestion/server";
 import type { MapPriorities } from "@/features/knowledge-map";
 import {
@@ -24,12 +27,14 @@ async function computePriorities(
   supabase: Supabase,
   courseId: string,
 ): Promise<KcPriority[]> {
-  const [map, topics, chunks, excludedMaterialIds] = await Promise.all([
-    loadStoredMap(supabase, courseId),
-    loadStoredTopics(supabase, courseId),
-    loadChunkMaterials(supabase, courseId),
-    loadExcludedMaterialIds(supabase, courseId),
-  ]);
+  const [map, topics, chunks, excludedMaterialIds, examScopes] =
+    await Promise.all([
+      loadStoredMap(supabase, courseId),
+      loadStoredTopics(supabase, courseId),
+      loadChunkMaterials(supabase, courseId),
+      loadExcludedMaterialIds(supabase, courseId),
+      loadExamScopes(supabase, courseId),
+    ]);
   const topicOf = new Map(
     topics.flatMap((topic) => topic.kcs.map((kc) => [kc, topic.id] as const)),
   );
@@ -46,7 +51,7 @@ async function computePriorities(
     })),
     ...chunks,
     excludedMaterialIds,
-    examScopes: [],
+    examScopes,
   });
 }
 

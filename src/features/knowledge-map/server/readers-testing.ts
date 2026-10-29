@@ -17,7 +17,6 @@ export const [BIG_IDEA, K1, K2, K3, EXERCISE] = [
   id(24),
   id(25),
 ];
-export const [ANSWERED, OPEN, OTHER_OPEN] = [id(31), id(32), id(33)];
 export const [T1, T2] = [id(41), id(42)];
 const topicText = (name: string) => ({
   course_id: COURSE,
@@ -48,22 +47,6 @@ export function createDb() {
     page_from: pages[0],
     page_to: pages[1],
     markdown: `Text of ${chunkId}`,
-  });
-  const finding = (
-    findingId: string,
-    position: number,
-    status: string,
-    askedAt: string | null,
-  ) => ({
-    id: findingId,
-    course_id: COURSE,
-    kind: "solution_mismatch",
-    text: `Finding ${position}`,
-    status,
-    answer: status === "answered" ? "It is right." : null,
-    asked_at: askedAt,
-    answered_at: status === "answered" ? "2026-01-03" : null,
-    position,
   });
   const section = (
     sectionId: string,
@@ -165,22 +148,6 @@ export function createDb() {
         { exercise_id: EXERCISE, kc_id: K1 },
       ]),
       exercise_solutions: [] as FakeRow[],
-      findings: [
-        finding(ANSWERED, 0, "answered", "2026-01-02"),
-        finding(OPEN, 1, "open", "2026-01-02"),
-        finding(OTHER_OPEN, 2, "open", null),
-        {
-          ...finding(id(34), 0, "open", null),
-          course_id: OTHER_COURSE,
-        },
-      ],
-      finding_sources: ofCourse([
-        { finding_id: ANSWERED, chunk_id: C1 },
-        { finding_id: OPEN, chunk_id: D1 },
-        { finding_id: OPEN, chunk_id: C3 },
-        { finding_id: OPEN, chunk_id: C2 },
-        { finding_id: OTHER_OPEN, chunk_id: C2 },
-      ]),
       knowledge_map_chunks: [] as FakeRow[],
       topics: [
         { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },

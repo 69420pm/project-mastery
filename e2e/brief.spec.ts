@@ -44,12 +44,24 @@ test.describe("signed in", () => {
     await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
   });
 
-  test("asks an open Finding once intake is done and stores the answer", async ({
+  test("asks whether a Material parsed after intake is an old exam", async ({
     page,
     student,
     course,
   }) => {
     const admin = adminClient();
+    const materialId = crypto.randomUUID();
+    const material = await admin.from("materials").insert({
+      id: materialId,
+      course_id: course.id,
+      owner: student.id,
+      name: "Klausur 2024",
+      media_type: "application/pdf",
+      size_bytes: 1,
+      storage_path: `${student.id}/${course.id}/${materialId}`,
+      parse_status: "parsed",
+    });
+    expect(material.error).toBeNull();
     const brief = await admin.from("briefs").insert({
       course_id: course.id,
       owner: student.id,
@@ -63,39 +75,23 @@ test.describe("signed in", () => {
       scope_confirmed: true,
     });
     expect(brief.error).toBeNull();
-    const finding = await admin.from("findings").insert({
-      course_id: course.id,
-      owner: student.id,
-      kind: "solution_mismatch",
-      position: 0,
-      text: "Exercise 3 prints 48.2%, but the worked steps give 50.8%.",
-    });
-    expect(finding.error).toBeNull();
 
     await page.goto(`/courses/${course.id}/brief`);
     const log = page.getByRole("log");
     await expect(
-      log.getByText("but the worked steps give 50.8%. Which is right?"),
+      log.getByText("Are any of these old exams? Klausur 2024"),
+    ).toBeVisible();
+    await expect(
+      log.getByText("Klausur 2024 looks like an old exam by its name."),
     ).toBeVisible();
 
-    const input = page.getByRole("textbox", { name: "Message" });
-    await input.fill("The printed answer is wrong, 50.8% is right");
-    await input.press("Enter");
-    await expect(log.getByText(REPLY_END)).toBeVisible(REPLY_DONE);
+    // Asked once: a reload shows the same single question.
+    await page.reload();
+    await expect(log.getByText(/Are any of these old exams/)).toHaveCount(1);
 
-    // The panel refreshes after the reply, with no reload.
     const panel = await openBriefData(page);
-    const findings = panel.getByRole("region", { name: "Findings" });
-    await expect(findings.getByText("Answered", { exact: true })).toBeVisible();
     await expect(
-      findings.getByText("The printed answer is wrong, 50.8% is right"),
+      panel.getByRole("region", { name: "Old exams" }).getByText("None"),
     ).toBeVisible();
-
-    // Findings no longer show on the map.
-    await page.goto(`/courses/${course.id}/map`);
-    await expect(
-      page.getByRole("heading", { name: "Course map" }),
-    ).toBeVisible();
-    await expect(page.getByRole("region", { name: "Findings" })).toHaveCount(0);
   });
 });

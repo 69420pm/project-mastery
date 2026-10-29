@@ -30,6 +30,7 @@ function createDb() {
       brief_excluded_materials: [
         { course_id: COURSE, material_id: "extra" },
       ] as FakeRow[],
+      exam_scopes: [] as FakeRow[],
     },
   });
 }
@@ -67,6 +68,22 @@ describe("loadKcPriorities", () => {
     expect(await loadKcPriorities(db as never, COURSE)).toEqual({
       k1: 1,
       k2: 0.25,
+      k3: 0,
+    });
+  });
+
+  test("weighs in the Brief's exam scopes", async () => {
+    db.tables.exam_scopes.push({
+      course_id: COURSE,
+      big_idea_id: null,
+      topic_id: "t1",
+      scope: "emphasized",
+      words: "Topic 1 matters",
+      created_at: "2026-10-29",
+    });
+    expect(await loadKcPriorities(db as never, COURSE)).toEqual({
+      k1: 2,
+      k2: 0.5,
       k3: 0,
     });
   });

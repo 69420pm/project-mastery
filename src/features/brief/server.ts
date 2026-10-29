@@ -3,6 +3,7 @@ import "server-only";
 
 export { openBrief } from "./server/brief-store";
 export { handleBriefRequest, respondInBrief } from "./server/handler";
+export { loadExamScopes } from "./server/exam-scopes";
 export { loadExcludedMaterialIds } from "./server/excluded-materials";
 export {
   getBrief,

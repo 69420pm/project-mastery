@@ -34,13 +34,12 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
   { table: "exercises" },
   { table: "exercise_kcs" },
   { table: "exercise_solutions" },
-  { table: "findings" },
-  { table: "finding_sources" },
   { table: "topics" },
   { table: "topic_kcs", parent: { table: "topics", column: "topic_id" } },
   { table: "reading_sections" },
   { table: "briefs" },
   { table: "brief_excluded_materials" },
+  { table: "exam_scopes" },
 ];
 
 const rowSchema = z.record(z.string(), z.unknown());

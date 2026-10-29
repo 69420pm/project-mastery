@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import {
-  asksFindings,
   isIntakeDone,
   suggestedReservation,
   type BriefFields,
@@ -46,47 +45,17 @@ describe("isIntakeDone", () => {
   });
 });
 
-const exam = (id: string, year: number | null): ExamMaterial => ({
-  id,
-  name: `Exam ${id}`,
-  year,
-  totalPoints: 60,
-});
+const exam = (id: string): ExamMaterial => ({ id, name: `Exam ${id}` });
 
 describe("suggestedReservation", () => {
   test("suggests none with only one old exam", () => {
     expect(suggestedReservation([])).toBeNull();
-    expect(suggestedReservation([exam("a", 2024)])).toBeNull();
+    expect(suggestedReservation([exam("a")])).toBeNull();
   });
 
-  test("suggests the most recent by year, a later upload breaking ties, a missing year last", () => {
-    expect(
-      suggestedReservation([exam("a", 2024), exam("b", 2022), exam("c", null)])
-        ?.id,
-    ).toBe("a");
-    expect(suggestedReservation([exam("a", 2024), exam("b", 2024)])?.id).toBe(
-      "b",
-    );
-  });
-});
-
-describe("asksFindings", () => {
-  const unanswered = { answered: false, materialId: null };
-
-  test("waits for the reservation question while the Course has an old exam", () => {
-    expect(asksFindings(complete, [exam("a", 2024)], unanswered)).toBe(false);
-    expect(
-      asksFindings(complete, [exam("a", 2024)], {
-        answered: true,
-        materialId: null,
-      }),
-    ).toBe(true);
-  });
-
-  test("asks once intake is done when the Course has no old exam", () => {
-    expect(asksFindings(complete, [], unanswered)).toBe(true);
-    expect(asksFindings({ ...complete, goal: null }, [], unanswered)).toBe(
-      false,
+  test("suggests the latest upload", () => {
+    expect(suggestedReservation([exam("a"), exam("b"), exam("c")])?.id).toBe(
+      "c",
     );
   });
 });

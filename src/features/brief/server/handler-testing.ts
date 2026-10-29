@@ -17,26 +17,21 @@ export const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 export const OLD_EXAM = "aaaaaaaa-0000-4000-8000-00000000e024";
 export const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
 
-/** The Student's open Findings, in map order, and one of their classmate's. */
-export const MISMATCH = "aaaaaaaa-f000-4000-8000-000000000001";
-export const SCOPE = "aaaaaaaa-f000-4000-8000-000000000002";
-export const CLASSMATE_FINDING = "bbbbbbbb-f000-4000-8000-000000000001";
-/** The source of MISMATCH, on page 3 of Lecture 1. */
-const CHUNK = "aaaaaaaa-0c00-4000-8000-000000000001";
+/** The Course's one Big idea and its one Topic. */
+export const BIG_IDEA = "aaaaaaaa-b000-4000-8000-000000000001";
+export const TOPIC = "aaaaaaaa-7000-4000-8000-000000000001";
 
-/** An open Finding, never asked. */
-function finding(id: string, owner: string, position: number, kind: string) {
+/** An admin chunk of Lecture 1, in Course order by `page`. */
+export function adminChunk(page: number, markdown: string) {
   return {
-    id,
-    owner,
-    course_id: owner === STUDENT ? COURSE : CLASSMATE_COURSE,
-    kind,
-    position,
-    text: `Finding ${position} of ${kind}.`,
-    status: "open",
-    answer: null,
-    asked_at: null,
-    answered_at: null,
+    id: `aaaaaaaa-0c00-4000-8000-${String(page).padStart(12, "0")}`,
+    owner: STUDENT,
+    course_id: COURSE,
+    material_id: LECTURE,
+    label: "admin",
+    page_from: page,
+    position: page,
+    markdown,
   };
 }
 
@@ -70,6 +65,9 @@ function createDb() {
           course_id: COURSE,
           name: "Old exam 2024",
           created_at: "2026-10-01T00:00:00Z",
+          parse_status: "parsed",
+          is_exam: null,
+          exam_asked: false,
         },
         {
           id: LECTURE,
@@ -77,6 +75,9 @@ function createDb() {
           course_id: COURSE,
           name: "Lecture 1",
           created_at: "2026-10-02T00:00:00Z",
+          parse_status: "parsed",
+          is_exam: null,
+          exam_asked: false,
         },
       ] as FakeRow[],
       briefs: [],
@@ -84,28 +85,27 @@ function createDb() {
       brief_excluded_materials: [],
       brief_messages: [],
       ai_usage: [],
-      findings: [
-        finding(MISMATCH, STUDENT, 0, "solution_mismatch"),
-        finding(SCOPE, STUDENT, 1, "scope"),
-        finding(CLASSMATE_FINDING, CLASSMATE, 0, "scope"),
-      ],
-      finding_sources: [
+      big_ideas: [
         {
-          finding_id: MISMATCH,
-          chunk_id: CHUNK,
+          id: BIG_IDEA,
+          owner: STUDENT,
           course_id: COURSE,
-          owner: STUDENT,
-        },
-      ] as FakeRow[],
-      chunks: [
-        {
-          id: CHUNK,
-          owner: STUDENT,
-          material_id: LECTURE,
-          page_from: 3,
+          name: "Integrals",
           position: 0,
         },
       ] as FakeRow[],
+      topics: [
+        {
+          id: TOPIC,
+          owner: STUDENT,
+          course_id: COURSE,
+          big_idea_id: BIG_IDEA,
+          name: "Substitution",
+          position: 0,
+        },
+      ] as FakeRow[],
+      exam_scopes: [],
+      chunks: [],
     },
     primaryKeys: {
       briefs: ["course_id"],
@@ -117,6 +117,14 @@ function createDb() {
         const brief = ownBrief(tables.briefs, args.course_id);
         if (!brief) return false;
         Object.assign(brief, args.fields);
+        const exams = args.exam_material_ids as string[] | undefined;
+        if (exams) {
+          for (const material of tables.materials) {
+            if (material.course_id !== args.course_id) continue;
+            material.is_exam = exams.includes(material.id as string);
+            if (material.parse_status === "parsed") material.exam_asked = true;
+          }
+        }
         const ids = args.excluded_material_ids as string[] | undefined;
         if (ids) {
           tables.brief_excluded_materials = tables.brief_excluded_materials
@@ -128,6 +136,29 @@ function createDb() {
                 owner: signedIn,
               })),
             );
+        }
+        return true;
+      },
+      set_exam_scope: (args, tables) => {
+        if (!ownBrief(tables.briefs, args.course_id)) return false;
+        const { big_idea_id = null, topic_id = null } = args;
+        tables.exam_scopes = tables.exam_scopes.filter(
+          (row) =>
+            !(
+              (big_idea_id !== null && row.big_idea_id === big_idea_id) ||
+              (topic_id !== null && row.topic_id === topic_id)
+            ),
+        );
+        if (args.scope !== undefined) {
+          tables.exam_scopes.push({
+            owner: signedIn,
+            course_id: args.course_id,
+            big_idea_id,
+            topic_id,
+            scope: args.scope,
+            words: args.words,
+            created_at: new Date().toISOString(),
+          });
         }
         return true;
       },

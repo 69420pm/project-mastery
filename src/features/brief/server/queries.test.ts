@@ -57,8 +57,17 @@ function createDb() {
       briefs: [] as FakeRow[],
       brief_excluded_materials: [] as FakeRow[],
       brief_messages: [] as FakeRow[],
-      findings: [] as FakeRow[],
-      finding_sources: [] as FakeRow[],
+      big_ideas: [
+        {
+          id: "big-idea",
+          owner: STUDENT,
+          course_id: COURSE,
+          name: "Integrals",
+          position: 0,
+        },
+      ] as FakeRow[],
+      topics: [] as FakeRow[],
+      exam_scopes: [] as FakeRow[],
     },
     primaryKeys: { briefs: ["course_id"] },
     defaults: {
@@ -148,8 +157,18 @@ describe("getBrief", () => {
     expect(db.tables.brief_messages).toEqual([]);
   });
 
-  test("returns the messages, the fields, the notes and the excluded Materials oldest first", async () => {
+  test("returns the messages, the fields, the notes, the excluded Materials oldest first, the old exams and the exam scopes", async () => {
     db.tables.briefs.push(brief({ done: true }));
+    db.tables.materials[0]!.is_exam = true;
+    db.tables.exam_scopes.push({
+      owner: STUDENT,
+      course_id: COURSE,
+      big_idea_id: "big-idea",
+      topic_id: null,
+      scope: "emphasized",
+      words: "Integrals matter most",
+      created_at: "2026-10-05T12:00:00Z",
+    });
     for (const id of [LATER, EARLIER]) {
       db.tables.brief_excluded_materials.push({
         course_id: COURSE,
@@ -183,6 +202,20 @@ describe("getBrief", () => {
           id: LATER,
           name: "Lecture 2",
           href: materialChunksPath(COURSE, LATER),
+        },
+      ],
+      oldExams: [
+        {
+          id: LATER,
+          name: "Lecture 2",
+          href: materialChunksPath(COURSE, LATER),
+        },
+      ],
+      examScopes: [
+        {
+          name: "Integrals",
+          scope: "emphasized",
+          words: "Integrals matter most",
         },
       ],
     });

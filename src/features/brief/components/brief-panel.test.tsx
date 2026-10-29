@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, test, vi } from "vitest";
-import type { FindingView } from "@/features/knowledge-map";
 import { type StudyPlan, StudyPlanFacts } from "@/features/study";
 import { BriefPanel } from "./brief-panel";
 
@@ -24,6 +23,8 @@ const brief: Props["brief"] = {
   notes: null,
   notesUpdatedAt: null,
   excludedMaterials: [],
+  oldExams: [],
+  examScopes: [],
   reservedExam: null,
 };
 
@@ -41,14 +42,12 @@ const plan: StudyPlan = {
 const renderPanel = (
   overrides: {
     brief?: Partial<Props["brief"]>;
-    findings?: FindingView[];
     plan?: Partial<StudyPlan>;
   } = {},
 ) =>
   render(
     <BriefPanel
       brief={{ ...brief, ...overrides.brief }}
-      findings={overrides.findings ?? []}
       plan={<StudyPlanFacts plan={{ ...plan, ...overrides.plan }} />}
       memory={<p>Memory slot</p>}
     />,
@@ -67,56 +66,24 @@ test("shows the reserved exam as a line, or none once answered", () => {
   expect(screen.getByText("Reserved exam:")).toBeInTheDocument();
 });
 
-const finding = (overrides: Partial<FindingView>): FindingView => ({
-  id: "f1",
-  text: "Exercise 3 prints 48.2%.",
-  status: "open",
-  askedAt: null,
-  answeredAt: null,
-  answer: null,
-  sources: [],
-  ...overrides,
-});
-
 describe("BriefPanel", () => {
   test("shows Not set for unanswered fields and None for empty sections", () => {
     renderPanel();
 
     const exam = screen.getByRole("region", { name: "Exam" });
     expect(within(exam).getAllByText("Not set")).toHaveLength(7);
-    for (const name of ["Excluded Materials", "Notes", "Findings"]) {
+    for (const name of [
+      "Excluded Materials",
+      "Old exams",
+      "Exam scope",
+      "Notes",
+    ]) {
       expect(
         within(screen.getByRole("region", { name })).getByText("None"),
       ).toBeVisible();
     }
     expect(screen.getByText("No exam date")).toBeVisible();
     expect(screen.getByText("Memory slot")).toBeVisible();
-  });
-
-  test("shows an open and an answered Finding with its answer and sources", () => {
-    renderPanel({
-      findings: [
-        finding({ id: "f1" }),
-        finding({
-          id: "f2",
-          text: "Page 4 is blurry.",
-          status: "answered",
-          answer: "Ignore it",
-          sources: [{ label: "Lecture 1 p. 4", href: "/m/1#chunk-a" }],
-        }),
-      ],
-    });
-
-    const items = within(
-      screen.getByRole("region", { name: "Findings" }),
-    ).getAllByRole("listitem");
-    const [open, answered] = items as [HTMLElement, HTMLElement];
-    expect(within(open).getByText("Open")).toBeVisible();
-    expect(within(answered).getByText("Answered")).toBeVisible();
-    expect(within(answered).getByText("Ignore it")).toBeVisible();
-    expect(
-      within(answered).getByRole("link", { name: "Lecture 1 p. 4" }),
-    ).toHaveAttribute("href", "/m/1#chunk-a");
   });
 
   test("shows the values that are set, with false as No", () => {
@@ -174,24 +141,29 @@ describe("BriefPanel", () => {
     );
   });
 
-  test("keeps the Findings in the order given, open ones first", () => {
+  test("links the old exams and shows each exam scope with the Student's words", () => {
     renderPanel({
-      findings: [
-        finding({ id: "f1", text: "First open." }),
-        finding({ id: "f2", text: "Second open." }),
-        finding({ id: "f3", text: "Answered.", status: "answered" }),
-      ],
+      brief: {
+        oldExams: [{ id: "m2", name: "Klausur 2024", href: "/m/2" }],
+        examScopes: [
+          {
+            name: "Eigenvalues",
+            scope: "excluded",
+            words: "Chapter 7 is not examined",
+          },
+        ],
+      },
     });
 
-    const items = within(
-      screen.getByRole("region", { name: "Findings" }),
-    ).getAllByRole("listitem");
     expect(
-      items.map(
-        (item) => within(item).getByText(/^(Open|Answered)$/).textContent,
+      within(screen.getByRole("region", { name: "Old exams" })).getByRole(
+        "link",
+        { name: "Klausur 2024" },
       ),
-    ).toEqual(["Open", "Open", "Answered"]);
-    expect(items[0]).toHaveTextContent("First open.");
+    ).toHaveAttribute("href", "/m/2");
+    expect(
+      screen.getByRole("region", { name: "Exam scope" }),
+    ).toHaveTextContent("Excluded: Eigenvalues · “Chapter 7 is not examined”");
   });
 
   test("shows the fit line with the names of the Topics that won't fit", () => {

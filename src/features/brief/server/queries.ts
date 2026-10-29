@@ -3,7 +3,12 @@ import { z } from "zod";
 import { briefPath } from "@/features/brief/domain/brief-paths";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import type { BriefFields } from "@/features/brief/domain/intake";
-import { loadFields, openBrief } from "@/features/brief/server/brief-store";
+import {
+  loadBigIdeas,
+  loadFields,
+  openBrief,
+} from "@/features/brief/server/brief-store";
+import { loadExamScopes } from "@/features/brief/server/exam-scopes";
 import type { BriefWithMessages, ExamFacts } from "@/features/brief/types";
 import { materialChunksPath } from "@/features/courses/server";
 import { getUser, requireUser } from "@/lib/auth/user";
@@ -13,10 +18,10 @@ import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * The signed-in Student's Brief of a Course with its messages, created with
- * its static opening message when the Course has none yet, and with the next
- * open Finding posted once intake is done (`openBrief`). Null when the id
- * is malformed or the Course is unknown or another Student's (show
- * not-found).
+ * its static opening message when the Course has none yet, and with the
+ * old-exam question posted for Materials parsed after intake (`openBrief`).
+ * Null when the id is malformed or the Course is unknown or another
+ * Student's (show not-found).
  */
 export async function getBrief(
   courseId: string,
@@ -33,7 +38,7 @@ export async function getBrief(
 
 /** What the Brief's panel shows of the Brief itself. */
 async function loadPanelData(supabase: Supabase, courseId: string) {
-  const [brief, excluded] = await Promise.all([
+  const [brief, excluded, exams, bigIdeas, scopes] = await Promise.all([
     supabase
       .from("briefs")
       .select(
@@ -45,7 +50,16 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
       .from("brief_excluded_materials")
       .select("material_id, materials(id, name, created_at)")
       .eq("course_id", courseId),
+    supabase
+      .from("materials")
+      .select("id, name")
+      .eq("course_id", courseId)
+      .eq("is_exam", true)
+      .order("created_at"),
+    loadBigIdeas(supabase, courseId),
+    loadExamScopes(supabase, courseId),
   ]);
+  if (exams.error) failed("Loading the old exams", exams.error);
   if (brief.error) {
     throw new Error(`Loading the Brief failed: ${brief.error.message}`);
   }
@@ -78,6 +92,19 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     notes: data.notes,
     notesUpdatedAt: data.notes_updated_at,
     excludedMaterials,
+    oldExams: exams.data.map(({ id, name }) => ({
+      id,
+      name,
+      href: materialChunksPath(courseId, id),
+    })),
+    examScopes: scopes.flatMap(({ bigIdeaId, topicId, scope, words }) => {
+      const bigIdea = bigIdeas.find(({ id }) => id === bigIdeaId);
+      const topic = bigIdeas
+        .flatMap(({ topics }) => topics)
+        .find(({ id }) => id === topicId);
+      const name = bigIdea?.name ?? topic?.name;
+      return name === undefined ? [] : [{ name, scope, words }];
+    }),
     reservedExam: data.reserved_exam_answered
       ? await loadReservedExamLink(
           supabase,

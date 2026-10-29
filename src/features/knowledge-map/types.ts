@@ -1,9 +1,4 @@
-import type {
-  CheckReport,
-  FindingKind,
-  FindingStatus,
-  KcType,
-} from "@/features/knowledge-map/schemas";
+import type { CheckReport, KcType } from "@/features/knowledge-map/schemas";
 
 /** A chunk of the Course as a build reads it. */
 export type MapChunk = {
@@ -83,32 +78,6 @@ export type ExerciseView = {
   question: string | null;
   /** The printed solution's Markdown; null without one. */
   solution: string | null;
-};
-
-/**
- * A Finding as the Brief's panel shows it: when it was asked and answered
- * (ISO timestamps), the answer, and its sources as links to their chunks,
- * labelled "Lecture 1 p. 3".
- */
-export type FindingView = {
-  id: string;
-  text: string;
-  status: FindingStatus;
-  askedAt: string | null;
-  answeredAt: string | null;
-  answer: string | null;
-  sources: Array<{ label: string; href: string }>;
-};
-
-/** An open Finding as the Brief asks it. */
-export type ReviewFinding = {
-  id: string;
-  kind: FindingKind;
-  text: string;
-  /** Where it was found, such as "Lecture 1 p. 3", in reading order. */
-  sources: string[];
-  /** Whether the Brief has asked the Student about it. */
-  asked: boolean;
 };
 
 /**

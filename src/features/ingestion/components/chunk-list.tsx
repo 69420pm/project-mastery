@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { chunkAnchor } from "@/features/ingestion/domain/chunk-anchor";
 import type {
-  ChunkFinding,
   ChunkLabel,
   ChunkView,
   ExerciseSolution,
@@ -39,10 +38,6 @@ type ChunkListProps = {
   backHref: string;
   /** The chunk view of a Material of the same Course, for solution links. */
   materialHref: (materialId: string) => string;
-  /** Where "Answer in the Brief" leads. */
-  briefHref: string;
-  /** The Findings about this Material's chunks, by chunk id. */
-  findings: Record<string, ChunkFinding[]>;
 };
 
 /**
@@ -54,8 +49,6 @@ export function ChunkList({
   material,
   backHref,
   materialHref,
-  briefHref,
-  findings,
 }: ChunkListProps) {
   const { exam } = material;
 
@@ -93,12 +86,7 @@ export function ChunkList({
         <ol aria-label="Chunks" className="flex flex-col gap-4">
           {material.chunks.map((chunk) => (
             <li key={chunk.id}>
-              <ChunkCard
-                chunk={chunk}
-                findings={findings[chunk.id] ?? []}
-                briefHref={briefHref}
-                materialHref={materialHref}
-              />
+              <ChunkCard chunk={chunk} materialHref={materialHref} />
             </li>
           ))}
         </ol>
@@ -109,13 +97,9 @@ export function ChunkList({
 
 function ChunkCard({
   chunk,
-  findings,
-  briefHref,
   materialHref,
 }: {
   chunk: ChunkView;
-  findings: ChunkFinding[];
-  briefHref: string;
   materialHref: ChunkListProps["materialHref"];
 }) {
   return (
@@ -145,52 +129,7 @@ function ChunkCard({
       {chunk.solution && (
         <SolutionLine solution={chunk.solution} materialHref={materialHref} />
       )}
-      {findings.length > 0 && (
-        <ul aria-label="Findings" className="flex flex-col gap-2">
-          {findings.map((finding) => (
-            <li key={finding.id}>
-              <FindingCard finding={finding} briefHref={briefHref} />
-            </li>
-          ))}
-        </ul>
-      )}
     </article>
-  );
-}
-
-function FindingCard({
-  finding,
-  briefHref,
-}: {
-  finding: ChunkFinding;
-  briefHref: string;
-}) {
-  const answered = finding.status === "answered";
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-      <div>
-        <Badge variant={answered ? "secondary" : "outline"}>
-          {answered ? "Answered" : "Open"}
-        </Badge>
-      </div>
-      <Markdown className="min-w-0">{finding.text}</Markdown>
-      {finding.answer !== null && (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Your answer</span>
-          <p className="break-words whitespace-pre-wrap text-muted-foreground">
-            {finding.answer}
-          </p>
-        </div>
-      )}
-      {!answered && (
-        <Link
-          href={briefHref}
-          className="w-fit font-medium underline underline-offset-4"
-        >
-          Answer in the Brief
-        </Link>
-      )}
-    </div>
   );
 }
 

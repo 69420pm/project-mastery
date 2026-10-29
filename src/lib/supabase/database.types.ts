@@ -602,6 +602,69 @@ export type Database = {
           },
         ];
       };
+      exam_scopes: {
+        Row: {
+          big_idea_id: string | null;
+          course_id: string;
+          created_at: string;
+          id: string;
+          owner: string;
+          scope: string;
+          topic_id: string | null;
+          words: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          big_idea_id?: string | null;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          owner: string;
+          scope: string;
+          topic_id?: string | null;
+          words: string;
+        };
+        Update: {
+          big_idea_id?: string | null;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          owner?: string;
+          scope?: string;
+          topic_id?: string | null;
+          words?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exam_scopes_big_idea_id_fkey";
+            columns: ["big_idea_id"];
+            isOneToOne: false;
+            referencedRelation: "big_ideas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exam_scopes_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exam_scopes_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exam_scopes_topic_id_fkey";
+            columns: ["topic_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       exercise_kcs: {
         Row: {
           course_id: string;
@@ -765,115 +828,6 @@ export type Database = {
             columns: ["question_chunk_id"];
             isOneToOne: false;
             referencedRelation: "chunks";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      finding_sources: {
-        Row: {
-          chunk_id: string;
-          course_id: string;
-          finding_id: string;
-          owner: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          chunk_id: string;
-          course_id: string;
-          finding_id: string;
-          owner: string;
-        };
-        Update: {
-          chunk_id?: string;
-          course_id?: string;
-          finding_id?: string;
-          owner?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "finding_sources_chunk_id_fkey";
-            columns: ["chunk_id"];
-            isOneToOne: false;
-            referencedRelation: "chunks";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "finding_sources_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "finding_sources_finding_id_fkey";
-            columns: ["finding_id"];
-            isOneToOne: false;
-            referencedRelation: "findings";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "finding_sources_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      findings: {
-        Row: {
-          answer: string | null;
-          answered_at: string | null;
-          asked_at: string | null;
-          course_id: string;
-          created_at: string;
-          id: string;
-          kind: string;
-          owner: string;
-          position: number;
-          status: string;
-          text: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          answer?: string | null;
-          answered_at?: string | null;
-          asked_at?: string | null;
-          course_id: string;
-          created_at?: string;
-          id?: string;
-          kind: string;
-          owner: string;
-          position: number;
-          status?: string;
-          text: string;
-        };
-        Update: {
-          answer?: string | null;
-          answered_at?: string | null;
-          asked_at?: string | null;
-          course_id?: string;
-          created_at?: string;
-          id?: string;
-          kind?: string;
-          owner?: string;
-          position?: number;
-          status?: string;
-          text?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "findings_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "findings_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -1220,6 +1174,7 @@ export type Database = {
         Row: {
           course_id: string;
           created_at: string;
+          exam_asked: boolean;
           exam_total_points: number | null;
           exam_year: number | null;
           id: string;
@@ -1240,6 +1195,7 @@ export type Database = {
         Insert: {
           course_id: string;
           created_at?: string;
+          exam_asked?: boolean;
           exam_total_points?: number | null;
           exam_year?: number | null;
           id?: string;
@@ -1259,6 +1215,7 @@ export type Database = {
         Update: {
           course_id?: string;
           created_at?: string;
+          exam_asked?: boolean;
           exam_total_points?: number | null;
           exam_year?: number | null;
           id?: string;
@@ -2311,6 +2268,7 @@ export type Database = {
       save_brief: {
         Args: {
           course_id: string;
+          exam_material_ids?: string[];
           excluded_material_ids?: string[];
           fields?: Json;
         };
@@ -2319,6 +2277,16 @@ export type Database = {
       set_chunk_embeddings: {
         Args: { p_embeddings: Json };
         Returns: undefined;
+      };
+      set_exam_scope: {
+        Args: {
+          big_idea_id?: string;
+          course_id: string;
+          scope?: string;
+          topic_id?: string;
+          words?: string;
+        };
+        Returns: boolean;
       };
       set_study_session_stage: {
         Args: { p_session_id: string; p_stage: string };

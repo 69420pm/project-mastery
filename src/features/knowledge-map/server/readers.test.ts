@@ -4,22 +4,18 @@ import { materialChunksPath } from "@/features/courses/server";
 import { chunkAnchor } from "@/features/ingestion/server";
 import type { Supabase } from "@/lib/supabase/types";
 import {
-  ANSWERED,
   BIG_IDEA,
   C1,
   C2,
   C3,
   COURSE,
   createDb,
-  D1,
   EXERCISE,
   id,
   K1,
   K2,
   LECTURE,
-  OPEN,
   OTHER_COURSE,
-  OTHER_OPEN,
   K3,
   T1,
   T2,
@@ -27,8 +23,7 @@ import {
 
 /**
  * The Knowledge map's server reads on one seeded Course: the map view, the
- * Findings list, the Brief's review queue, the stored map an update starts
- * from and the Findings of a Material's chunks.
+ * Course's Topics and the stored map an update starts from.
  */
 
 let signedIn = true;
@@ -61,10 +56,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 const { getKnowledgeMap } = await import("./queries");
-const { getFindings } = await import("./findings");
-const { getOpenFindings } = await import("./review");
 const { loadStoredMap } = await import("./stored-map");
-const { getChunkFindings } = await import("./chunk-findings");
 const { loadCourseTopics } = await import("./course-topics");
 
 beforeEach(() => {
@@ -146,77 +138,6 @@ describe("getKnowledgeMap", () => {
   });
 });
 
-describe("getFindings", () => {
-  test("lists open Findings before answered ones, each with its own sources", async () => {
-    const findings = await getFindings(COURSE);
-
-    expect(findings.map((f) => [f.id, f.status])).toEqual([
-      [OPEN, "open"],
-      [OTHER_OPEN, "open"],
-      [ANSWERED, "answered"],
-    ]);
-    expect(findings[1]?.sources).toEqual([
-      { label: "Lecture 1 p. 2", href: link(LECTURE, C2) },
-    ]);
-    expect(findings[2]).toMatchObject({
-      answer: "It is right.",
-      answeredAt: "2026-01-03",
-      sources: [{ label: "Lecture 1 p. 1", href: link(LECTURE, C1) }],
-    });
-  });
-
-  test.each([
-    ["signed out", COURSE, false],
-    ["a non-uuid id", "not-a-uuid", true],
-  ])("gives none when %s", async (_, courseId, user) => {
-    signedIn = user;
-    expect(await getFindings(courseId)).toEqual([]);
-  });
-
-  test.each([
-    ["findings", "Loading the findings failed"],
-    ["finding_sources", "Loading the finding sources failed"],
-  ])("throws when reading %s fails", async (table, message) => {
-    failing = table;
-    await expect(getFindings(COURSE)).rejects.toThrow(message);
-  });
-});
-
-describe("getOpenFindings", () => {
-  test("gives the open Findings with their pages in reading order", async () => {
-    expect(await getOpenFindings(client(), COURSE)).toEqual([
-      {
-        id: OPEN,
-        kind: "solution_mismatch",
-        text: "Finding 1",
-        sources: ["Lecture 1 p. 2", "Lecture 1 p. 4", "Notes p. 1"],
-        asked: true,
-      },
-      {
-        id: OTHER_OPEN,
-        kind: "solution_mismatch",
-        text: "Finding 2",
-        sources: ["Lecture 1 p. 2"],
-        asked: false,
-      },
-    ]);
-  });
-
-  test("gives none when every Finding is answered", async () => {
-    for (const row of db.tables.findings) row.status = "answered";
-    expect(await getOpenFindings(client(), COURSE)).toEqual([]);
-  });
-
-  test.each([
-    ["findings", "Loading the findings failed"],
-    ["finding_sources", "Loading the finding sources failed"],
-    ["materials", "Loading the Materials failed"],
-  ])("throws when reading %s fails", async (table, message) => {
-    failing = table;
-    await expect(getOpenFindings(client(), COURSE)).rejects.toThrow(message);
-  });
-});
-
 describe("loadCourseTopics", () => {
   test("gives the Course's Topics in order with anchors and Reading sections", async () => {
     const topics = await loadCourseTopics(COURSE);
@@ -279,7 +200,7 @@ describe("loadCourseTopics", () => {
 });
 
 describe("loadStoredMap", () => {
-  test("gives the stored map with row ids, each KC and Finding with its own sources", async () => {
+  test("gives the stored map with row ids, each KC with its own sources", async () => {
     const map = await loadStoredMap(client(), COURSE);
 
     expect(map.kcs.map((kc) => [kc.id, kc.bigIdea, kc.sources])).toEqual([
@@ -293,18 +214,12 @@ describe("loadStoredMap", () => {
       questionChunk: C3,
       kcs: [K1, K2],
     });
-    expect(map.findings.map((f) => [f.id, f.sources.toSorted()])).toEqual([
-      [ANSWERED, [C1]],
-      [OPEN, [C2, C3, D1].toSorted()],
-      [OTHER_OPEN, [C2]],
-    ]);
   });
 
   test("gives an empty map for a Course without one", async () => {
     expect(await loadStoredMap(client(), OTHER_COURSE)).toMatchObject({
       bigIdeas: [],
       kcs: [],
-      findings: [{ id: id(34), sources: [] }],
     });
   });
 
@@ -313,42 +228,5 @@ describe("loadStoredMap", () => {
     await expect(loadStoredMap(client(), COURSE)).rejects.toThrow(
       "Loading the KC sources failed",
     );
-  });
-});
-
-describe("getChunkFindings", () => {
-  test("groups the Material's Findings by chunk, in map order", async () => {
-    const answered = {
-      id: ANSWERED,
-      text: "Finding 0",
-      status: "answered",
-      answer: "It is right.",
-    };
-    const open = (findingId: string, text: string) => ({
-      id: findingId,
-      text,
-      status: "open",
-      answer: null,
-    });
-    expect(await getChunkFindings(COURSE, LECTURE)).toEqual({
-      [C1]: [answered],
-      [C2]: [open(OPEN, "Finding 1"), open(OTHER_OPEN, "Finding 2")],
-      [C3]: [open(OPEN, "Finding 1")],
-    });
-  });
-
-  test("gives none when signed out or the Material has no chunk", async () => {
-    expect(await getChunkFindings(COURSE, id(99))).toEqual({});
-    signedIn = false;
-    expect(await getChunkFindings(COURSE, LECTURE)).toEqual({});
-  });
-
-  test.each([
-    ["chunks", "Loading the chunks failed"],
-    ["finding_sources", "Loading the finding sources failed"],
-    ["findings", "Loading the findings failed"],
-  ])("throws when reading %s fails", async (table, message) => {
-    failing = table;
-    await expect(getChunkFindings(COURSE, LECTURE)).rejects.toThrow(message);
   });
 });

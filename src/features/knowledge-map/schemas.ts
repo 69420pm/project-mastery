@@ -5,15 +5,6 @@ import { z } from "zod";
 
 export const KC_TYPES = ["fact", "concept", "procedure", "decision"] as const;
 
-/**
- * What a Finding reports: a printed solution that does not match, or a
- * remark in the material that excludes or limits exam content.
- */
-export const FINDING_KINDS = ["solution_mismatch", "scope"] as const;
-
-/** Whether the Student has answered a Finding in the Brief. */
-export const FINDING_STATUSES = ["open", "answered"] as const;
-
 /** Stored row ids. */
 const id = z.string().trim().min(1).max(100);
 const name = z.string().trim().min(1).max(200);
@@ -66,20 +57,7 @@ const exerciseSchema = z.object({
 });
 
 /**
- * Something the build found in the material for the Student to confirm, with
- * its chunks. Its review status and answer are the Student's and stay out
- * of the map.
- */
-const findingSchema = z.object({
-  id,
-  kind: z.enum(FINDING_KINDS),
-  text: z.string().trim().min(1).max(2000),
-  sources: z.array(id),
-});
-
-/**
- * A Course's stored map: its rows by id, KCs, Exercises and Findings citing
- * chunk ids. Every reference must resolve and no Prerequisite may loop on
+ * A Course's stored map: its rows by id, KCs and Exercises citing chunk ids. Every reference must resolve and no Prerequisite may loop on
  * one KC.
  */
 export const knowledgeMapSchema = z
@@ -89,7 +67,6 @@ export const knowledgeMapSchema = z
     prerequisites: z.array(prerequisiteSchema),
     /** In reading order. */
     exercises: z.array(exerciseSchema),
-    findings: z.array(findingSchema),
   })
   .superRefine((map, ctx) => {
     const issue = (message: string) =>
@@ -141,7 +118,5 @@ export const checkReportSchema = z.object({
 export const startKnowledgeMapBuildSchema = z.object({ courseId: z.uuid() });
 
 export type KcType = (typeof KC_TYPES)[number];
-export type FindingKind = (typeof FINDING_KINDS)[number];
-export type FindingStatus = (typeof FINDING_STATUSES)[number];
 export type KnowledgeMap = z.infer<typeof knowledgeMapSchema>;
 export type CheckReport = z.infer<typeof checkReportSchema>;

@@ -22,7 +22,6 @@ describe("knowledgeMapSchema", () => {
     ],
     prerequisites: [],
     exercises: [],
-    findings: [],
   };
 
   it("parses a map whose references resolve", () => {

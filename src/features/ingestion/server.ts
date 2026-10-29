@@ -5,7 +5,9 @@ import "server-only";
 export { chunkAnchor } from "./domain/chunk-anchor";
 export { getMaterialChunks } from "./server/chunk-queries";
 export {
+  type AdminChunk,
   findChunkSpan,
+  loadAdminChunks,
   getChunkPlaces,
   loadChunkMaterials,
   loadCourseChunkSpans,

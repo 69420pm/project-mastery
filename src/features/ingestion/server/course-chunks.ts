@@ -378,3 +378,48 @@ export async function loadChunkMaterials(
     ),
   };
 }
+
+/** An admin chunk: an organizational remark, such as "Chapter 2 is not examined". */
+export type AdminChunk = {
+  materialName: string;
+  pageFrom: number;
+  markdown: string;
+};
+
+/**
+ * The Course's admin chunks in Course order: Materials in upload order,
+ * chunks by position. Scopes the reads to the Course, so it reads on the
+ * admin client or a Student's session client alike.
+ */
+export async function loadAdminChunks(
+  supabase: Supabase,
+  courseId: string,
+): Promise<AdminChunk[]> {
+  const [materials, chunks] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, name")
+      .eq("course_id", courseId)
+      .order("created_at"),
+    allRows("Loading the admin chunks", (from, to) =>
+      supabase
+        .from("chunks")
+        .select("material_id, position, page_from, markdown")
+        .eq("course_id", courseId)
+        .eq("label", "admin")
+        .order("material_id")
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  return materials.data.flatMap((material) =>
+    chunks
+      .filter((chunk) => chunk.material_id === material.id)
+      .map((chunk) => ({
+        materialName: material.name,
+        pageFrom: chunk.page_from,
+        markdown: chunk.markdown,
+      })),
+  );
+}

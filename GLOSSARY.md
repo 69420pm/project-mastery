@@ -17,11 +17,15 @@ A file a Student uploaded to one Course, such as slides, a script, an exercise s
 _Avoid_: File, document, upload, attachment
 
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat.
+What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Materials are old exams, the exam scope and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Materials whose names look like old exams, and asks once about each Material parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
+**Exam scope**:
+A Student-confirmed statement that the exam leaves out (`excluded`) or stresses (`emphasized`) one Big idea or Topic, in the Student's words. The AI proposes one only when an admin text of the Materials or the Student says so.
+_Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
+
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components and Prerequisites, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -60,13 +64,12 @@ _Avoid_: Task, assignment
 An exam-style task a Student solves: an Exercise or old-exam subtask from the Materials, a variant of one, or one generated for the KCs it tests.
 _Avoid_: Task, exercise (only for those from the Materials)
 
-**Finding**:
-Something a Knowledge map build asks the Student about a Course's Materials, with the chunks it is about: something that looks wrong, such as a printed solution that does not match the AI's, or a remark that limits the exam's content, such as "not exam-relevant". It is open until the Student answers it in the Brief, and then answered.
-A map Finding is one the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong link between two KCs, or a wrong KC description, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones.
+**Map Finding**:
+What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong link between two KCs, or a wrong KC description, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones.
 _Avoid_: Issue, error, erratum
 
 **Priority**:
-How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, and from the Materials the Brief excludes. Without old exams or Exercises every KC is equal, so course order decides.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or Big idea. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
