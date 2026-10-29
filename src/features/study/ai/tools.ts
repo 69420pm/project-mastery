@@ -11,6 +11,10 @@ import {
   type Stage,
 } from "@/features/study/domain/stages";
 import { computeTool } from "@/features/study/ai/compute-tool";
+import {
+  flagMapInputSchema,
+  type FlagMapInput,
+} from "@/features/study/ai/flag-map-input";
 import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
   ProblemView,
@@ -159,49 +163,6 @@ const searchMaterialsInputSchema = z.object({
   ),
 });
 
-const MAP_FINDING_KINDS = [
-  "missing_link",
-  "wrong_link",
-  "wrong_description",
-] as const satisfies readonly MapFindingKind[];
-
-/** What `flagMap` takes: a map Finding with the quote that shows it. */
-const flagMapInputSchema = z.object({
-  kind: z
-    .enum(MAP_FINDING_KINDS)
-    .describe(
-      "missing_link: the sources show one KC builds on the other, and the map doesn't link them; wrong_link: the map links them and the sources contradict it; wrong_description: the sources contradict the KC's description.",
-    ),
-  kcId: z
-    .string()
-    .describe(
-      "The id of the KC of this Course the Finding is about: for a link, the one that builds on the other.",
-    ),
-  linkedKcId: z
-    .string()
-    .nullish()
-    .describe(
-      "For a link kind, the id of kcId's prerequisite; omit it for wrong_description.",
-    ),
-  chunkId: z
-    .string()
-    .describe(
-      "The chunkId of the source chunk that shows it, from getTopic or searchMaterials.",
-    ),
-  quote: z
-    .string()
-    .min(1)
-    .max(500)
-    .describe(
-      "The words of that chunk's Markdown that show it, copied exactly: at most 500 characters.",
-    ),
-  reason: rememberInputSchema.shape.text.describe(
-    "What is wrong with the map and what the sources say, in one line of at most 300 characters.",
-  ),
-});
-
-type FlagMapInput = z.infer<typeof flagMapInputSchema>;
-
 /** What `showReading` takes: a Reading section and why the Student reads it. */
 const showReadingInputSchema = z.object({
   sectionId: z
@@ -264,6 +225,7 @@ export type TutorToolActions = {
     kind: MapFindingKind;
     kcId: string;
     linkedKcId: string | null;
+    proposedDescription: string | null;
     chunkId: string;
     quote: string;
     reason: string;
@@ -313,7 +275,7 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open and accepted map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
         if (!topicId && !kcIds) {
@@ -349,7 +311,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     flagMap: tool({
       description:
-        "File a Finding on the Knowledge map when the course's sources show it is wrong: a link between two KCs it lacks, a link the sources contradict, or a KC's description the sources contradict. Check the sources first with getTopic or searchMaterials, and quote the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones; nothing changes before. Never file one for what is only plausible from general knowledge. Returns the Finding's id.",
+        "File a Finding on the Knowledge map when the course's sources show it is wrong: a link between two KCs it lacks, a link the sources contradict, or a KC's description the sources contradict. Check the sources first with getTopic or searchMaterials, and quote the chunk that shows it. For a wrong_description, give the new description as proposedDescription. The Student accepts or dismisses it on the Course map, and accepting applies it at once; nothing changes before. Never file one for what is only plausible from general knowledge. Returns the Finding's id.",
       inputSchema: flagMapInputSchema,
       execute: async (input) => flagMap(actions, input),
     }),
@@ -423,17 +385,29 @@ const normalized = (text: string) =>
   text.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
- * The `flagMap` call's rules: a linked KC for link kinds only, KCs and a
- * chunk of the Course, and a quote found in the chunk's Markdown.
+ * The `flagMap` call's rules: a linked KC for link kinds only, a proposed
+ * description for wrong_description only, KCs and a chunk of the Course, and
+ * a quote found in the chunk's Markdown.
  */
 async function flagMap(
   actions: TutorToolActions,
-  { linkedKcId, ...input }: FlagMapInput,
+  { linkedKcId, proposedDescription, ...input }: FlagMapInput,
 ): Promise<{ findingId: string }> {
   const linked = linkedKcId || null;
+  const proposed = proposedDescription?.trim() || null;
   if (input.kind === "wrong_description" && linked) {
     throw new TutorToolError(
       "A wrong_description Finding is about one KC: omit linkedKcId.",
+    );
+  }
+  if (input.kind === "wrong_description" && !proposed) {
+    throw new TutorToolError(
+      "A wrong_description Finding needs proposedDescription: the KC's new description.",
+    );
+  }
+  if (input.kind !== "wrong_description" && proposed) {
+    throw new TutorToolError(
+      `A ${input.kind} Finding has no proposedDescription: omit it.`,
     );
   }
   if (input.kind !== "wrong_description" && !linked) {
@@ -472,6 +446,7 @@ async function flagMap(
   const findingId = await actions.saveMapFinding({
     ...input,
     linkedKcId: linked,
+    proposedDescription: proposed,
   });
   return { findingId };
 }

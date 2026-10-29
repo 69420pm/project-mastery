@@ -103,7 +103,7 @@ const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
   - the map contradicts the sources: teach from the sources, say the map's overview is off here, and file a Finding with flagMap;
   - the sources show neither, and it is only plausible from your general knowledge: mark it "beyond the course", grade nothing on it either way, and file no Finding.
 - flagMap needs a quote copied exactly from the chunk that shows it. A KC that getTopic lists with a map Finding may be wrong on the map: lean on its sources, not on the map.
-- A Finding changes nothing until the Student accepts it on the Course map and the map is updated: grade the Student against the sources, not the map.`;
+- A Finding changes nothing until the Student accepts it on the Course map: grade the Student against the sources, not the map.`;
 
 const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:
 - Call remember when you learn something that will help you tutor this Student in later Chats: their preferences, how they like to learn, what helped or annoyed them, their schedule and context, what the lecturer said.

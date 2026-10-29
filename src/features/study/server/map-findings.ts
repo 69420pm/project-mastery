@@ -6,8 +6,7 @@ import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * Map Findings the tutor files with `flagMap`, written and read as the
- * Student. The Knowledge map build applies the accepted ones; nothing here
- * changes the map.
+ * Student. Accepting one applies it to the map in the database.
  */
 
 const isUuid = (value: string) => z.uuid().safeParse(value).success;
@@ -39,6 +38,7 @@ export async function insertMapFinding(
     kind: MapFindingKind;
     kcId: string;
     linkedKcId: string | null;
+    proposedDescription: string | null;
     chunkId: string;
     quote: string;
     reason: string;
@@ -52,6 +52,7 @@ export async function insertMapFinding(
       kind: finding.kind,
       kc_id: finding.kcId,
       linked_kc_id: finding.linkedKcId,
+      proposed_description: finding.proposedDescription,
       chunk_id: finding.chunkId,
       quote: finding.quote,
       reason: finding.reason,
@@ -63,26 +64,41 @@ export async function insertMapFinding(
 }
 
 /**
- * The Student's answer to an open map Finding: accepted, for the next
- * Update map to apply, or dismissed. Row Level Security only lets an open
- * Finding change, so one answered since stays as it is.
+ * The Student dismisses an open map Finding. Row Level Security only lets
+ * an open Finding change, so one answered since stays as it is.
  */
-export async function answerOpenMapFinding(
+export async function dismissOpenMapFinding(
   supabase: Supabase,
   id: string,
-  status: "accepted" | "dismissed",
 ): Promise<void> {
   const { error } = await supabase
     .from("map_findings")
-    .update({ status })
+    .update({ status: "dismissed" })
     .eq("id", id)
     .eq("status", "open");
-  if (error) failed("Answering the map Finding", error);
+  if (error) failed("Dismissing the map Finding", error);
 }
 
 /**
- * The Course's open and accepted map Findings by KC, oldest first: each
- * under both of its KCs, naming the other one.
+ * The Student accepts an open map Finding: the database applies it to the
+ * map. Returns why it was refused, such as a link that would make a cycle,
+ * which leaves the Finding open; null when it was applied.
+ */
+export async function acceptOpenMapFinding(
+  supabase: Supabase,
+  id: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("accept_map_finding", {
+    p_finding_id: id,
+  });
+  if (error) failed("Accepting the map Finding", error);
+  const refusal: string | null = data;
+  return refusal;
+}
+
+/**
+ * The Course's open map Findings by KC, oldest first: each under both of
+ * its KCs, naming the other one.
  */
 export async function loadMapFindingsByKc(
   supabase: Supabase,
@@ -93,7 +109,7 @@ export async function loadMapFindingsByKc(
     .from("map_findings")
     .select("kind, kc_id, linked_kc_id, reason")
     .eq("course_id", courseId)
-    .in("status", ["open", "accepted"])
+    .eq("status", "open")
     .order("created_at");
   if (error) failed("Loading the map Findings", error);
   const byKc = new Map<string, MapFindingView[]>();

@@ -286,16 +286,17 @@ export type MapFindingView = {
 };
 
 /**
- * A map Finding on the Course map's Map findings card: an `open` one the
- * Student can accept or dismiss, or an `accepted` one the next Update map
- * applies. `linkedKc` is the other KC of a link kind, null otherwise.
+ * An open map Finding on the Course map's Map findings card, which the
+ * Student can accept (applying it) or dismiss. `linkedKc` is the
+ * prerequisite of `kc` for a link kind, null otherwise;
+ * `proposedDescription` is the new description of a `wrong_description`.
  */
 export type MapFindingItem = {
   id: string;
   kind: MapFindingKind;
-  status: "open" | "accepted";
   kc: string;
   linkedKc: string | null;
+  proposedDescription: string | null;
   reason: string;
   quote: string;
   /** Such as "Lecture 3, p. 12", with the link to the chunk on its page. */
@@ -319,7 +320,7 @@ export type TopicView = {
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
-    /** Its open and accepted map Findings, oldest first. */
+    /** Its open map Findings, oldest first. */
     findings: MapFindingView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;

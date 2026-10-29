@@ -17,7 +17,10 @@ import {
   topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
 import { recordExamResult } from "@/features/study/server/exam-results";
-import { answerOpenMapFinding } from "@/features/study/server/map-findings";
+import {
+  acceptOpenMapFinding,
+  dismissOpenMapFinding,
+} from "@/features/study/server/map-findings";
 import { appendMemory } from "@/features/study/server/memory";
 import {
   saveMockAnswer,
@@ -357,8 +360,10 @@ export async function setTopicChoice(input: {
 
 /**
  * Accept or Dismiss on the Map findings card: answers an open map Finding
- * of the Student's. An accepted one is applied at the next Update map. A
- * Finding that is no longer open stays as it is, and the page refreshes.
+ * of the Student's. An accepted one is applied to the map at once, unless
+ * the database refuses it (a link that would make a cycle), which leaves it
+ * open. A Finding that is no longer open stays as it is, and the page
+ * refreshes.
  */
 export async function answerMapFinding(
   id: string,
@@ -369,11 +374,13 @@ export async function answerMapFinding(
   }
   const parsed = parseActionInput(answerMapFindingSchema, { id, status });
   if (!parsed.ok) return parsed;
-  await answerOpenMapFinding(
-    await createClient(),
-    parsed.data.id,
-    parsed.data.status,
-  );
+  const supabase = await createClient();
+  if (parsed.data.status === "dismissed") {
+    await dismissOpenMapFinding(supabase, parsed.data.id);
+  } else {
+    const refusal = await acceptOpenMapFinding(supabase, parsed.data.id);
+    if (refusal) return { ok: false, message: refusal };
+  }
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };
 }

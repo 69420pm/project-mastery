@@ -9,23 +9,23 @@ vi.mock("@/features/study/server/actions", () => ({
 
 const { MapFindingsCard } = await import("./map-findings-card");
 
-const open: MapFindingItem = {
+const link: MapFindingItem = {
   id: "f1",
   kind: "wrong_link",
-  status: "open",
   kc: "Thrust",
   linkedKc: "Drag",
+  proposedDescription: null,
   reason: "The lecture derives thrust without drag.",
   quote: "Thrust follows from momentum alone.",
   source: { label: "Lecture 1, p. 3", link: "/courses/c1/materials/m1#c" },
 };
 
-const accepted: MapFindingItem = {
-  ...open,
+const description: MapFindingItem = {
+  ...link,
   id: "f2",
   kind: "wrong_description",
-  status: "accepted",
   linkedKc: null,
+  proposedDescription: "Thrust is the force a jet exerts.",
   reason: "The description names the wrong unit.",
 };
 
@@ -38,30 +38,34 @@ test("is hidden without Findings", () => {
   expect(container).toBeEmptyDOMElement();
 });
 
-test("lists Findings with their quote's page, and answers an open one", async () => {
-  render(<MapFindingsCard findings={[open, accepted]} />);
+test("lists Findings with their quote's page and proposed description, and dismisses one", async () => {
+  render(<MapFindingsCard findings={[link, description]} />);
 
   const [first] = screen.getAllByRole("listitem");
-  expect(first).toHaveTextContent("Wrong link: Thrust and Drag");
-  expect(screen.getByText(open.reason)).toBeInTheDocument();
+  expect(first).toHaveTextContent("Wrong link: Thrust builds on Drag");
+  expect(screen.getByText(link.reason)).toBeInTheDocument();
   expect(
     screen.getAllByRole("link", { name: "Lecture 1, p. 3" })[0],
   ).toHaveAttribute("href", "/courses/c1/materials/m1#c");
   expect(
-    screen.getByText("Accepted: applied at the next Update map."),
+    screen.getByText("New description: Thrust is the force a jet exerts."),
   ).toBeInTheDocument();
-  // Only the open Finding can be answered.
-  expect(screen.getAllByRole("button", { name: "Accept" })).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: "Accept" })).toHaveLength(2);
 
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "Dismiss" })[0]!);
   await waitFor(() =>
     expect(answerMapFinding).toHaveBeenCalledWith("f1", "dismissed"),
   );
 });
 
-test("shows why an answer failed", async () => {
-  answerMapFinding.mockResolvedValue({ ok: false, message: "Sign in again." });
-  render(<MapFindingsCard findings={[open]} />);
+test("shows why an accept was refused", async () => {
+  answerMapFinding.mockResolvedValue({
+    ok: false,
+    message: "This link would make a cycle.",
+  });
+  render(<MapFindingsCard findings={[link]} />);
   fireEvent.click(screen.getByRole("button", { name: "Accept" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Sign in again.");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "This link would make a cycle.",
+  );
 });

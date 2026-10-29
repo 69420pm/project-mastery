@@ -160,20 +160,38 @@ describe("flagMap", () => {
         kind: "missing_link",
         kcId: "kc-1",
         linkedKcId: "kc-2",
+        proposedDescription: null,
         chunkId: "ch-1",
         quote: "FOLLOWS from THE  **change**",
         reason: "Thrust builds on momentum.",
       },
     ]);
-    const description = file({ kind: "wrong_description", linkedKcId: null });
+    const description = file({
+      kind: "wrong_description",
+      linkedKcId: null,
+      proposedDescription: "Thrust is the change in momentum per second.",
+    });
     await expect(description.run).resolves.toEqual({ findingId: "f-1" });
-    expect(description.saved).toMatchObject([{ linkedKcId: null }]);
+    expect(description.saved).toMatchObject([
+      {
+        linkedKcId: null,
+        proposedDescription: "Thrust is the change in momentum per second.",
+      },
+    ]);
   });
 
   test.each([
     [{ linkedKcId: null }, "give the prerequisite of kcId"],
     [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
-    [{ kind: "wrong_description" }, "omit linkedKcId"],
+    [
+      { kind: "wrong_description", linkedKcId: null },
+      "needs proposedDescription",
+    ],
+    [{ proposedDescription: "New." }, "has no proposedDescription"],
+    [
+      { kind: "wrong_description", proposedDescription: "New." },
+      "omit linkedKcId",
+    ],
     [{ linkedKcId: "kc-1" }, "two different KCs"],
     [{ kcId: "x-1" }, "no KC ids of this Course: x-1"],
     [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],

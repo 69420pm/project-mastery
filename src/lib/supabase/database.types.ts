@@ -1043,6 +1043,7 @@ export type Database = {
           linked_kc_id: string | null;
           outcome: string | null;
           owner: string;
+          proposed_description: string | null;
           quote: string;
           reason: string;
           status: string;
@@ -1060,6 +1061,7 @@ export type Database = {
           linked_kc_id?: string | null;
           outcome?: string | null;
           owner?: string;
+          proposed_description?: string | null;
           quote: string;
           reason: string;
           status?: string;
@@ -1076,6 +1078,7 @@ export type Database = {
           linked_kc_id?: string | null;
           outcome?: string | null;
           owner?: string;
+          proposed_description?: string | null;
           quote?: string;
           reason?: string;
           status?: string;
@@ -2124,6 +2127,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      accept_map_finding: { Args: { p_finding_id: string }; Returns: string };
       add_brief_note: {
         Args: { course_id: string; text: string };
         Returns: boolean;

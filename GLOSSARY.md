@@ -65,7 +65,7 @@ An exam-style task a Student solves: an Exercise or old-exam subtask from the Ma
 _Avoid_: Task, exercise (only for those from the Materials)
 
 **Map Finding**:
-What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong link between two KCs, or a wrong KC description, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones.
+What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong Prerequisite between two KCs, or a wrong KC description with the description it proposes, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map; accepting applies the change at once, unless a new Prerequisite would close a cycle, which refuses the accept.
 _Avoid_: Issue, error, erratum
 
 **Priority**:
