@@ -2,7 +2,7 @@ import "server-only";
 import {
   topicAnchors,
   type loadStoredMap,
-  type loadStoredReadingSections,
+  type loadReadingSections,
 } from "@/features/knowledge-map/server";
 import { fitText } from "@/features/study/domain/plan";
 import type { TodayTopic } from "@/features/study/domain/today";
@@ -20,7 +20,7 @@ export function tutorToday(
   next: TodayTopic | null,
   map: Awaited<ReturnType<typeof loadStoredMap>>,
   schedules: Map<string, unknown>,
-  readings: Awaited<ReturnType<typeof loadStoredReadingSections>>,
+  readings: Awaited<ReturnType<typeof loadReadingSections>>,
 ): TutorToday {
   const { hint } = plan.today;
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
@@ -39,7 +39,6 @@ export function tutorToday(
       readingSections: (readings.get(next.id) ?? []).map((section) => ({
         id: section.id,
         label: readingLabel(section),
-        mode: section.mode,
       })),
     },
     hint,

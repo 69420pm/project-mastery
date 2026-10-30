@@ -1,24 +1,34 @@
 import { randomUUID } from "node:crypto";
 import { gradeMock } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
+import {
+  answerText,
+  type FinalAnswer,
+  numericExercise,
+  seedGoldCourse,
+} from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
-import { insertGoldCourse, sendMessage, THRUST_EXERCISE } from "./tutor";
-
-/** The blank task: the biggest loss, so the Results session starts on it. */
-const BLANK_PROMPT =
-  "Ex. 7.1: An ideal Brayton cycle has a pressure ratio of 12. Taking gamma = 1.4 for air, compute the thermal efficiency of the cycle.";
-
-const CORRECT_ANSWER =
-  "F = m (v_e - v_0) = 50 kg/s × (600 - 250) m/s = 17,500 N = 17.5 kN.";
-
-/** The thrust formula without the flight speed: a final value off the key. */
-const WRONG_ANSWER = "F = m × v_e = 50 kg/s × 600 m/s = 30,000 N = 30 kN.";
+import { sendMessage } from "./tutor";
 
 const OPENING = "Let's go through the mock.";
 
+/** The key with every value doubled: a final value off the key. */
+const offKey = (answers: FinalAnswer[]) =>
+  answers.map((answer) => ({ ...answer, value: answer.value * 2 + 1 }));
+
+/** The longest words of `text`, which a reply about it likely repeats. */
+function keywords(text: string, other: string) {
+  const words = (s: string) => new Set(s.toLowerCase().match(/[a-z]{6,}/g));
+  const own = words(other);
+  return [...words(text)]
+    .filter((word) => !own.has(word))
+    .toSorted((a, b) => b.length - a.length)
+    .slice(0, 5);
+}
+
 /**
- * The gold Course with a submitted mock of 3 tasks: the thrust Exercise
- * answered correctly and with a final value off its key, and the Brayton
+ * The gold course with a submitted mock of 3 tasks: an Exercise with a
+ * numeric key answered with the key and with a value off it, and another
  * Exercise left blank. The real `gradeMock` runs in process: the mock must
  * reach `graded`, the blank task scores 0 without a call, the wrong value
  * scores less than full and the correct one at least half. Then one reply
@@ -28,15 +38,17 @@ const OPENING = "Let's go through the mock.";
 export const gradeMockSmoke: SmokeCheck = {
   name: "grade-mock",
   usage:
-    "pnpm smoke grade-mock (the gold Course with a submitted mock of a correct, a wrong and a blank task, graded, then one Results-session reply)",
+    "pnpm smoke grade-mock (the gold course with a submitted mock of a correct, a wrong and a blank task, graded, then one Results-session reply)",
   // The spec's budget: 2 grading calls, the reply and the Chat's title.
   maxCalls: 4,
   async run({ supabase, studentId }) {
-    const { courseId, gold, exerciseIds, thrustExerciseId } =
-      await insertGoldCourse(supabase, studentId);
-    const blankExerciseId =
-      exerciseIds[gold.exercises.findIndex(({ name }) => name === "Ex. 7.1")];
-    if (!blankExerciseId) throw new Error("The gold map has no Ex. 7.1.");
+    const gold = await seedGoldCourse(supabase, studentId);
+    const { courseId } = gold;
+    const numeric = numericExercise(gold, []);
+    const blank = gold.exercises.find(
+      (e) => !e.reserved && e.id !== numeric.id,
+    );
+    if (!blank) throw new Error("The gold course has a single Exercise.");
 
     const mockId = randomUUID();
     const mock = await supabase.from("mock_exams").insert({
@@ -49,17 +61,9 @@ export const gradeMockSmoke: SmokeCheck = {
     });
     if (mock.error) throw new Error(mock.error.message);
     const tasks = [
-      {
-        exercise: thrustExerciseId,
-        prompt: THRUST_EXERCISE.markdown,
-        points: 6,
-      },
-      {
-        exercise: thrustExerciseId,
-        prompt: THRUST_EXERCISE.markdown,
-        points: 6,
-      },
-      { exercise: blankExerciseId, prompt: BLANK_PROMPT, points: 8 },
+      { exercise: numeric.id, prompt: numeric.markdown, points: 6 },
+      { exercise: numeric.id, prompt: numeric.markdown, points: 6 },
+      { exercise: blank.id, prompt: blank.markdown, points: 8 },
     ];
     const items = await supabase.from("mock_items").insert(
       tasks.map((task, position) => ({
@@ -87,7 +91,10 @@ export const gradeMockSmoke: SmokeCheck = {
       .eq("mock_id", mockId)
       .order("position");
     if (stored.error) throw new Error(stored.error.message);
-    const answers = [CORRECT_ANSWER, WRONG_ANSWER];
+    const answers = [
+      `My result: ${answerText(numeric.finalAnswers)}.`,
+      `My result: ${answerText(offKey(numeric.finalAnswers))}.`,
+    ];
     for (const [position, answer] of answers.entries()) {
       const questionId = stored.data[position]?.question_id;
       if (!questionId) throw new Error("A started mock item has no Question.");
@@ -132,7 +139,7 @@ export const gradeMockSmoke: SmokeCheck = {
     if (graded.error) throw new Error(graded.error.message);
     if (gradedItems.error) throw new Error(gradedItems.error.message);
     if (usage.error) throw new Error(usage.error.message);
-    const [correct, wrong, blank] = gradedItems.data;
+    const [correct, wrong, left] = gradedItems.data;
     console.info(
       `\nGraded: score ${graded.data.score}, ${gradedItems.data
         .map((item) => `${item.points_awarded ?? "failed"}/${item.points}`)
@@ -148,6 +155,12 @@ export const gradeMockSmoke: SmokeCheck = {
     );
     console.info(`Tutor: ${reply.text}`);
     const text = reply.text;
+    const lowered = text.toLowerCase();
+    const blankWords = keywords(blank.markdown, numeric.markdown);
+    // Short values such as 2 turn up in any text.
+    const keyValues = numeric.finalAnswers
+      .map(({ value }) => String(value))
+      .filter((value) => value.length >= 3);
 
     return [
       result(
@@ -157,8 +170,8 @@ export const gradeMockSmoke: SmokeCheck = {
       ),
       result(
         "the blank task scores 0 without a call",
-        blank?.points_awarded === 0 && usage.data.length === 2,
-        `${blank?.points_awarded} points; ${usage.data.length} grade_exam calls (2 expected)`,
+        left?.points_awarded === 0 && usage.data.length === 2,
+        `${left?.points_awarded} points; ${usage.data.length} grade_exam calls (2 expected)`,
       ),
       result(
         "the wrong final value scores less than full",
@@ -173,8 +186,9 @@ export const gradeMockSmoke: SmokeCheck = {
       ),
       result(
         "the Results reply starts on the biggest loss",
-        /7\.1|brayton|thermal efficiency|pressure ratio/i.test(text),
-        text.slice(0, 120),
+        /task 3|third/.test(lowered) ||
+          blankWords.some((word) => lowered.includes(word)),
+        `${blankWords.join(", ")}: ${text.slice(0, 120)}`,
       ),
       result(
         "the reply asks for the approach",
@@ -183,7 +197,8 @@ export const gradeMockSmoke: SmokeCheck = {
       ),
       result(
         "the reply does not give the key's final value",
-        !/17[.,]?5|17[ ,]?500/.test(text),
+        !keyValues.some((value) => text.includes(value)),
+        keyValues.join(", "),
       ),
     ];
   },

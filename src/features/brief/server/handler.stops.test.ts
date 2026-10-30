@@ -7,7 +7,6 @@ import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, useMockModels } from "@/lib/ai/testing";
 import {
   COURSE,
-  MISMATCH,
   STUDENT,
   db,
   post,
@@ -18,7 +17,7 @@ import {
 
 vi.mock("server-only", () => ({}));
 
-/** A Brief whose intake is done, so the reply asks the first open Finding. */
+/** A Brief whose intake is done. */
 function seedDoneBrief() {
   db.tables.briefs.push({
     course_id: COURSE,
@@ -34,9 +33,6 @@ function seedDoneBrief() {
     notes: null,
   });
 }
-
-const askedAt = (id: string) =>
-  db.tables.findings.find((row) => row.id === id)?.asked_at;
 
 /** A model that streams `text`, then waits until the call is aborted. */
 function stalledModel(text: string) {
@@ -57,7 +53,7 @@ function stalledModel(text: string) {
 }
 
 describe("a reply that is not stored", () => {
-  test("a request aborted mid-reply stores no reply and asks no Finding", async () => {
+  test("a request aborted mid-reply stores no reply", async () => {
     seedDoneBrief();
     useMockModels({ brief: stalledModel("Which of the two ") });
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -85,10 +81,9 @@ describe("a reply that is not stored", () => {
       ]),
     );
     expect(stored().map(({ role }) => role)).toEqual(["assistant", "user"]);
-    expect(askedAt(MISMATCH)).toBeNull();
   });
 
-  test("an empty reply without tool calls stores nothing and asks no Finding", async () => {
+  test("an empty reply without tool calls stores nothing", async () => {
     seedDoneBrief();
     useMockModels({ brief: mockTextModel("") });
 
@@ -96,7 +91,6 @@ describe("a reply that is not stored", () => {
 
     expect(reply.status).toBe(200);
     expect(stored().map(({ role }) => role)).toEqual(["assistant", "user"]);
-    expect(askedAt(MISMATCH)).toBeNull();
     expect(db.tables.ai_usage).toHaveLength(1);
   });
 });

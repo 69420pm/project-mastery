@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner";
 import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import type {
   MapKcLearning,
@@ -18,34 +17,6 @@ const LEVELS: Record<
   excluded: { name: "Excluded", variant: "outline" },
 };
 
-/** Whether the priorities are being computed, or why the last run failed. */
-export function PriorityStatus({ priorities }: { priorities: MapPriorities }) {
-  if (priorities.running) {
-    return (
-      <p
-        role="status"
-        aria-label="Priority status"
-        className="flex items-center gap-2 text-sm text-muted-foreground"
-      >
-        <Spinner className="size-3" />
-        Updating priorities…
-      </p>
-    );
-  }
-  if (priorities.failureReason) {
-    return (
-      <p
-        role="status"
-        aria-label="Priority status"
-        className="text-sm text-destructive"
-      >
-        {priorities.failureReason}
-      </p>
-    );
-  }
-  return null;
-}
-
 /** A KC's state badge; a KC without attempts is new. */
 export function StateBadge({ state }: { state?: MapKcLearning[string] }) {
   const name = state?.state ?? "new";
@@ -59,7 +30,7 @@ export function StateBadge({ state }: { state?: MapKcLearning[string] }) {
   );
 }
 
-/** A KC's Priority badge; nothing before the first run. */
+/** A KC's Priority badge; nothing for a KC without one. */
 export function PriorityBadge({ priority }: { priority?: KcPriority }) {
   if (!priority) return null;
   const level = LEVELS[priority.level];

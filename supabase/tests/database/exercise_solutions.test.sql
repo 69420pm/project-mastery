@@ -66,21 +66,23 @@ select is(
 select is(
   public.replace_exercise_solutions('aaaaaaaa-0000-0000-0000-000000000001', 2,
     '[{"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000001", "solution_chunk_id": "cccccccc-0000-0000-0000-000000000003"},
-      {"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000002", "solution_chunk_id": null}]'),
+      {"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000002", "solution_chunk_id": null,
+       "candidates_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]'),
   true, 'the latest request''s pass writes its pairs');
 reset role;
 
 select results_eq(
-  $$select exercise_chunk_id, solution_chunk_id, status, owner, course_id
+  $$select exercise_chunk_id, solution_chunk_id, status, owner, course_id, candidates_hash
     from public.exercise_solutions
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'
     order by exercise_chunk_id$$,
   $$values
     ('cccccccc-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000003'::uuid, 'paired',
-      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid),
+      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, null::text),
     ('cccccccc-0000-0000-0000-000000000002'::uuid, null::uuid, 'no_solution',
-      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid)$$,
-  'pairs are stored as paired or no_solution, owned like the Course');
+      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
+      repeat('a', 64))$$,
+  'pairs are stored as paired or no_solution, owned like the Course, with the memo of their call');
 
 -- Owners only.
 set local role authenticated;

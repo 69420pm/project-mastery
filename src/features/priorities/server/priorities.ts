@@ -1,113 +1,84 @@
 import "server-only";
-import { start } from "workflow/api";
 import { z } from "zod";
+import {
+  loadExamScopes,
+  loadExcludedMaterialIds,
+} from "@/features/brief/server";
+import { loadChunkMaterials } from "@/features/ingestion/server";
 import type { MapPriorities } from "@/features/knowledge-map";
-import { priorityLevels } from "@/features/priorities/domain/priority";
-import { updatePriorities } from "@/features/priorities/workflows/update-priorities";
+import {
+  loadStoredMap,
+  loadStoredTopics,
+} from "@/features/knowledge-map/server";
+import {
+  kcPriorities,
+  type KcPriority,
+} from "@/features/priorities/domain/priority";
 import { getUser } from "@/lib/auth/user";
-import { allRows } from "@/lib/supabase/all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
- * The lazy start of the map page: queues a priority run of the signed-in
- * Student's Course when its map is built, none runs and the last one is
- * older than the map, the Brief or a Finding answer (`queue_priority_run`),
- * and starts the `updatePriorities` workflow. When the workflow cannot
- * start, the run is failed and the error is logged, not thrown.
+ * Every KC's Priority of a Course, computed from the stored map, the
+ * Course's Materials and its Brief, read with `supabase`, the admin client
+ * or a Student's session client; none before the map has KCs.
  */
-export async function ensurePriorities(courseId: string): Promise<void> {
-  if (!z.uuid().safeParse(courseId).success || !(await getUser())) return;
-  const supabase = await createClient();
-  const { data: queued, error } = await supabase.rpc("queue_priority_run", {
-    course_id: courseId,
+async function computePriorities(
+  supabase: Supabase,
+  courseId: string,
+): Promise<KcPriority[]> {
+  const [map, topics, chunks, excludedMaterialIds, examScopes] =
+    await Promise.all([
+      loadStoredMap(supabase, courseId),
+      loadStoredTopics(supabase, courseId),
+      loadChunkMaterials(supabase, courseId),
+      loadExcludedMaterialIds(supabase, courseId),
+      loadExamScopes(supabase, courseId),
+    ]);
+  const topicOf = new Map(
+    topics.flatMap((topic) => topic.kcs.map((kc) => [kc, topic.id] as const)),
+  );
+  return kcPriorities({
+    kcs: map.kcs.map((kc) => ({
+      id: kc.id,
+      bigIdeaId: kc.bigIdea,
+      topicId: topicOf.get(kc.id) ?? null,
+      sources: kc.sources,
+    })),
+    exercises: map.exercises.map(({ questionChunk, kcs }) => ({
+      questionChunk,
+      kcs,
+    })),
+    ...chunks,
+    excludedMaterialIds,
+    examScopes,
   });
-  if (error)
-    throw new Error(`Queueing the priorities failed: ${error.message}`);
-  if (!queued) return;
-  try {
-    await start(updatePriorities, [courseId]);
-  } catch (startError) {
-    console.error("Starting the priority run failed:", startError);
-    const { error: recordError } = await supabase.rpc(
-      "record_priority_run_start_failure",
-      { course_id: courseId },
-    );
-    if (recordError) {
-      console.error("Recording a failed priority start failed:", recordError);
-    }
-  }
 }
 
-/**
- * Each KC's Priority of a Course by KC id, read with `supabase`, a Student's
- * session client; empty before the first run.
- */
+/** Each KC's Priority of a Course by KC id, read with `supabase`. */
 export async function loadKcPriorities(
   supabase: Supabase,
   courseId: string,
 ): Promise<Record<string, number>> {
-  const data = await allRows("Loading the priorities", (from, to) =>
-    supabase
-      .from("kc_priorities")
-      .select("kc_id, priority")
-      .eq("course_id", courseId)
-      .order("kc_id")
-      .range(from, to),
-  );
-  return Object.fromEntries(
-    data.map((row) => [row.kc_id, Number(row.priority)]),
-  );
+  const values = await computePriorities(supabase, courseId);
+  return Object.fromEntries(values.map((v) => [v.kcId, v.priority]));
 }
 
 /**
  * The signed-in Student's KC priorities of a Course as the map page shows
- * them: each KC's level and reasons, and whether a run is running or the
- * last one failed. No KCs before the first run; an unknown or another
- * Student's Course reads as never run.
+ * them: each KC's level, value and reasons. None for an unknown or another
+ * Student's Course.
  */
 export async function getPriorities(courseId: string): Promise<MapPriorities> {
-  const none: MapPriorities = { running: false, failureReason: null, kcs: {} };
-  if (!z.uuid().safeParse(courseId).success || !(await getUser())) return none;
-  const supabase = await createClient();
-  const [run, rows] = await Promise.all([
-    supabase
-      .from("priority_runs")
-      .select("status, failure_reason")
-      .eq("course_id", courseId)
-      .maybeSingle(),
-    allRows("Loading the priorities", (from, to) =>
-      supabase
-        .from("kc_priorities")
-        .select("kc_id, priority, multiplier, reasons")
-        .eq("course_id", courseId)
-        .order("kc_id")
-        .range(from, to),
-    ),
-  ]);
-  if (run.error) {
-    throw new Error(`Loading the priority run failed: ${run.error.message}`);
+  if (!z.uuid().safeParse(courseId).success || !(await getUser())) {
+    return { kcs: {} };
   }
-
-  const levels = priorityLevels(
-    rows.map((row) => ({
-      kcId: row.kc_id,
-      priority: Number(row.priority),
-      multiplier: Number(row.multiplier),
-    })),
-  );
+  const values = await computePriorities(await createClient(), courseId);
   return {
-    running: run.data?.status === "running",
-    failureReason: run.data?.failure_reason ?? null,
     kcs: Object.fromEntries(
-      rows.map((row) => [
-        row.kc_id,
-        {
-          level: levels.get(row.kc_id) ?? "low",
-          value: Number(row.priority),
-          multiplier: Number(row.multiplier),
-          reasons: row.reasons,
-        },
+      values.map(({ kcId, priority, level, reasons }) => [
+        kcId,
+        { level, value: priority, reasons },
       ]),
     ),
   };

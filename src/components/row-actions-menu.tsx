@@ -1,7 +1,7 @@
 "use client";
 
 import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
-import type { ComponentProps, ReactElement } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,6 +16,8 @@ type RowActionsMenuProps = {
   label: string;
   onRename: () => void;
   onDelete: () => void;
+  /** Menu items shown before Rename. */
+  items?: ReactNode;
   /**
    * The "…" button, when a ghost icon button does not fit. It needs its own
    * accessible name and the icon.
@@ -30,6 +32,7 @@ export function RowActionsMenu({
   label,
   onRename,
   onDelete,
+  items,
   trigger,
   side,
   align = "end",
@@ -46,6 +49,7 @@ export function RowActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent side={side} align={align}>
         <DropdownMenuGroup>
+          {items}
           <DropdownMenuItem onSelect={onRename}>
             <PencilIcon />
             Rename

@@ -15,7 +15,6 @@ const COUNT = 1200;
 const n = (i: number) => String(i).padStart(4, "0");
 const chunkId = (i: number) => `chunk-${n(i)}`;
 const kcId = (i: number) => `kc-${n(i)}`;
-const findingId = (i: number) => `finding-${n(i)}`;
 const each = <T>(make: (i: number) => T): T[] =>
   // Stored against reading order, which the readers restore.
   Array.from({ length: COUNT }, (_, i) => make(i)).toReversed();
@@ -36,6 +35,7 @@ function createDb() {
           is_exam: false,
         },
       ] as FakeRow[],
+      material_pages: [] as FakeRow[],
       chunks: each((i) => ({
         id: chunkId(i),
         material_id: MATERIAL,
@@ -55,7 +55,6 @@ function createDb() {
           name: `KC ${i}`,
           description: "",
           type: "concept",
-          bloom: null,
           origin: "content",
           position: i,
         }),
@@ -68,48 +67,19 @@ function createDb() {
           id: i,
           from_kc: kcId(i),
           to_kc: kcId((i + 1) % COUNT),
-          extraction_confidence: "1",
-        }),
-      ),
-      semantic_links: each((i) =>
-        ofCourse({
-          id: i,
-          from_kc: kcId(i),
-          to_kc: kcId((i + 2) % COUNT),
-          core_type: "causes",
-          label: "uses",
         }),
       ),
       exercises: each((i) =>
         ofCourse({
           id: `exercise-${n(i)}`,
           question_chunk_id: chunkId(i),
-          name: `Ex. ${i}`,
-          task_type: "compute",
-          solution_status: "generated",
-          solution: "42",
+          solution_chunk_id: null,
           difficulty: 1,
           position: i,
         }),
       ),
       exercise_kcs: each((i) =>
         ofCourse({ exercise_id: `exercise-${n(i)}`, kc_id: kcId(i) }),
-      ),
-      exercise_solutions: [] as FakeRow[],
-      findings: each((i) =>
-        ofCourse({
-          id: findingId(i),
-          kind: "solution_mismatch",
-          text: `Finding ${i}`,
-          status: "open",
-          answer: null,
-          asked_at: null,
-          answered_at: null,
-          position: i,
-        }),
-      ),
-      finding_sources: each((i) =>
-        ofCourse({ finding_id: findingId(i), chunk_id: chunkId(i) }),
       ),
     },
     maxRows: 1000,
@@ -125,8 +95,6 @@ vi.mock("@/lib/auth/user", () => ({
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 
 const { getKnowledgeMap } = await import("./queries");
-const { getFindings } = await import("./findings");
-const { getChunkFindings } = await import("./chunk-findings");
 
 beforeEach(() => {
   db = createDb();
@@ -144,34 +112,10 @@ describe("past the row limit", () => {
       chunkId(COUNT - 1),
     ]);
     expect(view.prerequisites).toHaveLength(COUNT);
-    expect(view.semanticLinks).toHaveLength(COUNT);
     expect(view.exercises).toHaveLength(COUNT);
     expect(view.exercises.at(-1)).toMatchObject({
       kcs: [kcId(COUNT - 1)],
       question: `Text ${COUNT - 1}`,
     });
-  });
-
-  test("getFindings gives every Finding with its source", async () => {
-    const findings = await getFindings(COURSE);
-
-    expect(findings).toHaveLength(COUNT);
-    expect(findings.at(-1)?.sources.map((source) => source.label)).toEqual([
-      `Lecture 1 p. ${COUNT}`,
-    ]);
-  });
-
-  test("getChunkFindings gives the Findings of every chunk of a long Material", async () => {
-    const byChunk = await getChunkFindings(COURSE, MATERIAL);
-
-    expect(Object.keys(byChunk)).toHaveLength(COUNT);
-    expect(byChunk[chunkId(COUNT - 1)]).toEqual([
-      {
-        id: findingId(COUNT - 1),
-        text: `Finding ${COUNT - 1}`,
-        status: "open",
-        answer: null,
-      },
-    ]);
   });
 });

@@ -4,6 +4,7 @@ import {
   isParseRunning,
   parseStateLabel,
   type ParseState,
+  withLease,
 } from "./parse-state";
 
 const state = (
@@ -15,6 +16,32 @@ const state = (
   pagesTotal: null,
   failure: null,
   startFailed,
+  unreadablePages: [],
+});
+
+describe("withLease", () => {
+  const now = Date.parse("2026-10-29T12:00:00Z");
+
+  test.each(["queued", "parsing"] as const)(
+    "shows a %s Material without a heartbeat for 30 minutes as failed",
+    (status) => {
+      expect(
+        withLease(state(status), "2026-10-29T11:29:00Z", now),
+      ).toMatchObject({
+        status: "failed",
+        failure: "The parse stopped. Parse again.",
+      });
+    },
+  );
+
+  test("keeps a parse with a recent heartbeat, and a parsed Material", () => {
+    expect(withLease(state("parsing"), "2026-10-29T11:31:00Z", now)).toEqual(
+      state("parsing"),
+    );
+    expect(withLease(state("parsed"), "2026-10-29T08:00:00Z", now)).toEqual(
+      state("parsed"),
+    );
+  });
 });
 
 describe("canStartParse", () => {

@@ -9,10 +9,15 @@ export const dailyLimitReason = "Daily limit reached";
 /** The file could not be downloaded or opened as a PDF. */
 export const fileUnreadableReason = "The file could not be opened";
 
-/** The page call for a page failed for good. */
-export function pageUnreadableReason(pageNumber: number): string {
-  return `The AI could not read page ${pageNumber}`;
-}
+/**
+ * A queued or parsing Material no parse step touched for PARSE_LEASE_MINUTES:
+ * its workflow died. `queue_material_parse` and `queue_knowledge_map_build`
+ * treat it as failed with this reason.
+ */
+export const parseStoppedReason = "The parse stopped. Parse again.";
+
+/** How long a parse may go without a heartbeat before it counts as stopped. */
+export const PARSE_LEASE_MINUTES = 30;
 
 /** Any other step failed for good, such as a Database or Storage failure. */
 const parseFailedReason = "The material could not be parsed. Please try again.";

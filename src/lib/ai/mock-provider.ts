@@ -131,33 +131,6 @@ function mockText(prompt: Prompt, responseFormat: ResponseFormat): string {
   return mockReply(prompt);
 }
 
-/**
- * In a Brief that is asking a Finding, the mock takes the Student's message
- * as its answer: when the instructions name the question being asked, it
- * first calls `answerFinding` with the message, then replies.
- */
-function mockAnswerFinding(
-  prompt: Prompt,
-  tools: ReadonlyArray<{ name: string }> | undefined,
-) {
-  if (!tools?.some(({ name }) => name === "answerFinding")) return null;
-  if (prompt.at(-1)?.role !== "user") return null;
-  const system = prompt.find(({ role }) => role === "system")?.content;
-  const findingId =
-    typeof system === "string"
-      ? /asking now \(id ([0-9a-f-]{36})\)/.exec(system)?.[1]
-      : undefined;
-  if (!findingId) return null;
-  const answer = lastUserParts(prompt)
-    .filter((part) => part.type === "text")
-    .map((part) => part.text ?? "")
-    .join(" ");
-  return toolCallStream("mock-answer-finding", "answerFinding", {
-    findingId,
-    answer,
-  });
-}
-
 /** A Student's message that starts with this makes the tutor mock ask. */
 export const MOCK_QUIZ_REQUEST = "Quiz me";
 
@@ -333,7 +306,6 @@ function languageModel(modelId: string) {
       tools?: ReadonlyArray<{ name: string }>;
     }) => ({
       stream:
-        mockAnswerFinding(prompt, tools) ??
         mockTutorQuestions(prompt, tools) ??
         simulateReadableStream({
           initialDelayInMs: null,

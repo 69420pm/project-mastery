@@ -27,19 +27,15 @@ const COURSE_TABLES = [
   "kcs",
   "kc_sources",
   "prerequisite_links",
-  "semantic_links",
   "exercises",
   "exercise_kcs",
-  "exercise_solutions",
-  "findings",
-  "finding_sources",
+  "exam_scopes",
   "knowledge_map_builds",
-  "kc_priorities",
+  "brief_excluded_materials",
   "briefs",
   "chunks",
   "memories",
   "topics",
-  "reading_sections",
   "map_findings",
   "problems",
   "problem_kcs",
@@ -71,14 +67,11 @@ function createDb() {
       kcs: [],
       kc_sources: [],
       prerequisite_links: [],
-      semantic_links: [],
       exercises: [],
       exercise_kcs: [],
-      exercise_solutions: [],
-      findings: [],
-      finding_sources: [],
+      exam_scopes: [],
       knowledge_map_builds: [],
-      kc_priorities: [],
+      brief_excluded_materials: [],
       briefs: [],
       mock_exams: [],
       mock_items: [],
@@ -92,7 +85,6 @@ function createDb() {
       topic_notes: [],
       topic_kcs: [],
       topic_choices: [],
-      reading_sections: [],
       map_findings: [],
       problems: [],
       problem_kcs: [],
@@ -101,7 +93,6 @@ function createDb() {
     primaryKeys: { memories: ["course_id"] },
     foreignKeys: {
       chunks: { material_id: "materials" },
-      reading_sections: { material_id: "materials" },
       topic_kcs: { topic_id: "topics" },
       topic_choices: { topic_id: "topics" },
       questions: {
@@ -440,14 +431,16 @@ export function seedChat(owner: string, messages: FakeRow[] = []) {
 /** The ids of the map `seedMap` stores in the Student's Course. */
 export const MAP = {
   bigIdea: "aaaaaaaa-b000-4000-8000-000000000001",
-  /** Prior knowledge: Newton's second law. */
-  prior: "aaaaaaaa-0000-4000-8000-000000000001",
+  /** Newton's second law, outside the Topic: its anchor. */
+  newton: "aaaaaaaa-0000-4000-8000-000000000001",
   /** Thrust, taught by `chunks[0]` and `chunks[1]`, Priority 0.8. */
   thrust: "aaaaaaaa-0000-4000-8000-000000000002",
   /** Propulsive efficiency, which needs thrust first. */
   efficiency: "aaaaaaaa-0000-4000-8000-000000000003",
   /** The one Topic, holding thrust then efficiency. */
   topic: "aaaaaaaa-7000-4000-8000-000000000001",
+  /** The Topic's one Reading section, over both chunks, pp. 3–5. */
+  section: "e87776f6-8933-50bb-99f7-f7c34c83ee12",
   material: "aaaaaaaa-a000-4000-8000-000000000001",
   chunks: [
     "aaaaaaaa-c400-4000-8000-000000000001",
@@ -458,22 +451,15 @@ export const MAP = {
 /** Stores a small built Knowledge map with Priorities in the Student's Course. */
 export function seedMap() {
   const owned = { owner: STUDENT, course_id: COURSE };
-  const kc = (
-    id: string,
-    position: number,
-    name: string,
-    type: string,
-    bigIdea: string | null,
-  ) => ({
+  const kc = (id: string, position: number, name: string, type: string) => ({
     ...owned,
     id,
     position,
     name,
     description: `${name}, as the lecture states it.`,
     type,
-    big_idea_id: bigIdea,
-    bloom: bigIdea ? "apply" : null,
-    origin: bigIdea ? "content" : "prior",
+    big_idea_id: MAP.bigIdea,
+    origin: "content",
   });
   db.tables.big_ideas.push({
     ...owned,
@@ -483,15 +469,13 @@ export function seedMap() {
     description: "How engines make thrust.",
   });
   db.tables.kcs.push(
-    kc(MAP.prior, 0, "Newton's second law", "prior", null),
-    kc(MAP.thrust, 1, "Thrust equation", "procedure", MAP.bigIdea),
-    kc(MAP.efficiency, 2, "Propulsive efficiency", "concept", MAP.bigIdea),
+    kc(MAP.newton, 0, "Newton's second law", "fact"),
+    kc(MAP.thrust, 1, "Thrust equation", "procedure"),
+    kc(MAP.efficiency, 2, "Propulsive efficiency", "concept"),
   );
   db.tables.prerequisite_links.push(
-    ...[
-      { ...owned, id: 1, from_kc: MAP.prior, to_kc: MAP.thrust },
-      { ...owned, id: 2, from_kc: MAP.thrust, to_kc: MAP.efficiency },
-    ].map((link) => ({ ...link, extraction_confidence: 1 })),
+    { ...owned, id: 1, from_kc: MAP.newton, to_kc: MAP.thrust },
+    { ...owned, id: 2, from_kc: MAP.thrust, to_kc: MAP.efficiency },
   );
   db.tables.topics.push({
     course_id: COURSE,
@@ -500,23 +484,16 @@ export function seedMap() {
     position: 0,
     name: "Thrust",
     central_question: "How does an engine make thrust?",
-    why_it_matters: "Every engine question starts here.",
   });
   db.tables.topic_kcs.push(
     { topic_id: MAP.topic, kc_id: MAP.thrust, position: 0 },
     { topic_id: MAP.topic, kc_id: MAP.efficiency, position: 1 },
   );
-  db.tables.kc_priorities.push({
-    ...owned,
-    kc_id: MAP.thrust,
-    priority: 0.8,
-    multiplier: 1,
-    reasons: [],
-  });
   db.tables.materials.push({
     ...owned,
     id: MAP.material,
     name: "Lecture 7",
+    parse_status: "parsed",
     created_at: "2025-12-01T00:00:00.000Z",
   });
   MAP.chunks.forEach((id, position) => {

@@ -10,30 +10,29 @@ export const id = (n: number) =>
 export const [LECTURE, NOTES] = [id(1), id(2)];
 // c1–c3 are Lecture 1's pages 1, 2–3 and 4; d1 is page 1 of the later Notes.
 export const [C1, C2, C3, D1] = [id(11), id(12), id(13), id(14)];
-export const [BIG_IDEA, K1, K2, PRIOR, EXERCISE] = [
+export const [BIG_IDEA, K1, K2, K3, EXERCISE] = [
   id(21),
   id(22),
   id(23),
   id(24),
   id(25),
 ];
-export const [ANSWERED, OPEN, OTHER_OPEN] = [id(31), id(32), id(33)];
+export const RETIRED_KC = id(26);
 export const [T1, T2] = [id(41), id(42)];
 const topicText = (name: string) => ({
   course_id: COURSE,
   name,
   central_question: `${name}?`,
-  why_it_matters: "It matters.",
 });
 
 export function createDb() {
-  const material = (materialId: string, name: string, createdAt: string) => ({
+  const material = (materialId: string, name: string, position: number) => ({
     id: materialId,
     course_id: COURSE,
     name,
     media_type: "application/pdf",
     size_bytes: 1,
-    created_at: createdAt,
+    position,
     parse_status: "parsed",
     is_exam: false,
   });
@@ -50,51 +49,15 @@ export function createDb() {
     page_to: pages[1],
     markdown: `Text of ${chunkId}`,
   });
-  const finding = (
-    findingId: string,
-    position: number,
-    status: string,
-    askedAt: string | null,
-  ) => ({
-    id: findingId,
-    course_id: COURSE,
-    kind: "solution_mismatch",
-    text: `Finding ${position}`,
-    status,
-    answer: status === "answered" ? "It is right." : null,
-    asked_at: askedAt,
-    answered_at: status === "answered" ? "2026-01-03" : null,
-    position,
-  });
-  const section = (
-    sectionId: string,
-    topicId: string,
-    position: number,
-    mode: string,
-    chunkIds: string[],
-    annotations: unknown,
-    studyText: string | null = null,
-  ) => ({
-    id: sectionId,
-    topic_id: topicId,
-    material_id: LECTURE,
-    position,
-    page_from: position + 1,
-    page_to: position + 3,
-    chunk_ids: chunkIds,
-    mode,
-    reason: "Reason.",
-    annotations,
-    study_text: studyText,
-  });
   const ofCourse = (rows: FakeRow[]) =>
     rows.map((row) => ({ course_id: COURSE, ...row }));
   return fakeSupabase({
     tables: {
       materials: [
-        material(NOTES, "Notes", "2026-01-02"),
-        material(LECTURE, "Lecture 1", "2026-01-01"),
+        material(NOTES, "Notes", 1),
+        material(LECTURE, "Lecture 1", 0),
       ],
+      material_pages: [],
       // Stored against reading order, which the readers restore.
       chunks: [
         chunk(D1, NOTES, 0, [1, 1]),
@@ -108,10 +71,10 @@ export function createDb() {
           failure_reason: null,
           finished_at: "2026-01-02",
           check_report: {
-            uncoveredChunkIds: [D1],
-            ungroundedKcs: [],
-            orphanKcs: [],
-            droppedCycleEdges: [],
+            kcsPerPart: [{ part: "Thrust", kcs: 2, budget: 3 }],
+            partsWithoutKcs: [],
+            exercisesWithoutKcs: [],
+            duplicates: [],
           },
         },
       ]),
@@ -120,13 +83,12 @@ export function createDb() {
       ]),
       kcs: ofCourse([
         {
-          id: PRIOR,
-          big_idea_id: null,
+          id: K3,
+          big_idea_id: BIG_IDEA,
           name: "Newton",
           description: "F = ma.",
-          type: "prior",
-          bloom: null,
-          origin: "prior",
+          type: "fact",
+          origin: "exercise",
           position: 2,
         },
         {
@@ -135,7 +97,6 @@ export function createDb() {
           name: "Thrust equation",
           description: "F = m(v2 - v1).",
           type: "procedure",
-          bloom: "apply",
           origin: "content",
           position: 1,
         },
@@ -145,9 +106,19 @@ export function createDb() {
           name: "Momentum",
           description: "m v.",
           type: "concept",
-          bloom: "understand",
           origin: "content",
           position: 0,
+        },
+        // Retired, without sources or a Big idea: no reader shows it.
+        {
+          id: RETIRED_KC,
+          big_idea_id: null,
+          name: "Retired",
+          description: "Gone with its Material.",
+          type: "fact",
+          origin: "content",
+          position: 3,
+          retired_at: "2026-01-03",
         },
       ]),
       kc_sources: ofCourse([
@@ -156,20 +127,14 @@ export function createDb() {
         { kc_id: K1, chunk_id: C2 },
       ]),
       prerequisite_links: ofCourse([
-        // Postgres returns a numeric as text.
-        { id: 1, from_kc: K1, to_kc: K2, extraction_confidence: "0.8" },
-      ]),
-      semantic_links: ofCourse([
-        { id: 1, from_kc: K2, to_kc: K1, core_type: "causes", label: "uses" },
+        { id: 1, from_kc: K1, to_kc: K2 },
+        { id: 2, from_kc: K1, to_kc: RETIRED_KC },
       ]),
       exercises: ofCourse([
         {
           id: EXERCISE,
           question_chunk_id: C3,
-          name: "Ex. 1",
-          task_type: "compute thrust",
-          solution_status: "generated",
-          solution: "F = 10 N.",
+          solution_chunk_id: null,
           difficulty: 2,
           position: 0,
         },
@@ -177,25 +142,8 @@ export function createDb() {
       exercise_kcs: ofCourse([
         { exercise_id: EXERCISE, kc_id: K2 },
         { exercise_id: EXERCISE, kc_id: K1 },
+        { exercise_id: EXERCISE, kc_id: RETIRED_KC },
       ]),
-      exercise_solutions: [] as FakeRow[],
-      findings: [
-        finding(ANSWERED, 0, "answered", "2026-01-02"),
-        finding(OPEN, 1, "open", "2026-01-02"),
-        finding(OTHER_OPEN, 2, "open", null),
-        {
-          ...finding(id(34), 0, "open", null),
-          course_id: OTHER_COURSE,
-        },
-      ],
-      finding_sources: ofCourse([
-        { finding_id: ANSWERED, chunk_id: C1 },
-        { finding_id: OPEN, chunk_id: D1 },
-        { finding_id: OPEN, chunk_id: C3 },
-        { finding_id: OPEN, chunk_id: C2 },
-        { finding_id: OTHER_OPEN, chunk_id: C2 },
-      ]),
-      knowledge_map_chunks: [] as FakeRow[],
       topics: [
         { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
         { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },
@@ -211,27 +159,9 @@ export function createDb() {
         { topic_id: T2, kc_id: K2, position: 0 },
         { topic_id: T1, kc_id: K1, position: 0 },
       ],
-      // Stored against Topic order, which the reader restores.
-      reading_sections: ofCourse([
-        section(id(52), T1, 1, "original", [C3], null),
-        section(
-          id(51),
-          T1,
-          0,
-          "annotated",
-          [C1, C2],
-          [{ page: 2, note: "Momentum is mass times velocity." }],
-        ),
-        section(id(53), T2, 0, "study_text", [C2], null, "Text. [p. 2]"),
-        {
-          ...section(id(54), id(43), 0, "original", [D1], null),
-          course_id: OTHER_COURSE,
-        },
-      ]),
     },
     foreignKeys: {
       topic_kcs: { topic_id: "topics" },
-      reading_sections: { material_id: "materials" },
     },
   });
 }

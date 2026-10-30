@@ -2,6 +2,7 @@
 import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { describe, expect, test, vi } from "vitest";
+import { RetryableError } from "workflow";
 import {
   mockEmbeddingModel,
   mockTextModel,
@@ -101,6 +102,33 @@ describe("meteredGenerate", () => {
     const { db, admin } = adminWith();
 
     expect(await generate(admin)).toBeNull();
+    expect(db.tables.ai_usage).toEqual([]);
+  });
+
+  test("the Gateway's rate limit is the step's retry after the wait it names, not callFailed", async () => {
+    useMockModels({
+      map: failingModel(
+        Object.assign(new Error("Rate limit exceeded. Retry after 20s."), {
+          name: "GatewayRateLimitError",
+        }),
+      ),
+    });
+    const { db, admin } = adminWith();
+    const callFailed = vi.fn(() => {
+      throw new Error("the step's own");
+    });
+
+    const failed = await meteredGenerate(
+      admin,
+      { ...scope, task: "map", callFailed },
+      { ...aiTask("map"), maxRetries: 0, prompt: "Hi" },
+    ).catch((error: unknown) => error);
+
+    expect(RetryableError.is(failed)).toBe(true);
+    const waitMs = (failed as RetryableError).retryAfter.getTime() - Date.now();
+    expect(waitMs).toBeGreaterThan(19_000);
+    expect(waitMs).toBeLessThanOrEqual(20_000);
+    expect(callFailed).not.toHaveBeenCalled();
     expect(db.tables.ai_usage).toEqual([]);
   });
 

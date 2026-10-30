@@ -7,27 +7,18 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SEMANTIC_LINK_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import type { MapLayers } from "@/features/knowledge-map/domain/map-graph";
-import { SEMANTIC_LINK_TYPES } from "@/features/knowledge-map/schemas";
-import { SEMANTIC_LINK_COLORS } from "./map-graph";
 
-type Flag = Exclude<keyof MapLayers, "semanticLinks">;
-
-const FLAGS: Array<[Flag, string]> = [
+const FLAGS: Array<[keyof MapLayers, string]> = [
   ["bigIdeaGroups", "Big-idea groups"],
-  ["priorKnowledge", "Prior knowledge"],
   ["exercises", "Exercises"],
-  ["solutionBadges", "Solution badges"],
   ["prerequisites", "Prerequisites"],
 ];
 
 /**
- * The graph's layer toggles in a menu that stays open while they change:
- * the node and edge layers, then one toggle per Semantic link type.
+ * The graph's layer toggles in a menu that stays open while they change.
  */
 export function LayerToggles({
   layers,
@@ -52,35 +43,12 @@ export function LayerToggles({
           <DropdownMenuCheckboxItem
             key={flag}
             checked={layers[flag]}
-            disabled={flag === "solutionBadges" && !layers.exercises}
             onSelect={keepOpen}
             onCheckedChange={(checked) =>
               onChange({ ...layers, [flag]: checked })
             }
           >
             {name}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Semantic links</DropdownMenuLabel>
-        {SEMANTIC_LINK_TYPES.map((type) => (
-          <DropdownMenuCheckboxItem
-            key={type}
-            checked={layers.semanticLinks[type]}
-            onSelect={keepOpen}
-            onCheckedChange={(checked) =>
-              onChange({
-                ...layers,
-                semanticLinks: { ...layers.semanticLinks, [type]: checked },
-              })
-            }
-          >
-            <span
-              aria-hidden
-              className="h-0 w-4 border-t-2 border-dashed"
-              style={{ borderColor: SEMANTIC_LINK_COLORS[type] }}
-            />
-            {SEMANTIC_LINK_NAMES[type]}
           </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>

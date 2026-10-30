@@ -1,8 +1,5 @@
 import "server-only";
-import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
+import { loadChunkSources } from "@/features/ingestion/server";
 import {
   loadStoredMap,
   loadStoredTopics,
@@ -57,7 +54,6 @@ type Attempt =
       kind: "checked";
       output: unknown;
       problem: CheckedProblem;
-      taskType: string | null;
     }
   | {
       kind: "rejected";
@@ -110,12 +106,7 @@ export async function generateProblem(
       const parsed = draft(output);
       const checked = await checkDraft(parsed, mathRunner);
       return checked.ok
-        ? {
-            kind: "checked",
-            output,
-            problem: checked.problem,
-            taskType: parsed.taskType,
-          }
+        ? { kind: "checked", output, problem: checked.problem }
         : {
             kind: "rejected",
             output,
@@ -146,7 +137,7 @@ export async function generateProblem(
     case "rejected":
       return fail(supabase, problemId, outcome.error, outcome.program);
     case "checked":
-      return store(supabase, problemId, outcome.problem, outcome.taskType);
+      return store(supabase, problemId, outcome.problem);
   }
 }
 
@@ -208,8 +199,7 @@ async function generateInput(
       ({ id }) => id === problem.originalExerciseId,
     );
     if (!exercise) return "The Exercise to vary is gone.";
-    const paired = await loadExerciseSolutions(supabase, problem.courseId);
-    const solutionChunk = paired[exercise.questionChunk];
+    const solutionChunk = exercise.solutionChunk;
     const chunks = await loadChunkSources(supabase, [
       exercise.questionChunk,
       ...(solutionChunk ? [solutionChunk] : []),
@@ -222,9 +212,8 @@ async function generateInput(
       kind: "variant",
       exercise: {
         question,
-        solution: exercise.solution ?? markdown(solutionChunk),
+        solution: markdown(solutionChunk),
         finalAnswers: exercise.finalAnswers ?? null,
-        taskType: exercise.taskType,
         difficulty: exercise.difficulty,
       },
       kcs: kcs.map(describe),
@@ -255,10 +244,7 @@ async function generateInput(
     })),
     difficulty: problem.difficulty,
     styleAnchors: anchors.flatMap((exercise) =>
-      texts([exercise.questionChunk]).map((question) => ({
-        question,
-        taskType: exercise.taskType,
-      })),
+      texts([exercise.questionChunk]).map((question) => ({ question })),
     ),
   };
 }
@@ -268,7 +254,6 @@ async function store(
   supabase: Supabase,
   problemId: string,
   problem: CheckedProblem,
-  taskType: string | null,
 ): Promise<GenerateOutcome> {
   const { error } = await supabase
     .from("problems")
@@ -278,7 +263,6 @@ async function store(
       solution: problem.solution,
       program: problem.program,
       final_answers: problem.finalAnswers,
-      ...(taskType !== null && { task_type: taskType }),
     })
     .eq("id", problemId)
     .eq("status", "queued");

@@ -62,7 +62,8 @@ type SessionAttempt = {
  * recall at the start), ties in map order, and cut to 20 minutes at
  * `minutesPerReview`, keeping at least one. Groups are built greedily in
  * rank order: the top ungrouped KC seeds one, and up to 2 more join in rank
- * order when they share its Topic (`topicOf`) or link (`links`, either way)
+ * order when they share its Topic (`topicOf`) or a Prerequisite (`links`,
+ * either way)
  * to a KC already in it. Groups go by their seed's rank, but never after a
  * group of the same Topic while one of another is left.
  */
@@ -83,7 +84,7 @@ export function planReviewQueue({
   startedAt: Date;
   minutesPerReview: number;
   topicOf: ReadonlyMap<string, string>;
-  /** Prerequisite and semantic links between KCs. */
+  /** Prerequisites between KCs. */
   links: ReadonlyArray<{ from: string; to: string }>;
   questions: SessionQuestion[];
   attempts: SessionAttempt[];

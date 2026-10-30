@@ -1,9 +1,9 @@
 import "server-only";
+import { loadChunkSources } from "@/features/ingestion/server";
 import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
-import type { loadStoredMap } from "@/features/knowledge-map/server";
+  exerciseLabel,
+  type loadStoredMap,
+} from "@/features/knowledge-map/server";
 import {
   generatedSolutionLabel,
   MAX_PROBLEMS,
@@ -45,7 +45,6 @@ type Candidate =
       kind: "exercise";
       id: string;
       kcs: string[];
-      taskType: string;
       difficulty: number;
       source: ProblemSource;
       exercise: Exercise;
@@ -55,7 +54,6 @@ type Candidate =
       kind: "generated";
       id: string;
       kcs: string[];
-      taskType: string | null;
       difficulty: number;
       source: ProblemSource;
       problem: ReadyProblem;
@@ -65,7 +63,7 @@ type Candidate =
  * `findProblems` for KCs of the Course (#102, #182, #183): up to 3 of the
  * unseen Exercises and the ready, unflagged generated Problems not yet asked
  * in the Course that test any of them, ranked by `rankProblems` against the
- * last Problem's task type and one above the last unassisted success. In a
+ * last Problem's first KC and one above the last unassisted success. In a
  * review session (`review`), the Problems last asked more than 14 days
  * before `now` follow the unseen ones, ranked the same way. A note, without
  * Problems, tells the model why there are none.
@@ -87,7 +85,7 @@ export async function findProblems(
   const generatedById = new Map(generated.map((p) => [p.id, p]));
   const posed = (id: string | null) =>
     id === null ? undefined : (exerciseById.get(id) ?? generatedById.get(id));
-  const lastTaskType = posed(lastProblem)?.taskType ?? null;
+  const lastFirstKc = posed(lastProblem)?.kcs[0] ?? null;
   const target = targetDifficulty(posed(lastSuccess)?.difficulty ?? null);
 
   const tests = ({ kcs }: { kcs: string[] }) =>
@@ -111,13 +109,10 @@ export async function findProblems(
     };
   }
 
-  const [paired, questionChunks] = await Promise.all([
-    loadExerciseSolutions(supabase, courseId),
-    loadChunkSources(
-      supabase,
-      askable.map((exercise) => exercise.questionChunk),
-    ),
-  ]);
+  const questionChunks = await loadChunkSources(
+    supabase,
+    askable.map((exercise) => exercise.questionChunk),
+  );
   const question = new Map(questionChunks.map((c) => [c.id, c]));
   const candidates: Candidate[] = [
     ...askable.flatMap((exercise) => {
@@ -128,7 +123,6 @@ export async function findProblems(
               kind: "exercise" as const,
               id: exercise.id,
               kcs: exercise.kcs,
-              taskType: exercise.taskType,
               difficulty: exercise.difficulty,
               source: chunk.isExam ? "old_exam" : "exercise",
               exercise,
@@ -143,7 +137,6 @@ export async function findProblems(
           kind: "generated",
           id: problem.id,
           kcs: problem.kcs,
-          taskType: problem.taskType,
           difficulty: problem.difficulty,
           source: problem.source,
           problem,
@@ -155,14 +148,14 @@ export async function findProblems(
       rankProblems(
         candidates.filter(({ id }) => tierOf(id) === tier),
         kcIds,
-        lastTaskType,
+        lastFirstKc,
         target,
       ),
     )
     .slice(0, MAX_PROBLEMS);
   const solutionIds = found.flatMap((candidate) =>
     candidate.kind === "exercise"
-      ? (paired[candidate.exercise.questionChunk] ?? [])
+      ? (candidate.exercise.solutionChunk ?? [])
       : [],
   );
   const solutions = new Map(
@@ -179,23 +172,14 @@ export async function findProblems(
       const common = {
         id: candidate.id,
         source: candidate.source,
-        taskType: candidate.taskType,
         difficulty: candidate.difficulty,
         kcs: kcs(candidate.kcs),
       };
       if (candidate.kind === "generated") {
         const { problem } = candidate;
-        const original = problem.originalExerciseId
-          ? exerciseById.get(problem.originalExerciseId)
-          : undefined;
         return {
           ...common,
-          name:
-            problem.source === "new"
-              ? "New problem"
-              : original
-                ? `Variant of ${original.name}`
-                : "Variant",
+          name: problem.source === "new" ? "New problem" : "Variant",
           question: problem.statement,
           link: null,
           solution: {
@@ -205,15 +189,15 @@ export async function findProblems(
         };
       }
       const { exercise, chunk } = candidate;
-      const solutionChunk = solutions.get(paired[exercise.questionChunk] ?? "");
+      const solutionChunk = solutions.get(exercise.solutionChunk ?? "");
       return {
         ...common,
-        name: exercise.name,
+        name: exerciseLabel(chunk),
         question: chunk.markdown,
         link: chunkLink(courseId, chunk),
         solution: {
-          status: solutionLabel(exercise.solutionStatus),
-          markdown: exercise.solution ?? solutionChunk?.markdown ?? null,
+          status: solutionLabel(solutionChunk !== undefined),
+          markdown: solutionChunk?.markdown ?? null,
         },
       };
     }),

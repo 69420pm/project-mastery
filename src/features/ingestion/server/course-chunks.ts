@@ -87,13 +87,15 @@ export type ChunkSource = {
   pageFrom: number;
   pageTo: number;
   markdown: string;
+  /** As printed, such as "7.2b"; null for chunks that are no exercise. */
+  exerciseNumber: string | null;
   /** Whether its Material is an old exam. */
   isExam: boolean;
 };
 
 /**
  * The chunks among `chunkIds` that `supabase`, a Student's session client,
- * may read, in reading order: Materials in upload order, chunks by
+ * may read, in Course order: Materials by position, then chunks by
  * position. Deleted chunks are missing.
  */
 export async function loadChunkSources(
@@ -106,7 +108,9 @@ export async function loadChunkSources(
   for (let start = 0; start < ids.length; start += ID_SLICE) {
     const { data, error } = await supabase
       .from("chunks")
-      .select("id, material_id, position, page_from, page_to, markdown")
+      .select(
+        "id, material_id, position, page_from, page_to, markdown, exercise_number",
+      )
       .in("id", ids.slice(start, start + ID_SLICE));
     if (error) failed("Loading the chunks", error);
     rows.push(...data);
@@ -115,7 +119,7 @@ export async function loadChunkSources(
 
   const materials = await supabase
     .from("materials")
-    .select("id, name, created_at, is_exam")
+    .select("id, name, position, is_exam")
     .in("id", [...new Set(rows.map((row) => row.material_id))]);
   if (materials.error) failed("Loading the Materials", materials.error);
   const material = new Map(materials.data.map((m) => [m.id, m]));
@@ -123,10 +127,8 @@ export async function loadChunkSources(
     .filter((row) => material.has(row.material_id))
     .toSorted(
       (a, b) =>
-        material
-          .get(a.material_id)!
-          .created_at.localeCompare(material.get(b.material_id)!.created_at) ||
-        a.position - b.position,
+        material.get(a.material_id)!.position -
+          material.get(b.material_id)!.position || a.position - b.position,
     )
     .map((row) => ({
       id: row.id,
@@ -135,33 +137,9 @@ export async function loadChunkSources(
       pageFrom: row.page_from,
       pageTo: row.page_to,
       markdown: row.markdown,
+      exerciseNumber: row.exercise_number,
       isExam: material.get(row.material_id)!.is_exam === true,
     }));
-}
-
-/**
- * The Course's exercise subtask chunks with their paired solution chunks,
- * as the last pairing pass stored them: exercise chunk id to solution chunk
- * id, or null without a solution. Reads on the admin client, or on a
- * Student's session client, where Row Level Security scopes it.
- */
-export async function loadExerciseSolutions(
-  supabase: Supabase,
-  courseId: string,
-): Promise<Record<string, string | null>> {
-  const rows = await allRows("Loading the exercise solutions", (from, to) =>
-    supabase
-      .from("exercise_solutions")
-      .select("exercise_chunk_id, solution_chunk_id")
-      .eq("course_id", courseId)
-      .order("exercise_chunk_id")
-      .range(from, to),
-  );
-  const pairs: Record<string, string | null> = {};
-  for (const pair of rows) {
-    pairs[pair.exercise_chunk_id] = pair.solution_chunk_id;
-  }
-  return pairs;
 }
 
 /** A chunk's text as a Reading section shows it. */
@@ -171,11 +149,7 @@ export type ChunkText = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  /** What its figure shows; null without one. */
-  figureDescription: string | null;
 };
-
-const figureSchema = z.object({ description: z.string() }).nullable();
 
 /**
  * The texts of the chunks among `chunkIds` that `supabase` may read, by id;
@@ -192,7 +166,7 @@ export async function loadChunkTexts(
   for (let start = 0; start < ids.length; start += ID_SLICE) {
     const { data, error } = await supabase
       .from("chunks")
-      .select("id, page_from, page_to, label, markdown, figure")
+      .select("id, page_from, page_to, label, markdown")
       .in("id", ids.slice(start, start + ID_SLICE));
     if (error) failed("Loading the chunks", error);
     for (const chunk of data) {
@@ -202,8 +176,6 @@ export async function loadChunkTexts(
         pageTo: chunk.page_to,
         label: z.enum(CHUNK_LABELS).parse(chunk.label),
         markdown: chunk.markdown,
-        figureDescription:
-          figureSchema.safeParse(chunk.figure).data?.description ?? null,
       };
     }
   }
@@ -214,8 +186,8 @@ export async function loadChunkTexts(
 const ID_SLICE = 100;
 
 /**
- * Every chunk of the Course's `parsed` Materials in reading order: Materials
- * in upload order, chunks by position. For workflows on the admin client,
+ * Every chunk of the Course's `parsed` Materials in Course order: Materials
+ * by position, then chunks by position. For workflows on the admin client,
  * so it scopes the reads to the Course itself.
  */
 export async function loadCourseChunks(
@@ -227,7 +199,7 @@ export async function loadCourseChunks(
     .select("id, name")
     .eq("course_id", courseId)
     .eq("parse_status", "parsed")
-    .order("created_at");
+    .order("position");
   if (materials.error) failed("Loading the Materials", materials.error);
   if (materials.data.length === 0) return [];
 
@@ -266,8 +238,8 @@ export type ChunkSpan = {
 };
 
 /**
- * The places of every chunk of the Course's `parsed` Materials in reading
- * order: Materials in upload order, chunks by position. Reads on the admin
+ * The places of every chunk of the Course's `parsed` Materials in Course
+ * order: Materials by position, then chunks by position. Reads on the admin
  * client, or on a Student's session client, where Row Level Security scopes
  * it.
  */
@@ -280,7 +252,7 @@ export async function loadCourseChunkSpans(
     .select("id, name")
     .eq("course_id", courseId)
     .eq("parse_status", "parsed")
-    .order("created_at");
+    .order("position");
   if (materials.error) failed("Loading the Materials", materials.error);
 
   const spans: ChunkSpan[] = [];
@@ -334,31 +306,28 @@ export async function findChunkSpan(
   );
 }
 
-/** A chunk's printed points and its Material, as Priorities weighs them. */
-export type ChunkPoints = {
-  id: string;
-  materialId: string;
-  materialName: string;
-  /** Whether its Material is an old exam. */
-  isExam: boolean;
-  /** As printed; null when the chunk prints none. */
-  points: number | null;
+/** A Course's chunks' Materials, as Priorities weighs them. */
+export type ChunkMaterials = {
+  /** Each chunk's Material id by chunk id. */
+  chunkMaterials: Record<string, string>;
+  /** The Course's Materials by id: name and whether it is an old exam. */
+  materials: Record<string, { name: string; isExam: boolean }>;
 };
 
 /**
- * Every chunk of the Course with its printed points, Material name and
- * whether the Material is an old exam. For workflows on the admin client,
- * so it scopes the reads to the Course itself.
+ * Every chunk of the Course with its Material, and the Course's Materials.
+ * Scopes the reads to the Course, so it reads on the admin client or a
+ * Student's session client alike.
  */
-export async function loadChunkPoints(
-  supabase: AdminSupabase,
+export async function loadChunkMaterials(
+  supabase: Supabase,
   courseId: string,
-): Promise<ChunkPoints[]> {
+): Promise<ChunkMaterials> {
   const [chunks, materials] = await Promise.all([
     allRows("Loading the chunks", (from, to) =>
       supabase
         .from("chunks")
-        .select("id, material_id, points")
+        .select("id, material_id")
         .eq("course_id", courseId)
         .order("id")
         .range(from, to),
@@ -369,18 +338,60 @@ export async function loadChunkPoints(
       .eq("course_id", courseId),
   ]);
   if (materials.error) failed("Loading the Materials", materials.error);
-  const material = new Map(materials.data.map((m) => [m.id, m]));
-  return chunks.flatMap((chunk) => {
-    const of = material.get(chunk.material_id);
-    if (!of) return [];
-    return [
-      {
-        id: chunk.id,
-        materialId: chunk.material_id,
-        materialName: of.name,
-        isExam: of.is_exam === true,
-        points: chunk.points === null ? null : Number(chunk.points),
-      },
-    ];
-  });
+  return {
+    chunkMaterials: Object.fromEntries(
+      chunks.map((chunk) => [chunk.id, chunk.material_id]),
+    ),
+    materials: Object.fromEntries(
+      materials.data.map((m) => [
+        m.id,
+        { name: m.name, isExam: m.is_exam === true },
+      ]),
+    ),
+  };
+}
+
+/** An admin chunk: an organizational remark, such as "Chapter 2 is not examined". */
+export type AdminChunk = {
+  materialName: string;
+  pageFrom: number;
+  markdown: string;
+};
+
+/**
+ * The Course's admin chunks in Course order: Materials by position, then
+ * chunks by position. Scopes the reads to the Course, so it reads on the
+ * admin client or a Student's session client alike.
+ */
+export async function loadAdminChunks(
+  supabase: Supabase,
+  courseId: string,
+): Promise<AdminChunk[]> {
+  const [materials, chunks] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, name")
+      .eq("course_id", courseId)
+      .order("position"),
+    allRows("Loading the admin chunks", (from, to) =>
+      supabase
+        .from("chunks")
+        .select("material_id, position, page_from, markdown")
+        .eq("course_id", courseId)
+        .eq("label", "admin")
+        .order("material_id")
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  return materials.data.flatMap((material) =>
+    chunks
+      .filter((chunk) => chunk.material_id === material.id)
+      .map((chunk) => ({
+        materialName: material.name,
+        pageFrom: chunk.page_from,
+        markdown: chunk.markdown,
+      })),
+  );
 }

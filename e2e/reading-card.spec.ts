@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { adminClient, expect, seedMaterial, test } from "./fixtures";
 
@@ -11,10 +10,10 @@ import { adminClient, expect, seedMaterial, test } from "./fixtures";
 const PDF = path.join(__dirname, "files", "lecture-notes.pdf");
 
 /**
- * Stores a one-KC Topic with one Reading section on page 1 of a PDF
- * Material in the Course; returns the section's id.
+ * Stores a one-KC Topic whose KC cites a chunk on page 1 of a parsed PDF
+ * Material in the Course, so the Topic reads as one Reading section.
  */
-async function seedReading(owner: string, courseId: string): Promise<string> {
+async function seedReading(owner: string, courseId: string): Promise<void> {
   const admin = adminClient();
   const owned = { owner, course_id: courseId };
   const insert = async (table: string, row: object) => {
@@ -38,7 +37,6 @@ async function seedReading(owner: string, courseId: string): Promise<string> {
     name: "Thrust equation",
     description: "Thrust is mass flow times the change in velocity.",
     type: "procedure",
-    bloom: "apply",
     origin: "content",
     position: 0,
   });
@@ -47,7 +45,6 @@ async function seedReading(owner: string, courseId: string): Promise<string> {
     big_idea_id: bigIdea,
     name: "Thrust basics",
     central_question: "What makes a rocket accelerate?",
-    why_it_matters: "Thrust drives every launch.",
     position: 0,
   });
   const link = await admin
@@ -59,18 +56,24 @@ async function seedReading(owner: string, courseId: string): Promise<string> {
     file: PDF,
     mediaType: "application/pdf",
   });
-  return insert("reading_sections", {
+  const parsed = await admin
+    .from("materials")
+    .update({ parse_status: "parsed" })
+    .eq("id", material.id);
+  if (parsed.error) throw new Error(parsed.error.message);
+  const chunk = await insert("chunks", {
     ...owned,
-    topic_id: topic,
     material_id: material.id,
     position: 0,
     page_from: 1,
     page_to: 1,
-    // Only read for the AI: the pane shows the Material's own page.
-    chunk_ids: [randomUUID()],
-    mode: "original",
-    reason: "The derivation is short.",
+    label: "content",
+    markdown: "Thrust is mass flow times the change in velocity.",
   });
+  const source = await admin
+    .from("kc_sources")
+    .insert({ ...owned, kc_id: kc, chunk_id: chunk });
+  if (source.error) throw new Error(source.error.message);
 }
 
 test("the AI opens a reading, the pane shows its page, and Done marks the card read", async ({
@@ -78,7 +81,7 @@ test("the AI opens a reading, the pane shows its page, and Done marks the card r
   student,
   course,
 }) => {
-  const sectionId = await seedReading(student.id, course.id);
+  await seedReading(student.id, course.id);
   await page.goto(course.chatPath);
 
   const message = page.getByRole("textbox", { name: "Message" });
@@ -91,7 +94,6 @@ test("the AI opens a reading, the pane shows its page, and Done marks the card r
     .getByRole("complementary", { name: "Source" })
     .or(page.getByRole("region", { name: "Source" }));
   await expect(pane.getByText("Page 1 of 1")).toBeVisible();
-  await expect(pane.getByRole("tab", { name: "Original" })).toBeVisible();
 
   await pane.getByRole("button", { name: "Done" }).click();
 
@@ -106,10 +108,11 @@ test("the AI opens a reading, the pane shows its page, and Done marks the card r
   ).toBeVisible();
   const { data: stored } = await adminClient()
     .from("chat_messages")
-    .select("parts")
-    .eq("reading_section_id", sectionId);
-  expect(stored).toEqual([
-    { parts: [{ type: "text", text: "Done reading." }] },
+    .select("parts, chats!inner(course_id)")
+    .eq("chats.course_id", course.id)
+    .not("reading_section_id", "is", null);
+  expect(stored?.map((message) => message.parts)).toEqual([
+    [{ type: "text", text: "Done reading." }],
   ]);
 
   // Once the reply has ended and is stored, a reload keeps the card read,

@@ -14,8 +14,9 @@ const OVERFETCH = 3;
 /**
  * The Course's embedded chunks nearest to `query` by meaning, nearest first,
  * without the `excluded` ones (the reserved exam's). The query is embedded
- * like the chunks were, without an input type, and metered for the
- * signed-in Student. Throws a `TutorToolError` at the Daily limit.
+ * without an input type (the chunks are embedded as documents), and
+ * metered for the signed-in Student. Throws a `TutorToolError` at the Daily
+ * limit.
  */
 export async function searchChunks(
   supabase: Supabase,

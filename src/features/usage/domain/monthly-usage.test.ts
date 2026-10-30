@@ -9,7 +9,7 @@ describe("monthlyUsage", () => {
     const usage = monthlyUsage([
       { task: "chat", costUsd: 0.5, course: algebra },
       { task: "ingest", costUsd: 0.25, course: null },
-      { task: "priority", costUsd: 0.25, course: null },
+      { task: "topic", costUsd: 0.25, course: null },
     ]);
     expect(usage.buckets).toEqual([
       { bucket: "study", label: "Study", spentUsd: 1, budgetUsd: 3 },

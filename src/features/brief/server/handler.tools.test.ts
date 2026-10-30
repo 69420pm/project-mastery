@@ -6,9 +6,7 @@ import { mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
   COURSE,
   LECTURE,
-  MISMATCH,
   OLD_EXAM,
-  SCOPE,
   STUDENT,
   db,
   send,
@@ -60,7 +58,6 @@ describe("a tool result", () => {
   test("saveBrief stores the reserved exam, or none, and ignores a Material that is no old exam", async () => {
     seedBrief();
     db.tables.materials[0]!.is_exam = true;
-    db.tables.materials[0]!.exam_year = 2024;
 
     useMockModels({
       brief: toolModel("saveBrief", { reservedExamMaterialId: OLD_EXAM }),
@@ -110,23 +107,6 @@ describe("a tool result", () => {
 
     expect(await lastPrompt(model)).toContain("it can no longer change");
     expect(db.tables.briefs[0]?.reserved_exam_material_id).toBe(OLD_EXAM);
-  });
-
-  test("answerFinding on the last open Finding says the Student is done", async () => {
-    seedBrief();
-    const scope = db.tables.findings.find((row) => row.id === SCOPE)!;
-    scope.status = "answered";
-
-    const model = toolModel("answerFinding", {
-      findingId: MISMATCH,
-      answer: "50.8% is right",
-    });
-    useMockModels({ brief: model });
-
-    const prompt = await lastPrompt(model);
-
-    expect(prompt).toContain("tell the Student they are done");
-    expect(db.tables.findings[0]).toMatchObject({ status: "answered" });
   });
 
   test("addNote over the notes' limit changes nothing and says so", async () => {

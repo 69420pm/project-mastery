@@ -27,28 +27,26 @@ values ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-1111111
   'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
   0, 1, 1, 'exercise', 'Compute the thrust.');
 
-insert into public.exercises (id, owner, course_id, question_chunk_id, name, task_type,
-  solution_status, difficulty, position)
+insert into public.exercises (id, owner, course_id, question_chunk_id, difficulty, position)
 values ('eeeeeeee-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001',
-  'Ex. 7.2a', 'compute thrust', 'given', 2, 0);
+  'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 2, 0);
 
 insert into public.problems (id, owner, course_id, source, status, original_exercise_id,
-  task_type, difficulty, statement, solution, final_answers, program, failure)
+  difficulty, statement, solution, final_answers, program, failure)
 values
   ('ffffffff-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'variant', 'ready',
-    'eeeeeeee-0000-0000-0000-000000000001', 'compute thrust', 2,
+    'eeeeeeee-0000-0000-0000-000000000001', 2,
     'An engine moves 50 kg/s.', 'F = 25 kN.',
     '[{"label": "Thrust", "value": 25000, "unit": "N"}]', 'F = 50 kg/s * 500 m/s', null),
   ('ffffffff-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'new', 'queued', null, null, 1,
+    'aaaaaaaa-0000-0000-0000-000000000001', 'new', 'queued', null, 1,
     null, null, null, null, null),
   ('ffffffff-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000002', 'new', 'ready', null, null, 1,
+    'aaaaaaaa-0000-0000-0000-000000000002', 'new', 'ready', null, 1,
     'A rocket.', 'Done.', null, null, null),
   ('ffffffff-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'new', 'ready', null, null, 1,
+    'aaaaaaaa-0000-0000-0000-000000000001', 'new', 'ready', null, 1,
     'Another engine.', 'Done.', null, null, null);
 
 select throws_ok(

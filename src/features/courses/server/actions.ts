@@ -8,6 +8,7 @@ import {
   courseNotFoundMessage,
   createCourseSchema,
   materialIdSchema,
+  moveMaterialSchema,
   registerMaterialSchema,
   renameCourseSchema,
   renameMaterialSchema,
@@ -23,6 +24,7 @@ import {
   findMaterial,
   findStoredFile,
   insertMaterial,
+  moveMaterialPosition,
   removeCourseFiles,
   removeMaterial,
   removeMaterialFiles,
@@ -170,6 +172,29 @@ export async function renameMaterial(input: {
     parsed.data.name,
   );
   if (!renamed) return materialNotFound;
+
+  revalidatePath("/", "layout");
+  return { ok: true, data: undefined };
+}
+
+/**
+ * Moves one of the Student's Materials one place up or down in Course
+ * order. The map follows the new order at its next update.
+ */
+export async function moveMaterial(input: {
+  materialId: string;
+  direction: "up" | "down";
+}): Promise<ActionResult> {
+  const parsed = parseActionInput(moveMaterialSchema, input);
+  if (!parsed.ok) return parsed;
+  if (!(await getUser())) return signedOut;
+
+  const moved = await moveMaterialPosition(
+    await createClient(),
+    parsed.data.materialId,
+    parsed.data.direction,
+  );
+  if (!moved) return materialNotFound;
 
   revalidatePath("/", "layout");
   return { ok: true, data: undefined };

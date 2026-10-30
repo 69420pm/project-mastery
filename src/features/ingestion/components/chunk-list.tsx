@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { chunkAnchor } from "@/features/ingestion/domain/chunk-anchor";
 import type {
-  ChunkFinding,
   ChunkLabel,
   ChunkView,
   ExerciseSolution,
@@ -15,11 +14,8 @@ import type {
 
 const LABEL_NAMES: Record<ChunkLabel, string> = {
   content: "Content",
-  definition: "Definition",
-  example: "Example",
   exercise: "Exercise",
   solution: "Solution",
-  figure: "Figure",
   admin: "Admin",
 };
 
@@ -29,20 +25,12 @@ function pageRange({ pageFrom, pageTo }: ChunkView): string {
     : `Pages ${pageFrom}–${pageTo}`;
 }
 
-function formatPoints(points: number): string {
-  return points === 1 ? "1 point" : `${points} points`;
-}
-
 type ChunkListProps = {
   material: MaterialChunks;
   /** Where "Back to materials" leads. */
   backHref: string;
   /** The chunk view of a Material of the same Course, for solution links. */
   materialHref: (materialId: string) => string;
-  /** Where "Answer in the Brief" leads. */
-  briefHref: string;
-  /** The Findings about this Material's chunks, by chunk id. */
-  findings: Record<string, ChunkFinding[]>;
 };
 
 /**
@@ -54,11 +42,7 @@ export function ChunkList({
   material,
   backHref,
   materialHref,
-  briefHref,
-  findings,
 }: ChunkListProps) {
-  const { exam } = material;
-
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-8 sm:px-6">
       <PageHeader
@@ -71,16 +55,7 @@ export function ChunkList({
           </Button>
         }
         title={material.name}
-        description={
-          exam && (
-            <>
-              Old exam
-              {exam.year !== null && ` · ${exam.year}`}
-              {exam.totalPoints !== null &&
-                ` · ${formatPoints(exam.totalPoints)} in total`}
-            </>
-          )
-        }
+        description={material.isExam && "Old exam"}
       />
 
       {material.chunks.length === 0 ? (
@@ -93,12 +68,7 @@ export function ChunkList({
         <ol aria-label="Chunks" className="flex flex-col gap-4">
           {material.chunks.map((chunk) => (
             <li key={chunk.id}>
-              <ChunkCard
-                chunk={chunk}
-                findings={findings[chunk.id] ?? []}
-                briefHref={briefHref}
-                materialHref={materialHref}
-              />
+              <ChunkCard chunk={chunk} materialHref={materialHref} />
             </li>
           ))}
         </ol>
@@ -109,13 +79,9 @@ export function ChunkList({
 
 function ChunkCard({
   chunk,
-  findings,
-  briefHref,
   materialHref,
 }: {
   chunk: ChunkView;
-  findings: ChunkFinding[];
-  briefHref: string;
   materialHref: ChunkListProps["materialHref"];
 }) {
   return (
@@ -130,67 +96,15 @@ function ChunkCard({
         {chunk.exerciseNumber !== null && (
           <span>Exercise {chunk.exerciseNumber}</span>
         )}
-        {chunk.points !== null && <span>{formatPoints(chunk.points)}</span>}
       </header>
       {/* The chunk's own headings, scaled to the card. */}
       <Markdown className="min-w-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base">
         {chunk.markdown}
       </Markdown>
-      {chunk.figure && (
-        <figure className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-          <figcaption className="font-medium">Figure</figcaption>
-          <p className="text-muted-foreground">{chunk.figure.description}</p>
-        </figure>
-      )}
       {chunk.solution && (
         <SolutionLine solution={chunk.solution} materialHref={materialHref} />
       )}
-      {findings.length > 0 && (
-        <ul aria-label="Findings" className="flex flex-col gap-2">
-          {findings.map((finding) => (
-            <li key={finding.id}>
-              <FindingCard finding={finding} briefHref={briefHref} />
-            </li>
-          ))}
-        </ul>
-      )}
     </article>
-  );
-}
-
-function FindingCard({
-  finding,
-  briefHref,
-}: {
-  finding: ChunkFinding;
-  briefHref: string;
-}) {
-  const answered = finding.status === "answered";
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-      <div>
-        <Badge variant={answered ? "secondary" : "outline"}>
-          {answered ? "Answered" : "Open"}
-        </Badge>
-      </div>
-      <Markdown className="min-w-0">{finding.text}</Markdown>
-      {finding.answer !== null && (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">Your answer</span>
-          <p className="break-words whitespace-pre-wrap text-muted-foreground">
-            {finding.answer}
-          </p>
-        </div>
-      )}
-      {!answered && (
-        <Link
-          href={briefHref}
-          className="w-fit font-medium underline underline-offset-4"
-        >
-          Answer in the Brief
-        </Link>
-      )}
-    </div>
   );
 }
 

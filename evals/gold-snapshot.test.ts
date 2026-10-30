@@ -38,15 +38,6 @@ const snapshot: Snapshot = {
         chunk_id: "c1",
       },
     ],
-    reading_sections: [
-      {
-        id: "r1",
-        owner: "student-old",
-        course_id: "course-old",
-        chunk_ids: ["c1"],
-        annotations: [{ chunk: "c1", note: "keep" }],
-      },
-    ],
   },
 };
 
@@ -61,15 +52,11 @@ describe("remapSnapshot", () => {
     expect(chunk).toMatchObject({ owner: "student", course_id: "course" });
   });
 
-  it("rewrites foreign keys, id arrays and ids inside jsonb to the new ids", () => {
+  it("rewrites foreign keys to the new ids", () => {
     const chunkId = first(tables.chunks).id;
     expect(first(tables.chunks).material_id).toBe(first(tables.materials).id);
     expect(first(tables.kc_sources).chunk_id).toBe(chunkId);
     expect(first(tables.kc_sources).kc_id).toBe(first(tables.kcs).id);
-    expect(first(tables.reading_sections).chunk_ids).toEqual([chunkId]);
-    expect(first(tables.reading_sections).annotations).toEqual([
-      { chunk: chunkId, note: "keep" },
-    ]);
   });
 
   it("points a Material at its new storage path and names its new id", () => {

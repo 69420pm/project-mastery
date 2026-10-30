@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   FileIcon,
   FileTextIcon,
   ImageIcon,
@@ -41,7 +43,11 @@ import {
   MATERIAL_MEDIA_TYPES,
   MAX_MATERIAL_NAME_LENGTH,
 } from "@/features/courses/schemas";
-import { renameMaterial } from "@/features/courses/server/actions";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import {
+  moveMaterial,
+  renameMaterial,
+} from "@/features/courses/server/actions";
 import type { MaterialListItem } from "@/features/courses/types";
 import {
   canStartParse,
@@ -51,12 +57,13 @@ import {
   startMaterialParse,
 } from "@/features/ingestion";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type MaterialsProps = {
   /** The signed-in Student, whose Storage folder uploads go to. */
   ownerId: string;
   courseId: string;
-  /** The Course's Materials, newest first. */
+  /** The Course's Materials in Course order. */
   materials: MaterialListItem[];
   /** In how many Chats a Material is attached, for its delete warning. */
   countMaterialChats: CountMaterialChats;
@@ -64,8 +71,8 @@ type MaterialsProps = {
 
 /**
  * A Course's Materials page: uploading PDFs and images by picking or
- * dropping them, with progress, and the Materials, newest first, to open,
- * rename or delete.
+ * dropping them, with progress, and the Materials in Course order, to open,
+ * move, rename or delete.
  */
 export function Materials({
   ownerId,
@@ -160,11 +167,13 @@ export function Materials({
           aria-label="Materials"
           className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card"
         >
-          {materials.map((material) => (
+          {materials.map((material, index) => (
             <MaterialEntry
               key={material.id}
               courseId={courseId}
               material={material}
+              canMoveUp={index > 0}
+              canMoveDown={index < materials.length - 1}
               countMaterialChats={countMaterialChats}
               onOpen={() => setOpened(material)}
             />
@@ -289,8 +298,20 @@ function ParseStateLine({
           View chunks
         </Link>
       )}
+      {parse.status === "parsed" && parse.unreadablePages.length > 0 && (
+        <span className="text-muted-foreground">
+          {unreadablePagesText(parse.unreadablePages)}
+        </span>
+      )}
     </span>
   );
+}
+
+/** "Page 3 could not be read", "Pages 3, 7 could not be read". */
+function unreadablePagesText(pages: number[]): string {
+  return pages.length === 1
+    ? `Page ${pages[0]} could not be read`
+    : `Pages ${pages.join(", ")} could not be read`;
 }
 
 /**
@@ -354,19 +375,35 @@ function useParsePolling(materials: MaterialListItem[]) {
   }, [running, router]);
 }
 
-/** One Material, opening in the viewer, with its "…" menu. */
+/**
+ * One Material, opening in the viewer, with its "…" menu, which also moves
+ * it in Course order.
+ */
 function MaterialEntry({
   courseId,
   material,
+  canMoveUp,
+  canMoveDown,
   countMaterialChats,
   onOpen,
 }: {
   courseId: string;
   material: MaterialListItem;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   countMaterialChats: CountMaterialChats;
   onOpen: () => void;
 }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
+  const [moving, startMove] = useTransition();
+  const move = (direction: "up" | "down") =>
+    startMove(async () => {
+      const result = await moveMaterial({
+        materialId: material.id,
+        direction,
+      });
+      if (!result.ok) toast.error(result.message);
+    });
 
   return (
     <li className="flex items-center gap-3 py-3 pr-2 pl-4 transition-colors hover:bg-muted/40">
@@ -393,6 +430,24 @@ function MaterialEntry({
         label="Material actions"
         onRename={() => setDialog("rename")}
         onDelete={() => setDialog("delete")}
+        items={
+          <>
+            <DropdownMenuItem
+              disabled={!canMoveUp || moving}
+              onSelect={() => move("up")}
+            >
+              <ArrowUpIcon />
+              Move up
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={!canMoveDown || moving}
+              onSelect={() => move("down")}
+            >
+              <ArrowDownIcon />
+              Move down
+            </DropdownMenuItem>
+          </>
+        }
       />
       <CourseNameDialog
         open={dialog === "rename"}

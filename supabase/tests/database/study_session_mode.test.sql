@@ -20,10 +20,10 @@ insert into public.big_ideas (id, owner, course_id, name, description, position)
 values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'Momentum makes thrust.', 0);
 
-insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, why_it_matters, position)
+insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, position)
 values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
-  'Thrust', 'How does an engine make thrust?', 'Every engine question starts here.', 0);
+  'Thrust', 'How does an engine make thrust?', 0);
 
 -- 1 and 2 are Alice's fresh sessions, 3 is Bob's, 4 has ended, 5 has a Topic
 -- and 6 has a question.

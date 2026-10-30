@@ -30,10 +30,50 @@ const promptOf = (
 const EXAM = "aaaaaaaa-a000-4000-8000-000000000002";
 const chunkOf = (n: number) => `aaaaaaaa-c400-4000-8000-0000000001${n}0`;
 
-/** An exam Exercise with a paired solution, and a lecture one with a generated one. */
+const owned = { owner: STUDENT, course_id: COURSE };
+
+/** The label of Exercise `n`: the exam's on page 1, else Lecture 7's page n. */
+const ex = (n: number) => (n === 1 ? "Exam 2024 p. 1" : `Lecture 7 p. ${n}`);
+
+function addChunk(n: number, material: string, markdown: string) {
+  db.tables.chunks.push({
+    ...owned,
+    id: chunkOf(n),
+    material_id: material,
+    position: n,
+    page_from: n,
+    page_to: n,
+    markdown,
+  });
+}
+
+/** Exercise `n` on chunk `n`, testing `kcs`, with its printed solution's chunk. */
+function addExercise(
+  n: number,
+  difficulty: number,
+  kcs: string[] = [MAP.thrust],
+  solutionChunk: string | null = null,
+) {
+  db.tables.exercises.push({
+    ...owned,
+    id: `ex-${n}`,
+    question_chunk_id: chunkOf(n),
+    solution_chunk_id: solutionChunk,
+    difficulty,
+    position: n,
+  });
+  for (const kc of kcs) {
+    db.tables.exercise_kcs.push({
+      ...owned,
+      exercise_id: `ex-${n}`,
+      kc_id: kc,
+    });
+  }
+}
+
+/** An exam Exercise with a paired solution, and a lecture one without any. */
 function seedExercises() {
   seedMap();
-  const owned = { owner: STUDENT, course_id: COURSE };
   db.tables.materials.push({
     ...owned,
     id: EXAM,
@@ -41,51 +81,11 @@ function seedExercises() {
     is_exam: true,
     created_at: "2025-12-02T00:00:00.000Z",
   });
-  const chunk = (n: number, material: string, markdown: string) =>
-    db.tables.chunks.push({
-      ...owned,
-      id: chunkOf(n),
-      material_id: material,
-      position: n,
-      page_from: n,
-      page_to: n,
-      markdown,
-    });
-  chunk(1, EXAM, "Compute the thrust of the engine.");
-  chunk(2, EXAM, "Solution: 42 kN.");
-  chunk(3, MAP.material, "Why does thrust grow with exhaust speed?");
-  const exercise = (n: number, status: string, solution: string | null) => {
-    db.tables.exercises.push({
-      ...owned,
-      id: `ex-${n}`,
-      question_chunk_id: chunkOf(n),
-      name: `Ex. ${n}`,
-      task_type: "compute thrust",
-      solution_status: status,
-      solution,
-      difficulty: 2,
-      position: n,
-    });
-    db.tables.exercise_kcs.push({
-      ...owned,
-      exercise_id: `ex-${n}`,
-      kc_id: MAP.thrust,
-    });
-  };
-  exercise(1, "disputed", null);
-  exercise(3, "generated", "Generated: thrust is proportional to $v_e$.");
-  db.tables.exercise_solutions.push({
-    ...owned,
-    exercise_chunk_id: chunkOf(1),
-    solution_chunk_id: chunkOf(2),
-    status: "paired",
-  });
-  db.tables.exercise_solutions.push({
-    ...owned,
-    exercise_chunk_id: chunkOf(3),
-    solution_chunk_id: null,
-    status: "no_solution",
-  });
+  addChunk(1, EXAM, "Compute the thrust of the engine.");
+  addChunk(2, EXAM, "Solution: 42 kN.");
+  addChunk(3, MAP.material, "Why does thrust grow with exhaust speed?");
+  addExercise(1, 2, undefined, chunkOf(2));
+  addExercise(3, 2);
 }
 
 /** A question on an Exercise in an earlier session, answered with `help`. */
@@ -120,25 +120,10 @@ function answered(exerciseId: string, help: "none" | "some", askedAt: string) {
   });
 }
 
-/** A further lecture Exercise on the thrust KC. */
-function addExercise(n: number, taskType: string, difficulty: number) {
-  const owned = { owner: STUDENT, course_id: COURSE };
-  db.tables.exercises.push({
-    ...owned,
-    id: `ex-${n}`,
-    question_chunk_id: chunkOf(3),
-    name: `Ex. ${n}`,
-    task_type: taskType,
-    solution_status: "generated",
-    solution: "Generated.",
-    difficulty,
-    position: n,
-  });
-  db.tables.exercise_kcs.push({
-    ...owned,
-    exercise_id: `ex-${n}`,
-    kc_id: MAP.thrust,
-  });
+/** A further lecture Exercise, on its own page of Lecture 7. */
+function addLectureExercise(n: number, difficulty: number, kcs?: string[]) {
+  addChunk(n, MAP.material, `Lecture question ${n}.`);
+  addExercise(n, difficulty, kcs);
 }
 
 const finderModel = (kcIds: string[] = [MAP.thrust], text = "Here.") =>
@@ -147,7 +132,7 @@ const finderModel = (kcIds: string[] = [MAP.thrust], text = "Here.") =>
 /** The names of the Problems `findProblems` returned, in order. */
 function foundOrder(model: ReturnType<typeof finderModel>) {
   const result = promptOf(model, 1);
-  return ["Ex. 3", "Ex. 4", "Ex. 5"]
+  return [ex(3), ex(4), ex(5)]
     .filter((name) => result.includes(name))
     .toSorted((a, b) => result.indexOf(a) - result.indexOf(b));
 }
@@ -155,13 +140,13 @@ function foundOrder(model: ReturnType<typeof finderModel>) {
 describe("findProblems ranking", () => {
   test("steps up one above the last unassisted success, and ignores help", async () => {
     seedExercises();
-    addExercise(4, "compute thrust", 3);
+    addLectureExercise(4, 3);
     const now = Date.now();
     answered("ex-1", "none", new Date(now - 2000).toISOString());
     const first = finderModel();
     useMockModels({ chat: first });
     await send(firstMessage());
-    expect(foundOrder(first)).toEqual(["Ex. 4", "Ex. 3"]);
+    expect(foundOrder(first)).toEqual([ex(4), ex(3)]);
 
     db.tables.attempts.length = 0;
     db.tables.questions.length = 0;
@@ -169,30 +154,30 @@ describe("findProblems ranking", () => {
     const second = finderModel();
     useMockModels({ chat: second });
     await send(firstMessage());
-    expect(foundOrder(second)).toEqual(["Ex. 3", "Ex. 4"]);
+    expect(foundOrder(second)).toEqual([ex(3), ex(4)]);
   });
 
   test("steps up from an older unassisted success, not a newer one with help", async () => {
     seedExercises();
-    addExercise(4, "compute thrust", 3);
-    addExercise(6, "compute thrust", 1);
+    addLectureExercise(4, 3);
+    addLectureExercise(6, 1);
     const now = Date.now();
     answered("ex-6", "none", new Date(now - 4000).toISOString());
     answered("ex-1", "some", new Date(now - 2000).toISOString());
     const model = finderModel();
     useMockModels({ chat: model });
     await send(firstMessage());
-    expect(foundOrder(model)).toEqual(["Ex. 3", "Ex. 4"]);
+    expect(foundOrder(model)).toEqual([ex(3), ex(4)]);
   });
 
-  test("prefers a task type other than the last Problem's", async () => {
+  test("prefers a first KC other than the last Problem's", async () => {
     seedExercises();
-    addExercise(5, "explain", 2);
+    addLectureExercise(5, 2, [MAP.newton, MAP.thrust]);
     answered("ex-1", "some", new Date().toISOString());
     const model = finderModel();
     useMockModels({ chat: model });
     await send(firstMessage());
-    expect(foundOrder(model).slice(0, 2)).toEqual(["Ex. 5", "Ex. 3"]);
+    expect(foundOrder(model).slice(0, 2)).toEqual([ex(5), ex(3)]);
   });
 
   test("labels each Problem with its source", async () => {
@@ -257,7 +242,6 @@ function addProblem(n: number, extra: Record<string, unknown> = {}) {
     source: "new",
     status: "ready",
     original_exercise_id: null,
-    task_type: null,
     difficulty: 2,
     statement: `Generated statement ${n}.`,
     solution: `Generated solution ${n}.`,
@@ -281,7 +265,6 @@ describe("findProblems with generated Problems", () => {
     addProblem(2, {
       source: "variant",
       original_exercise_id: "ex-3",
-      task_type: "compute thrust",
       program: "F = 50 kg/s * 500 m/s",
     });
     addProblem(3, { flag: "wrong", flagged_at: "2026-10-25T01:00:00.000Z" });
@@ -291,9 +274,9 @@ describe("findProblems with generated Problems", () => {
     await send(firstMessage());
 
     const result = promptOf(model, 1);
-    expect(result.indexOf("Ex. 1")).toBeLessThan(result.indexOf("Ex. 3"));
-    expect(result.indexOf("Ex. 3")).toBeLessThan(
-      result.indexOf("Variant of Ex. 3"),
+    expect(result.indexOf(ex(1))).toBeLessThan(result.indexOf(ex(3)));
+    expect(result.indexOf(ex(3))).toBeLessThan(
+      result.indexOf("Generated statement 2."),
     );
     expect(result).toContain('"source":"variant"');
     expect(result).toContain("computed by code");
@@ -416,22 +399,21 @@ describe("ask and grade on a generated Problem", () => {
 
 describe("findProblems", () => {
   test("gives the model old-exam Exercises first with solutions, labels and links", async () => {
-    const model = finderModel([MAP.thrust], "Try Ex. 1 first.");
+    const model = finderModel([MAP.thrust], "Try the exam first.");
     useMockModels({ chat: model });
     seedExercises();
 
     const reply = await send(firstMessage());
 
-    expect(reply.text).toBe("Try Ex. 1 first.");
+    expect(reply.text).toBe("Try the exam first.");
     const result = promptOf(model, 1);
-    expect(result.indexOf("Ex. 1")).toBeLessThan(result.indexOf("Ex. 3"));
+    expect(result.indexOf(ex(1))).toBeLessThan(result.indexOf(ex(3)));
     expect(result).toContain("Compute the thrust of the engine.");
-    // The paired solution chunk, labelled disputed.
+    // The paired solution chunk, from the Materials.
     expect(result).toContain("Solution: 42 kN.");
-    expect(result).toContain("check it before relying on it");
-    // The generated solution, labelled as such.
-    expect(result).toContain("Generated: thrust is proportional");
-    expect(result).toContain("generated by the AI");
+    expect(result).toContain("from the Materials");
+    // No solution in the Materials: the AI solves it with the Student.
+    expect(result).toContain("none in the Materials");
     expect(result).toContain(
       `/courses/${COURSE}/materials/${EXAM}#chunk-${chunkOf(1)}`,
     );
@@ -450,8 +432,8 @@ describe("findProblems", () => {
     useMockModels({ chat: second });
     await send(firstMessage());
 
-    expect(promptOf(first, 1)).toContain("Ex. 3");
-    expect(promptOf(first, 1)).not.toContain("Ex. 1");
+    expect(promptOf(first, 1)).toContain(ex(3));
+    expect(promptOf(first, 1)).not.toContain(ex(1));
     expect(promptOf(second, 1)).toContain(
       "The Student has tried every Exercise of this Course for these KCs",
     );
@@ -459,7 +441,7 @@ describe("findProblems", () => {
 
   test("in a review session, gives Exercises last asked over 14 days ago after the unseen ones", async () => {
     seedExercises();
-    addExercise(4, "explain", 2);
+    addLectureExercise(4, 2);
     const daysAgo = (days: number) =>
       new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     answered("ex-1", "none", daysAgo(20));
@@ -472,11 +454,11 @@ describe("findProblems", () => {
     useMockModels({ chat: review });
     await send({ ...firstMessage(), mode: "review" });
 
-    expect(promptOf(learn, 1)).toContain("Ex. 4");
-    expect(promptOf(learn, 1)).not.toContain("Ex. 1");
+    expect(promptOf(learn, 1)).toContain(ex(4));
+    expect(promptOf(learn, 1)).not.toContain(ex(1));
     const result = promptOf(review, 1);
-    expect(result.indexOf("Ex. 4")).toBeLessThan(result.indexOf("Ex. 1"));
-    expect(result).not.toContain("Ex. 3");
+    expect(result.indexOf(ex(4))).toBeLessThan(result.indexOf(ex(1)));
+    expect(result).not.toContain(ex(3));
   });
 
   test("leaves the reserved exam's Exercises and source chunks out", async () => {
@@ -506,8 +488,8 @@ describe("findProblems", () => {
     await send(firstMessage());
 
     const result = promptOf(model, 1);
-    expect(result).toContain("Ex. 3");
-    expect(result).not.toContain("Ex. 1");
+    expect(result).toContain(ex(3));
+    expect(result).not.toContain(ex(1));
     expect(result).not.toContain("Compute the thrust of the engine.");
   });
 

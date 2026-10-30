@@ -1,9 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
+import { loadChunkSources } from "@/features/ingestion/server";
 import type { FinalAnswer } from "@/features/knowledge-map";
 import { finalAnswerSchema } from "@/features/knowledge-map/server";
 import {
@@ -44,12 +41,11 @@ export function taskGrade(item: {
 }
 
 /**
- * The item's reference solution and final answers: its Exercise's (its
- * solution, else its paired solution chunk) or its Problem's.
+ * The item's reference solution and final answers: its Exercise's printed
+ * solution chunk or its Problem's solution.
  */
 export async function loadItemSource(
   supabase: Supabase,
-  courseId: string,
   item: { exercise_id: string | null; problem_id: string | null },
 ): Promise<{ reference: string | null; keys: FinalAnswer[] | null }> {
   const keysOf = (value: unknown) => {
@@ -71,20 +67,16 @@ export async function loadItemSource(
   if (item.exercise_id === null) return { reference: null, keys: null };
   const { data, error } = await supabase
     .from("exercises")
-    .select("solution, question_chunk_id, final_answers")
+    .select("solution_chunk_id, final_answers")
     .eq("id", item.exercise_id)
     .maybeSingle();
   if (error) failed("Loading the item's Exercise", error);
   if (!data) return { reference: null, keys: null };
-  let reference = data.solution;
-  if (reference === null) {
-    const paired = (await loadExerciseSolutions(supabase, courseId))[
-      data.question_chunk_id
-    ];
-    if (paired) {
-      const [chunk] = await loadChunkSources(supabase, [paired]);
-      reference = chunk?.markdown ?? null;
-    }
+  // The printed solution, when the Materials have one.
+  let reference: string | null = null;
+  if (data.solution_chunk_id) {
+    const [chunk] = await loadChunkSources(supabase, [data.solution_chunk_id]);
+    reference = chunk?.markdown ?? null;
   }
   return { reference, keys: keysOf(data.final_answers) };
 }
@@ -115,7 +107,7 @@ export async function loadMockReview(
       .from("question_kcs")
       .select("question_id, kc_id")
       .in("question_id", questionIds),
-    Promise.all(items.map((item) => loadItemSource(supabase, courseId, item))),
+    Promise.all(items.map((item) => loadItemSource(supabase, item))),
   ]);
   if (questions.error)
     failed("Loading the mock exam's answers", questions.error);

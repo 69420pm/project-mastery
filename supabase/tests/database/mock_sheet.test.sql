@@ -28,15 +28,18 @@ values ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-1111111
   'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
   0, 1, 1, 'exercise', 'Compute the thrust.');
 
-insert into public.exercises (id, owner, course_id, question_chunk_id, name, task_type,
-  solution_status, difficulty, position)
+insert into public.exercises (id, owner, course_id, question_chunk_id, difficulty, position)
 values ('eeeeeeee-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001',
-  'Ex. 7.2a', 'compute thrust', 'given', 2, 0);
+  'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 2, 0);
 
-insert into public.kcs (id, owner, course_id, name, description, type, bloom, origin, position)
+insert into public.big_ideas (id, owner, course_id, name, description, position)
+values ('9b9b9b9b-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+  'aaaaaaaa-0000-0000-0000-000000000001', 'Propulsion', 'How engines push.', 0);
+
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position)
 values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'F = ṁ Δv.', 'prior', null, 'prior', 0);
+  'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
+  'Thrust', 'F = ṁ Δv.', 'fact', 'content', 0);
 
 insert into public.exercise_kcs (exercise_id, kc_id, owner, course_id)
 values ('eeeeeeee-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',

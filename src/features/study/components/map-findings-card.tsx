@@ -22,8 +22,8 @@ const KIND_NAMES: Record<MapFindingKind, string> = {
 /**
  * The Map findings card (#181) under the Today card: the map Findings the
  * tutor filed, with their kind, KCs, reason and quote linked to its page.
- * Open ones have Accept and Dismiss; accepted ones wait for the next Update
- * map. Hidden without any.
+ * Accept applies the change to the map; Dismiss closes it. Hidden without
+ * any.
  */
 export function MapFindingsCard({ findings }: { findings: MapFindingItem[] }) {
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +57,13 @@ export function MapFindingsCard({ findings }: { findings: MapFindingItem[] }) {
                 <span className="font-medium">{KIND_NAMES[finding.kind]}</span>
                 {": "}
                 {finding.linkedKc
-                  ? `${finding.kc} and ${finding.linkedKc}`
+                  ? `${finding.kc} builds on ${finding.linkedKc}`
                   : finding.kc}
               </p>
               <p className="text-muted-foreground">{finding.reason}</p>
+              {finding.proposedDescription && (
+                <p>New description: {finding.proposedDescription}</p>
+              )}
               <blockquote className="border-l-2 pl-2 italic">
                 {finding.quote}
                 {finding.source && (
@@ -75,31 +78,25 @@ export function MapFindingsCard({ findings }: { findings: MapFindingItem[] }) {
                   </>
                 )}
               </blockquote>
-              {finding.status === "open" ? (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={isPending}
-                    onClick={() => answer(finding.id, "accepted")}
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() => answer(finding.id, "dismissed")}
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-muted-foreground">
-                  Accepted: applied at the next Update map.
-                </p>
-              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => answer(finding.id, "accepted")}
+                >
+                  Accept
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => answer(finding.id, "dismissed")}
+                >
+                  Dismiss
+                </Button>
+              </div>
             </li>
           ))}
         </ul>

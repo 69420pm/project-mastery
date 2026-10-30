@@ -16,12 +16,20 @@ _Avoid_: Subject, class, folder
 A file a Student uploaded to one Course, such as slides, a script, an exercise sheet or an old exam, under a name the Student can change.
 _Avoid_: File, document, upload, attachment
 
+**Part**:
+A run of one Material's chunks under one heading, found in code when the Material is parsed: a teaching Part holds content, an exercise Part one exercise or its solution. The map build extracts KCs from one Part at a time.
+_Avoid_: Section (a Reading section is something else), chapter
+
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat.
+What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Materials are old exams, the exam scope and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Materials whose names look like old exams, and asks once about each Material parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
+**Exam scope**:
+A Student-confirmed statement that the exam leaves out (`excluded`) or stresses (`emphasized`) one Big idea or Topic, in the Student's words. The AI proposes one only when an admin text of the Materials or the Student says so.
+_Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
+
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components, Prerequisites and Semantic links, with its Exercises and Findings. An update adds what new Materials teach and drops what deleted ones taught; its KCs, Exercises and Findings keep their identity across updates, and answered Findings keep their answers.
+What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -29,15 +37,15 @@ The Course's home: its Topics on its Big ideas, with the arrows between Topics t
 _Avoid_: Dashboard, overview, home page
 
 **Big idea**:
-One of the few main themes of a Course's Knowledge map, which groups its Knowledge components and Topics.
+One chapter of a Course's Materials as its Knowledge map groups it: one Big idea per chapter title, named by it, holding that chapter's Topics and Knowledge components.
 _Avoid_: Theme, chapter, module
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Prior knowledge is a KC the Materials assume but do not teach.
+One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Every KC sits in one Topic and its Big idea; a KC whose chunks are all gone is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
-A named unit of a few KCs of one Big idea that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates.
+A named unit of the KCs of one or a few Parts of a chapter that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while its Parts stay unchanged.
 _Avoid_: Chapter, unit, lesson, module
 
 **Topic state**:
@@ -45,32 +53,27 @@ Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS
 _Avoid_: Topic status, Topic progress
 
 **Reading section**:
-A part of a Topic's source pages, about one to three pages in Material order, stored per Course with a reading mode: `original` (the pages as they are), `annotated` (the pages with notes on their gaps) or `study_text` (a text written from them).
+A part of a Topic's source pages, about one to three pages in Material order, cut when read from the chunks its KCs cite. The Student reads the pages as they are.
 _Avoid_: Passage, excerpt, reading
 
 **Prerequisite**:
 A link saying one KC must be learned before another. The Prerequisites of a Knowledge map form no cycle.
 _Avoid_: Dependency, requirement
 
-**Semantic link**:
-A named relation between two KCs, such as "is a" or "contrasts with", that orders no learning.
-_Avoid_: Relation, edge, association
-
 **Exercise**:
-One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a task type, a difficulty and whether its solution was verified, disputed or generated. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
+One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "7.2b · Sheet 2 p. 3", is built when read. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
 _Avoid_: Task, assignment
 
 **Problem**:
 An exam-style task a Student solves: an Exercise or old-exam subtask from the Materials, a variant of one, or one generated for the KCs it tests.
 _Avoid_: Task, exercise (only for those from the Materials)
 
-**Finding**:
-Something a Knowledge map build asks the Student about a Course's Materials, with the chunks it is about: something that looks wrong, such as a printed solution that does not match the AI's, or a remark that limits the exam's content, such as "not exam-relevant". It is open until the Student answers it in the Brief, and then answered.
-A map Finding is one the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong link between two KCs, or a wrong KC description, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map, and the next Update map applies the accepted ones.
+**Map Finding**:
+What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong Prerequisite between two KCs, or a wrong KC description with the description it proposes, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map; accepting applies the change at once, unless a new Prerequisite would close a cycle, which refuses the accept.
 _Avoid_: Issue, error, erratum
 
 **Priority**:
-How much a KC matters for this Student's exam, from old exams, Exercises, the Knowledge map and the Brief.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or Big idea. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
@@ -118,7 +121,7 @@ One ongoing conversation between a Student and the AI within one Course, kept un
 _Avoid_: Conversation, thread
 
 **Source pane**:
-The pane beside a Chat that shows one thing at a time: a Material's own pages, a Reading section in its reading mode, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
+The pane beside a Chat that shows one thing at a time: a Material's own pages, at a Reading section or a citation, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:

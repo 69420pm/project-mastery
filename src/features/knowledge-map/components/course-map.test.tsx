@@ -45,7 +45,6 @@ const kc = (id: string) => ({
   name: id,
   description: "",
   type: "concept" as const,
-  bloom: null,
   origin: "content" as const,
   sources: [],
 });
@@ -60,9 +59,7 @@ const map: KnowledgeMapView = {
   bigIdeas: [
     { id: "b1", name: "Thrust", description: "", kcs: [kc("k1"), kc("k2")] },
   ],
-  priorKnowledge: [],
-  prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [],
+  prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [],
   checkReport: null,
   canBuild: true,
@@ -105,7 +102,6 @@ const renderMap = (
     <CourseMap
       map={view}
       topics={mapTopics}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
@@ -158,12 +154,10 @@ test("the header shows the Readiness line and a card its Readiness", async () =>
   );
 });
 
-test("a built map without Topics asks for an update", () => {
+test("a map whose update stopped before its Topics asks for an update", () => {
   renderMap(map, []);
   expect(
-    screen.getByRole("heading", {
-      name: "Update map to group your KCs into Topics",
-    }),
+    screen.getByRole("heading", { name: "Update map to finish your Topics" }),
   ).toBeVisible();
   expect(screen.getAllByRole("button", { name: "Update map" })).toHaveLength(2);
   expect(screen.queryByRole("application")).toBeNull();

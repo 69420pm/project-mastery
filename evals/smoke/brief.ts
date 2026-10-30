@@ -1,13 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { openBrief, respondInBrief } from "@/features/brief/server";
+import { respondInBrief } from "@/features/brief/server";
+import { loadKcPriorities } from "@/features/priorities/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
+import { insertRows } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
 /** What the Student tells the AI, one message per reply. */
 const MESSAGES = [
   "Exam is 2026-12-03, closed book, calculator allowed, written. I want a good grade and have 6 hours a week.",
-  "Skip the lab manual. The lecturer said heat exchangers are important.",
+  "Skip the lab manual. The lecturer said determinants are important.",
+  "Klausur 2025 is an old exam, the others are not.",
+  "Yes, Chapter 2 is not examined, leave it out.",
 ];
 
 /** Sends one message through the Brief handler and returns the reply's text. */
@@ -52,72 +56,171 @@ async function send(
     .join("");
 }
 
+/** The seeded Course: its Materials and the Big idea the exam leaves out. */
+type Seeded = {
+  courseId: string;
+  labManualId: string;
+  examId: string;
+  /** The KCs of Chapter 2, which an admin text says is not examined. */
+  chapter2Kcs: string[];
+};
+
 /**
- * Tells the AI about an exam in a new Course's Brief, in two scripted
- * messages through the real handler, and checks what the tools stored. Then
- * answers the reservation question on a seeded old exam and a seeded open
- * Finding, and checks both stored answers.
+ * A small Course seeded in code: a lab manual, an old exam named "Klausur
+ * 2025" and lecture notes whose admin chunk says "Chapter 2 is not
+ * examined", with a map of two Big ideas, one per chapter.
+ */
+async function seedCourse(
+  supabase: AdminSupabase,
+  studentId: string,
+): Promise<Seeded> {
+  const { data: course, error } = await supabase
+    .from("courses")
+    .insert({ owner: studentId, name: "Smoke check" })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  const courseId = course.id;
+  const owned = { owner: studentId, course_id: courseId };
+  const [labManualId, examId, notesId] = [
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+  ];
+  await insertRows(
+    supabase,
+    "materials",
+    [
+      [labManualId, "Lab manual"],
+      [examId, "Klausur 2025"],
+      [notesId, "Lecture notes"],
+    ].map(([id, name], index) => ({
+      ...owned,
+      id,
+      name,
+      media_type: "application/pdf",
+      size_bytes: 1,
+      storage_path: `${studentId}/${courseId}/${id}`,
+      parse_status: "parsed",
+      created_at: new Date(Date.UTC(2026, 9, 1 + index)).toISOString(),
+    })),
+  );
+  const chunk = (page: number, label: string, markdown: string) => ({
+    ...owned,
+    id: randomUUID(),
+    material_id: notesId,
+    position: page - 1,
+    page_from: page,
+    page_to: page,
+    label,
+    markdown,
+  });
+  const chunks = [
+    chunk(1, "admin", "Chapter 2 is not examined."),
+    chunk(2, "content", "# Chapter 1: Vectors\nA vector is ..."),
+    chunk(3, "content", "# Chapter 2: Matrices\nA matrix is ..."),
+  ];
+  await insertRows(supabase, "chunks", chunks);
+
+  const [vectors, matrices] = [randomUUID(), randomUUID()];
+  await insertRows(supabase, "big_ideas", [
+    {
+      ...owned,
+      id: vectors,
+      name: "Chapter 1: Vectors",
+      description: "Vectors.",
+      position: 0,
+    },
+    {
+      ...owned,
+      id: matrices,
+      name: "Chapter 2: Matrices",
+      description: "Matrices.",
+      position: 1,
+    },
+  ]);
+  const kc = (bigIdea: string, name: string, position: number) => ({
+    ...owned,
+    id: randomUUID(),
+    big_idea_id: bigIdea,
+    name,
+    description: `${name}.`,
+    type: "concept",
+    origin: "content",
+    position,
+  });
+  const kcs = [
+    kc(vectors, "Vector addition", 0),
+    kc(matrices, "Matrix product", 1),
+  ];
+  await insertRows(supabase, "kcs", kcs);
+  await insertRows(
+    supabase,
+    "kc_sources",
+    kcs.map((row, index) => ({
+      ...owned,
+      kc_id: row.id,
+      chunk_id: chunks[index + 1]!.id,
+    })),
+  );
+  return {
+    courseId,
+    labManualId,
+    examId,
+    chapter2Kcs: [kcs[1]!.id],
+  };
+}
+
+/**
+ * Tells the AI about an exam in a new Course's Brief, in four scripted
+ * messages through the real handler: the fixed answers, the excluded lab
+ * manual, the old exam, and the confirmation that Chapter 2 is not examined,
+ * which an admin text says. Checks what the tools stored and that Chapter
+ * 2's KCs read Priority 0. Then answers the reservation question.
  */
 export const briefSmoke: SmokeCheck = {
   name: "brief",
   usage:
-    "pnpm smoke brief (two scripted messages in a Course's Brief, then the reserved exam and a seeded Finding)",
-  // One recorded call per reply (5), with slack for retries.
-  maxCalls: 7,
+    "pnpm smoke brief (four scripted messages in a seeded Course's Brief: answers, old exam, exam scope; then the reserved exam)",
+  // One recorded call per reply (6), with slack for retries.
+  maxCalls: 12,
   async run({ supabase, studentId }) {
-    const { data: course, error } = await supabase
-      .from("courses")
-      .insert({ owner: studentId, name: "Smoke check" })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    // The gold course has no old exam, so one is seeded for the reservation
-    // question, beside the file the Student excludes.
-    const materialId = randomUUID();
-    const examId = randomUUID();
-    const file = (id: string, name: string) => ({
-      id,
-      owner: studentId,
-      course_id: course.id,
-      name,
-      media_type: "application/pdf",
-      size_bytes: 1,
-      storage_path: `${studentId}/${course.id}/${id}`,
-    });
-    const material = await supabase.from("materials").insert([
-      file(materialId, "Lab manual"),
-      {
-        ...file(examId, "Exam 2025"),
-        is_exam: true,
-        exam_year: 2025,
-        exam_total_points: 90,
-      },
-    ]);
-    if (material.error) throw new Error(material.error.message);
+    const seeded = await seedCourse(supabase, studentId);
+    const { courseId } = seeded;
 
     // The Brief runs as the Student, with Row Level Security as in the app.
     const client = await signInAsUser(supabase, studentId);
     for (const text of MESSAGES) {
       console.info(`Student: ${text}`);
-      console.info(`AI: ${await send(client, studentId, course.id, text)}`);
+      console.info(`AI: ${await send(client, studentId, courseId, text)}`);
     }
 
-    const [brief, excluded] = await Promise.all([
+    const [brief, excluded, exams, scopes] = await Promise.all([
       supabase
         .from("briefs")
         .select(
           "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes",
         )
-        .eq("course_id", course.id)
+        .eq("course_id", courseId)
         .single(),
       supabase
         .from("brief_excluded_materials")
         .select("material_id")
-        .eq("course_id", course.id),
+        .eq("course_id", courseId),
+      supabase
+        .from("materials")
+        .select("id")
+        .eq("course_id", courseId)
+        .eq("is_exam", true),
+      supabase
+        .from("exam_scopes")
+        .select("big_idea_id, topic_id, scope, words")
+        .eq("course_id", courseId),
     ]);
-    if (brief.error) throw new Error(brief.error.message);
-    if (excluded.error) throw new Error(excluded.error.message);
-    const b = brief.data;
+    for (const response of [brief, excluded, exams, scopes]) {
+      if (response.error) throw new Error(response.error.message);
+    }
+    const b = brief.data!;
     const expected = {
       exam_date: "2026-12-03",
       goal: "good_grade",
@@ -133,20 +236,18 @@ export const briefSmoke: SmokeCheck = {
         String(b[column as keyof typeof expected]),
       ),
     );
-    const excludedIds = excluded.data.map((row) => row.material_id);
-    await completeIntake(supabase, course.id);
+    const excludedIds = excluded.data!.map((row) => row.material_id);
+    const examIds = exams.data!.map((row) => row.id);
+    const priorities = await loadKcPriorities(client, courseId);
+    const chapter2 = seeded.chapter2Kcs.map((id) => priorities[id]);
+
+    await completeIntake(supabase, courseId);
     const reservation = await answerReservation(
       supabase,
       client,
       studentId,
-      course.id,
-      examId,
-    );
-    const review = await answerSeededFinding(
-      supabase,
-      client,
-      studentId,
-      course.id,
+      courseId,
+      seeded.examId,
     );
     return [
       ...fields,
@@ -158,17 +259,33 @@ export const briefSmoke: SmokeCheck = {
       ),
       result(
         "the lab manual is excluded",
-        excludedIds.length === 1 && excludedIds[0] === materialId,
+        excludedIds.length === 1 && excludedIds[0] === seeded.labManualId,
         `${excludedIds.length} excluded`,
+      ),
+      result(
+        "Klausur 2025 is the only old exam",
+        examIds.length === 1 && examIds[0] === seeded.examId,
+        `${examIds.length} old exams`,
+      ),
+      result(
+        "an exam scope excludes a Big idea",
+        scopes.data!.length === 1 &&
+          scopes.data![0]!.scope === "excluded" &&
+          scopes.data![0]!.big_idea_id !== null,
+        JSON.stringify(scopes.data),
+      ),
+      result(
+        "Chapter 2's KCs read Priority 0",
+        chapter2.every((value) => value === 0),
+        JSON.stringify(chapter2),
       ),
       result("the scope is confirmed", b.scope_confirmed),
       result(
-        "the notes mention heat exchangers",
-        b.notes?.toLowerCase().includes("heat exchangers") ?? false,
+        "the notes mention determinants",
+        b.notes?.toLowerCase().includes("determinants") ?? false,
         JSON.stringify(b.notes),
       ),
       ...reservation,
-      ...review,
     ];
   },
 };
@@ -209,7 +326,7 @@ async function answerReservation(
   console.info(`Student: ${prompt}`);
   const asked = await send(client, studentId, courseId, prompt);
   console.info(`AI: ${asked}`);
-  const answer = "Keep Exam 2025 aside for my final mock exam.";
+  const answer = "Keep Klausur 2025 aside for my final mock exam.";
   console.info(`Student: ${answer}`);
   console.info(`AI: ${await send(client, studentId, courseId, answer)}`);
 
@@ -222,7 +339,7 @@ async function answerReservation(
   return [
     result(
       "the AI asks about keeping the old exam",
-      asked.includes("Exam 2025"),
+      asked.includes("Klausur 2025"),
       JSON.stringify(asked),
     ),
     result(
@@ -230,64 +347,6 @@ async function answerReservation(
       stored.data.reserved_exam_answered &&
         stored.data.reserved_exam_material_id === examId,
       JSON.stringify(stored.data),
-    ),
-  ];
-}
-
-const FINDING_TEXT =
-  "Exercise 2 prints an efficiency of 48.2%, but its worked steps give 50.8%.";
-const FINDING_ANSWER = "The printed answer is wrong, 50.8% is right";
-
-/**
- * Seeds one open `solution_mismatch` Finding, opens the
- * Brief (a static message, no model call) and answers it in one message.
- */
-async function answerSeededFinding(
-  supabase: AdminSupabase,
-  client: Supabase,
-  studentId: string,
-  courseId: string,
-) {
-  const { data: finding, error } = await supabase
-    .from("findings")
-    .insert({
-      owner: studentId,
-      course_id: courseId,
-      kind: "solution_mismatch",
-      position: 0,
-      text: FINDING_TEXT,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  const messages = await openBrief(client, courseId);
-  const posted = (messages?.at(-1)?.parts ?? [])
-    .map((part) => (part.type === "text" ? part.text : ""))
-    .join("");
-  console.info(`AI (static): ${posted}`);
-  console.info(`Student: ${FINDING_ANSWER}`);
-  console.info(
-    `AI: ${await send(client, studentId, courseId, FINDING_ANSWER)}`,
-  );
-
-  const stored = await supabase
-    .from("findings")
-    .select("status, answer, asked_at")
-    .eq("id", finding.id)
-    .single();
-  if (stored.error) throw new Error(stored.error.message);
-  return [
-    result(
-      "opening the Brief asks the Finding",
-      posted.startsWith(FINDING_TEXT) && posted.includes("Which is right?"),
-      JSON.stringify(posted),
-    ),
-    result(
-      "the Finding is answered with the Student's words",
-      stored.data.status === "answered" &&
-        stored.data.answer === FINDING_ANSWER,
-      `${stored.data.status}: ${JSON.stringify(stored.data.answer)}`,
     ),
   ];
 }

@@ -9,7 +9,6 @@ export { TopicTitle } from "./components/topic-title";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export type { FinalAnswer } from "./schemas";
 export type {
-  FindingView,
   KnowledgeMapView,
   MapKcLearning,
   MapPriorities,
@@ -17,5 +16,4 @@ export type {
   MapTopicDetail,
   MapTopicState,
   MapTopicStates,
-  ReviewFinding,
 } from "./types";

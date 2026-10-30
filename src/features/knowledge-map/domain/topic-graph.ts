@@ -31,7 +31,7 @@ export type TopicGraph = { nodes: TopicGraphNode[]; edges: TopicGraphEdge[] };
 /**
  * The Topics as a graph: each Big idea with Topics a group in map order,
  * followed by its Topics in Course order, and the reduced arrows between
- * them. Prior knowledge belongs to no Topic, so it adds no arrow.
+ * them. A KC no Topic holds adds no arrow.
  */
 export function buildTopicGraph(
   topics: MapTopic[],

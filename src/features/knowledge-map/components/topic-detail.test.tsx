@@ -52,7 +52,6 @@ const kc = (
   name,
   description: "",
   type: "concept" as const,
-  bloom: null,
   origin,
   sources: [],
 });
@@ -67,14 +66,18 @@ const map: KnowledgeMapView = {
       description: "",
       kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles"), kc("k3", "Staging")],
     },
+    {
+      id: "b2",
+      name: "Maths",
+      description: "",
+      kcs: [kc("p1", "Algebra", "exercise")],
+    },
   ],
-  priorKnowledge: [kc("p1", "Algebra", "prior")],
   prerequisites: [
-    { from: "k1", to: "k2", confidence: 1 },
-    { from: "p1", to: "k2", confidence: 1 },
-    { from: "k2", to: "k3", confidence: 1 },
+    { from: "k1", to: "k2" },
+    { from: "p1", to: "k2" },
+    { from: "k2", to: "k3" },
   ],
-  semanticLinks: [],
   exercises: [],
   checkReport: null,
   canBuild: true,
@@ -105,7 +108,6 @@ const topics = [basics, nozzleFlow, stages];
 
 const topic: MapTopicDetail = {
   ...nozzleFlow,
-  whyItMatters: "Exit speed sets the thrust.",
   anchors: [
     { id: "k1", name: "Momentum" },
     { id: "p1", name: "Algebra" },
@@ -122,7 +124,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       topic={detail}
       topics={topics}
       map={map}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
+      priorities={{ kcs: {} }}
       learning={{}}
       topicState={{ state: "solid", recall: 0.91 }}
       badges={["pinned", "won't fit"]}
@@ -131,7 +133,7 @@ const renderTopic = (detail: MapTopicDetail) =>
   );
 
 describe("TopicDetail", () => {
-  test("shows the name, Big idea, question and why it matters", () => {
+  test("shows the name, Big idea and question", () => {
     renderTopic(topic);
     expect(
       screen.getByRole("heading", { level: 1, name: "Nozzle flow" }),
@@ -140,7 +142,6 @@ describe("TopicDetail", () => {
     expect(
       screen.getByText("How does a nozzle speed up gas?"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Exit speed sets the thrust.")).toBeInTheDocument();
   });
 
   test("shows the plan badges and the pin and skip controls", () => {
@@ -156,7 +157,7 @@ describe("TopicDetail", () => {
     expect(screen.getByText("Recall today 91%")).toBeInTheDocument();
   });
 
-  test("links an anchor to its Topic and shows prior knowledge as text", () => {
+  test("links an anchor to its Topic and shows one in no Topic as text", () => {
     renderTopic(topic);
     const anchors = screen.getByRole("region", { name: "Anchors" });
     expect(
@@ -188,7 +189,6 @@ describe("TopicDetail", () => {
   test("has no previous link on the first Topic", () => {
     renderTopic({
       ...basics,
-      whyItMatters: "",
       anchors: [],
       readingSections: [],
     });

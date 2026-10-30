@@ -1,12 +1,4 @@
-import type {
-  BloomLevel,
-  CheckReport,
-  FindingKind,
-  FindingStatus,
-  KcType,
-  SemanticLinkType,
-  SolutionStatus,
-} from "@/features/knowledge-map/schemas";
+import type { CheckReport, KcType } from "@/features/knowledge-map/schemas";
 
 /** A chunk of the Course as a build reads it. */
 export type MapChunk = {
@@ -43,12 +35,11 @@ export type KcView = {
   name: string;
   description: string;
   type: KcType;
-  bloom: BloomLevel | null;
   /**
-   * From the content, from an exercise that needs it while the content does
-   * not teach it, or prior knowledge.
+   * From the content, or from an exercise that needs it while the content
+   * does not teach it.
    */
-  origin: "content" | "exercise" | "prior";
+  origin: "content" | "exercise";
   /** The chunks that teach it, in reading order. */
   sources: KcSourceView[];
 };
@@ -57,22 +48,10 @@ export type KcView = {
 type PrerequisiteView = {
   from: string;
   to: string;
-  /** How sure the build was of the link, 0 to 1. */
-  confidence: number;
 };
 
-/** A semantic link between two KCs, by id. */
-type SemanticLinkView = {
-  from: string;
-  to: string;
-  coreType: SemanticLinkType;
-  label: string;
-};
-
-/** The last build's check report, with chunks as "Lecture 1 p. 3". */
-export type CheckReportView = Omit<CheckReport, "uncoveredChunkIds"> & {
-  uncoveredChunks: string[];
-};
+/** The last build's check report. */
+export type CheckReportView = CheckReport;
 
 /** A big idea with its KCs, as the map page shows it. */
 export type BigIdeaView = {
@@ -85,58 +64,30 @@ export type BigIdeaView = {
 /** An Exercise as the map page shows it. */
 export type ExerciseView = {
   id: string;
+  /**
+   * Its label, built when read from where its question is printed, such as
+   * "Sheet 3 p. 2".
+   */
   name: string;
-  taskType: string;
   /** The ids of the KCs it tests, in map order. */
   kcs: string[];
-  solutionStatus: SolutionStatus;
   difficulty: 1 | 2 | 3;
   /** Its question chunk's Markdown; null if the chunk is gone. */
   question: string | null;
-  /** The generated solution, or the printed one's Markdown; null without. */
+  /** The printed solution's Markdown; null without one. */
   solution: string | null;
 };
 
 /**
- * A Finding as the Brief's panel shows it: when it was asked and answered
- * (ISO timestamps), the answer, and its sources as links to their chunks,
- * labelled "Lecture 1 p. 3".
- */
-export type FindingView = {
-  id: string;
-  text: string;
-  status: FindingStatus;
-  askedAt: string | null;
-  answeredAt: string | null;
-  answer: string | null;
-  sources: Array<{ label: string; href: string }>;
-};
-
-/** An open Finding as the Brief asks it. */
-export type ReviewFinding = {
-  id: string;
-  kind: FindingKind;
-  text: string;
-  /** Where it was found, such as "Lecture 1 p. 3", in reading order. */
-  sources: string[];
-  /** Whether the Brief has asked the Student about it. */
-  asked: boolean;
-};
-
-/**
  * The KC priorities the map page shows, which the page passes in: each KC's
- * level, value, multiplier and reasons by KC id (none before the first run),
- * whether a run is running and why the last one failed.
+ * level, value and reasons by KC id.
  */
 export type MapPriorities = {
-  running: boolean;
-  failureReason: string | null;
   kcs: Record<
     string,
     {
       level: "high" | "medium" | "low" | "excluded";
       value: number;
-      multiplier: number;
       reasons: string[];
     }
   >;
@@ -207,8 +158,7 @@ export type MapTopicBadges = Record<string, string[]>;
 
 /** A Topic as its page shows it, with what a Student reads around it. */
 export type MapTopicDetail = MapTopic & {
-  whyItMatters: string;
-  /** Prerequisites from outside the Topic, prior KCs included. */
+  /** Prerequisites from outside the Topic. */
   anchors: Array<{ id: string; name: string }>;
   /** Such as "Lecture 1, pp. 3–5", linking to the section's first chunk. */
   readingSections: Array<{ label: string; href: string }>;
@@ -219,10 +169,7 @@ export type KnowledgeMapView = {
   courseId: string;
   build: MapBuild;
   bigIdeas: BigIdeaView[];
-  /** Prior knowledge the material assumes, which belongs to no big idea. */
-  priorKnowledge: KcView[];
   prerequisites: PrerequisiteView[];
-  semanticLinks: SemanticLinkView[];
   /** In reading order. */
   exercises: ExerciseView[];
   /** Null before a build stored one. */

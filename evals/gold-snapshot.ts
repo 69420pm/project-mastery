@@ -4,8 +4,8 @@ import { z } from "zod";
 
 /**
  * A gold Course's built content: what the pipeline stores for a Course
- * (Materials, chunks, Knowledge map, Topics, Reading sections, priorities and
- * the Brief), without anything a Student did. `pnpm gold export` writes it
+ * (Materials, Parts, chunks, Knowledge map, Topics and the Brief),
+ * without anything a Student did. `pnpm gold export` writes it
  * and `pnpm gold seed` loads it into a Student, so the tutor can be tried or
  * evaluated without running the pipeline again.
  */
@@ -24,26 +24,22 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
     table: "material_pages",
     parent: { table: "materials", column: "material_id" },
   },
+  { table: "parts" },
   { table: "chunks" },
+  { table: "part_extractions" },
   { table: "knowledge_map_builds" },
-  { table: "knowledge_map_chunks" },
   { table: "big_ideas" },
   { table: "kcs" },
   { table: "kc_sources" },
   { table: "prerequisite_links" },
-  { table: "semantic_links" },
   { table: "exercises" },
   { table: "exercise_kcs" },
   { table: "exercise_solutions" },
-  { table: "findings" },
-  { table: "finding_sources" },
   { table: "topics" },
   { table: "topic_kcs", parent: { table: "topics", column: "topic_id" } },
-  { table: "reading_sections" },
-  { table: "kc_priorities" },
-  { table: "priority_runs" },
   { table: "briefs" },
   { table: "brief_excluded_materials" },
+  { table: "exam_scopes" },
 ];
 
 const rowSchema = z.record(z.string(), z.unknown());
@@ -93,8 +89,8 @@ function replaceIds(value: unknown, ids: Map<string, string>): unknown {
 
 /**
  * The snapshot's rows for a new Student and Course. Every row id gets a new
- * id, and each place that holds an old id (foreign keys, `chunk_ids` arrays,
- * ids inside jsonb) is rewritten to match; `owner`, `course_id` and each
+ * id, and each place that holds an old id (foreign keys, ids inside jsonb)
+ * is rewritten to match; `owner`, `course_id` and each
  * Material's `storage_path` point at the new Student and Course. Returns the
  * new ids of the Materials by old id, which name the files to upload.
  */

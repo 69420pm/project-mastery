@@ -1,205 +1,309 @@
 import "server-only";
-import { loadCourseChunks } from "@/features/ingestion/server";
 import {
-  topicCall,
-  topicSchema,
-  type TopicCallInput,
-} from "@/features/knowledge-map/ai/topic-calls";
+  MAX_TOPIC_NAME,
+  topicNamingMessages,
+  topicNamingSchema,
+  topicNamingSettings,
+  type OfferedTopic,
+} from "@/features/knowledge-map/ai/topic-naming";
+import { dailyLimitReason } from "@/features/knowledge-map/domain/build-failure";
+import { SAME_KC_SIMILARITY } from "@/features/knowledge-map/domain/kc-clusters";
+import { exerciseLabel } from "@/features/knowledge-map/domain/exercise-label";
 import {
-  checkTopicProposals,
-  withTopicProposals,
-  type Topic,
-} from "@/features/knowledge-map/domain/topics";
-import { aliases } from "@/features/knowledge-map/domain/update";
+  planMap,
+  sameParts,
+  type MapPlan,
+  type PlannedTopic,
+} from "@/features/knowledge-map/domain/map-plan";
+import { redundantLinks } from "@/features/knowledge-map/domain/prerequisite-cycles";
 import {
-  knowledgeMapSchema,
-  type KnowledgeMap,
+  storedExtractionSchema,
+  type CheckReport,
 } from "@/features/knowledge-map/schemas";
-import { loadStoredMap } from "@/features/knowledge-map/server/stored-map";
-import { loadStoredTopics } from "@/features/knowledge-map/server/stored-topics";
-import type { MapChunk } from "@/features/knowledge-map/types";
 import {
-  limitReached,
-  mapCall,
+  loadCourseLanguage,
+  PARTS_PER_STEP,
+  retireUnsourcedKcs,
+  runCalls,
+  touchBuild,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  loadMapInput,
+  type MapInput,
+} from "@/features/knowledge-map/workflows/map-input";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
+import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
- * The steps of the Topics stage of a Knowledge map build (#175), which runs
- * on the stored map after `storeMap`, on the admin client like the other
- * steps (`build-steps.ts`).
+ * The last steps of a build: Topics and Big ideas from Parts in code
+ * (`planMap`), one naming call (task `topic`) per Big idea with new
+ * Topics, then the map in Course order with its check report.
  */
 
-/** What the Topics stage reads once, after the map is stored. */
-export type TopicsInput = {
-  studentId: string;
-  /** The stored map, with stored row ids. */
-  map: KnowledgeMap;
-  topics: Topic[];
-  /** The Course's chunks in Material order. */
-  chunks: Array<Pick<MapChunk, "id" | "materialName" | "pageFrom">>;
-};
+const MAX_CENTRAL_QUESTION = 500;
+/** The most duplicate pairs the check report lists. */
+const MAX_DUPLICATES = 100;
+
+type StoredTopic = { id: string; part_hashes: string[] };
+
+/** The plan of the Course's map, with the stored Topics. */
+async function loadPlan(supabase: AdminSupabase, courseId: string) {
+  const [input, topics] = await Promise.all([
+    loadMapInput(supabase, courseId),
+    allRows("Loading the Topics", (from, to) =>
+      supabase
+        .from("topics")
+        .select("id, part_hashes")
+        .eq("course_id", courseId)
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  return { input, plan: planMap(input), stored: topics };
+}
+
+const storedTopicOf = (topic: PlannedTopic, stored: StoredTopic[]) =>
+  stored.find((row) => sameParts(row.part_hashes, topic.partHashes));
+
+/** The most Topics one naming call names, so no prompt grows with a chapter. */
+const TOPICS_PER_CALL = 10;
 
 /**
- * The owner, stored map, stored Topics and chunks of the Course whose build
- * runs. Null when no build runs any more.
+ * Names the planned Topics no stored Topic holds the Parts of: one call per
+ * Big idea, or per TOPICS_PER_CALL of its Topics, up to PARTS_PER_STEP
+ * calls a step, each stored as it finishes. A reached Daily limit stops the
+ * build.
  */
-export async function loadTopicsInput(
-  courseId: string,
-): Promise<TopicsInput | null> {
+export async function nameTopics(courseId: string): Promise<StepOutcome> {
   "use step";
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("knowledge_map_builds")
-    .select("owner")
-    .eq("course_id", courseId)
-    .eq("status", "building")
-    .maybeSingle();
-  if (error) failed("Loading the build", error);
-  if (!data) return null;
-  const [chunks, stored, topics] = await Promise.all([
-    // Every chunk, for the order of Materials and pages.
-    loadCourseChunks(supabase, courseId),
-    loadStoredMap(supabase, courseId),
-    loadStoredTopics(supabase, courseId),
-  ]);
-  return {
-    studentId: data.owner,
-    // Without what Priorities reads besides the map.
-    map: knowledgeMapSchema.parse(stored),
-    topics,
-    chunks: chunks.map(({ id, materialName, pageFrom }) => ({
-      id,
-      materialName,
-      pageFrom,
-    })),
-  };
+  const owner = await touchBuild(supabase, courseId);
+  if (!owner) return { ok: true, left: null };
+  await retireUnsourcedKcs(supabase, courseId);
+
+  const { input, plan, stored } = await loadPlan(supabase, courseId);
+  const unnamed = plan.topics.filter((topic) => !storedTopicOf(topic, stored));
+  const batches = [...Map.groupBy(unnamed, (topic) => topic.bigIdea)].flatMap(
+    ([bigIdea, topics]) =>
+      Array.from(
+        { length: Math.ceil(topics.length / TOPICS_PER_CALL) },
+        (_, index) =>
+          [
+            bigIdea,
+            topics.slice(
+              index * TOPICS_PER_CALL,
+              (index + 1) * TOPICS_PER_CALL,
+            ),
+          ] as const,
+      ),
+  );
+  if (batches.length === 0) return { ok: true, left: 0 };
+
+  const language = await loadCourseLanguage(supabase, courseId);
+  const kcName = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
+  let done = 0;
+  let limitReached = false;
+  let running = true;
+  await runCalls(
+    batches.slice(0, PARTS_PER_STEP),
+    async ([bigIdea, topics]) => {
+      const offered = topics.map((topic, index): OfferedTopic => ({
+        id: `t${index + 1}`,
+        parts: topic.partTitles,
+        kcs: topic.kcs.map((id) => kcName.get(id) ?? id),
+      })) as [OfferedTopic, ...OfferedTopic[]];
+      const call = { bigIdea, language, topics: offered };
+      const result = await meteredGenerate(
+        supabase,
+        { studentId: owner, task: "topic", traceName: "name-topics" },
+        { ...topicNamingSettings(call), messages: topicNamingMessages(call) },
+      );
+      if (!result) {
+        limitReached = true;
+        return "stop";
+      }
+      const named = topicNamingSchema(offered.map((topic) => topic.id)).parse(
+        result.output,
+      ).topics;
+      const { data, error } = await supabase.rpc("store_named_topics", {
+        p_course_id: courseId,
+        p_topics: topics.map((topic, index) => {
+          const { name, centralQuestion } = named[offered[index]!.id]!;
+          return {
+            bigIdea,
+            name: name.trim().slice(0, MAX_TOPIC_NAME) || topic.partTitles[0],
+            centralQuestion:
+              centralQuestion.trim().slice(0, MAX_CENTRAL_QUESTION) ||
+              topic.partTitles[0],
+            partHashes: topic.partHashes,
+          };
+        }),
+      });
+      if (error) failed("Storing the named Topics", error);
+      if (!data) {
+        running = false;
+        return "stop";
+      }
+      done += 1;
+    },
+  );
+  if (!running) return { ok: true, left: null };
+  if (limitReached) return { ok: false, reason: dailyLimitReason };
+  return { ok: true, left: batches.length - done };
 }
 
+nameTopics.maxRetries = RATE_LIMITED_STEP_RETRIES;
+
 /**
- * One Big idea (task `topic`): the model places its new KCs (`newKcIds`)
- * into its stored Topics or new ones, and code checks that every new KC is
- * placed once and keeps what is stored. Returns all Topics with this Big
- * idea's taken in. A failed check throws, so the step retries.
+ * Ends a build: retires the KCs whose sources went meanwhile, puts the Big
+ * ideas, KCs, Topics and Exercises in Course order, drops redundant
+ * Prerequisites, stores the check report and marks the build built. A
+ * planned Topic that is not named yet is left out until the next build.
  */
-export async function groupTopics(
-  studentId: string,
-  input: Omit<TopicsInput, "studentId">,
-  bigIdeaId: string,
-  newKcIds: string[],
-): Promise<StepOutcome<Topic[]>> {
+export async function arrangeKnowledgeMap(courseId: string): Promise<void> {
   "use step";
-  const { map, topics } = input;
-  const kcs = map.kcs.filter((kc) => kc.bigIdea === bigIdeaId);
-  const stored = topics.filter(
-    (topic): topic is Topic & { id: string } =>
-      topic.bigIdea === bigIdeaId && topic.id !== null,
-  );
-  const kcIds = aliases(
-    kcs.map((kc) => kc.id),
-    "k",
-  );
-  const topicIds = aliases(
-    stored.map((topic) => topic.id),
-    "t",
-  );
-  const callInput = topicCallInput(input, bigIdeaId, newKcIds, {
-    kc: kcIds.local,
-    topic: topicIds.local,
+  const supabase = createAdminClient();
+  if (!(await touchBuild(supabase, courseId))) return;
+  await retireUnsourcedKcs(supabase, courseId);
+
+  const { input, plan, stored } = await loadPlan(supabase, courseId);
+  const topics = plan.topics.flatMap((topic) => {
+    const row = storedTopicOf(topic, stored);
+    return row ? [{ id: row.id, bigIdea: topic.bigIdea, kcs: topic.kcs }] : [];
   });
-  const output = await mapCall(
-    studentId,
-    "map-topic",
-    topicCall(callInput),
-    "topic",
-  );
-  if (output === null) return limitReached;
-  const proposals = topicSchema(callInput.kcs.map((kc) => kc.id))
-    .parse(output)
-    .topics.map((proposal) => ({
-      ...proposal,
-      id: topicIds.real(proposal.id),
-      kcs: proposal.kcs.map(kcIds.real),
-    }));
-  checkTopicProposals(
-    proposals,
-    newKcIds,
-    kcs.map((kc) => kc.id),
-  );
-  return {
-    ok: true,
-    value: withTopicProposals(topics, bigIdeaId, proposals, newKcIds),
-  };
-}
-
-/**
- * What the `topic` call is sent for a Big idea: its KCs, each with its first
- * source and whether it is new, the links among them and its stored Topics,
- * all by the `local` ids.
- */
-function topicCallInput(
-  { map, topics, chunks }: Omit<TopicsInput, "studentId">,
-  bigIdeaId: string,
-  newKcIds: string[],
-  local: { kc: (id: string) => string; topic: (id: string) => string },
-): TopicCallInput {
-  const bigIdea = map.bigIdeas.find((item) => item.id === bigIdeaId);
-  if (!bigIdea) throw new Error(`Unknown big idea ${bigIdeaId}.`);
-  const kcs = map.kcs.filter((kc) => kc.bigIdea === bigIdeaId);
-  const inBigIdea = new Set(kcs.map((kc) => kc.id));
-  const among = (link: { from: string; to: string }) =>
-    inBigIdea.has(link.from) && inBigIdea.has(link.to);
-  // Chunks are in Material order, so the first one a KC cites is its first.
-  const firstSource = (sources: string[]) => {
-    const first = chunks.find((chunk) => sources.includes(chunk.id));
-    return first ? `${first.materialName} p. ${first.pageFrom}` : null;
-  };
-  const isNew = new Set(newKcIds);
-  return {
-    bigIdeaToGroup: { name: bigIdea.name, description: bigIdea.description },
-    kcs: kcs.map((kc) => ({
-      id: local.kc(kc.id),
-      name: kc.name,
-      type: kc.type,
-      description: kc.description,
-      firstSource: firstSource(kc.sources),
-      status: isNew.has(kc.id) ? "new" : "placed",
-    })),
-    prerequisites: map.prerequisites.filter(among).map((link) => ({
-      from: local.kc(link.from),
-      to: local.kc(link.to),
-    })),
-    semanticLinks: map.semanticLinks.filter(among).map((link) => ({
-      from: local.kc(link.from),
-      to: local.kc(link.to),
-      label: link.label,
-    })),
-    storedTopics: topics
-      .filter((topic) => topic.bigIdea === bigIdeaId && topic.id !== null)
-      .map((topic) => ({
-        id: local.topic(topic.id ?? ""),
-        name: topic.name,
-        centralQuestion: topic.centralQuestion,
-        kcs: topic.kcs.map(local.kc),
-      })),
-  };
-}
-
-/**
- * Makes the stored Topics these, in order, and marks the build built, in one
- * transaction. Stored Topics keep their ids. Does nothing when no build runs
- * any more.
- */
-export async function storeTopics(
-  courseId: string,
-  topics: Topic[],
-): Promise<void> {
-  "use step";
-  const { error } = await createAdminClient().rpc("replace_topics", {
+  const { error } = await supabase.rpc("arrange_knowledge_map", {
     p_course_id: courseId,
+    p_big_ideas: plan.bigIdeas,
+    p_kcs: plan.kcs,
     p_topics: topics,
+    p_dropped_prerequisites: redundantLinks(input.prerequisites),
+    p_check_report: await checkReport(supabase, courseId, input, plan),
   });
-  if (error) failed("Storing the topics", error);
+  if (error) failed("Arranging the knowledge map", error);
+}
+
+/**
+ * What the build checks: each teaching Part's extracted KCs against its
+ * budget, teaching Parts no live KC cites, Exercises without KCs and the
+ * KC pairs still alike after merging.
+ */
+async function checkReport(
+  supabase: AdminSupabase,
+  courseId: string,
+  input: MapInput,
+  plan: MapPlan,
+): Promise<CheckReport> {
+  const [extractions, exercises, alike] = await Promise.all([
+    allRows("Loading the Part extractions", (from, to) =>
+      supabase
+        .from("part_extractions")
+        .select("part_id, output")
+        .eq("course_id", courseId)
+        .order("part_id")
+        .range(from, to),
+    ),
+    exercisesWithoutKcs(supabase, courseId),
+    supabase.rpc("alike_kcs", {
+      p_course_id: courseId,
+      p_similarity: SAME_KC_SIMILARITY,
+      p_count: MAX_DUPLICATES,
+    }),
+  ]);
+  if (alike.error) failed("Finding alike KCs", alike.error);
+
+  const outputOf = new Map(
+    extractions.map((row) => [
+      row.part_id,
+      storedExtractionSchema.parse(row.output),
+    ]),
+  );
+  const teaching = input.parts.filter((part) => part.kind === "teaching");
+  const partOf = new Map(input.chunks.map((chunk) => [chunk.id, chunk.partId]));
+  const cited = new Set(
+    input.kcs.flatMap((kc) => kc.sources.map((id) => partOf.get(id))),
+  );
+  const name = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
+  const placed = new Set(plan.kcs.map((kc) => kc.id));
+  return {
+    kcsPerPart: teaching.flatMap((part) => {
+      const output = outputOf.get(part.id);
+      return output
+        ? [
+            {
+              part: part.title,
+              kcs: output.kcs.length,
+              budget: output.kcBudget ?? 0,
+            },
+          ]
+        : [];
+    }),
+    partsWithoutKcs: teaching
+      .filter((part) => !cited.has(part.id))
+      .map((part) => part.title),
+    exercisesWithoutKcs: exercises,
+    duplicates: alike.data.flatMap(({ a, b, similarity }) =>
+      placed.has(a) && placed.has(b)
+        ? [{ a: name.get(a)!, b: name.get(b)!, similarity }]
+        : [],
+    ),
+  };
+}
+
+/** The labels of the Course's Exercises that test no KC, in Course order. */
+async function exercisesWithoutKcs(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<string[]> {
+  const [exercises, tested] = await Promise.all([
+    allRows("Loading the Exercises", (from, to) =>
+      supabase
+        .from("exercises")
+        .select("id, question_chunk_id")
+        .eq("course_id", courseId)
+        .order("position")
+        .range(from, to),
+    ),
+    allRows("Loading the exercise KCs", (from, to) =>
+      supabase
+        .from("exercise_kcs")
+        .select("exercise_id")
+        .eq("course_id", courseId)
+        .order("exercise_id")
+        .range(from, to),
+    ),
+  ]);
+  const testing = new Set(tested.map((row) => row.exercise_id));
+  const untested = exercises.filter((exercise) => !testing.has(exercise.id));
+  if (untested.length === 0) return [];
+  const [chunks, materials] = await Promise.all([
+    supabase
+      .from("chunks")
+      .select("id, material_id, page_from, exercise_number")
+      .in(
+        "id",
+        untested.map((exercise) => exercise.question_chunk_id),
+      ),
+    supabase.from("materials").select("id, name").eq("course_id", courseId),
+  ]);
+  if (chunks.error) failed("Loading the Exercises' chunks", chunks.error);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  const chunkOf = new Map(chunks.data.map((chunk) => [chunk.id, chunk]));
+  const materialName = new Map(materials.data.map((m) => [m.id, m.name]));
+  return untested.map((exercise) => {
+    const chunk = chunkOf.get(exercise.question_chunk_id);
+    return chunk
+      ? exerciseLabel({
+          exerciseNumber: chunk.exercise_number,
+          materialName: materialName.get(chunk.material_id) ?? "",
+          pageFrom: chunk.page_from,
+        })
+      : "Exercise";
+  });
 }

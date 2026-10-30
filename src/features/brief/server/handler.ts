@@ -15,14 +15,14 @@ import {
 import { after } from "next/server";
 import { briefReplySettings } from "@/features/brief/ai/reply";
 import { briefTools } from "@/features/brief/ai/tools";
+import { isIntakeDone } from "@/features/brief/domain/intake";
+import { askedMaterialIds } from "@/features/brief/domain/old-exams";
 import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
   briefNotFoundMessage,
   briefRequestSchema,
 } from "@/features/brief/schemas";
-import { reviewQueue } from "@/features/brief/domain/findings";
-import { markFindingAsked } from "@/features/knowledge-map/server";
 import {
   ensureBrief,
   loadContext,
@@ -115,7 +115,7 @@ export async function respondInBrief({
 
 /**
  * The most model calls one reply may take: a tool step per kind of answer
- * (saveBrief, addNote, answerFinding), a retry after a malformed call, and
+ * (saveBrief, addNote, setExamScope), a retry after a malformed call, and
  * the text.
  */
 const MAX_STEPS = 5;
@@ -166,13 +166,9 @@ async function streamReply({
   });
   const context = await loadContext(supabase, courseId);
   if (!context) return refuse(404, briefNotFoundMessage);
-  // The Findings this reply asks: the first open one when none is asked yet,
-  // as the instructions tell the AI, and the next one each answerFinding
-  // result gives. They count as asked once the reply is stored, so a dropped
-  // reply leaves them for the static message on the next page open.
-  const askedInReply = new Set<string>();
-  const { asking } = reviewQueue(context.findings);
-  if (asking && !asking.asked) askedInReply.add(asking.id);
+  const studentTexts = messages
+    .filter(({ role }) => role === "user")
+    .map(({ parts }) => messageText(parts));
   const settings = briefReplySettings(context);
   // What the provider reports when the call completes. A stopped or failed
   // call reports neither.
@@ -186,8 +182,17 @@ async function streamReply({
         ...settings,
         messages: await convertToModelMessages(messages),
         tools: briefTools(
-          briefToolActions(supabase, courseId, context, (findingId) =>
-            askedInReply.add(findingId),
+          briefToolActions(
+            supabase,
+            courseId,
+            context,
+            studentTexts,
+            askedMaterialIds(
+              messages,
+              isIntakeDone(context.fields)
+                ? []
+                : context.materials.map(({ id }) => id),
+            ),
           ),
         ),
         stopWhen: isStepCount(MAX_STEPS),
@@ -241,9 +246,6 @@ async function streamReply({
             id: replyId,
             metadata: { modelId },
           });
-          for (const findingId of askedInReply) {
-            await markFindingAsked(supabase, courseId, findingId);
-          }
         } catch (error) {
           console.error("Saving the Brief reply failed:", error);
         }

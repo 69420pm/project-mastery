@@ -20,16 +20,13 @@ const TABLES = [
   "problem_kcs",
   "materials",
   "chunks",
-  "exercise_solutions",
   "big_ideas",
   "kcs",
   "kc_sources",
   "prerequisite_links",
-  "semantic_links",
   "exercises",
   "exercise_kcs",
-  "findings",
-  "finding_sources",
+  "exam_scopes",
   "knowledge_map_builds",
   "topics",
   "topic_kcs",
@@ -39,7 +36,7 @@ const TABLES = [
   "chats",
   "briefs",
   "mock_exams",
-  "kc_priorities",
+  "brief_excluded_materials",
   "ai_usage",
 ] as const;
 
@@ -60,7 +57,6 @@ function createDb() {
     defaults: {
       problems: () => ({
         created_at: now(),
-        task_type: null,
         original_exercise_id: null,
         statement: null,
         solution: null,
@@ -111,7 +107,6 @@ beforeEach(() => {
 /** A draft whose numbers all come from its program; fits either schema. */
 const DRAFT = {
   change: "new_values",
-  taskType: "compute thrust",
   statement:
     "A turbojet takes in {{mass_flow}} at {{v_0}}, which leaves at {{v_e}}. Compute the thrust.",
   solution: "$F = \\dot m (v_e - v_0)$, so the thrust is {{thrust_kN}}.",
@@ -193,7 +188,6 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
       name: `KC ${id}`,
       description: `${id}.`,
       type: "concept",
-      bloom: "apply",
       origin: "content",
       position,
     });
@@ -205,7 +199,6 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     big_idea_id: "b1",
     name: "Thrust",
     central_question: "How much?",
-    why_it_matters: "Planes.",
     position: 0,
   });
   kcIds.forEach((kc_id, position) =>
@@ -214,11 +207,8 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
   t.exercises.push({
     id: "x1",
     ...owned,
-    name: "Ex. 7.2a",
     question_chunk_id: QUESTION_CHUNK,
-    task_type: "compute thrust",
-    solution_status: "given",
-    solution: null,
+    solution_chunk_id: null,
     difficulty: 2,
     position: 0,
     final_answers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
@@ -315,7 +305,6 @@ describe("Topic stock", () => {
     expect(variant).toMatchObject({
       topic_id: TOPIC,
       original_exercise_id: "x1",
-      task_type: "compute thrust",
       difficulty: 2,
       solution: "$F = \\dot m (v_e - v_0)$, so the thrust is 17.5 kN.",
       final_answers: [{ label: "thrust_kN", value: 17.5, unit: "kN" }],

@@ -3,20 +3,22 @@
 import "server-only";
 
 export { chunkAnchor } from "./domain/chunk-anchor";
+export { withLease } from "./domain/parse-state";
 export { getMaterialChunks } from "./server/chunk-queries";
 export {
+  type AdminChunk,
   findChunkSpan,
+  loadAdminChunks,
   getChunkPlaces,
-  loadChunkPoints,
+  loadChunkMaterials,
   loadCourseChunkSpans,
   loadCourseChunks,
   type ChunkSpan,
   loadChunkSources,
   loadChunkTexts,
   type ChunkText,
-  loadExerciseSolutions,
   loadMaterialChunkIds,
-  type ChunkPoints,
+  type ChunkMaterials,
 } from "./server/course-chunks";
 export { startPairing } from "./server/start-pairing";
 export { startParse } from "./server/start-parse";

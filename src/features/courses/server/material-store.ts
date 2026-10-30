@@ -8,6 +8,7 @@ import type {
   StoredMaterial,
 } from "@/features/courses/types";
 import type { ParseStatus } from "@/features/ingestion";
+import { withLease } from "@/features/ingestion/server";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
@@ -234,6 +235,23 @@ export async function updateMaterialName(
   return data.length > 0;
 }
 
+/**
+ * Swaps one of the Student's Materials with its neighbour in Course order.
+ * False when it is not theirs or is first (up) or last (down) already.
+ */
+export async function moveMaterialPosition(
+  supabase: Supabase,
+  materialId: string,
+  direction: "up" | "down",
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("move_material", {
+    p_material_id: materialId,
+    p_direction: direction,
+  });
+  if (error) failed("Moving the Material", error);
+  return data;
+}
+
 /** Deletes one of the Student's Materials, without its file. */
 export async function removeMaterial(
   supabase: Supabase,
@@ -265,7 +283,7 @@ export async function signFileUrl(
   return data.signedUrl;
 }
 
-/** The Course's Materials, newest first. */
+/** The Course's Materials in Course order. */
 export async function listMaterials(
   supabase: Supabase,
   courseId: string,
@@ -273,32 +291,42 @@ export async function listMaterials(
   const { data, error } = await supabase
     .from("materials")
     .select(
-      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure, parse_start_failed, is_exam, exam_year, exam_total_points",
+      "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure, parse_start_failed, heartbeat_at",
     )
     .eq("course_id", courseId)
-    .order("created_at", { ascending: false });
+    .order("position");
   if (error) failed("Loading the Materials", error);
+  const unreadable = await supabase
+    .from("material_pages")
+    .select("material_id, page_number")
+    .in(
+      "material_id",
+      data.map((row) => row.id),
+    )
+    .eq("skipped", "unreadable")
+    .order("page_number");
+  if (unreadable.error)
+    failed("Loading the unreadable pages", unreadable.error);
+  const unreadablePages = (materialId: string) =>
+    unreadable.data
+      .filter((page) => page.material_id === materialId)
+      .map((page) => page.page_number);
   return data.map((row) => ({
     id: row.id,
     name: row.name,
     mediaType: row.media_type,
     sizeBytes: row.size_bytes,
     createdAt: row.created_at,
-    parse: {
-      status: row.parse_status as ParseStatus,
-      pagesDone: row.pages_done,
-      pagesTotal: row.pages_total,
-      failure: row.parse_failure,
-      startFailed: row.parse_start_failed,
-    },
-    exam: row.is_exam
-      ? {
-          year: row.exam_year,
-          totalPoints:
-            row.exam_total_points === null
-              ? null
-              : Number(row.exam_total_points),
-        }
-      : null,
+    parse: withLease(
+      {
+        status: row.parse_status as ParseStatus,
+        pagesDone: row.pages_done,
+        pagesTotal: row.pages_total,
+        failure: row.parse_failure,
+        startFailed: row.parse_start_failed,
+        unreadablePages: unreadablePages(row.id),
+      },
+      row.heartbeat_at,
+    ),
   }));
 }

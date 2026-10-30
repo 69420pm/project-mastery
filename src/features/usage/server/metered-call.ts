@@ -1,5 +1,6 @@
 import "server-only";
 import { embedMany, generateText } from "ai";
+import { RetryableError } from "workflow";
 import { checkDailyLimit } from "@/features/usage/server/daily-limit";
 import {
   recordAiUsage,
@@ -7,13 +8,26 @@ import {
 } from "@/features/usage/server/usage-store";
 import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
-import { aiTask, answeringModel, type AiTask } from "@/lib/ai/models";
+import {
+  aiTask,
+  answeringModel,
+  EMBED_AS_DOCUMENTS,
+  type AiTask,
+} from "@/lib/ai/models";
+import { gatewayRateLimitWaitMs } from "@/lib/ai/rate-limit";
 import type {
   AdminSupabase,
   SessionSupabase,
   Supabase,
 } from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
+
+/**
+ * Attempts for a step that makes metered calls (`fn.maxRetries`). The
+ * Gateway's per-minute rate limit costs one attempt for each wait, and a
+ * step makes several calls; the Workflow default is 3.
+ */
+export const RATE_LIMITED_STEP_RETRIES = 30;
 
 /**
  * One model call a workflow makes for a Student: checks their Daily limit,
@@ -83,6 +97,16 @@ export async function meteredGenerate(
 }
 
 /**
+ * What to embed: `asDocuments` embeds the values as documents to be
+ * searched (chunks), not as search queries.
+ */
+type EmbedCall = {
+  values: string[];
+  maxRetries?: number;
+  asDocuments?: boolean;
+};
+
+/**
  * A metered `embedMany` call (task `embed`): the vectors of `values`, in
  * order. `store` runs before the usage is recorded, so a failure in the
  * bookkeeping and the step's retry never pay for the stored vectors again.
@@ -90,14 +114,14 @@ export async function meteredGenerate(
 export async function meteredEmbed(
   admin: AdminSupabase,
   scope: MeteredScope,
-  call: { values: string[]; maxRetries?: number },
+  call: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null>;
 /** With the Student's session client, usage is theirs by Row Level Security. */
 export async function meteredEmbed(
   supabase: SessionSupabase,
   scope: Omit<MeteredScope, "studentId">,
-  call: { values: string[]; maxRetries?: number },
+  call: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null>;
 export async function meteredEmbed(
@@ -107,7 +131,7 @@ export async function meteredEmbed(
     traceName,
     callFailed,
   }: Omit<MeteredScope, "studentId"> & { studentId?: string },
-  { values, maxRetries }: { values: string[]; maxRetries?: number },
+  { values, maxRetries, asDocuments }: EmbedCall,
   store?: (embeddings: number[][]) => Promise<void>,
 ): Promise<number[][] | null> {
   // `checkDailyLimit` and `recordAiUsage` refuse the admin client without a
@@ -123,6 +147,12 @@ export async function meteredEmbed(
       embedMany({
         ...settings,
         ...(maxRetries === undefined ? {} : { maxRetries }),
+        ...(asDocuments && {
+          providerOptions: {
+            ...settings.providerOptions,
+            ...EMBED_AS_DOCUMENTS,
+          },
+        }),
         values,
       }),
   ).catch((error: unknown) => quotaAsNull(error, callFailed));
@@ -151,12 +181,21 @@ export async function meteredEmbed(
   return result.embeddings;
 }
 
-/** Null for a used-up daily quota of the provider; otherwise the error. */
+/**
+ * Null for a used-up daily quota of the provider. The Gateway's per-minute
+ * rate limit is the step's retry after the wait it names, before any
+ * `callFailed`, since no later attempt of the step is a failure of the call.
+ * Otherwise the error.
+ */
 function quotaAsNull(
   error: unknown,
   callFailed: MeteredScope["callFailed"],
 ): null {
   if (isDailyQuotaError(error)) return null;
+  const waitMs = gatewayRateLimitWaitMs(error);
+  if (waitMs !== null) {
+    throw new RetryableError(String(error), { retryAfter: waitMs });
+  }
   if (callFailed) callFailed(error);
   throw error;
 }

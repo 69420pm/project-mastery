@@ -142,7 +142,7 @@ export type TutorToday = {
     centralQuestion: string;
     /** In teaching order; `taught` when it has an FSRS schedule. */
     kcs: Array<{ id: string; name: string; type: string; taught: boolean }>;
-    /** Prerequisites from outside the Topic, prior KCs included. */
+    /** Prerequisites from outside the Topic. */
     anchors: Array<{ id: string; name: string }>;
     /**
      * The Topic's Reading sections in order. Contexts stored before #179
@@ -189,8 +189,6 @@ export type ProblemView = {
    */
   source: ProblemSource;
   name: string;
-  /** Null for a generated Problem without one. */
-  taskType: string | null;
   /** 1 to 3. */
   difficulty: number;
   /** The question's Markdown. */
@@ -224,25 +222,18 @@ export type GradedKc = {
   result: AttemptResult;
 } & KcState;
 
-/** How a Student reads a Reading section's pages. */
-export type ReadingMode = "original" | "annotated" | "study_text";
-
 /** A Reading section as the AI is told of it. */
 export type ReadingSectionView = {
   id: string;
   /** Its Material and pages, such as "Lecture 3, pp. 12–14". */
   label: string;
-  mode: ReadingMode;
 };
 
 /** A Reading section as `showReading` returns it. */
 export type ReadingView = {
   label: string;
-  mode: ReadingMode;
   /** Its chunks' Markdown, in reading order. */
   chunks: string[];
-  /** The study text the Student reads; only in `study_text` mode. */
-  studyText?: string;
 };
 
 /**
@@ -295,16 +286,17 @@ export type MapFindingView = {
 };
 
 /**
- * A map Finding on the Course map's Map findings card: an `open` one the
- * Student can accept or dismiss, or an `accepted` one the next Update map
- * applies. `linkedKc` is the other KC of a link kind, null otherwise.
+ * An open map Finding on the Course map's Map findings card, which the
+ * Student can accept (applying it) or dismiss. `linkedKc` is the
+ * prerequisite of `kc` for a link kind, null otherwise;
+ * `proposedDescription` is the new description of a `wrong_description`.
  */
 export type MapFindingItem = {
   id: string;
   kind: MapFindingKind;
-  status: "open" | "accepted";
   kc: string;
   linkedKc: string | null;
+  proposedDescription: string | null;
   reason: string;
   quote: string;
   /** Such as "Lecture 3, p. 12", with the link to the chunk on its page. */
@@ -328,7 +320,7 @@ export type TopicView = {
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
-    /** Its open and accepted map Findings, oldest first. */
+    /** Its open map Findings, oldest first. */
     findings: MapFindingView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;

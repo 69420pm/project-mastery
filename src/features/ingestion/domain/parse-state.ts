@@ -1,3 +1,7 @@
+import {
+  PARSE_LEASE_MINUTES,
+  parseStoppedReason,
+} from "@/features/ingestion/domain/parse-failure";
 import type { ParseStatus } from "@/features/ingestion/types";
 
 /** A Material's parse state, as the Materials page reads it. */
@@ -11,7 +15,25 @@ export type ParseState = {
    * will pick it up until the Student starts one.
    */
   startFailed: boolean;
+  /** The pages whose page call failed, in order; shown once parsed. */
+  unreadablePages: number[];
 };
+
+/**
+ * The state the Student sees: a queued or parsing Material without a
+ * heartbeat for PARSE_LEASE_MINUTES has stopped, so it shows failed, as
+ * `public.queue_material_parse` treats it.
+ */
+export function withLease(
+  state: ParseState,
+  heartbeatAt: string,
+  now: number = Date.now(),
+): ParseState {
+  const stale = now - Date.parse(heartbeatAt) > PARSE_LEASE_MINUTES * 60_000;
+  return stale && (state.status === "queued" || state.status === "parsing")
+    ? { ...state, status: "failed", failure: parseStoppedReason }
+    : state;
+}
 
 /**
  * Whether the Student may start the Material's parse: Parse when it was

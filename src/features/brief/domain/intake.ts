@@ -1,5 +1,3 @@
-import type { ReviewFinding } from "@/features/knowledge-map";
-
 /** The fixed fields of a Brief, each null until the Student has answered it. */
 export type BriefFields = {
   /** The exam's date, as `YYYY-MM-DD`. */
@@ -10,7 +8,10 @@ export type BriefFields = {
   openBook: boolean | null;
   formulaSheet: boolean | null;
   calculator: boolean | null;
-  /** Whether the Student confirmed which Materials the exam covers. */
+  /**
+   * Whether the Student answered the scope step: the excluded Materials, the
+   * old exams and the exam scope.
+   */
   scopeConfirmed: boolean;
 };
 
@@ -18,15 +19,18 @@ export type BriefFields = {
 export const MAX_BRIEF_NOTES_LENGTH = 20_000;
 
 /** A Course's Material as the AI sees it in the Brief. */
-type BriefMaterial = { id: string; name: string; excluded: boolean };
-
-/** An old exam among the Course's Materials, as the reservation lists it. */
-export type ExamMaterial = {
+export type BriefMaterial = {
   id: string;
   name: string;
-  year: number | null;
-  totalPoints: number | null;
+  excluded: boolean;
+  /** Whether the Student said it is an old exam. */
+  exam: boolean;
+  /** Whether the Brief has asked if it is an old exam. */
+  examAsked: boolean;
 };
+
+/** An old exam among the Course's Materials, as the reservation lists it. */
+export type ExamMaterial = { id: string; name: string };
 
 /** The Student's answer to the reservation question. */
 export type ReservedExam = {
@@ -36,16 +40,43 @@ export type ReservedExam = {
   materialId: string | null;
 };
 
+/** A stored exam scope: one Big idea or Topic the exam leaves out or stresses. */
+export type BriefExamScope = {
+  bigIdeaId: string | null;
+  topicId: string | null;
+  scope: "excluded" | "emphasized";
+  /** The Student's words. */
+  words: string;
+};
+
+/** A Big idea of the Course with its Topics, as the AI sees them. */
+export type BriefBigIdea = {
+  id: string;
+  name: string;
+  topics: Array<{ id: string; name: string }>;
+};
+
+/** An admin text of the Materials, with where it first appears. */
+export type AdminText = {
+  text: string;
+  /** "<Material> p. N". */
+  source: string;
+};
+
 /** Everything the AI is told about a Brief before it replies. */
 export type BriefContext = {
   fields: BriefFields;
   notes: string | null;
+  /** The Course's Materials, oldest upload first. */
   materials: BriefMaterial[];
   /** The Course's old exams, oldest upload first. */
   exams: ExamMaterial[];
   reservedExam: ReservedExam;
-  /** The Course's open Findings, in map order; none before intake is done. */
-  findings: ReviewFinding[];
+  /** The Course's Big ideas and Topics, in Course order. */
+  bigIdeas: BriefBigIdea[];
+  examScopes: BriefExamScope[];
+  /** The distinct admin texts of the Materials, in Course order. */
+  adminTexts: AdminText[];
 };
 
 /**
@@ -60,39 +91,12 @@ export function isIntakeDone(fields: BriefFields | null): boolean {
 }
 
 /**
- * Whether the Brief asks the reservation question now: once intake is done,
- * while the Course has an old exam and the Student has not answered it.
- */
-function asksReservation(
-  fields: BriefFields | null,
-  exams: ExamMaterial[],
-  reserved: ReservedExam,
-): boolean {
-  return isIntakeDone(fields) && exams.length > 0 && !reserved.answered;
-}
-
-/**
- * Whether the Brief asks about the Findings: once intake is done and the
- * reservation question, when there is one, is answered.
- */
-export function asksFindings(
-  fields: BriefFields | null,
-  exams: ExamMaterial[],
-  reserved: ReservedExam,
-): boolean {
-  return isIntakeDone(fields) && !asksReservation(fields, exams, reserved);
-}
-
-/**
- * The exam the reservation question suggests: with two or more, the most
- * recent by year (a later upload breaks ties, an exam without a year comes
- * last); with only one, none, so that it stays for practice.
+ * The exam the reservation question suggests: with two or more, the latest
+ * upload; with only one, none, so that it stays for practice. `exams` are
+ * oldest upload first.
  */
 export function suggestedReservation(
   exams: ExamMaterial[],
 ): ExamMaterial | null {
-  if (exams.length < 2) return null;
-  return exams.reduce((best, exam) =>
-    (exam.year ?? -Infinity) >= (best.year ?? -Infinity) ? exam : best,
-  );
+  return exams.length < 2 ? null : (exams.at(-1) ?? null);
 }

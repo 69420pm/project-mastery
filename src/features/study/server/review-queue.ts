@@ -64,7 +64,7 @@ export async function loadReviewQueue(
     startedAt,
     minutesPerReview,
     topicOf,
-    links: [...map.prerequisites, ...map.semanticLinks],
+    links: map.prerequisites,
     questions: questions.data.map((row) => ({
       kcIds: row.question_kcs.map(({ kc_id }) => kc_id),
       askedAt: row.asked_at,

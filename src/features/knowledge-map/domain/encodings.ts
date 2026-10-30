@@ -1,8 +1,4 @@
-import {
-  KC_TYPES,
-  SEMANTIC_LINK_TYPES,
-  type KcType,
-} from "@/features/knowledge-map/schemas";
+import { KC_TYPES, type KcType } from "@/features/knowledge-map/schemas";
 import type {
   MapKcLearning,
   MapPriorities,
@@ -62,7 +58,6 @@ const TYPE_COLORS: Record<KcType, string> = {
   concept: "oklch(0.68 0.15 150)",
   procedure: "oklch(0.7 0.15 60)",
   decision: "oklch(0.64 0.17 330)",
-  prior: NEUTRAL,
 };
 
 /** Categorical colours for Big ideas, handed out in order and reused. */
@@ -120,8 +115,8 @@ function rampColor(fraction: number): string {
 export type ColorContext = {
   state: KcState;
   type: KcType;
-  /** The id of its Big idea; null for prior knowledge. */
-  bigIdeaId: string | null;
+  /** The id of its Big idea. */
+  bigIdeaId: string;
   /** From `priorityFractions`; undefined without a Priority. */
   fraction: number | undefined;
 };
@@ -149,7 +144,7 @@ export function kcColor(
     case "type":
       return TYPE_COLORS[kc.type];
     case "bigIdea":
-      return (kc.bigIdeaId && bigIdeas.get(kc.bigIdeaId)) || NEUTRAL;
+      return bigIdeas.get(kc.bigIdeaId) ?? NEUTRAL;
   }
 }
 
@@ -182,10 +177,7 @@ export function legendEntries(
       }));
     case "bigIdea": {
       const colors = bigIdeaColors(bigIdeas.map((b) => b.id));
-      return [
-        ...bigIdeas.map((b) => ({ label: b.name, color: colors.get(b.id)! })),
-        { label: "Prior knowledge", color: NEUTRAL },
-      ];
+      return bigIdeas.map((b) => ({ label: b.name, color: colors.get(b.id)! }));
     }
   }
 }
@@ -207,23 +199,10 @@ export function parseSettings(saved: string | null): MapSettings {
     typeof stored.layers === "object" && stored.layers !== null
       ? (stored.layers as Record<string, unknown>)
       : {};
-  const storedLinks =
-    typeof storedLayers.semanticLinks === "object" &&
-    storedLayers.semanticLinks !== null
-      ? (storedLayers.semanticLinks as Record<string, unknown>)
-      : {};
   const flag = (value: unknown, fallback: boolean) =>
     typeof value === "boolean" ? value : fallback;
   const layers: MapLayers = {
-    priorKnowledge: flag(
-      storedLayers.priorKnowledge,
-      DEFAULT_LAYERS.priorKnowledge,
-    ),
     exercises: flag(storedLayers.exercises, DEFAULT_LAYERS.exercises),
-    solutionBadges: flag(
-      storedLayers.solutionBadges,
-      DEFAULT_LAYERS.solutionBadges,
-    ),
     prerequisites: flag(
       storedLayers.prerequisites,
       DEFAULT_LAYERS.prerequisites,
@@ -232,12 +211,6 @@ export function parseSettings(saved: string | null): MapSettings {
       storedLayers.bigIdeaGroups,
       DEFAULT_LAYERS.bigIdeaGroups,
     ),
-    semanticLinks: Object.fromEntries(
-      SEMANTIC_LINK_TYPES.map((type) => [
-        type,
-        flag(storedLinks[type], DEFAULT_LAYERS.semanticLinks[type]),
-      ]),
-    ) as MapLayers["semanticLinks"],
   };
   return {
     layers,

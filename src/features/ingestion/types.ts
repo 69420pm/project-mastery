@@ -1,15 +1,15 @@
 /** The kinds of chunk a parse labels, one per chunk. */
 export const CHUNK_LABELS = [
   "content",
-  "definition",
-  "example",
   "exercise",
   "solution",
-  "figure",
   "admin",
 ] as const;
 
 export type ChunkLabel = (typeof CHUNK_LABELS)[number];
+
+/** Why a parse stored a page without reading it (`material_pages.skipped`). */
+export type PageSkip = "blank" | "overlay" | "unreadable";
 
 /** Where a Material's parse stands. */
 export type ParseStatus =
@@ -23,10 +23,7 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  /** What a figure chunk shows, in words. */
-  figure: { description: string } | null;
   exerciseNumber: string | null;
-  points: number | null;
   /** An exercise subtask's solution; null for other chunks. */
   solution: ExerciseSolution | null;
 };
@@ -42,21 +39,13 @@ export type ExerciseSolution =
     }
   | { status: "no_solution" };
 
-/** A Finding about a chunk, as the chunk view shows it. */
-export type ChunkFinding = {
-  id: string;
-  text: string;
-  status: "open" | "answered";
-  /** The Student's answer; null while the Finding is open. */
-  answer: string | null;
-};
-
 /** A parsed Material with its chunks, for the chunk view. */
 export type MaterialChunks = {
   materialId: string;
   courseId: string;
   name: string;
   parseStatus: ParseStatus;
-  exam: { year: number | null; totalPoints: number | null } | null;
+  /** An old exam, as the Brief confirmed it. */
+  isExam: boolean;
   chunks: ChunkView[];
 };
