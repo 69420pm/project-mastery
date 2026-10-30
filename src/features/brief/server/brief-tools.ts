@@ -23,14 +23,17 @@ const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 /**
  * What the Brief's tools do, as the signed-in Student, to the Course's
  * Brief. `context` holds the Course's Materials, Big ideas and Topics when
- * the reply started, and `studentTexts` the Student's messages so far. Each
- * tool writes in one transaction, so a failed call changes nothing.
+ * the reply started, `studentTexts` the Student's messages so far and
+ * `askedMaterialIds` the Materials the Student was asked about as old
+ * exams. Each tool writes in one transaction, so a failed call changes
+ * nothing.
  */
 export function briefToolActions(
   supabase: Supabase,
   courseId: string,
   context: BriefContext,
   studentTexts: string[],
+  askedMaterialIds: string[],
 ): BriefToolActions {
   const known = new Set(context.materials.map(({ id }) => id));
   const ofCourse = (ids: string[] | undefined) => ({
@@ -75,6 +78,7 @@ export function briefToolActions(
       await saveBrief(supabase, courseId, fields, {
         excludedMaterialIds: excluded.kept,
         examMaterialIds: exams.kept,
+        askedMaterialIds,
       });
       const unknown = [...excluded.unknown, ...exams.unknown];
       const ignored = [

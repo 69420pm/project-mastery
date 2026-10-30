@@ -2341,6 +2341,7 @@ export type Database = {
       retire_unsourced_kcs: { Args: { p_course_id: string }; Returns: number };
       save_brief: {
         Args: {
+          asked_material_ids?: string[];
           course_id: string;
           exam_material_ids?: string[];
           excluded_material_ids?: string[];

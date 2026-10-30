@@ -118,11 +118,17 @@ function createDb() {
         if (!brief) return false;
         Object.assign(brief, args.fields);
         const exams = args.exam_material_ids as string[] | undefined;
+        const asked = (args.asked_material_ids ?? []) as string[];
         if (exams) {
           for (const material of tables.materials) {
             if (material.course_id !== args.course_id) continue;
             material.is_exam = exams.includes(material.id as string);
-            if (material.parse_status === "parsed") material.exam_asked = true;
+            if (
+              material.parse_status === "parsed" &&
+              asked.includes(material.id as string)
+            ) {
+              material.exam_asked = true;
+            }
           }
         }
         const ids = args.excluded_material_ids as string[] | undefined;

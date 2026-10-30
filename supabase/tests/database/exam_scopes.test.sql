@@ -24,7 +24,8 @@ values
 insert into public.materials (id, owner, course_id, name, storage_path, media_type, size_bytes, parse_status)
 values
   ('aaaaaaaa-0000-0000-0000-0000000000f1', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Klausur', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f1', 'application/pdf', 10, 'parsed'),
-  ('aaaaaaaa-0000-0000-0000-0000000000f2', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Lecture', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f2', 'application/pdf', 10, 'parsing');
+  ('aaaaaaaa-0000-0000-0000-0000000000f2', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Lecture', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f2', 'application/pdf', 10, 'parsing'),
+  ('aaaaaaaa-0000-0000-0000-0000000000f3', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Notes', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f3', 'application/pdf', 10, 'parsed');
 
 insert into public.big_ideas (id, owner, course_id, name, description, position)
 values
@@ -88,12 +89,12 @@ select throws_ok(
 -- Old exams -------------------------------------------------------------------
 
 update public.briefs set reserved_exam_answered = true where course_id = 'aaaaaaaa-c000-0000-0000-000000000001';
-select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f1"}', exam_material_ids => array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[]);
+select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f1"}', exam_material_ids => array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[], asked_material_ids => array['aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-0000000000f2']::uuid[]);
 
 select results_eq(
   $$select name, is_exam, exam_asked from public.materials order by name$$,
-  $$values ('Klausur', true, true), ('Lecture', false, false)$$,
-  'save_brief sets the old exams and marks the parsed Materials asked');
+  $$values ('Klausur', true, true), ('Lecture', false, false), ('Notes', false, false)$$,
+  'save_brief sets the old exams and marks the parsed Materials the question listed asked');
 
 select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', exam_material_ids => array[]::uuid[]);
 

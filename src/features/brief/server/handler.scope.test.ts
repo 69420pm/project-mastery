@@ -62,9 +62,19 @@ describe("the old-exam question", () => {
     ]);
   });
 
-  test("the answer marks them asked, and a Material parsed later is asked alone", async () => {
+  test("the answer marks the listed ones asked, and a Material parsed meanwhile is asked alone", async () => {
     seedBrief({ done: true });
     await open();
+    db.tables.materials.push({
+      id: "aaaaaaaa-0000-4000-8000-000000000003",
+      owner: STUDENT,
+      course_id: COURSE,
+      name: "Sheet 3",
+      created_at: "2026-10-03T00:00:00Z",
+      parse_status: "parsed",
+      is_exam: null,
+      exam_asked: false,
+    });
     useMockModels({
       brief: mockToolModel(
         [[{ toolName: "saveBrief", input: { examMaterialIds: [OLD_EXAM] } }]],
@@ -81,17 +91,8 @@ describe("the old-exam question", () => {
     ).toEqual([
       [true, true],
       [false, true],
+      [false, false],
     ]);
-    db.tables.materials.push({
-      id: "aaaaaaaa-0000-4000-8000-000000000003",
-      owner: STUDENT,
-      course_id: COURSE,
-      name: "Sheet 3",
-      created_at: "2026-10-03T00:00:00Z",
-      parse_status: "parsed",
-      is_exam: null,
-      exam_asked: false,
-    });
     await open();
 
     expect(stored().at(-1)?.text).toBe("Are any of these old exams? Sheet 3");

@@ -15,6 +15,8 @@ import {
 import { after } from "next/server";
 import { briefReplySettings } from "@/features/brief/ai/reply";
 import { briefTools } from "@/features/brief/ai/tools";
+import { isIntakeDone } from "@/features/brief/domain/intake";
+import { askedMaterialIds } from "@/features/brief/domain/old-exams";
 import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
@@ -180,7 +182,18 @@ async function streamReply({
         ...settings,
         messages: await convertToModelMessages(messages),
         tools: briefTools(
-          briefToolActions(supabase, courseId, context, studentTexts),
+          briefToolActions(
+            supabase,
+            courseId,
+            context,
+            studentTexts,
+            askedMaterialIds(
+              messages,
+              isIntakeDone(context.fields)
+                ? []
+                : context.materials.map(({ id }) => id),
+            ),
+          ),
         ),
         stopWhen: isStepCount(MAX_STEPS),
         // A disconnect, such as a closed tab, aborts generation.

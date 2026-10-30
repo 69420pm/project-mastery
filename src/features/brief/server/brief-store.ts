@@ -5,7 +5,10 @@ import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 import { loadAdminChunks } from "@/features/ingestion/server";
 import { distinctAdminTexts } from "@/features/brief/domain/admin-texts";
-import { oldExamQuestion } from "@/features/brief/domain/old-exams";
+import {
+  oldExamQuestion,
+  oldExamsPart,
+} from "@/features/brief/domain/old-exams";
 import {
   OPENING_MESSAGE,
   oldExamsMessageId,
@@ -78,7 +81,8 @@ export async function openBrief(
  * Once intake is done, posts one static message, with no model call, that
  * asks whether the parsed Materials not asked yet are old exams. Safe to
  * call concurrently: the message's id derives from the Materials', so it is
- * stored once. The answer goes through `saveBrief`, which marks them asked.
+ * stored once. It carries their ids in a data part, which the model does
+ * not see, so the answer marks only them asked (`askedMaterialIds`).
  */
 async function askOldExams(
   supabase: Supabase,
@@ -98,7 +102,10 @@ async function askOldExams(
     id: oldExamsMessageId(unasked.map(({ id }) => id)),
     course_id: courseId,
     role: "assistant",
-    parts: [{ type: "text", text: oldExamQuestion(unasked) }],
+    parts: [
+      { type: "text", text: oldExamQuestion(unasked) },
+      oldExamsPart(unasked.map(({ id }) => id)),
+    ],
     model_id: STATIC_MODEL_ID,
   });
   if (error && error.code !== "23505") failed("Asking about old exams", error);
@@ -307,8 +314,9 @@ export type BriefFieldsUpdate = Pick<
 /**
  * Changes the given fields of the Course's Brief and, unless null, makes
  * `excludedMaterialIds` the Materials the exam excludes and
- * `examMaterialIds` the Course's old exams (all Materials of the Course).
- * All or nothing, in one transaction (`save_brief`); throws when it fails.
+ * `examMaterialIds` the Course's old exams (all Materials of the Course),
+ * marking the parsed ones among `askedMaterialIds` asked. All or nothing,
+ * in one transaction (`save_brief`); throws when it fails.
  */
 export async function saveBrief(
   supabase: Supabase,
@@ -317,13 +325,21 @@ export async function saveBrief(
   {
     excludedMaterialIds,
     examMaterialIds,
-  }: { excludedMaterialIds: string[] | null; examMaterialIds: string[] | null },
+    askedMaterialIds = [],
+  }: {
+    excludedMaterialIds: string[] | null;
+    examMaterialIds: string[] | null;
+    askedMaterialIds?: string[];
+  },
 ): Promise<void> {
   const { data, error } = await supabase.rpc("save_brief", {
     course_id: courseId,
     fields,
     ...(excludedMaterialIds && { excluded_material_ids: excludedMaterialIds }),
-    ...(examMaterialIds && { exam_material_ids: examMaterialIds }),
+    ...(examMaterialIds && {
+      exam_material_ids: examMaterialIds,
+      asked_material_ids: askedMaterialIds,
+    }),
   });
   if (error) failed("Saving the Brief", error);
   if (!data) throw new Error("Saving the Brief failed: it does not exist");

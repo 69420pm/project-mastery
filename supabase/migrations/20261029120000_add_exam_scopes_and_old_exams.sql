@@ -21,13 +21,15 @@ drop function public.save_brief(uuid, jsonb, uuid[]);
 
 -- As before, and when `exam_material_ids` is not null, makes those Materials
 -- the Course's old exams: every Material of the Course is or is not one, and
--- every parsed Material counts as asked. A Reserved exam that is no longer
--- an old exam loses its reservation, so the Brief asks again.
+-- the parsed Materials among `asked_material_ids`, those the question listed,
+-- count as asked. A Reserved exam that is no longer an old exam loses its
+-- reservation, so the Brief asks again.
 create function public.save_brief(
   course_id uuid,
   fields jsonb default '{}',
   excluded_material_ids uuid[] default null,
-  exam_material_ids uuid[] default null
+  exam_material_ids uuid[] default null,
+  asked_material_ids uuid[] default null
 )
 returns boolean
 language plpgsql
@@ -46,7 +48,8 @@ begin
     update public.materials m
     set
       is_exam = m.id = any (exam_material_ids),
-      exam_asked = m.exam_asked or m.parse_status = 'parsed'
+      exam_asked = m.exam_asked
+        or (m.parse_status = 'parsed' and m.id = any (coalesce(asked_material_ids, '{}')))
     where m.course_id = save_brief.course_id;
 
     update public.briefs b
@@ -81,10 +84,10 @@ begin
 end;
 $$;
 
-comment on function public.save_brief(uuid, jsonb, uuid[], uuid[]) is 'Changes the given fields and, unless null, the excluded Materials and the old exams of the caller''s Brief, all or nothing; false without a Brief.';
+comment on function public.save_brief(uuid, jsonb, uuid[], uuid[], uuid[]) is 'Changes the given fields and, unless null, the excluded Materials and the old exams of the caller''s Brief, marking the listed Materials asked, all or nothing; false without a Brief.';
 
-revoke execute on function public.save_brief(uuid, jsonb, uuid[], uuid[]) from public, anon;
-grant execute on function public.save_brief(uuid, jsonb, uuid[], uuid[]) to authenticated;
+revoke execute on function public.save_brief(uuid, jsonb, uuid[], uuid[], uuid[]) from public, anon;
+grant execute on function public.save_brief(uuid, jsonb, uuid[], uuid[], uuid[]) to authenticated;
 
 -- Exam scopes ---------------------------------------------------------------
 
