@@ -1,20 +1,15 @@
-import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { parseMaterial } from "@/features/ingestion/server";
-import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
-import type { Json } from "@/lib/supabase/database.types";
+import {
+  createCourse,
+  GOLD,
+  parseSeeded,
+  recordedCalls,
+  recordedPages,
+} from "./recorded-pages";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke-check";
 
-const GOLD = "evals/gold/linear-algebra-I";
+/** Recorded: Exercises 7–16 on page 3, solutions on page 5. */
 const PDF = `${GOLD}/exercises.pdf`;
-
-/** The recorded page results of `exercises.pdf`: Exercises 7–16 and solutions. */
-type RecordedPage = {
-  page_number: number;
-  skipped: string | null;
-  language: string | null;
-  units: Array<{ label: string; exerciseNumber: string | null }>;
-};
 
 const EXERCISE_PAGE = 3;
 const SOLUTION_PAGE = 5;
@@ -46,15 +41,7 @@ export const pairSmoke: SmokeCheck = {
   maxCalls: 8,
   usage: `pnpm smoke pair (the recorded pages ${EXERCISE_PAGE} and ${SOLUTION_PAGE} of ${PDF})`,
   async run({ supabase, studentId }) {
-    const recording = JSON.parse(
-      await readFile(`${GOLD}/pages.json`, "utf8"),
-    ) as Record<string, RecordedPage[]>;
-    const pages = recording["exercises.pdf"] ?? [];
-    const page = (number: number) => {
-      const found = pages.find((p) => p.page_number === number);
-      if (!found) throw new Error(`pages.json has no page ${number}.`);
-      return found;
-    };
+    const page = await recordedPages("exercises.pdf");
     const withoutNumbers = {
       ...page(SOLUTION_PAGE),
       units: page(SOLUTION_PAGE).units.map((unit) => ({
@@ -97,7 +84,11 @@ export const pairSmoke: SmokeCheck = {
     for (const scenario of scenarios) {
       console.info(`Pairing ${scenario.name}…`);
       const before = await pairingCalls(supabase, studentId);
-      const courseId = await createCourse(supabase, studentId, scenario.name);
+      const courseId = await createCourse(
+        supabase,
+        studentId,
+        `Smoke pair: ${scenario.name}`,
+      );
       for (const material of scenario.materials) {
         await parseSeeded(smoke, courseId, material.name, material.pages);
       }
@@ -115,75 +106,8 @@ export const pairSmoke: SmokeCheck = {
   },
 };
 
-async function createCourse(
-  supabase: Supabase,
-  studentId: string,
-  name: string,
-): Promise<string> {
-  const { data, error } = await supabase
-    .from("courses")
-    .insert({ owner: studentId, name: `Smoke pair: ${name}` })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  return data.id;
-}
-
-/**
- * A Material of the whole PDF whose given pages have their recorded
- * results, parsed with only those pages, so no page is read again.
- */
-async function parseSeeded(
-  {
-    supabase,
-    studentId,
-    pdf,
-  }: { supabase: Supabase; studentId: string; pdf: Uint8Array },
-  courseId: string,
-  name: string,
-  pages: RecordedPage[],
-) {
-  const materialId = randomUUID();
-  const storagePath = `${studentId}/${courseId}/${materialId}`;
-  const upload = await supabase.storage
-    .from(MATERIALS_BUCKET)
-    .upload(storagePath, pdf, { contentType: "application/pdf" });
-  if (upload.error) throw new Error(upload.error.message);
-  const material = await supabase.from("materials").insert({
-    id: materialId,
-    owner: studentId,
-    course_id: courseId,
-    name,
-    media_type: "application/pdf",
-    size_bytes: pdf.byteLength,
-    storage_path: storagePath,
-  });
-  if (material.error) throw new Error(material.error.message);
-  const seeded = await supabase.from("material_pages").insert(
-    pages.map((page) => ({
-      owner: studentId,
-      material_id: materialId,
-      page_number: page.page_number,
-      skipped: page.skipped,
-      language: page.language,
-      units: page.units as Json[],
-    })),
-  );
-  if (seeded.error) throw new Error(seeded.error.message);
-  await parseMaterial(materialId, {
-    pages: pages.map((page) => page.page_number),
-  });
-}
-
-async function pairingCalls(supabase: Supabase, studentId: string) {
-  const { count, error } = await supabase
-    .from("ai_usage")
-    .select("id", { count: "exact", head: true })
-    .eq("owner", studentId)
-    .eq("task", "ingest");
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
+const pairingCalls = (supabase: Supabase, studentId: string) =>
+  recordedCalls(supabase, studentId, "ingest");
 
 /** The exercise number a chunk prints, as "Exercise 8" or "Solution to Exercise 8". */
 const printedNumber = (markdown: string) =>

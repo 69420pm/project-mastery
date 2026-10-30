@@ -1,11 +1,12 @@
 # Gold courses
 
-A gold course is a Course whose Materials are AI-written, so they are safe to publish, and whose pipeline output is kept in the repo as a **snapshot**. Manual testing and smoke checks can load the snapshot instead of running the expensive pipeline (parse, map, topics) again.
+A gold course is a Course whose Materials are AI-written, so they are safe to publish, and whose pipeline output is kept in the repo as a **snapshot**. Manual testing and smoke checks can load the snapshot instead of running the expensive pipeline (parse and Update map) again.
 
 ```
 evals/gold/<slug>/
   snapshot.json.gz     the Course's built content (tables in evals/gold-snapshot.ts)
   materials/<id>.pdf   the uploaded files the snapshot's Materials point at
+  pages.json           recorded page results of some pages, by file (linear-algebra-I)
 ```
 
 ## Commands
@@ -31,7 +32,7 @@ Everything the pipeline stores for a Course: Materials and their pages, chunks w
 
 ## linear-algebra-I
 
-The gold course of the Knowledge map pipeline v2 (#222). The smoke checks that need a built map (`tutor`, `generate`, `review`, `mock`, `grade-mock`, `close`, `map-findings`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
+The gold course of the Knowledge map pipeline v2 (#222). `pages.json` holds the recorded page results of `lecture-notes.pdf` pp. 19–22 (Vector Spaces) and `exercises.pdf` pp. 3 and 5 (Exercises 7–16 and solutions), which `pnpm smoke pair` and `pnpm smoke map` parse without page calls (`evals/smoke/recorded-pages.ts`); a change to the page schema records them again. The smoke checks that need a built map (`tutor`, `generate`, `review`, `mock`, `grade-mock`, `close`, `map-findings`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
 
 | File                | Pages of the script | What it holds                                                                                |
 | ------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
