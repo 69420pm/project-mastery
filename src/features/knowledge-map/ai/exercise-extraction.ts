@@ -61,7 +61,9 @@ export const exerciseExtractionSchema = (
         finalAnswers: z
           .array(
             z.object({
-              label: z.string().describe('What it is, such as "Thrust".'),
+              label: z
+                .string()
+                .describe('What it is, such as "Number of solutions".'),
               value: z.number().describe("The printed value, as a number."),
               unit: z
                 .string()
@@ -72,7 +74,7 @@ export const exerciseExtractionSchema = (
             }),
           )
           .describe(
-            "Each numeric final result exactly as printed in its statement (such as a result for checking) or its solution. Empty when none is printed: never compute one.",
+            "Each numeric final result the statement or the solution prints: a result the statement gives for checking, or the result the printed solution arrives at. Empty only when neither prints one.",
           ),
       }),
     ),
@@ -82,7 +84,7 @@ const EXERCISE_INSTRUCTIONS = `You get one Part of a university course's exercis
 
 - Give the ids of the 1 to 6 listed KCs a Student needs to solve it, most important first.
 - Only when no listed KC fits something it needs, propose a new KC: one thing one short exam question can test, with a short name, a one-line description and its type: fact (a statement to know), concept (an idea to understand), procedure (a method to carry out) or decision (when to use which method).
-- Copy each numeric final result exactly as the statement or the solution prints it, with its unit. When neither prints one, leave the final answers empty. Do not solve anything.
+- Copy each numeric final result that the statement or the solution prints, with its unit: a result the statement gives for checking, such as "Result: 12 solutions", or the result the printed solution arrives at, such as "so $\\dim W = 3$". When neither prints one, leave the final answers empty: do not solve anything yourself.
 - Mark a subtask that asks nothing of the Student, such as a heading or an instruction for the whole sheet, as not an exercise.
 - Write every name and description in the course language. Formulas in LaTeX ($...$).`;
 
