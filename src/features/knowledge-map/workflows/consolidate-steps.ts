@@ -319,13 +319,13 @@ async function mergeClusters(
     const result = await meteredGenerate(
       supabase,
       { studentId: owner, task: "map", traceName: "merge-kcs" },
-      { ...kcMergeSettings(), messages: kcMergeMessages(offered) },
+      { ...kcMergeSettings(offered), messages: kcMergeMessages(offered) },
     );
     if (!result) {
       limitReached = true;
       return "stop";
     }
-    const { same } = kcMergeSchema.parse(result.output);
+    const { same } = kcMergeSchema().parse(result.output);
     const groups = same.map((group) =>
       group.kcIds.flatMap((id) => keyOf.get(id) ?? []),
     );

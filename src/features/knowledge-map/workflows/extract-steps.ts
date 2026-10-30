@@ -145,12 +145,12 @@ async function extractPart(
     supabase,
     { studentId: owner, task: "map", traceName: "extract-part" },
     {
-      ...partExtractionSettings(),
+      ...partExtractionSettings(offeredPart),
       messages: partExtractionMessages(offeredPart),
     },
   );
   if (!result) return "limit";
-  const answer = partExtractionSchema.parse(result.output);
+  const answer = partExtractionSchema().parse(result.output);
   return {
     ...checkExtraction(
       answer,

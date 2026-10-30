@@ -1,6 +1,7 @@
 import "server-only";
 import { Output } from "ai";
 import { z } from "zod";
+import { offeredId } from "@/features/knowledge-map/ai/offered-id";
 import { aiTask } from "@/lib/ai/models";
 
 /** A KC the Prerequisite check is offered. */
@@ -23,8 +24,8 @@ export type OfferedName = {
 
 /**
  * What the check returns: for each name, the id of the candidate it means,
- * or null. The ids are plain strings, so an unknown one does not fail the
- * call: code reads it as null.
+ * or null. Any string validates as an id (`offeredId`): code reads an
+ * unknown one as null.
  */
 export function prerequisiteCheckSchema(names: readonly OfferedName[]) {
   return z.object({
@@ -32,7 +33,7 @@ export function prerequisiteCheckSchema(names: readonly OfferedName[]) {
       Object.fromEntries(
         names.map((name) => [
           name.id,
-          z.string().nullable().describe("The id of one of its candidates."),
+          offeredId(name.candidates.map((kc) => kc.id)).nullable(),
         ]),
       ),
     ),

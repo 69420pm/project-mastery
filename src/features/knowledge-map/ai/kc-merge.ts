@@ -1,6 +1,7 @@
 import "server-only";
 import { Output } from "ai";
 import { z } from "zod";
+import { offeredId } from "@/features/knowledge-map/ai/offered-id";
 import { aiTask } from "@/lib/ai/models";
 
 /** A KC the merge call is offered. */
@@ -15,20 +16,23 @@ export type OfferedKc = {
 export type OfferedCluster = { kcs: OfferedKc[] };
 
 /**
- * What the merge call returns. The KC ids are plain strings, so an unknown
- * one does not fail the call: code drops it.
+ * What the merge call returns for clusters with these KC ids. Any string
+ * validates as an id (`offeredId`): code drops an unknown one.
  */
-export const kcMergeSchema = z.object({
-  same: z
-    .array(
-      z.object({
-        kcIds: z
-          .array(z.string())
-          .describe("The ids of KCs of one cluster that are the same KC."),
-      }),
-    )
-    .describe("One entry per group of KCs that are the same. Empty when none."),
-});
+export const kcMergeSchema = (kcIds: readonly string[] = []) =>
+  z.object({
+    same: z
+      .array(
+        z.object({
+          kcIds: z
+            .array(offeredId(kcIds))
+            .describe("KCs of one cluster that are the same KC."),
+        }),
+      )
+      .describe(
+        "One entry per group of KCs that are the same. Empty when none.",
+      ),
+  });
 
 const MERGE_INSTRUCTIONS = `You get clusters of knowledge components (KCs) from one university course, as JSON: each KC with its id, name and description. The KCs of a cluster are worded alike. In each cluster, say which KCs are the same KC.
 
@@ -40,16 +44,17 @@ const MERGE_INSTRUCTIONS = `You get clusters of knowledge components (KCs) from 
  * Call settings for one merge call of a build (task `map`), over up to 15
  * clusters:
  *
- *   generateText({ ...kcMergeSettings(), messages: kcMergeMessages(c) })
+ *   generateText({ ...kcMergeSettings(c), messages: kcMergeMessages(c) })
  */
-export function kcMergeSettings() {
+export function kcMergeSettings(clusters: readonly OfferedCluster[]) {
+  const ids = clusters.flatMap((cluster) => cluster.kcs.map((kc) => kc.id));
   return {
     ...aiTask("map"),
     // With reasoning on, MiMo can answer a structured output with an empty
     // text (docs/agents/notes/ai-sdk.md).
     reasoning: "none" as const,
     instructions: MERGE_INSTRUCTIONS,
-    output: Output.object({ schema: kcMergeSchema }),
+    output: Output.object({ schema: kcMergeSchema(ids) }),
   };
 }
 
