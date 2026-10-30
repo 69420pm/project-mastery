@@ -1476,6 +1476,7 @@ export type Database = {
       };
       part_extractions: {
         Row: {
+          assumes_matched: boolean;
           content_hash: string;
           course_id: string;
           created_at: string;
@@ -1486,6 +1487,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          assumes_matched?: boolean;
           content_hash: string;
           course_id: string;
           created_at?: string;
@@ -1495,6 +1497,7 @@ export type Database = {
           part_id: string;
         };
         Update: {
+          assumes_matched?: boolean;
           content_hash?: string;
           course_id?: string;
           created_at?: string;
@@ -2190,6 +2193,7 @@ export type Database = {
           id: string;
           name: string;
           owner: string;
+          part_hashes: string[];
           position: number;
         };
         ComputedFields: never;
@@ -2201,6 +2205,7 @@ export type Database = {
           id?: string;
           name: string;
           owner: string;
+          part_hashes?: string[];
           position: number;
         };
         Update: {
@@ -2211,6 +2216,7 @@ export type Database = {
           id?: string;
           name?: string;
           owner?: string;
+          part_hashes?: string[];
           position?: number;
         };
         Relationships: [
@@ -2247,12 +2253,27 @@ export type Database = {
         Args: { course_id: string; text: string };
         Returns: boolean;
       };
+      alike_kcs: {
+        Args: { p_count: number; p_course_id: string; p_similarity: number };
+        Returns: {
+          a: string;
+          b: string;
+          similarity: number;
+        }[];
+      };
       append_memory: {
         Args: { course_id: string; text: string };
         Returns: boolean;
       };
       arrange_knowledge_map: {
-        Args: { p_big_ideas: Json; p_course_id: string; p_kcs: Json };
+        Args: {
+          p_big_ideas: Json;
+          p_check_report?: Json;
+          p_course_id: string;
+          p_dropped_prerequisites?: Json;
+          p_kcs: Json;
+          p_topics?: Json;
+        };
         Returns: boolean;
       };
       match_chunks: {
@@ -2352,6 +2373,18 @@ export type Database = {
       };
       start_study_session_topic: {
         Args: { p_session_id: string; p_stage: string; p_topic_id: string };
+        Returns: boolean;
+      };
+      store_assumed_prerequisites: {
+        Args: {
+          p_course_id: string;
+          p_part_ids: string[];
+          p_prerequisites: Json;
+        };
+        Returns: boolean;
+      };
+      store_named_topics: {
+        Args: { p_course_id: string; p_topics: Json };
         Returns: boolean;
       };
       store_part_kcs: {

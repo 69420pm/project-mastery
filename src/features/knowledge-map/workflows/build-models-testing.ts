@@ -62,31 +62,67 @@ const answer = (value: unknown) => ({
   warnings: [],
 });
 
+/** A name a KC assumes, as the Prerequisite check sent it. */
+export type SentName = {
+  id: string;
+  name: string;
+  usedBy: string;
+  candidates: Array<{ id: string; name: string }>;
+};
+
+/** A Big idea's new Topics, as the naming call sent them. */
+export type SentBigIdea = {
+  bigIdea: string;
+  language: string;
+  topics: Array<{ id: string; parts: string[]; kcs: string[] }>;
+};
+
 /**
- * Routes the `map`, `exercise` and `embed` tasks to mocks, one call at a
- * time. The extraction gives each Part the KCs `kcsOf` names (by default
- * one named after the Part's title), all citing its first chunk; the merge
- * call calls KCs of one cluster with the same name the same. Every KC text
- * gets a one-hot vector of its own, so equal texts are alike and others are
- * not. `afterCall` runs after each extraction call. The `exercise` task
- * answers each subtask with what `subtaskOf` says (by default nothing),
- * naming offered KCs by name.
+ * Routes the `map`, `exercise`, `topic` and `embed` tasks to mocks, one
+ * call at a time. The extraction gives each Part the KCs `kcsOf` names (by
+ * default one named after the Part's title), all citing its first chunk
+ * and assuming what `assumesOf` says (by default nothing); the merge call
+ * calls KCs of one cluster with the same name the same. The Prerequisite
+ * check picks the candidate named `meaningOf` the name (by default the
+ * name itself). Every KC text gets a one-hot vector of its own, so equal
+ * texts are alike and others are not. `afterCall` runs after each
+ * extraction call. The `exercise` task answers each subtask with what
+ * `subtaskOf` says (by default nothing), naming offered KCs by name. The
+ * `topic` task names each Topic "Topic <its Parts' titles>".
  */
 export function useBuildModels({
   kcsOf = (part) => [part.title],
+  assumesOf = () => [],
+  meaningOf = (name) => name.name,
   subtaskOf = () => ({}),
   afterCall,
 }: {
   kcsOf?: (part: SentPart) => string[];
+  assumesOf?: (kc: string) => string[];
+  meaningOf?: (name: SentName) => string | null;
   subtaskOf?: (subtask: SentExercisePart["subtasks"][number]) => SubtaskAnswer;
   afterCall?: (count: number) => void;
 } = {}) {
   const extractions: SentPart[] = [];
   const merges: unknown[] = [];
+  const checks: SentName[][] = [];
   const embedded: string[] = [];
   const map = new MockLanguageModelV4({
     doGenerate: async ({ prompt }) => {
       const sent = userJson(prompt);
+      if ("names" in sent) {
+        const names = sent.names as SentName[];
+        checks.push(names);
+        return answer({
+          meanings: Object.fromEntries(
+            names.map((name) => [
+              name.id,
+              name.candidates.find((kc) => kc.name === meaningOf(name))?.id ??
+                null,
+            ]),
+          ),
+        });
+      }
       if ("clusters" in sent) {
         merges.push(sent);
         const clusters = sent.clusters as Array<{
@@ -108,7 +144,7 @@ export function useBuildModels({
           description: `About ${name}.`,
           type: "concept",
           chunkIds: [part.chunks[0]!.id],
-          assumes: [],
+          assumes: assumesOf(name),
         })),
         prerequisites: [],
       });
@@ -158,7 +194,25 @@ export function useBuildModels({
       });
     },
   });
-  useMockModels({ map, embed, exercise });
+  const namings: SentBigIdea[] = [];
+  const topic = new MockLanguageModelV4({
+    doGenerate: async ({ prompt }) => {
+      const sent = userJson(prompt) as SentBigIdea;
+      namings.push(sent);
+      return answer({
+        topics: Object.fromEntries(
+          sent.topics.map((topic) => [
+            topic.id,
+            {
+              name: `Topic ${topic.parts.join(", ")}`,
+              centralQuestion: `What is ${topic.parts.join(", ")}?`,
+            },
+          ]),
+        ),
+      });
+    },
+  });
+  useMockModels({ map, embed, exercise, topic });
   vi.stubEnv("AI_CONCURRENCY", "1");
-  return { extractions, merges, embedded, exercises };
+  return { extractions, merges, checks, namings, embedded, exercises };
 }

@@ -12,7 +12,7 @@ const PDF = path.join(
   "two-page-lecture.pdf",
 );
 
-test("a parsed Material is built into a Knowledge map", async ({
+test("a parsed Material is built into a Knowledge map with its Topics", async ({
   page,
   course,
 }) => {
@@ -34,6 +34,9 @@ test("a parsed Material is built into a Knowledge map", async ({
   await expect(update).toBeVisible({ timeout: 30_000 });
   await expect(status).toContainText("Last built");
   await expect(status).not.toContainText("Build failed");
-  // The map holds the Material's KCs.
+  // The graph shows the Topic the mock AI named.
   await expect(page.getByText("No map yet")).toBeHidden();
+  await expect(
+    page.getByRole("application").getByRole("link", { name: /Mock text/ }),
+  ).toBeVisible();
 });

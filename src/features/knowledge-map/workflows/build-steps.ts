@@ -1,8 +1,5 @@
 import "server-only";
-import {
-  arrangeMap,
-  courseLanguage,
-} from "@/features/knowledge-map/domain/course-order";
+import { courseLanguage } from "@/features/knowledge-map/domain/course-order";
 import { getAiEnv } from "@/lib/ai/env";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -166,86 +163,15 @@ export async function prepareBuild(
   return "ready";
 }
 
-async function retireUnsourcedKcs(supabase: AdminSupabase, courseId: string) {
+/** Retires the Course's live KCs whose sources are all gone. */
+export async function retireUnsourcedKcs(
+  supabase: AdminSupabase,
+  courseId: string,
+) {
   const { error } = await supabase.rpc("retire_unsourced_kcs", {
     p_course_id: courseId,
   });
   if (error) failed("Retiring the KCs without sources", error);
-}
-
-/**
- * Ends a build: retires the KCs whose sources went meanwhile, puts the Big
- * ideas and KCs in Course order and marks the build built.
- */
-export async function arrangeKnowledgeMap(courseId: string): Promise<void> {
-  "use step";
-  const supabase = createAdminClient();
-  if (!(await touchBuild(supabase, courseId))) return;
-  await retireUnsourcedKcs(supabase, courseId);
-
-  const [parts, materials, chunks, kcs, sources] = await Promise.all([
-    loadCourseParts(supabase, courseId),
-    supabase
-      .from("materials")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("position"),
-    allRows("Loading the chunks", (from, to) =>
-      supabase
-        .from("chunks")
-        .select("id, material_id, part_id, position")
-        .eq("course_id", courseId)
-        .order("material_id")
-        .order("position")
-        .range(from, to),
-    ),
-    allRows("Loading the KCs", (from, to) =>
-      supabase
-        .from("kcs")
-        .select("id")
-        .eq("course_id", courseId)
-        .is("retired_at", null)
-        .order("position")
-        .range(from, to),
-    ),
-    allRows("Loading the KC sources", (from, to) =>
-      supabase
-        .from("kc_sources")
-        .select("kc_id, chunk_id")
-        .eq("course_id", courseId)
-        .order("kc_id")
-        .order("chunk_id")
-        .range(from, to),
-    ),
-  ]);
-  if (materials.error) failed("Loading the Materials", materials.error);
-
-  const chapterOf = new Map(parts.map((part) => [part.id, part.chapterTitle]));
-  const ordered = materials.data.flatMap((material) =>
-    chunks
-      .filter((chunk) => chunk.material_id === material.id)
-      .map((chunk) => ({
-        id: chunk.id,
-        // A chunk of no Part is filed under its Material.
-        chapter:
-          (chunk.part_id && chapterOf.get(chunk.part_id)) || material.name,
-      })),
-  );
-  const arranged = arrangeMap(
-    ordered,
-    kcs.map((kc) => ({
-      id: kc.id,
-      sources: sources
-        .filter((source) => source.kc_id === kc.id)
-        .map((source) => source.chunk_id),
-    })),
-  );
-  const { error } = await supabase.rpc("arrange_knowledge_map", {
-    p_course_id: courseId,
-    p_big_ideas: arranged.bigIdeas,
-    p_kcs: arranged.kcs,
-  });
-  if (error) failed("Arranging the knowledge map", error);
 }
 
 /** Marks the running build failed with a reason for the Student. */

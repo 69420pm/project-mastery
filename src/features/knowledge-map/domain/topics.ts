@@ -15,8 +15,10 @@ export type Topic = {
   kcs: string[];
 };
 
-const firstSource = (topic: Topic, rank: (kcId: string) => number) =>
-  Math.min(...topic.kcs.map(rank));
+const firstSource = (
+  topic: Pick<Topic, "kcs">,
+  rank: (kcId: string) => number,
+) => Math.min(...topic.kcs.map(rank));
 
 /**
  * KCs in the given order, stably re-sorted so a KC comes after its
@@ -40,11 +42,11 @@ export function teachingOrder(
  * earliest first source (`rank` of a KC) goes first; a cycle is broken by
  * taking its Topic with the earliest first source.
  */
-export function topicOrder(
-  topics: Topic[],
+export function topicOrder<T extends Pick<Topic, "kcs">>(
+  topics: T[],
   prerequisites: KnowledgeMap["prerequisites"],
   rank: (kcId: string) => number,
-): Topic[] {
+): T[] {
   return prerequisiteOrder(
     topics,
     (a, b) =>

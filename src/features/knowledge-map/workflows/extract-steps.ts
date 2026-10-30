@@ -84,6 +84,7 @@ export async function extractParts(courseId: string): Promise<StepOutcome> {
         content_hash: part.contentHash,
         output: extraction,
         kc_ids: null,
+        assumes_matched: false,
       },
       { onConflict: "part_id" },
     );
@@ -124,8 +125,11 @@ async function extractPart(
     language,
     chunks,
   }: { part: CoursePart; language: string; chunks: PartChunk[] },
-): Promise<PartExtraction | "limit"> {
-  if (chunks.length === 0) return { kcs: [], prerequisites: [] };
+): Promise<(PartExtraction & { kcBudget: number }) | "limit"> {
+  const budget = kcBudget(chunks.map((chunk) => chunk.markdown));
+  if (chunks.length === 0) {
+    return { kcs: [], prerequisites: [], kcBudget: budget };
+  }
   const offered = chunks.map((chunk, index): OfferedChunk => ({
     id: `c${index + 1}`,
     markdown: chunk.markdown,
@@ -134,7 +138,7 @@ async function extractPart(
     title: part.title,
     chapterTitle: part.chapterTitle,
     language,
-    kcBudget: kcBudget(chunks.map((chunk) => chunk.markdown)),
+    kcBudget: budget,
     chunks: offered,
   };
   const result = await meteredGenerate(
@@ -149,8 +153,11 @@ async function extractPart(
   const answer = partExtractionSchema(
     offered.map((chunk) => chunk.id) as [string, ...string[]],
   ).parse(result.output);
-  return checkExtraction(
-    answer,
-    new Map(chunks.map((chunk, index) => [offered[index]!.id, chunk.id])),
-  );
+  return {
+    ...checkExtraction(
+      answer,
+      new Map(chunks.map((chunk, index) => [offered[index]!.id, chunk.id])),
+    ),
+    kcBudget: budget,
+  };
 }

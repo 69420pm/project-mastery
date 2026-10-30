@@ -119,7 +119,6 @@ export async function getKnowledgeMap(
   // In reading order: Materials in upload order, chunks by position.
   const chunks = await loadChunkSources(supabase, [
     ...sources.map((source) => source.chunk_id),
-    ...(report?.uncoveredChunkIds ?? []),
     ...exercises.flatMap((exercise) =>
       exercise.solution_chunk_id
         ? [exercise.question_chunk_id, exercise.solution_chunk_id]
@@ -127,14 +126,6 @@ export async function getKnowledgeMap(
     ),
   ]);
   const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  /** The pages of these chunks in reading order, each page once. */
-  const pagesOf = (chunkIds: string[]) => [
-    ...new Set(
-      chunks
-        .filter((chunk) => chunkIds.includes(chunk.id))
-        .map((chunk) => `${chunk.materialName} p. ${chunk.pageFrom}`),
-    ),
-  ];
   const sourcesOf = (kcId: string): KcSourceView[] => {
     const ids = new Set(
       sources
@@ -209,14 +200,6 @@ export async function getKnowledgeMap(
           chunkById.get(exercise.solution_chunk_id ?? "")?.markdown ?? null,
       };
     }),
-    checkReport: report && {
-      uncoveredChunks: pagesOf(report.uncoveredChunkIds),
-      ungroundedKcs: report.ungroundedKcs,
-      orphanKcs: report.orphanKcs,
-      droppedCycleEdges: report.droppedCycleEdges,
-      unmappedExercises: report.unmappedExercises,
-      untestedKcs: report.untestedKcs,
-      duplicates: report.duplicates,
-    },
+    checkReport: report,
   };
 }

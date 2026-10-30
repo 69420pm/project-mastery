@@ -217,6 +217,81 @@ export function createBuildDb() {
         build.heartbeat_at = now();
         return true;
       },
+      store_assumed_prerequisites: (args, tables) => {
+        const build = building(tables, args.p_course_id);
+        if (!build) return false;
+        for (const link of args.p_prerequisites as FakeRow[]) {
+          tables.prerequisite_links.push({
+            owner: build.owner,
+            course_id: args.p_course_id,
+            from_kc: link.from,
+            to_kc: link.to,
+          });
+        }
+        for (const row of tables.part_extractions) {
+          if ((args.p_part_ids as string[]).includes(row.part_id as string)) {
+            row.assumes_matched = true;
+          }
+        }
+        return true;
+      },
+      store_named_topics: (args, tables) => {
+        const build = building(tables, args.p_course_id);
+        if (!build) return false;
+        for (const topic of args.p_topics as FakeRow[]) {
+          const hashes = JSON.stringify(topic.partHashes);
+          if (
+            tables.topics.some(
+              (row) => JSON.stringify(row.part_hashes) === hashes,
+            )
+          ) {
+            continue;
+          }
+          let bigIdea = tables.big_ideas.find(
+            (row) => row.name === topic.bigIdea,
+          );
+          if (!bigIdea) {
+            bigIdea = {
+              id: crypto.randomUUID(),
+              owner: build.owner,
+              course_id: args.p_course_id,
+              name: topic.bigIdea,
+              description: topic.bigIdea,
+              position: tables.big_ideas.length,
+            };
+            tables.big_ideas.push(bigIdea);
+          }
+          tables.topics.push({
+            id: crypto.randomUUID(),
+            owner: build.owner,
+            course_id: args.p_course_id,
+            big_idea_id: bigIdea.id,
+            name: topic.name,
+            central_question: topic.centralQuestion,
+            position: tables.topics.length,
+            part_hashes: topic.partHashes,
+          });
+        }
+        return true;
+      },
+      alike_kcs: (args, tables) => {
+        const live = tables.kcs.filter(
+          (kc) =>
+            kc.course_id === args.p_course_id && !kc.retired_at && kc.embedding,
+        );
+        return live
+          .flatMap((a, i) =>
+            live.slice(i + 1).map((b) => ({
+              a: a.id,
+              b: b.id,
+              similarity: cosineSimilarity(
+                vectorOf(a.embedding),
+                vectorOf(b.embedding),
+              ),
+            })),
+          )
+          .filter((pair) => pair.similarity >= Number(args.p_similarity));
+      },
       arrange_knowledge_map: (args, tables) => {
         const build = building(tables, args.p_course_id);
         if (!build) return false;
@@ -234,6 +309,34 @@ export function createBuildDb() {
           }),
           position,
         }));
+        const topics = args.p_topics as Array<{
+          id: string;
+          bigIdea: string;
+          kcs: string[];
+        }>;
+        tables.topics = topics.map((topic, position) => ({
+          ...tables.topics.find((row) => row.id === topic.id)!,
+          position,
+          big_idea_id: tables.big_ideas.find(
+            (row) => row.name === topic.bigIdea,
+          )!.id,
+        }));
+        tables.topic_kcs = topics.flatMap((topic) =>
+          topic.kcs.map((kcId, position) => ({
+            topic_id: topic.id,
+            kc_id: kcId,
+            owner: build.owner,
+            position,
+          })),
+        );
+        const dropped = args.p_dropped_prerequisites as FakeRow[];
+        tables.prerequisite_links = tables.prerequisite_links.filter(
+          (link) =>
+            !dropped.some(
+              (drop) => drop.from === link.from_kc && drop.to === link.to_kc,
+            ),
+        );
+        build.check_report = args.p_check_report;
         const order = args.p_kcs as Array<{ id: string; bigIdea: string }>;
         for (const kc of tables.kcs) {
           const index = order.findIndex((row) => row.id === kc.id);
@@ -410,6 +513,21 @@ export function queueBuild(db: BuildDb) {
       heartbeat_at: now(),
     },
   ];
+}
+
+/** The Topics' names in Course order, with their KCs' names in order. */
+export function storedTopics(db: BuildDb) {
+  const kcName = (id: unknown) =>
+    db.tables.kcs.find((kc) => kc.id === id)?.name;
+  return db.tables.topics
+    .toSorted((a, b) => Number(a.position) - Number(b.position))
+    .map((topic) => [
+      topic.name,
+      db.tables.topic_kcs
+        .filter((row) => row.topic_id === topic.id)
+        .toSorted((a, b) => Number(a.position) - Number(b.position))
+        .map((row) => kcName(row.kc_id)),
+    ]);
 }
 
 /** The live KCs' names in map order, with their Big idea's name. */

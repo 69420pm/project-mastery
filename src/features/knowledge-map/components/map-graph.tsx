@@ -14,9 +14,6 @@ import {
 import {
   BookmarkIcon,
   CopyIcon,
-  FileQuestionMarkIcon,
-  FlaskConicalOffIcon,
-  UnlinkIcon,
   GitForkIcon,
   LightbulbIcon,
   ListOrderedIcon,
@@ -73,9 +70,6 @@ const TYPE_ICONS: Record<KcType, LucideIcon> = {
 };
 
 const BADGE_ICONS: Record<CheckBadgeKind, LucideIcon> = {
-  orphan: UnlinkIcon,
-  ungrounded: FileQuestionMarkIcon,
-  untested: FlaskConicalOffIcon,
   duplicate: CopyIcon,
 };
 

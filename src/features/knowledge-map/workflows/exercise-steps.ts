@@ -154,6 +154,7 @@ export async function extractExercises(courseId: string): Promise<StepOutcome> {
         content_hash: part.contentHash,
         output: extraction,
         kc_ids: null,
+        assumes_matched: false,
       },
       { onConflict: "part_id" },
     );

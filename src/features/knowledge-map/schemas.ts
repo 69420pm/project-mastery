@@ -98,22 +98,16 @@ export const knowledgeMapSchema = z
 
 /** What the build's checks found, stored with the map it checked. */
 export const checkReportSchema = z.object({
-  /** `content` and `definition` chunks no KC cites. */
-  uncoveredChunkIds: z.array(z.uuid()),
-  /** Names of KCs without a source. */
-  ungroundedKcs: z.array(name),
-  /** Names of KCs without any Prerequisite. */
-  orphanKcs: z.array(name),
-  /** The Prerequisites dropped to break cycles, by KC name. */
-  droppedCycleEdges: z.array(z.object({ from: name, to: name })),
-  /** Exercises mapped to no KC, which fails the check. */
-  unmappedExercises: z.array(name).default([]),
-  /** Names of KCs no Exercise tests, reported only. */
-  untestedKcs: z.array(name).default([]),
-  /** KC pairs still alike enough to be duplicates after merging, reported only. */
-  duplicates: z
-    .array(z.object({ a: name, b: name, similarity: z.number() }))
-    .default([]),
+  /** Each teaching Part's extracted KCs against its KC budget, by title. */
+  kcsPerPart: z.array(
+    z.object({ part: z.string(), kcs: z.int(), budget: z.int() }),
+  ),
+  /** Titles of teaching Parts no live KC cites. */
+  partsWithoutKcs: z.array(z.string()),
+  /** Labels of Exercises that test no KC. */
+  exercisesWithoutKcs: z.array(z.string()),
+  /** KC pairs still alike enough to be duplicates after merging, by name. */
+  duplicates: z.array(z.object({ a: name, b: name, similarity: z.number() })),
 });
 
 /**
@@ -152,6 +146,8 @@ export const storedExtractionSchema = z.object({
     }),
   ),
   prerequisites: z.array(z.object({ from: z.int(), to: z.int() })),
+  /** A teaching Part's: how many KCs its call was asked for. */
+  kcBudget: z.int().optional(),
   exercises: z.array(extractedExerciseSchema).optional(),
 });
 

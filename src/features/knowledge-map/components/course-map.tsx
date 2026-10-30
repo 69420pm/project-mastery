@@ -103,8 +103,8 @@ export function CourseMap({
         <div className="max-w-3xl">
           <EmptyState
             icon={<WaypointsIcon />}
-            title="Update map to group your KCs into Topics"
-            description="This map was built before Topics, or its Topics failed."
+            title="Update map to finish your Topics"
+            description="The last update stopped before it grouped your KCs into Topics."
             action={buildButton}
           />
         </div>

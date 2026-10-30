@@ -50,9 +50,7 @@ export function TodayCard({
       <p>{mapLink("Build your Course map")} to see what to study today.</p>
     );
   } else if (plan.topics.length === 0) {
-    body = (
-      <p>{mapLink("Update your Course map")} to group your KCs into Topics.</p>
-    );
+    body = <p>{mapLink("Update your Course map")} to finish its Topics.</p>;
   } else {
     body = (
       <>

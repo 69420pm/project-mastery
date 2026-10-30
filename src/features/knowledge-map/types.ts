@@ -50,10 +50,8 @@ type PrerequisiteView = {
   to: string;
 };
 
-/** The last build's check report, with chunks as "Lecture 1 p. 3". */
-export type CheckReportView = Omit<CheckReport, "uncoveredChunkIds"> & {
-  uncoveredChunks: string[];
-};
+/** The last build's check report. */
+export type CheckReportView = CheckReport;
 
 /** A big idea with its KCs, as the map page shows it. */
 export type BigIdeaView = {

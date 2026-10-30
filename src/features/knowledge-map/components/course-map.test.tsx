@@ -154,12 +154,10 @@ test("the header shows the Readiness line and a card its Readiness", async () =>
   );
 });
 
-test("a built map without Topics asks for an update", () => {
+test("a map whose update stopped before its Topics asks for an update", () => {
   renderMap(map, []);
   expect(
-    screen.getByRole("heading", {
-      name: "Update map to group your KCs into Topics",
-    }),
+    screen.getByRole("heading", { name: "Update map to finish your Topics" }),
   ).toBeVisible();
   expect(screen.getAllByRole("button", { name: "Update map" })).toHaveLength(2);
   expect(screen.queryByRole("application")).toBeNull();

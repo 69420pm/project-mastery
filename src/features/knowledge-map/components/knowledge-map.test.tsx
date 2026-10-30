@@ -184,29 +184,26 @@ test("a selected node focuses its neighbours until Esc", async () => {
 });
 
 test("the check report has no box of its own", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   await screen.findByRole("button", { name: "Nozzles" });
   expect(screen.queryByText(/KCs without links/)).toBeNull();
 });
 
 test("the graph has zoom buttons and no library attribution", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   await screen.findByRole("button", { name: "Nozzles" });
   expect(screen.getByRole("button", { name: "Zoom in" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Zoom out" })).toBeVisible();
   expect(screen.queryByRole("link", { name: /React Flow/ })).toBeNull();
 });
 
-const withOrphan = {
+const withDuplicate = {
   ...map,
   checkReport: {
-    uncoveredChunks: [],
-    ungroundedKcs: [],
-    orphanKcs: ["Nozzles"],
-    droppedCycleEdges: [],
-    unmappedExercises: [],
-    untestedKcs: [],
-    duplicates: [],
+    kcsPerPart: [],
+    partsWithoutKcs: [],
+    exercisesWithoutKcs: [],
+    duplicates: [{ a: "Nozzles", b: "Jet nozzles", similarity: 0.9 }],
   },
 };
 
@@ -214,11 +211,12 @@ const renderWith = (view: KnowledgeMapView) =>
   render(<KnowledgeMap map={view} priorities={{ kcs: {} }} learning={{}} />);
 
 test("a KC node shows its check-report badges", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   const node = await screen.findByRole("button", { name: "Nozzles" });
-  expect(within(node).getByRole("img", { name: "No links" })).toBeVisible();
+  const badge = "Possible duplicate of Jet nozzles";
+  expect(within(node).getByRole("img", { name: badge })).toBeVisible();
   const other = screen.getByRole("button", { name: "Momentum" });
-  expect(within(other).queryByRole("img", { name: "No links" })).toBeNull();
+  expect(within(other).queryByRole("img", { name: badge })).toBeNull();
 });
 
 describe("saved settings", () => {
@@ -226,7 +224,7 @@ describe("saved settings", () => {
 
   test("a legend for the default colouring, then the saved one", async () => {
     localStorage.clear();
-    const first = renderWith(withOrphan);
+    const first = renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
     expect(legend()).toHaveTextContent("Known");
     first.unmount();
@@ -235,7 +233,7 @@ describe("saved settings", () => {
       "knowledge-map-settings",
       JSON.stringify({ colorBy: "bigIdea", layers: { exercises: false } }),
     );
-    renderWith(withOrphan);
+    renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
     expect(legend()).toHaveTextContent("Thrust");
     expect(screen.queryByRole("button", { name: "Ex. 7.2b" })).toBeNull();
@@ -243,7 +241,7 @@ describe("saved settings", () => {
 
   test("an invalid saved value falls back to the defaults", async () => {
     localStorage.setItem("knowledge-map-settings", "{broken");
-    renderWith(withOrphan);
+    renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
     expect(legend()).toHaveTextContent("Known");
     expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();

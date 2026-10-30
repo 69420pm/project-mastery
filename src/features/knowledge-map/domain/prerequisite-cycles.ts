@@ -39,3 +39,28 @@ export function acyclicLinks(
   }
   return kept;
 }
+
+/**
+ * The redundant links of acyclic Prerequisites (transitive reduction): a
+ * link from A to B is redundant when B is also reached from A through
+ * other KCs.
+ */
+export function redundantLinks(links: readonly Link[]): Link[] {
+  const next = new Map<string, string[]>();
+  for (const { from, to } of links) {
+    next.set(from, [...(next.get(from) ?? []), to]);
+  }
+  const reachedOtherwise = ({ from, to }: Link) => {
+    const seen = new Set<string>();
+    const stack = (next.get(from) ?? []).filter((node) => node !== to);
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      if (node === to) return true;
+      if (seen.has(node)) continue;
+      seen.add(node);
+      stack.push(...(next.get(node) ?? []));
+    }
+    return false;
+  };
+  return links.filter(reachedOtherwise);
+}

@@ -123,7 +123,9 @@ describe("getKnowledgeMap", () => {
         solution: null,
       },
     ]);
-    expect(view.checkReport?.uncoveredChunks).toEqual(["Notes p. 1"]);
+    expect(view.checkReport?.kcsPerPart).toEqual([
+      { part: "Thrust", kcs: 2, budget: 3 },
+    ]);
   });
 
   test.each([
