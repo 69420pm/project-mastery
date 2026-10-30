@@ -37,15 +37,15 @@ The Course's home: its Topics on its Big ideas, with the arrows between Topics t
 _Avoid_: Dashboard, overview, home page
 
 **Big idea**:
-One of the few main themes of a Course's Knowledge map, which groups its Knowledge components and Topics.
+One chapter of a Course's Materials as its Knowledge map groups it: one Big idea per chapter title, named by it, holding that chapter's Topics and Knowledge components.
 _Avoid_: Theme, chapter, module
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Every KC sits in one Big idea.
+One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Every KC sits in one Topic and its Big idea; a KC whose chunks are all gone is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
-A named unit of a few KCs of one Big idea that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates.
+A named unit of the KCs of one or a few Parts of a chapter that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while its Parts stay unchanged.
 _Avoid_: Chapter, unit, lesson, module
 
 **Topic state**:

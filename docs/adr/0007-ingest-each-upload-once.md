@@ -1,5 +1,7 @@
 # Ingestion: process every upload once
 
+> The map build: superseded by [ADR 0022](0022-knowledge-map-from-parts.md), which builds the Knowledge map from Parts, each extracted once while its content is unchanged. Ingestion is unchanged.
+
 **Context.** Grounded answers need citations down to the slide or page. Course PDFs in STEM are full of formulas, diagrams and scanned exams, which plain text extraction loses. Not every model accepts PDF files directly, but most current models accept images.
 
 **Decision.** Ingest each upload once in a background workflow: render each page to an image, convert it with a vision model to markdown with LaTeX, split it into chunks that keep their page reference, embed the chunks into pgvector, and derive the Knowledge map. Every feature reuses this result.
@@ -16,6 +18,6 @@ The non-admin chunks are then embedded as documents (`embedMany` on the `embed` 
 
 Page images and figure pictures are not stored: a PDF stays the only copy of its pages. A figure is its description in the unit's Markdown. The starting model is `xiaomi/mimo-v2.6-flash`, a cheap vision model that reads page images (not PDF files) and lets whole scripts be parsed on the Gateway's monthly free credit; the task can move to a flash model in `src/lib/ai/models.ts` when real material needs it. Every call is recorded against the Student's Daily limit, and there is no page cap.
 
-The Knowledge map, like parsing, processes each chunk once (#83): an update maps only the chunks not yet recorded in `knowledge_map_chunks`, adds what they teach to the stored map, and drops what deleted chunks taught. A re-parsed Material's chunks are new, so they are mapped again.
+The Knowledge map, like parsing, processes each Part once: an update extracts only the Parts without a stored extraction of their current content, and retires the KCs whose chunks are gone ([ADR 0022](0022-knowledge-map-from-parts.md)).
 
 **Consequences.** Works with any vision model, so the ingestion model can change freely. Ingestion cost is paid once per upload, not per question. The exact conversion model is chosen by testing on real course materials. Until chunks are used in Chats, Chats send attached Materials raw, as inline files, on every turn, so they are paid for again with each message.
