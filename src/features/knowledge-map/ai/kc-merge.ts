@@ -14,22 +14,21 @@ export type OfferedKc = {
 /** A cluster of alike KCs the merge call is offered. */
 export type OfferedCluster = { kcs: OfferedKc[] };
 
-/** What the merge call returns for clusters with these KC ids. */
-export function kcMergeSchema(kcIds: readonly [string, ...string[]]) {
-  return z.object({
-    same: z
-      .array(
-        z.object({
-          kcIds: z
-            .array(z.enum(kcIds))
-            .describe("KCs of one cluster that are the same KC."),
-        }),
-      )
-      .describe(
-        "One entry per group of KCs that are the same. Empty when none.",
-      ),
-  });
-}
+/**
+ * What the merge call returns. The KC ids are plain strings, so an unknown
+ * one does not fail the call: code drops it.
+ */
+export const kcMergeSchema = z.object({
+  same: z
+    .array(
+      z.object({
+        kcIds: z
+          .array(z.string())
+          .describe("The ids of KCs of one cluster that are the same KC."),
+      }),
+    )
+    .describe("One entry per group of KCs that are the same. Empty when none."),
+});
 
 const MERGE_INSTRUCTIONS = `You get clusters of knowledge components (KCs) from one university course, as JSON: each KC with its id, name and description. The KCs of a cluster are worded alike. In each cluster, say which KCs are the same KC.
 
@@ -41,19 +40,16 @@ const MERGE_INSTRUCTIONS = `You get clusters of knowledge components (KCs) from 
  * Call settings for one merge call of a build (task `map`), over up to 15
  * clusters:
  *
- *   generateText({ ...kcMergeSettings(c), messages: kcMergeMessages(c) })
+ *   generateText({ ...kcMergeSettings(), messages: kcMergeMessages(c) })
  */
-export function kcMergeSettings(clusters: readonly OfferedCluster[]) {
-  const ids = clusters.flatMap((cluster) => cluster.kcs.map((kc) => kc.id));
+export function kcMergeSettings() {
   return {
     ...aiTask("map"),
     // With reasoning on, MiMo can answer a structured output with an empty
     // text (docs/agents/notes/ai-sdk.md).
     reasoning: "none" as const,
     instructions: MERGE_INSTRUCTIONS,
-    output: Output.object({
-      schema: kcMergeSchema(ids as [string, ...string[]]),
-    }),
+    output: Output.object({ schema: kcMergeSchema }),
   };
 }
 

@@ -23,7 +23,8 @@ export type OfferedName = {
 
 /**
  * What the check returns: for each name, the id of the candidate it means,
- * or null. Each name may only pick its own candidates.
+ * or null. The ids are plain strings, so an unknown one does not fail the
+ * call: code reads it as null.
  */
 export function prerequisiteCheckSchema(names: readonly OfferedName[]) {
   return z.object({
@@ -31,9 +32,7 @@ export function prerequisiteCheckSchema(names: readonly OfferedName[]) {
       Object.fromEntries(
         names.map((name) => [
           name.id,
-          z
-            .enum(name.candidates.map((kc) => kc.id) as [string, ...string[]])
-            .nullable(),
+          z.string().nullable().describe("The id of one of its candidates."),
         ]),
       ),
     ),

@@ -80,8 +80,9 @@ export type SentBigIdea = {
 /**
  * Routes the `map`, `exercise`, `topic` and `embed` tasks to mocks, one
  * call at a time. The extraction gives each Part the KCs `kcsOf` names (by
- * default one named after the Part's title), all citing its first chunk
- * and assuming what `assumesOf` says (by default nothing); the merge call
+ * default one named after the Part's title), citing its first chunk (or the
+ * id `chunkIdOf` gives) and assuming what `assumesOf` says (by default
+ * nothing); the merge call
  * calls KCs of one cluster with the same name the same. The Prerequisite
  * check picks the candidate named `meaningOf` the name (by default the
  * name itself). Every KC text gets a one-hot vector of its own, so equal
@@ -93,12 +94,14 @@ export type SentBigIdea = {
 export function useBuildModels({
   kcsOf = (part) => [part.title],
   assumesOf = () => [],
+  chunkIdOf = (_kc, part) => part.chunks[0]!.id,
   meaningOf = (name) => name.name,
   subtaskOf = () => ({}),
   afterCall,
 }: {
   kcsOf?: (part: SentPart) => string[];
   assumesOf?: (kc: string) => string[];
+  chunkIdOf?: (kc: string, part: SentPart) => string;
   meaningOf?: (name: SentName) => string | null;
   subtaskOf?: (subtask: SentExercisePart["subtasks"][number]) => SubtaskAnswer;
   afterCall?: (count: number) => void;
@@ -143,7 +146,7 @@ export function useBuildModels({
           name,
           description: `About ${name}.`,
           type: "concept",
-          chunkIds: [part.chunks[0]!.id],
+          chunkIds: [chunkIdOf(name, part)],
           assumes: assumesOf(name),
         })),
         prerequisites: [],

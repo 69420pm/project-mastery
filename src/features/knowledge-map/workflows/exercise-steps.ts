@@ -311,15 +311,12 @@ async function extractPart(
     supabase,
     { studentId: owner, task: "exercise", traceName: "extract-exercises" },
     {
-      ...exerciseExtractionSettings(offered),
+      ...exerciseExtractionSettings(),
       messages: exerciseExtractionMessages(offered),
     },
   );
   if (!result) return "limit";
-  const answer = exerciseExtractionSchema(
-    subtasks.map((subtask) => subtask.id) as [string, ...string[]],
-    offeredKcs.map((kc) => kc.id),
-  ).parse(result.output);
+  const answer = exerciseExtractionSchema.parse(result.output);
   const { kcs, exercises } = checkExerciseAnswer(
     answer,
     subtasks,

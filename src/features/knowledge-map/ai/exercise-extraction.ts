@@ -24,61 +24,54 @@ export type OfferedExercisePart = {
 };
 
 /**
- * What the exercise call answers. Subtask and KC ids are enums, so the
- * model can only name what it was offered; code checks them again. Without
- * candidates, `kcIds` takes any string, which code drops.
+ * What the exercise call answers. Subtask and KC ids are plain strings, so
+ * an unknown one does not fail the call: code drops an unknown KC id, and
+ * a subtask with an unknown id is one the call left out.
  */
-export function exerciseExtractionSchema(
-  subtaskIds: readonly [string, ...string[]],
-  kcIds: readonly string[],
-) {
-  const kcId =
-    kcIds.length > 0 ? z.enum(kcIds as [string, ...string[]]) : z.string();
-  return z.object({
-    subtasks: z.array(
-      z.object({
-        id: z.enum(subtaskIds),
-        notAnExercise: z
-          .boolean()
-          .describe(
-            "True when it asks nothing of the Student, such as a heading or an instruction for the whole sheet.",
-          ),
-        kcIds: z
-          .array(kcId)
-          .describe(
-            "The 1 to 6 listed KCs a Student needs to solve it, most important first.",
-          ),
-        newKcs: z
-          .array(
-            z.object({
-              name: z.string().describe("Short, in the course language."),
-              description: z.string().describe("One line."),
-              type: z.enum(KC_TYPES),
-            }),
-          )
-          .describe(
-            "Only when no listed KC fits what it needs: KCs one short exam question can test. Usually empty.",
-          ),
-        finalAnswers: z
-          .array(
-            z.object({
-              label: z.string().describe('What it is, such as "Thrust".'),
-              value: z.number().describe("The printed value, as a number."),
-              unit: z
-                .string()
-                .nullable()
-                .describe(
-                  'Its unit in mathjs notation, such as "kN" or "m/s^2"; null for a pure number.',
-                ),
-            }),
-          )
-          .describe(
-            "Each numeric final result exactly as printed in its statement (such as a result for checking) or its solution. Empty when none is printed: never compute one.",
-          ),
-      }),
-    ),
-  });
-}
+export const exerciseExtractionSchema = z.object({
+  subtasks: z.array(
+    z.object({
+      id: z.string(),
+      notAnExercise: z
+        .boolean()
+        .describe(
+          "True when it asks nothing of the Student, such as a heading or an instruction for the whole sheet.",
+        ),
+      kcIds: z
+        .array(z.string())
+        .describe(
+          "The 1 to 6 listed KCs a Student needs to solve it, most important first.",
+        ),
+      newKcs: z
+        .array(
+          z.object({
+            name: z.string().describe("Short, in the course language."),
+            description: z.string().describe("One line."),
+            type: z.enum(KC_TYPES),
+          }),
+        )
+        .describe(
+          "Only when no listed KC fits what it needs: KCs one short exam question can test. Usually empty.",
+        ),
+      finalAnswers: z
+        .array(
+          z.object({
+            label: z.string().describe('What it is, such as "Thrust".'),
+            value: z.number().describe("The printed value, as a number."),
+            unit: z
+              .string()
+              .nullable()
+              .describe(
+                'Its unit in mathjs notation, such as "kN" or "m/s^2"; null for a pure number.',
+              ),
+          }),
+        )
+        .describe(
+          "Each numeric final result exactly as printed in its statement (such as a result for checking) or its solution. Empty when none is printed: never compute one.",
+        ),
+    }),
+  ),
+});
 
 const EXERCISE_INSTRUCTIONS = `You get one Part of a university course's exercises as JSON: its title, its chapter, the course language, its subtasks, each with an id, its number as printed, its statement and its printed solution or null, and the knowledge components (KCs) nearest to it, each with an id. Answer for every subtask.
 
@@ -92,19 +85,14 @@ const EXERCISE_INSTRUCTIONS = `You get one Part of a university course's exercis
  * Call settings for the extraction of one exercise Part (task `exercise`),
  * without reasoning: it copies and matches, it does not solve.
  *
- *   generateText({ ...exerciseExtractionSettings(part), messages: exerciseExtractionMessages(part) })
+ *   generateText({ ...exerciseExtractionSettings(), messages: exerciseExtractionMessages(part) })
  */
-export function exerciseExtractionSettings(part: OfferedExercisePart) {
+export function exerciseExtractionSettings() {
   return {
     ...aiTask("exercise"),
     reasoning: "none" as const,
     instructions: EXERCISE_INSTRUCTIONS,
-    output: Output.object({
-      schema: exerciseExtractionSchema(
-        part.subtasks.map((subtask) => subtask.id) as [string, ...string[]],
-        part.kcs.map((kc) => kc.id),
-      ),
-    }),
+    output: Output.object({ schema: exerciseExtractionSchema }),
   };
 }
 

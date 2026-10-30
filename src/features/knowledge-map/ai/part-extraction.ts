@@ -23,41 +23,39 @@ export type OfferedPart = {
 };
 
 /**
- * What the extraction call returns for a Part with these chunk ids. The
- * ids are enums, so the model can only name chunks it was offered; code
- * checks them again, and the Prerequisites' names.
+ * What the extraction call returns. The chunk ids are plain strings, so an
+ * unknown one does not fail the call: code drops a KC without a known
+ * chunk id, and a Prerequisite with an unknown end.
  */
-export function partExtractionSchema(chunkIds: readonly [string, ...string[]]) {
-  return z.object({
-    kcs: z.array(
+export const partExtractionSchema = z.object({
+  kcs: z.array(
+    z.object({
+      name: z.string().describe("Short, in the Course language."),
+      description: z
+        .string()
+        .describe("One line: what it states or how it is done."),
+      type: z.enum(KC_TYPES),
+      chunkIds: z
+        .array(z.string())
+        .describe("The ids of the chunks that teach it, at least one."),
+      assumes: z
+        .array(z.string())
+        .describe(
+          "Up to 3 names of things it uses that this Part does not explain. Empty when none.",
+        ),
+    }),
+  ),
+  prerequisites: z
+    .array(
       z.object({
-        name: z.string().describe("Short, in the Course language."),
-        description: z
-          .string()
-          .describe("One line: what it states or how it is done."),
-        type: z.enum(KC_TYPES),
-        chunkIds: z
-          .array(z.enum(chunkIds))
-          .describe("The chunks that teach it, at least one."),
-        assumes: z
-          .array(z.string())
-          .describe(
-            "Up to 3 names of things it uses that this Part does not explain. Empty when none.",
-          ),
+        from: z.string().describe("The name of the KC learned first."),
+        to: z.string().describe("The name of the KC that builds on it."),
       }),
+    )
+    .describe(
+      "Pairs of this Part's KCs where the text shows that one builds on the other.",
     ),
-    prerequisites: z
-      .array(
-        z.object({
-          from: z.string().describe("The name of the KC learned first."),
-          to: z.string().describe("The name of the KC that builds on it."),
-        }),
-      )
-      .describe(
-        "Pairs of this Part's KCs where the text shows that one builds on the other.",
-      ),
-  });
-}
+});
 
 const EXTRACTION_INSTRUCTIONS = `You get one Part of a university course's materials as JSON: its title, its chapter, the course language, a KC budget and its chunks, each with an id and its Markdown. List the knowledge components (KCs) this Part teaches.
 
@@ -72,20 +70,16 @@ const EXTRACTION_INSTRUCTIONS = `You get one Part of a university course's mater
 /**
  * Call settings for the extraction of one teaching Part (task `map`):
  *
- *   generateText({ ...partExtractionSettings(part), messages: partExtractionMessages(part) })
+ *   generateText({ ...partExtractionSettings(), messages: partExtractionMessages(part) })
  */
-export function partExtractionSettings(part: OfferedPart) {
+export function partExtractionSettings() {
   return {
     ...aiTask("map"),
     // With reasoning on, MiMo can answer a structured output with an empty
     // text (docs/agents/notes/ai-sdk.md).
     reasoning: "none" as const,
     instructions: EXTRACTION_INSTRUCTIONS,
-    output: Output.object({
-      schema: partExtractionSchema(
-        part.chunks.map((chunk) => chunk.id) as [string, ...string[]],
-      ),
-    }),
+    output: Output.object({ schema: partExtractionSchema }),
   };
 }
 

@@ -78,6 +78,19 @@ describe("Update map", () => {
     expect(db.tables.kc_sources).toHaveLength(2);
   });
 
+  test("drops a KC that cites a chunk it was not offered, and builds the rest", async () => {
+    seedMaterial(db, { parts: [{ title: "Vectors" }] });
+    useBuildModels({
+      kcsOf: () => ["Vectors", "Ghost"],
+      chunkIdOf: (kc, part) => (kc === "Ghost" ? "c99" : part.chunks[0]!.id),
+    });
+
+    await update();
+
+    expect(build()?.status).toBe("built");
+    expect(liveKcs(db).map(([name]) => name)).toEqual(["Vectors"]);
+  });
+
   test("merges a KC alike to a stored one into the older KC, which gains its sources", async () => {
     seedMaterial(db, { parts: [{ title: "Vectors" }] });
     useBuildModels({ kcsOf: () => ["Vector"] });
