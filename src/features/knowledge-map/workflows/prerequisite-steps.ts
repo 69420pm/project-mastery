@@ -24,7 +24,11 @@ import {
   firstSourcePlaces,
   loadMapInput,
 } from "@/features/knowledge-map/workflows/map-input";
-import { meteredEmbed, meteredGenerate } from "@/features/usage/server";
+import {
+  meteredEmbed,
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 
@@ -141,6 +145,8 @@ export async function matchAssumptions(courseId: string): Promise<StepOutcome> {
   if (limitReached) return { ok: false, reason: dailyLimitReason };
   return { ok: true, left: pending.length - ready.length };
 }
+
+matchAssumptions.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /** The assumed name each offered name stands for, by object. */
 const assumedOf = new WeakMap<OfferedName, Assumed>();

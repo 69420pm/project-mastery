@@ -17,7 +17,10 @@ import {
   openMaterialPdf,
   type OpenedPdf,
 } from "@/features/ingestion/workflows/page-images";
-import { meteredGenerate } from "@/features/usage/server";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { getAiEnv } from "@/lib/ai/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
@@ -275,6 +278,8 @@ export async function readPages(
   if (limitReached) return { ok: false, reason: dailyLimitReason };
   return { ok: true, left: queue };
 }
+
+readPages.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /**
  * Reads one page: its result to store, or "limit" when the Student's Daily

@@ -7,7 +7,10 @@ import {
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
-import { meteredEmbed } from "@/features/usage/server";
+import {
+  meteredEmbed,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 
@@ -21,28 +24,6 @@ const BATCH_SIZE = 20;
 const DEFAULT_RETRY_MS = 60_000;
 
 /**
- * Attempts of the step. A per-minute limit costs one attempt for each wait,
- * and a large Material takes several batches; the Workflow default is 3.
- */
-const MAX_RETRIES = 30;
-
-/**
- * The AI Gateway's own rate limit error, which is no `APICallError`, and the
- * wait its message names: "Retry after 20s."
- */
-function gatewayRateLimit(error: unknown): { retryAfterMs: number } | null {
-  if (!(error instanceof Error) || error.name !== "GatewayRateLimitError") {
-    return null;
-  }
-  const seconds = Number.parseFloat(
-    /retry after (\d+(?:\.\d+)?)s/i.exec(error.message)?.[1] ?? "",
-  );
-  return {
-    retryAfterMs: Number.isFinite(seconds) ? seconds * 1000 : DEFAULT_RETRY_MS,
-  };
-}
-
-/**
  * A failed embedding call, other than a used-up daily quota: the step's
  * error, so that the Workflow runtime is the one layer that retries: after
  * the delay the provider asks for when the call can succeed later (a
@@ -50,12 +31,6 @@ function gatewayRateLimit(error: unknown): { retryAfterMs: number } | null {
  */
 function embedCallFailed(error: unknown): never {
   const cause = RetryError.isInstance(error) ? error.lastError : error;
-  const rateLimit = gatewayRateLimit(cause);
-  if (rateLimit) {
-    throw new RetryableError((cause as Error).message, {
-      retryAfter: rateLimit.retryAfterMs,
-    });
-  }
   if (!APICallError.isInstance(cause)) throw error;
   if (!cause.isRetryable) throw new FatalError(cause.message);
   throw new RetryableError(cause.message, {
@@ -115,4 +90,4 @@ export async function embedChunks(materialId: string): Promise<ParseOutcome> {
   return { ok: true };
 }
 
-embedChunks.maxRetries = MAX_RETRIES;
+embedChunks.maxRetries = RATE_LIMITED_STEP_RETRIES;

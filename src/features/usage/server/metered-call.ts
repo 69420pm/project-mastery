@@ -1,5 +1,6 @@
 import "server-only";
 import { embedMany, generateText } from "ai";
+import { RetryableError } from "workflow";
 import { checkDailyLimit } from "@/features/usage/server/daily-limit";
 import {
   recordAiUsage,
@@ -13,12 +14,20 @@ import {
   EMBED_AS_DOCUMENTS,
   type AiTask,
 } from "@/lib/ai/models";
+import { gatewayRateLimitWaitMs } from "@/lib/ai/rate-limit";
 import type {
   AdminSupabase,
   SessionSupabase,
   Supabase,
 } from "@/lib/supabase/types";
 import { withTraceAttributes } from "@/lib/tracing";
+
+/**
+ * Attempts for a step that makes metered calls (`fn.maxRetries`). The
+ * Gateway's per-minute rate limit costs one attempt for each wait, and a
+ * step makes several calls; the Workflow default is 3.
+ */
+export const RATE_LIMITED_STEP_RETRIES = 30;
 
 /**
  * One model call a workflow makes for a Student: checks their Daily limit,
@@ -172,12 +181,21 @@ export async function meteredEmbed(
   return result.embeddings;
 }
 
-/** Null for a used-up daily quota of the provider; otherwise the error. */
+/**
+ * Null for a used-up daily quota of the provider. The Gateway's per-minute
+ * rate limit is the step's retry after the wait it names, before any
+ * `callFailed`, since no later attempt of the step is a failure of the call.
+ * Otherwise the error.
+ */
 function quotaAsNull(
   error: unknown,
   callFailed: MeteredScope["callFailed"],
 ): null {
   if (isDailyQuotaError(error)) return null;
+  const waitMs = gatewayRateLimitWaitMs(error);
+  if (waitMs !== null) {
+    throw new RetryableError(String(error), { retryAfter: waitMs });
+  }
   if (callFailed) callFailed(error);
   throw error;
 }

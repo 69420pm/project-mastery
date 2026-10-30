@@ -22,7 +22,10 @@ import {
   loadMaterial,
   type ParseOutcome,
 } from "@/features/ingestion/workflows/parse-steps";
-import { meteredGenerate } from "@/features/usage/server";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
@@ -60,6 +63,8 @@ async function pairCourseStep(courseId: string): Promise<void> {
   await pairExercises(createAdminClient(), courseId, "leave-unpaired");
 }
 
+pairCourseStep.maxRetries = RATE_LIMITED_STEP_RETRIES;
+
 /**
  * The pairing pass of a parse, for the Course of its Material. A reached
  * Daily limit ends it with that reason, storing nothing, so the parse fails
@@ -74,6 +79,8 @@ export async function pairMaterialCourse(
   if (!material) return { ok: true };
   return pairExercises(supabase, material.course_id, "fail");
 }
+
+pairMaterialCourse.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 type CourseChunks = {
   owner: string;

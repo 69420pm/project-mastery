@@ -32,7 +32,10 @@ import {
   loadMapInput,
   type MapInput,
 } from "@/features/knowledge-map/workflows/map-input";
-import { meteredGenerate } from "@/features/usage/server";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -155,6 +158,8 @@ export async function nameTopics(courseId: string): Promise<StepOutcome> {
   if (limitReached) return { ok: false, reason: dailyLimitReason };
   return { ok: true, left: batches.length - done };
 }
+
+nameTopics.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /**
  * Ends a build: retires the KCs whose sources went meanwhile, puts the Big

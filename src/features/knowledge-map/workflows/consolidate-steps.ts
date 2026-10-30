@@ -31,7 +31,11 @@ import {
   touchBuild,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
-import { meteredEmbed, meteredGenerate } from "@/features/usage/server";
+import {
+  meteredEmbed,
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
@@ -130,6 +134,8 @@ export async function consolidateKcs(courseId: string): Promise<StepOutcome> {
   if (!stored) return { ok: true, left: null };
   return { ok: true, left: pending.length - ready.size };
 }
+
+consolidateKcs.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /**
  * Embeds the batch's KCs without a vector in one call (task `embed`) and

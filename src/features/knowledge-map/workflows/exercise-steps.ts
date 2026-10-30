@@ -25,7 +25,10 @@ import {
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 import { matchKcs } from "@/features/knowledge-map/workflows/consolidate-steps";
-import { meteredGenerate } from "@/features/usage/server";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -164,6 +167,8 @@ export async function extractExercises(courseId: string): Promise<StepOutcome> {
   if (limitReached) return { ok: false, reason: dailyLimitReason };
   return { ok: true, left: todo.length - done };
 }
+
+extractExercises.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /** The Markdown of these chunks by id; deleted ones are missing. */
 async function loadMarkdowns(

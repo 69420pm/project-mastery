@@ -20,7 +20,10 @@ import {
   type CoursePart,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
-import { meteredGenerate } from "@/features/usage/server";
+import {
+  meteredGenerate,
+  RATE_LIMITED_STEP_RETRIES,
+} from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
@@ -94,6 +97,8 @@ export async function extractParts(courseId: string): Promise<StepOutcome> {
   if (limitReached) return { ok: false, reason: dailyLimitReason };
   return { ok: true, left: todo.length - done };
 }
+
+extractParts.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 type PartChunk = { id: string; part_id: string | null; markdown: string };
 
