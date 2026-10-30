@@ -240,6 +240,38 @@ describe("the embed step of a parse", () => {
     expect(waitMs).toBeLessThanOrEqual(21_000);
   });
 
+  test("the AI Gateway's rate limit error is retried after the delay its message names", async () => {
+    seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
+    db.tables.chunks.push({
+      id: crypto.randomUUID(),
+      material_id: db.tables.materials[0]!.id,
+      position: 0,
+      label: "content",
+      markdown: "Alpha.",
+    });
+    const embed = new MockEmbeddingModelV4({
+      doEmbed: async () => {
+        throw Object.assign(
+          new Error(
+            "Rate limit exceeded for cohere/embed-v5.0-fast: this team's limit of 5 requests per minute was reached. Retry after 20s.",
+          ),
+          { name: "GatewayRateLimitError" },
+        );
+      },
+    });
+    useMockModels({ embed });
+    const { embedChunks } = await import("./embed-chunks");
+
+    const failed = await embedChunks(
+      db.tables.materials[0]!.id as string,
+    ).catch((error: unknown) => error);
+
+    expect(RetryableError.is(failed)).toBe(true);
+    const waitMs = (failed as RetryableError).retryAfter.getTime() - Date.now();
+    expect(waitMs).toBeGreaterThan(19_000);
+    expect(waitMs).toBeLessThanOrEqual(20_000);
+  });
+
   test("a request the provider rejects as malformed fails the step without retries", async () => {
     seedMaterial(db, "application/pdf", await fixture("two-page-lecture.pdf"));
     db.tables.chunks.push({
