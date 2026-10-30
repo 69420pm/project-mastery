@@ -55,6 +55,7 @@ export async function parseMaterial(
     }
     await markParsed(materialId);
   } catch (error) {
+    console.error("Parsing the Material failed:", error);
     await failParse(materialId, parseFailureReason(error));
   }
 }

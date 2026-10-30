@@ -90,10 +90,29 @@ export async function parseSeeded(
     })),
   );
   if (seeded.error) throw new Error(seeded.error.message);
-  await parseMaterial(materialId, {
-    pages: pages.map((page) => page.page_number),
-  });
+  for (let attempt = 1; ; attempt++) {
+    await parseMaterial(materialId, {
+      pages: pages.map((page) => page.page_number),
+    });
+    const { data, error } = await supabase
+      .from("materials")
+      .select("parse_status, parse_failure")
+      .eq("id", materialId)
+      .single();
+    if (error) throw new Error(error.message);
+    if (data.parse_status !== "failed" || attempt === PARSE_ATTEMPTS) return;
+    // In process, a step's RetryableError (such as the Gateway's 5 requests
+    // per minute on an embedding) fails the parse instead of retrying the
+    // step after the delay, as the Workflow runtime does. Parse again, as a
+    // Student would, once the minute is over.
+    console.info(`  ${name}: ${data.parse_failure} Parsing again in a minute…`);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
+  }
 }
+
+/** How often a seeded Material is parsed before its failure stands. */
+const PARSE_ATTEMPTS = 2;
+const RETRY_MS = 60_000;
 
 /** How many model calls the Student's runs recorded, of one task or all. */
 export async function recordedCalls(
