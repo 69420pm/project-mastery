@@ -15,9 +15,10 @@ const {
 
 const COURSE = "course-1";
 
+/** A Material at `position` in Course order. */
 const material = (
   id: string,
-  createdAt: string,
+  position: number,
   parseStatus = "parsed",
   courseId = COURSE,
 ): FakeRow => ({
@@ -25,7 +26,7 @@ const material = (
   course_id: courseId,
   name: `Material ${id}`,
   parse_status: parseStatus,
-  created_at: createdAt,
+  position,
   is_exam: false,
 });
 
@@ -79,10 +80,10 @@ let tables: { materials: FakeRow[]; chunks: FakeRow[] };
 beforeEach(() => {
   tables = {
     materials: [
-      material("b", "2026-01-02"),
-      material("a", "2026-01-01"),
-      material("unparsed", "2026-01-03", "parsing"),
-      material("other", "2026-01-01", "parsed", "course-2"),
+      material("b", 1),
+      material("a", 0),
+      material("unparsed", 2, "parsing"),
+      material("other", 0, "parsed", "course-2"),
     ],
     chunks: [
       ...chunksOf("b", 2),

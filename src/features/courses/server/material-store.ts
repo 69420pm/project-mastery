@@ -235,6 +235,23 @@ export async function updateMaterialName(
   return data.length > 0;
 }
 
+/**
+ * Swaps one of the Student's Materials with its neighbour in Course order.
+ * False when it is not theirs or is first (up) or last (down) already.
+ */
+export async function moveMaterialPosition(
+  supabase: Supabase,
+  materialId: string,
+  direction: "up" | "down",
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("move_material", {
+    p_material_id: materialId,
+    p_direction: direction,
+  });
+  if (error) failed("Moving the Material", error);
+  return data;
+}
+
 /** Deletes one of the Student's Materials, without its file. */
 export async function removeMaterial(
   supabase: Supabase,
@@ -266,7 +283,7 @@ export async function signFileUrl(
   return data.signedUrl;
 }
 
-/** The Course's Materials, newest first. */
+/** The Course's Materials in Course order. */
 export async function listMaterials(
   supabase: Supabase,
   courseId: string,
@@ -277,7 +294,7 @@ export async function listMaterials(
       "id, name, media_type, size_bytes, created_at, parse_status, pages_done, pages_total, parse_failure, parse_start_failed, heartbeat_at",
     )
     .eq("course_id", courseId)
-    .order("created_at", { ascending: false });
+    .order("position");
   if (error) failed("Loading the Materials", error);
   const unreadable = await supabase
     .from("material_pages")

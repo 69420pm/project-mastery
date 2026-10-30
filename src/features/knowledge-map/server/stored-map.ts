@@ -35,6 +35,7 @@ export async function loadStoredMap(
           .from("kcs")
           .select("id, big_idea_id, name, description, type, origin")
           .eq("course_id", courseId)
+          .is("retired_at", null)
           .order("position")
           .range(from, to),
       ),
@@ -88,16 +89,18 @@ export async function loadStoredMap(
         .filter((source) => source.kc_id === kc.id)
         .map((source) => source.chunk_id),
     })),
-    prerequisites: prerequisites.map((link) => ({
-      from: link.from_kc,
-      to: link.to_kc,
-    })),
+    // A retired KC is out of the map, with its links.
+    prerequisites: prerequisites
+      .filter((link) => kcOrder.has(link.from_kc) && kcOrder.has(link.to_kc))
+      .map((link) => ({ from: link.from_kc, to: link.to_kc })),
     exercises: exercises.map((exercise) => ({
       id: exercise.id,
       questionChunk: exercise.question_chunk_id,
       difficulty: exercise.difficulty,
       kcs: exerciseKcs
-        .filter((link) => link.exercise_id === exercise.id)
+        .filter(
+          (link) => link.exercise_id === exercise.id && kcOrder.has(link.kc_id),
+        )
         .map((link) => link.kc_id)
         .toSorted((a, b) => (kcOrder.get(a) ?? 0) - (kcOrder.get(b) ?? 0)),
       finalAnswers: exercise.final_answers,

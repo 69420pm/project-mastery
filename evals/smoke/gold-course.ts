@@ -101,6 +101,7 @@ async function loadGoldCourse(
       .from("kcs")
       .select("id, name, description, big_idea_id")
       .eq("course_id", courseId)
+      .is("retired_at", null)
       .order("position"),
     supabase
       .from("prerequisite_links")
@@ -128,12 +129,19 @@ async function loadGoldCourse(
   return {
     courseId,
     bigIdeas: must(bigIdeas),
-    kcs: must(kcs).map((kc) => ({
-      id: kc.id,
-      name: kc.name,
-      description: kc.description,
-      bigIdeaId: kc.big_idea_id,
-    })),
+    // Only a retired KC has no Big idea.
+    kcs: must(kcs).flatMap((kc) =>
+      kc.big_idea_id
+        ? [
+            {
+              id: kc.id,
+              name: kc.name,
+              description: kc.description,
+              bigIdeaId: kc.big_idea_id,
+            },
+          ]
+        : [],
+    ),
     prerequisites: must(links).map((link) => ({
       from: link.from_kc,
       to: link.to_kc,

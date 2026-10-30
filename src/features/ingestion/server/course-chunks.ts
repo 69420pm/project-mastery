@@ -93,7 +93,7 @@ export type ChunkSource = {
 
 /**
  * The chunks among `chunkIds` that `supabase`, a Student's session client,
- * may read, in reading order: Materials in upload order, chunks by
+ * may read, in Course order: Materials by position, then chunks by
  * position. Deleted chunks are missing.
  */
 export async function loadChunkSources(
@@ -115,7 +115,7 @@ export async function loadChunkSources(
 
   const materials = await supabase
     .from("materials")
-    .select("id, name, created_at, is_exam")
+    .select("id, name, position, is_exam")
     .in("id", [...new Set(rows.map((row) => row.material_id))]);
   if (materials.error) failed("Loading the Materials", materials.error);
   const material = new Map(materials.data.map((m) => [m.id, m]));
@@ -123,10 +123,8 @@ export async function loadChunkSources(
     .filter((row) => material.has(row.material_id))
     .toSorted(
       (a, b) =>
-        material
-          .get(a.material_id)!
-          .created_at.localeCompare(material.get(b.material_id)!.created_at) ||
-        a.position - b.position,
+        material.get(a.material_id)!.position -
+          material.get(b.material_id)!.position || a.position - b.position,
     )
     .map((row) => ({
       id: row.id,
@@ -208,8 +206,8 @@ export async function loadChunkTexts(
 const ID_SLICE = 100;
 
 /**
- * Every chunk of the Course's `parsed` Materials in reading order: Materials
- * in upload order, chunks by position. For workflows on the admin client,
+ * Every chunk of the Course's `parsed` Materials in Course order: Materials
+ * by position, then chunks by position. For workflows on the admin client,
  * so it scopes the reads to the Course itself.
  */
 export async function loadCourseChunks(
@@ -221,7 +219,7 @@ export async function loadCourseChunks(
     .select("id, name")
     .eq("course_id", courseId)
     .eq("parse_status", "parsed")
-    .order("created_at");
+    .order("position");
   if (materials.error) failed("Loading the Materials", materials.error);
   if (materials.data.length === 0) return [];
 
@@ -260,8 +258,8 @@ export type ChunkSpan = {
 };
 
 /**
- * The places of every chunk of the Course's `parsed` Materials in reading
- * order: Materials in upload order, chunks by position. Reads on the admin
+ * The places of every chunk of the Course's `parsed` Materials in Course
+ * order: Materials by position, then chunks by position. Reads on the admin
  * client, or on a Student's session client, where Row Level Security scopes
  * it.
  */
@@ -274,7 +272,7 @@ export async function loadCourseChunkSpans(
     .select("id, name")
     .eq("course_id", courseId)
     .eq("parse_status", "parsed")
-    .order("created_at");
+    .order("position");
   if (materials.error) failed("Loading the Materials", materials.error);
 
   const spans: ChunkSpan[] = [];
@@ -381,7 +379,7 @@ export type AdminChunk = {
 };
 
 /**
- * The Course's admin chunks in Course order: Materials in upload order,
+ * The Course's admin chunks in Course order: Materials by position, then
  * chunks by position. Scopes the reads to the Course, so it reads on the
  * admin client or a Student's session client alike.
  */
@@ -394,7 +392,7 @@ export async function loadAdminChunks(
       .from("materials")
       .select("id, name")
       .eq("course_id", courseId)
-      .order("created_at"),
+      .order("position"),
     allRows("Loading the admin chunks", (from, to) =>
       supabase
         .from("chunks")

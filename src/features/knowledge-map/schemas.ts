@@ -114,6 +114,27 @@ export const checkReportSchema = z.object({
     .default([]),
 });
 
+/**
+ * A stored Part extraction (`part_extractions.output`): its KCs with
+ * stored chunk ids and, until they are stored, their vectors of
+ * "name: description"; Prerequisites by index into `kcs`.
+ */
+export const storedExtractionSchema = z.object({
+  kcs: z.array(
+    z.object({
+      name,
+      description,
+      type: z.enum(KC_TYPES),
+      chunkIds: z.array(z.string()).min(1),
+      assumes: z.array(z.string()),
+      embedding: z.array(z.number()).optional(),
+    }),
+  ),
+  prerequisites: z.array(z.object({ from: z.int(), to: z.int() })),
+});
+
+export type StoredExtraction = z.infer<typeof storedExtractionSchema>;
+
 /** The input of the Build button's Server Action. */
 export const startKnowledgeMapBuildSchema = z.object({ courseId: z.uuid() });
 

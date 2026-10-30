@@ -97,3 +97,8 @@ export type MaterialReference = z.infer<typeof materialReferenceSchema>;
 export const renameMaterialSchema = materialIdSchema.extend({
   name: materialNameSchema,
 });
+
+/** Moves a Material one place earlier (up) or later (down) in Course order. */
+export const moveMaterialSchema = materialIdSchema.extend({
+  direction: z.enum(["up", "down"]),
+});

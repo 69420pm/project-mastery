@@ -6,7 +6,10 @@ import {
   loadChunkSources,
   loadExerciseSolutions,
 } from "@/features/ingestion/server";
-import { canBuildMap } from "@/features/knowledge-map/domain/build-state";
+import {
+  canBuildMap,
+  withBuildLease,
+} from "@/features/knowledge-map/domain/build-state";
 import { checkReportSchema, KC_TYPES } from "@/features/knowledge-map/schemas";
 import type {
   KcSourceView,
@@ -56,7 +59,7 @@ export async function getKnowledgeMap(
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
-      .select("status, failure_reason, finished_at, check_report")
+      .select("status, failure_reason, finished_at, check_report, heartbeat_at")
       .eq("course_id", courseId)
       .maybeSingle(),
     supabase
@@ -69,6 +72,7 @@ export async function getKnowledgeMap(
         .from("kcs")
         .select("id, big_idea_id, name, description, type, origin")
         .eq("course_id", courseId)
+        .is("retired_at", null)
         .order("position")
         .order("id")
         .range(from, to),
@@ -166,11 +170,17 @@ export async function getKnowledgeMap(
     sources: sourcesOf(kc.id),
   });
 
-  const mapBuild: MapBuild = build.data && {
-    status: buildStatus.parse(build.data.status),
-    failureReason: build.data.failure_reason,
-    finishedAt: build.data.finished_at,
-  };
+  const mapBuild: MapBuild =
+    build.data &&
+    withBuildLease(
+      {
+        status: buildStatus.parse(build.data.status),
+        failureReason: build.data.failure_reason,
+        finishedAt: build.data.finished_at,
+      },
+      build.data.heartbeat_at,
+    );
+  const live = new Set(kcs.map((kc) => kc.id));
   return {
     courseId,
     build: mapBuild,
@@ -182,10 +192,10 @@ export async function getKnowledgeMap(
       ...bigIdea,
       kcs: kcs.filter((kc) => kc.big_idea_id === bigIdea.id).map(kcView),
     })),
-    prerequisites: prerequisites.map((link) => ({
-      from: link.from_kc,
-      to: link.to_kc,
-    })),
+    // A retired KC's links wait for it to come back.
+    prerequisites: prerequisites
+      .filter((link) => live.has(link.from_kc) && live.has(link.to_kc))
+      .map((link) => ({ from: link.from_kc, to: link.to_kc })),
     exercises: exercises.map((exercise) => {
       const tested = new Set(
         exerciseKcs

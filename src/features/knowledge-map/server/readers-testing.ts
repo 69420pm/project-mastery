@@ -17,6 +17,7 @@ export const [BIG_IDEA, K1, K2, K3, EXERCISE] = [
   id(24),
   id(25),
 ];
+export const RETIRED_KC = id(26);
 export const [T1, T2] = [id(41), id(42)];
 const topicText = (name: string) => ({
   course_id: COURSE,
@@ -25,13 +26,13 @@ const topicText = (name: string) => ({
 });
 
 export function createDb() {
-  const material = (materialId: string, name: string, createdAt: string) => ({
+  const material = (materialId: string, name: string, position: number) => ({
     id: materialId,
     course_id: COURSE,
     name,
     media_type: "application/pdf",
     size_bytes: 1,
-    created_at: createdAt,
+    position,
     parse_status: "parsed",
     is_exam: false,
   });
@@ -53,8 +54,8 @@ export function createDb() {
   return fakeSupabase({
     tables: {
       materials: [
-        material(NOTES, "Notes", "2026-01-02"),
-        material(LECTURE, "Lecture 1", "2026-01-01"),
+        material(NOTES, "Notes", 1),
+        material(LECTURE, "Lecture 1", 0),
       ],
       material_pages: [],
       // Stored against reading order, which the readers restore.
@@ -108,13 +109,27 @@ export function createDb() {
           origin: "content",
           position: 0,
         },
+        // Retired, without sources or a Big idea: no reader shows it.
+        {
+          id: RETIRED_KC,
+          big_idea_id: null,
+          name: "Retired",
+          description: "Gone with its Material.",
+          type: "fact",
+          origin: "content",
+          position: 3,
+          retired_at: "2026-01-03",
+        },
       ]),
       kc_sources: ofCourse([
         { kc_id: K2, chunk_id: C2 },
         { kc_id: K1, chunk_id: C1 },
         { kc_id: K1, chunk_id: C2 },
       ]),
-      prerequisite_links: ofCourse([{ id: 1, from_kc: K1, to_kc: K2 }]),
+      prerequisite_links: ofCourse([
+        { id: 1, from_kc: K1, to_kc: K2 },
+        { id: 2, from_kc: K1, to_kc: RETIRED_KC },
+      ]),
       exercises: ofCourse([
         {
           id: EXERCISE,
@@ -126,9 +141,9 @@ export function createDb() {
       exercise_kcs: ofCourse([
         { exercise_id: EXERCISE, kc_id: K2 },
         { exercise_id: EXERCISE, kc_id: K1 },
+        { exercise_id: EXERCISE, kc_id: RETIRED_KC },
       ]),
       exercise_solutions: [] as FakeRow[],
-      knowledge_map_chunks: [] as FakeRow[],
       topics: [
         { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
         { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },

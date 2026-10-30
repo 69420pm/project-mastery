@@ -81,7 +81,7 @@ select throws_ok(
   $$insert into public.kcs (owner, course_id, name, description, type, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
       'Loose', '.', 'fact', 'content', 5)$$,
-  '23502', null, 'a KC sits in a Big idea');
+  '23514', null, 'a live KC sits in a Big idea');
 select throws_ok(
   $$insert into public.kcs (owner, course_id, big_idea_id, name, description, type, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
