@@ -60,7 +60,7 @@ export const partExtractionSchema = z.object({
 const EXTRACTION_INSTRUCTIONS = `You get one Part of a university course's materials as JSON: its title, its chapter, the course language, a KC budget and its chunks, each with an id and its Markdown. List the knowledge components (KCs) this Part teaches.
 
 - A KC is one thing the Part teaches that one short exam question can test. Its type is fact (a statement to know), concept (an idea to understand), procedure (a method to carry out) or decision (when to use which method).
-- Together, the Part's KCs cover what it teaches. Aim for about the KC budget; fewer when the Part teaches less. Do not split one thing into several KCs or merge several into one.
+- Together, the Part's KCs cover what it teaches, in at most the KC budget; fewer when the Part teaches less. Do not split one thing into several KCs or merge several into one.
 - Headings, summaries, asides, the organisation of the course and repeated material are no KCs.
 - Give each KC a short name, a one-line description, its type and the ids of the chunks that teach it.
 - For each KC, name up to 3 things it uses that this Part does not explain, such as a concept from an earlier chapter, under assumes.
