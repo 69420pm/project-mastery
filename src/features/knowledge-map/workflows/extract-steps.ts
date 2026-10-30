@@ -155,6 +155,7 @@ async function extractPart(
     ...checkExtraction(
       answer,
       new Map(chunks.map((chunk, index) => [offered[index]!.id, chunk.id])),
+      budget,
     ),
     kcBudget: budget,
   };

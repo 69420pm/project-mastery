@@ -41,6 +41,7 @@ describe("checkExtraction", () => {
         ["c1", "chunk-1"],
         ["c2", "chunk-2"],
       ]),
+      12,
     );
 
     expect(checked.kcs.map((k) => [k.name, k.chunkIds])).toEqual([
@@ -49,5 +50,19 @@ describe("checkExtraction", () => {
     ]);
     expect(checked.kcs[0]!.assumes).toEqual(["Limits", "Sums", "Series"]);
     expect(checked.prerequisites).toEqual([{ from: 0, to: 1 }]);
+  });
+
+  test("keeps the first valid KCs up to the budget, and their links", () => {
+    const checked = checkExtraction(
+      {
+        kcs: [kc("Ghost", ["c9"]), kc("Vector", ["c1"]), kc("Basis", ["c1"])],
+        prerequisites: [{ from: "Vector", to: "Basis" }],
+      },
+      new Map([["c1", "chunk-1"]]),
+      1,
+    );
+
+    expect(checked.kcs.map((k) => k.name)).toEqual(["Vector"]);
+    expect(checked.prerequisites).toEqual([]);
   });
 });

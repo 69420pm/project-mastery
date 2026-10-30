@@ -49,15 +49,17 @@ const nameKey = (name: string) => name.trim().toLowerCase();
 /**
  * Checks an answer against the Part's chunks, `chunkIdOf` mapping the
  * call's ids to stored ones: a KC keeps its known chunk ids and is dropped
- * without one; a Prerequisite is dropped when an end names no kept KC, or
- * both name the same.
+ * without one; the first `budget` valid KCs are kept; a Prerequisite is
+ * dropped when an end names no kept KC, or both name the same.
  */
 export function checkExtraction(
   answer: AnsweredExtraction,
   chunkIdOf: ReadonlyMap<string, string>,
+  budget: number,
 ): PartExtraction {
   const kcs: ExtractedKc[] = [];
   for (const kc of answer.kcs) {
+    if (kcs.length >= budget) break;
     const chunkIds = [
       ...new Set(kc.chunkIds.flatMap((id) => chunkIdOf.get(id) ?? [])),
     ];

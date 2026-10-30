@@ -35,6 +35,9 @@ const { buildKnowledgeMap } = await import("./build-knowledge-map");
 
 const build = () => db.tables.knowledge_map_builds[0];
 
+/** A chunk long enough for a KC budget of 3 (450 words). */
+const threeKcsOfText = Array(450).fill("word").join(" ");
+
 async function update() {
   queueBuild(db);
   await buildKnowledgeMap(COURSE);
@@ -133,7 +136,7 @@ describe("Update map", () => {
     seedMaterial(db, {
       parts: [
         { title: "Vectors", chapter: "Vector spaces" },
-        { title: "Bases", chapter: "Vector spaces" },
+        { title: "Bases", chapter: "Vector spaces", chunks: [threeKcsOfText] },
         { title: "Maps", chapter: "Linear maps" },
       ],
     });
@@ -169,7 +172,7 @@ describe("Update map", () => {
     expect(build()?.check_report).toMatchObject({
       kcsPerPart: [
         { part: "Vectors", kcs: 1, budget: 1 },
-        { part: "Bases", kcs: 3, budget: 1 },
+        { part: "Bases", kcs: 3, budget: 3 },
         { part: "Maps", kcs: 1, budget: 1 },
         { part: "Rank", kcs: 1, budget: 1 },
       ],
@@ -180,7 +183,11 @@ describe("Update map", () => {
   test("names the Topics of a long chapter in calls of at most 10", async () => {
     const titles = Array.from({ length: 11 }, (_, index) => `Part ${index}`);
     seedMaterial(db, {
-      parts: titles.map((title) => ({ title, chapter: "Vector spaces" })),
+      parts: titles.map((title) => ({
+        title,
+        chapter: "Vector spaces",
+        chunks: [`${title}: ${threeKcsOfText}`],
+      })),
     });
     const { namings } = useBuildModels({
       kcsOf: (part) => [1, 2, 3].map((n) => `${part.title} KC ${n}`),
