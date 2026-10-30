@@ -65,7 +65,7 @@ export function joinUnits(pages: JoinPage[]): DraftChunk[] {
       if (open && joins(open, unit, pageNumber)) {
         open.chunk.markdown = `${open.chunk.markdown}\n\n${unit.markdown}`;
         open.chunk.pageTo = pageNumber;
-        open.chunk.exerciseNumber ??= unit.exerciseNumber;
+        open.chunk.exerciseNumber ??= storableNumber(unit.exerciseNumber);
         open.last = unit;
         open.page = pageNumber;
         continue;
@@ -84,8 +84,14 @@ function draft(unit: JoinUnit, pageNumber: number): DraftChunk {
     pageTo: pageNumber,
     label: unit.label,
     markdown: unit.markdown,
-    exerciseNumber: unit.exerciseNumber,
+    exerciseNumber: storableNumber(unit.exerciseNumber),
   };
+}
+
+/** The column holds 1 to 50 characters; an empty or longer answer is no number. */
+function storableNumber(exerciseNumber: string | null): string | null {
+  const trimmed = exerciseNumber?.trim() ?? "";
+  return trimmed.length > 0 && trimmed.length <= 50 ? trimmed : null;
 }
 
 function joins(

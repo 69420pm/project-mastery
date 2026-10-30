@@ -128,4 +128,31 @@ describe("joinUnits", () => {
       ]),
     ).toHaveLength(2);
   });
+
+  test.each([
+    ["  7.2a ", "7.2a"],
+    ["", null],
+    ["x".repeat(51), null],
+  ])("stores the exercise number %j as %j", (exerciseNumber, expected) => {
+    const [chunk] = joinUnits([
+      { pageNumber: 1, units: [unit("a)", { exerciseNumber })] },
+    ]);
+    expect(chunk?.exerciseNumber).toBe(expected);
+  });
+
+  test("takes the number of a later unit when the first one's is unusable", () => {
+    const [chunk] = joinUnits([
+      {
+        pageNumber: 1,
+        units: [
+          unit("Show that", { exerciseNumber: "", continuesOnNextPage: true }),
+        ],
+      },
+      {
+        pageNumber: 2,
+        units: [unit("it holds.", { exerciseNumber: "7.2" })],
+      },
+    ]);
+    expect(chunk?.exerciseNumber).toBe("7.2");
+  });
 });
