@@ -1,9 +1,9 @@
 import "server-only";
+import { loadChunkSources } from "@/features/ingestion/server";
 import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
-import type { loadStoredMap } from "@/features/knowledge-map/server";
+  exerciseLabel,
+  type loadStoredMap,
+} from "@/features/knowledge-map/server";
 import {
   generatedSolutionLabel,
   MAX_PROBLEMS,
@@ -109,13 +109,10 @@ export async function findProblems(
     };
   }
 
-  const [paired, questionChunks] = await Promise.all([
-    loadExerciseSolutions(supabase, courseId),
-    loadChunkSources(
-      supabase,
-      askable.map((exercise) => exercise.questionChunk),
-    ),
-  ]);
+  const questionChunks = await loadChunkSources(
+    supabase,
+    askable.map((exercise) => exercise.questionChunk),
+  );
   const question = new Map(questionChunks.map((c) => [c.id, c]));
   const candidates: Candidate[] = [
     ...askable.flatMap((exercise) => {
@@ -158,7 +155,7 @@ export async function findProblems(
     .slice(0, MAX_PROBLEMS);
   const solutionIds = found.flatMap((candidate) =>
     candidate.kind === "exercise"
-      ? (paired[candidate.exercise.questionChunk] ?? [])
+      ? (candidate.exercise.solutionChunk ?? [])
       : [],
   );
   const solutions = new Map(
@@ -192,10 +189,10 @@ export async function findProblems(
         };
       }
       const { exercise, chunk } = candidate;
-      const solutionChunk = solutions.get(paired[exercise.questionChunk] ?? "");
+      const solutionChunk = solutions.get(exercise.solutionChunk ?? "");
       return {
         ...common,
-        name: `${chunk.materialName} p. ${chunk.pageFrom}`,
+        name: exerciseLabel(chunk),
         question: chunk.markdown,
         link: chunkLink(courseId, chunk),
         solution: {

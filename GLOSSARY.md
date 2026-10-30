@@ -61,7 +61,7 @@ A link saying one KC must be learned before another. The Prerequisites of a Know
 _Avoid_: Dependency, requirement
 
 **Exercise**:
-One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers and the solution printed in the Materials, if any. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
+One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "7.2b · Sheet 2 p. 3", is built when read. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
 _Avoid_: Task, assignment
 
 **Problem**:

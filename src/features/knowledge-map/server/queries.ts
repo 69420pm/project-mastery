@@ -1,15 +1,12 @@
 import "server-only";
 import { z } from "zod";
 import { getMaterialList, materialChunksPath } from "@/features/courses/server";
-import {
-  chunkAnchor,
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
+import { chunkAnchor, loadChunkSources } from "@/features/ingestion/server";
 import {
   canBuildMap,
   withBuildLease,
 } from "@/features/knowledge-map/domain/build-state";
+import { exerciseLabel } from "@/features/knowledge-map/domain/exercise-label";
 import { checkReportSchema, KC_TYPES } from "@/features/knowledge-map/schemas";
 import type {
   KcSourceView,
@@ -55,7 +52,6 @@ export async function getKnowledgeMap(
     materials,
     exercises,
     exerciseKcs,
-    pairedSolutions,
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
@@ -98,7 +94,7 @@ export async function getKnowledgeMap(
     allRows("Loading the exercises", (from, to) =>
       supabase
         .from("exercises")
-        .select("id, difficulty, question_chunk_id")
+        .select("id, difficulty, question_chunk_id, solution_chunk_id")
         .eq("course_id", courseId)
         .order("position")
         .order("id")
@@ -113,7 +109,6 @@ export async function getKnowledgeMap(
         .order("kc_id")
         .range(from, to),
     ),
-    loadExerciseSolutions(supabase, courseId),
   ]);
   if (build.error) failed("Loading the build", build.error);
   if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
@@ -125,12 +120,11 @@ export async function getKnowledgeMap(
   const chunks = await loadChunkSources(supabase, [
     ...sources.map((source) => source.chunk_id),
     ...(report?.uncoveredChunkIds ?? []),
-    ...exercises.flatMap((exercise) => {
-      const solution = pairedSolutions[exercise.question_chunk_id];
-      return solution
-        ? [exercise.question_chunk_id, solution]
-        : [exercise.question_chunk_id];
-    }),
+    ...exercises.flatMap((exercise) =>
+      exercise.solution_chunk_id
+        ? [exercise.question_chunk_id, exercise.solution_chunk_id]
+        : [exercise.question_chunk_id],
+    ),
   ]);
   const chunkById = new Map(chunks.map((chunk) => [chunk.id, chunk]));
   /** The pages of these chunks in reading order, each page once. */
@@ -205,18 +199,14 @@ export async function getKnowledgeMap(
       const question = chunkById.get(exercise.question_chunk_id);
       return {
         id: exercise.id,
-        name: question
-          ? `${question.materialName} p. ${question.pageFrom}`
-          : "Exercise",
+        name: question ? exerciseLabel(question) : "Exercise",
         kcs: kcs.filter((kc) => tested.has(kc.id)).map((kc) => kc.id),
         difficulty: z
           .union([z.literal(1), z.literal(2), z.literal(3)])
           .parse(exercise.difficulty),
         question: question?.markdown ?? null,
-        // A printed solution is the question's paired chunk.
         solution:
-          chunkById.get(pairedSolutions[exercise.question_chunk_id] ?? "")
-            ?.markdown ?? null,
+          chunkById.get(exercise.solution_chunk_id ?? "")?.markdown ?? null,
       };
     }),
     checkReport: report && {

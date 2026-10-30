@@ -134,6 +134,7 @@ export function createDb() {
         {
           id: EXERCISE,
           question_chunk_id: C3,
+          solution_chunk_id: null,
           difficulty: 2,
           position: 0,
         },
@@ -143,7 +144,6 @@ export function createDb() {
         { exercise_id: EXERCISE, kc_id: K1 },
         { exercise_id: EXERCISE, kc_id: RETIRED_KC },
       ]),
-      exercise_solutions: [] as FakeRow[],
       topics: [
         { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
         { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },

@@ -1,8 +1,5 @@
 import "server-only";
-import {
-  loadChunkSources,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
+import { loadChunkSources } from "@/features/ingestion/server";
 import {
   loadStoredMap,
   loadStoredTopics,
@@ -202,8 +199,7 @@ async function generateInput(
       ({ id }) => id === problem.originalExerciseId,
     );
     if (!exercise) return "The Exercise to vary is gone.";
-    const paired = await loadExerciseSolutions(supabase, problem.courseId);
-    const solutionChunk = paired[exercise.questionChunk];
+    const solutionChunk = exercise.solutionChunk;
     const chunks = await loadChunkSources(supabase, [
       exercise.questionChunk,
       ...(solutionChunk ? [solutionChunk] : []),

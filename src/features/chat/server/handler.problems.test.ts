@@ -47,16 +47,18 @@ function addChunk(n: number, material: string, markdown: string) {
   });
 }
 
-/** Exercise `n` on chunk `n`, testing `kcs`. */
+/** Exercise `n` on chunk `n`, testing `kcs`, with its printed solution's chunk. */
 function addExercise(
   n: number,
   difficulty: number,
   kcs: string[] = [MAP.thrust],
+  solutionChunk: string | null = null,
 ) {
   db.tables.exercises.push({
     ...owned,
     id: `ex-${n}`,
     question_chunk_id: chunkOf(n),
+    solution_chunk_id: solutionChunk,
     difficulty,
     position: n,
   });
@@ -82,20 +84,8 @@ function seedExercises() {
   addChunk(1, EXAM, "Compute the thrust of the engine.");
   addChunk(2, EXAM, "Solution: 42 kN.");
   addChunk(3, MAP.material, "Why does thrust grow with exhaust speed?");
-  addExercise(1, 2);
+  addExercise(1, 2, undefined, chunkOf(2));
   addExercise(3, 2);
-  db.tables.exercise_solutions.push({
-    ...owned,
-    exercise_chunk_id: chunkOf(1),
-    solution_chunk_id: chunkOf(2),
-    status: "paired",
-  });
-  db.tables.exercise_solutions.push({
-    ...owned,
-    exercise_chunk_id: chunkOf(3),
-    solution_chunk_id: null,
-    status: "no_solution",
-  });
 }
 
 /** A question on an Exercise in an earlier session, answered with `help`. */

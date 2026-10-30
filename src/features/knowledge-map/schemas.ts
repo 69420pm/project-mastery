@@ -44,13 +44,15 @@ export const finalAnswerSchema = z.object({
 export type FinalAnswer = z.infer<typeof finalAnswerSchema>;
 
 /**
- * An Exercise: one subtask whose question is the `questionChunk`, with the
- * KCs it tests, a difficulty from 1 (easy) to 3 (hard) and its numeric
- * final answers (null without any).
+ * An Exercise: one subtask whose question is the `questionChunk`, with its
+ * printed solution's chunk (null without one), the KCs it tests, a
+ * difficulty from 1 (easy) to 3 (hard) and its numeric final answers as
+ * printed (null without any).
  */
 const exerciseSchema = z.object({
   id,
   questionChunk: id,
+  solutionChunk: id.nullable(),
   difficulty: z.int().min(1).max(3),
   kcs: z.array(id),
   finalAnswers: z.array(finalAnswerSchema).min(1).nullish(),
@@ -115,9 +117,28 @@ export const checkReportSchema = z.object({
 });
 
 /**
+ * One subtask of an exercise Part's extraction: its question chunk, the
+ * solution chunk paired with it when it was extracted, the candidate KCs it
+ * tests by id and its new KCs by index into the extraction's `kcs`, its
+ * final answers as printed and its printed solution's line count.
+ */
+const extractedExerciseSchema = z.object({
+  chunkId: z.string(),
+  solutionChunkId: z.string().nullable(),
+  notAnExercise: z.boolean(),
+  kcIds: z.array(z.string()),
+  newKcs: z.array(z.int()),
+  finalAnswers: z.array(finalAnswerSchema),
+  solutionLines: z.int().nullable(),
+});
+
+export type ExtractedExercise = z.infer<typeof extractedExerciseSchema>;
+
+/**
  * A stored Part extraction (`part_extractions.output`): its KCs with
  * stored chunk ids and, until they are stored, their vectors of
- * "name: description"; Prerequisites by index into `kcs`.
+ * "name: description"; Prerequisites by index into `kcs`. An exercise
+ * Part's also has its subtasks, whose new KCs are its `kcs`.
  */
 export const storedExtractionSchema = z.object({
   kcs: z.array(
@@ -131,6 +152,7 @@ export const storedExtractionSchema = z.object({
     }),
   ),
   prerequisites: z.array(z.object({ from: z.int(), to: z.int() })),
+  exercises: z.array(extractedExerciseSchema).optional(),
 });
 
 export type StoredExtraction = z.infer<typeof storedExtractionSchema>;

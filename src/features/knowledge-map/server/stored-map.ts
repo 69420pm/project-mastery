@@ -59,7 +59,9 @@ export async function loadStoredMap(
       allRows("Loading the exercises", (from, to) =>
         supabase
           .from("exercises")
-          .select("id, question_chunk_id, difficulty, final_answers")
+          .select(
+            "id, question_chunk_id, solution_chunk_id, difficulty, final_answers",
+          )
           .eq("course_id", courseId)
           .order("position")
           .range(from, to),
@@ -96,6 +98,7 @@ export async function loadStoredMap(
     exercises: exercises.map((exercise) => ({
       id: exercise.id,
       questionChunk: exercise.question_chunk_id,
+      solutionChunk: exercise.solution_chunk_id,
       difficulty: exercise.difficulty,
       kcs: exerciseKcs
         .filter(

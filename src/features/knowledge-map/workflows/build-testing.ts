@@ -1,16 +1,14 @@
-import { MockEmbeddingModelV4, MockLanguageModelV4 } from "ai/test";
-import { vi } from "vitest";
 import { cosineSimilarity } from "@/features/knowledge-map/domain/kc-clusters";
-import { useMockModels } from "@/lib/ai/testing";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
+
+export { useBuildModels } from "./build-models-testing";
 
 /**
  * Test helpers for the build workflow in-process (`build-knowledge-map.ts`):
  * the admin client as a `fakeSupabase` whose database functions stand in
- * for the real ones, which pgTAP tests, and a `map` model whose extraction
- * gives each Part the KCs a test names. KCs with the same name get the same
- * vector, so they consolidate, and the merge call says they are the same.
- * Each test file mocks `@/lib/supabase/admin` with its own `db`.
+ * for the real ones, which pgTAP tests, and seeded Materials. The mock
+ * models are in `build-models-testing.ts`. Each test file mocks
+ * `@/lib/supabase/admin` with its own `db`.
  */
 
 export const STUDENT = "11111111-1111-1111-1111-111111111111";
@@ -41,6 +39,9 @@ export function createBuildDb() {
       prerequisite_links: [] as FakeRow[],
       topics: [] as FakeRow[],
       topic_kcs: [] as FakeRow[],
+      exercise_solutions: [] as FakeRow[],
+      exercises: [] as FakeRow[],
+      exercise_kcs: [] as FakeRow[],
       attempts: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
@@ -82,6 +83,21 @@ export function createBuildDb() {
         const build = building(tables, args.p_course_id);
         if (!build) return false;
         const owned = { owner: build.owner, course_id: args.p_course_id };
+        const exerciseParts = (args.p_parts as FakeRow[]).filter(
+          (part) => part.exercises,
+        );
+        const chunksOf = (partId: unknown) =>
+          new Set(
+            tables.chunks
+              .filter((chunk) => chunk.part_id === partId)
+              .map((chunk) => chunk.id),
+          );
+        for (const part of exerciseParts) {
+          const chunks = chunksOf(part.partId);
+          tables.kc_sources = tables.kc_sources.filter(
+            (source) => !chunks.has(source.chunk_id),
+          );
+        }
         const bigIdeaId = (name: unknown) => {
           let bigIdea = tables.big_ideas.find((row) => row.name === name);
           if (!bigIdea) {
@@ -105,7 +121,7 @@ export function createBuildDb() {
               name: kc.name,
               description: kc.description,
               type: kc.type,
-              origin: "content",
+              origin: kc.origin ?? "content",
               position: tables.kcs.length,
               embedding: kc.embedding,
               retired_at: null,
@@ -139,6 +155,52 @@ export function createBuildDb() {
             from_kc: link.from,
             to_kc: link.to,
           });
+        }
+        for (const part of exerciseParts) {
+          const chunks = chunksOf(part.partId);
+          const listed = part.exercises as FakeRow[];
+          tables.exercises = tables.exercises.filter(
+            (row) =>
+              !chunks.has(row.question_chunk_id) ||
+              listed.some((x) => x.questionChunkId === row.question_chunk_id),
+          );
+          for (const x of listed) {
+            const answers = x.finalAnswers as unknown[];
+            const values = {
+              solution_chunk_id: tables.chunks.some(
+                (chunk) => chunk.id === x.solutionChunkId,
+              )
+                ? x.solutionChunkId
+                : null,
+              difficulty: x.difficulty,
+              final_answers: answers.length > 0 ? answers : null,
+            };
+            let row = tables.exercises.find(
+              (e) => e.question_chunk_id === x.questionChunkId,
+            );
+            if (row) Object.assign(row, values);
+            else {
+              row = {
+                ...owned,
+                id: crypto.randomUUID(),
+                question_chunk_id: x.questionChunkId,
+                position: tables.exercises.length,
+                ...values,
+              };
+              tables.exercises.push(row);
+            }
+            const exerciseId = row.id;
+            tables.exercise_kcs = [
+              ...tables.exercise_kcs.filter(
+                (link) => link.exercise_id !== exerciseId,
+              ),
+              ...(x.kcIds as string[]).map((kcId) => ({
+                ...owned,
+                exercise_id: exerciseId,
+                kc_id: kcId,
+              })),
+            ];
+          }
         }
         for (const part of args.p_parts as FakeRow[]) {
           const row = tables.part_extractions.find(
@@ -198,13 +260,27 @@ export function createBuildDb() {
 
 export type BuildDb = ReturnType<typeof createBuildDb>;
 
-/** A Part to seed: its kind, titles and chunks' Markdown. */
+/**
+ * A chunk to seed: its Markdown, or also its label (by default `content`
+ * in a teaching Part, `exercise` in an exercise Part) and exercise number.
+ */
+type SeedChunk =
+  | string
+  | { markdown: string; label?: "exercise" | "solution"; number?: string };
+
+/** A Part to seed: its kind, titles and chunks. */
 type SeedPart = {
   title: string;
   chapter?: string;
   kind?: "teaching" | "exercise";
-  chunks?: string[];
+  chunks?: SeedChunk[];
 };
+
+/**
+ * Every chunk's vector: alike to every KC vector of `useBuildModels`, so
+ * an exercise call is offered every KC.
+ */
+const CHUNK_VECTOR = JSON.stringify(Array.from({ length: 64 }, () => 1));
 
 /**
  * Seeds a parsed Material at `position` in Course order with its Parts and
@@ -232,17 +308,22 @@ export function seedMaterial(
   let chunkPosition = 0;
   parts.forEach((part, index) => {
     const partId = crypto.randomUUID();
-    const markdowns = part.chunks ?? [`About ${part.title}.`];
+    const kind = part.kind ?? "teaching";
+    const chunks = (part.chunks ?? [`About ${part.title}.`]).map((chunk) =>
+      typeof chunk === "string" ? { markdown: chunk } : chunk,
+    );
     db.tables.parts.push({
       ...owned,
       id: partId,
       position: index,
-      kind: part.kind ?? "teaching",
+      kind,
       title: part.title,
       chapter_title: part.chapter ?? part.title,
-      content_hash: [part.title, ...markdowns].join("|").padEnd(64, "#"),
+      content_hash: [part.title, ...chunks.map((chunk) => chunk.markdown)]
+        .join("|")
+        .padEnd(64, "#"),
     });
-    for (const markdown of markdowns) {
+    for (const chunk of chunks) {
       db.tables.chunks.push({
         ...owned,
         id: crypto.randomUUID(),
@@ -250,8 +331,10 @@ export function seedMaterial(
         position: chunkPosition++,
         page_from: 1,
         page_to: 1,
-        label: "content",
-        markdown,
+        label: chunk.label ?? (kind === "exercise" ? "exercise" : "content"),
+        markdown: chunk.markdown,
+        exercise_number: chunk.number ?? null,
+        embedding: CHUNK_VECTOR,
       });
     }
   });
@@ -284,6 +367,35 @@ export function deleteMaterial(db: BuildDb, materialId: string) {
   db.tables.kc_sources = db.tables.kc_sources.filter(
     (row) => !chunks.has(row.chunk_id),
   );
+  db.tables.exercise_solutions = db.tables.exercise_solutions.filter(
+    (row) =>
+      !chunks.has(row.exercise_chunk_id) && !chunks.has(row.solution_chunk_id),
+  );
+  db.tables.exercises = db.tables.exercises.filter(
+    (row) => !chunks.has(row.question_chunk_id),
+  );
+  for (const exercise of db.tables.exercises) {
+    if (chunks.has(exercise.solution_chunk_id)) {
+      exercise.solution_chunk_id = null;
+    }
+  }
+}
+
+/** The id of the seeded chunk with this Markdown. */
+export function chunkWith(db: BuildDb, markdown: string): string {
+  return db.tables.chunks.find((chunk) => chunk.markdown === markdown)!
+    .id as string;
+}
+
+/** Pairs an exercise chunk with a solution chunk, as pairing stores it. */
+export function pair(db: BuildDb, exercise: string, solution: string) {
+  db.tables.exercise_solutions.push({
+    owner: STUDENT,
+    course_id: COURSE,
+    exercise_chunk_id: chunkWith(db, exercise),
+    solution_chunk_id: chunkWith(db, solution),
+    status: "paired",
+  });
 }
 
 /** Queues a build, as `queue_knowledge_map_build` does. */
@@ -298,111 +410,6 @@ export function queueBuild(db: BuildDb) {
       heartbeat_at: now(),
     },
   ];
-}
-
-type Prompt = Array<{ role: string; content: unknown }>;
-
-/** The JSON of a call's user message. */
-function userJson(prompt: unknown): Record<string, unknown> {
-  const user = (prompt as Prompt).find((message) => message.role === "user");
-  const [part] = user!.content as Array<{ text: string }>;
-  return JSON.parse(part!.text) as Record<string, unknown>;
-}
-
-/** A Part as its extraction call sent it. */
-export type SentPart = {
-  title: string;
-  chapterTitle: string;
-  language: string;
-  kcBudget: number;
-  chunks: Array<{ id: string; markdown: string }>;
-};
-
-const answer = (value: unknown) => ({
-  content: [{ type: "text" as const, text: JSON.stringify(value) }],
-  finishReason: { unified: "stop" as const, raw: undefined },
-  usage: {
-    inputTokens: {
-      total: 100,
-      noCache: 100,
-      cacheRead: undefined,
-      cacheWrite: undefined,
-    },
-    outputTokens: { total: 10, text: 10, reasoning: undefined },
-  },
-  warnings: [],
-});
-
-/**
- * Routes the `map` and `embed` tasks to mocks, one call at a time. The
- * extraction gives each Part the KCs `kcsOf` names (by default one named
- * after the Part's title), all citing its first chunk; the merge call calls
- * KCs of one cluster with the same name the same. Every KC text gets a
- * one-hot vector of its own, so equal texts are alike and others are not.
- * `afterCall` runs after each extraction call.
- */
-export function useBuildModels({
-  kcsOf = (part) => [part.title],
-  afterCall,
-}: {
-  kcsOf?: (part: SentPart) => string[];
-  afterCall?: (count: number) => void;
-} = {}) {
-  const extractions: SentPart[] = [];
-  const merges: unknown[] = [];
-  const embedded: string[] = [];
-  const map = new MockLanguageModelV4({
-    doGenerate: async ({ prompt }) => {
-      const sent = userJson(prompt);
-      if ("clusters" in sent) {
-        merges.push(sent);
-        const clusters = sent.clusters as Array<{
-          kcs: Array<{ id: string; name: string }>;
-        }>;
-        return answer({
-          same: clusters.flatMap((cluster) =>
-            [...Map.groupBy(cluster.kcs, (kc) => kc.name).values()]
-              .filter((group) => group.length > 1)
-              .map((group) => ({ kcIds: group.map((kc) => kc.id) })),
-          ),
-        });
-      }
-      const part = sent as SentPart;
-      extractions.push(part);
-      const result = answer({
-        kcs: kcsOf(part).map((name) => ({
-          name,
-          description: `About ${name}.`,
-          type: "concept",
-          chunkIds: [part.chunks[0]!.id],
-          assumes: [],
-        })),
-        prerequisites: [],
-      });
-      afterCall?.(extractions.length);
-      return result;
-    },
-  });
-  const dimensions = 64;
-  const texts: string[] = [];
-  const embed = new MockEmbeddingModelV4({
-    doEmbed: async ({ values }) => {
-      embedded.push(...values);
-      return {
-        embeddings: values.map((text) => {
-          if (!texts.includes(text)) texts.push(text);
-          return Array.from({ length: dimensions }, (_, index) =>
-            index === texts.indexOf(text) % dimensions ? 1 : 0,
-          );
-        }),
-        usage: undefined,
-        warnings: [],
-      };
-    },
-  });
-  useMockModels({ map, embed });
-  vi.stubEnv("AI_CONCURRENCY", "1");
-  return { extractions, merges, embedded };
 }
 
 /** The live KCs' names in map order, with their Big idea's name. */

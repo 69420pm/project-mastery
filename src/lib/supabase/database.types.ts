@@ -793,6 +793,7 @@ export type Database = {
           owner: string;
           position: number;
           question_chunk_id: string;
+          solution_chunk_id: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -804,6 +805,7 @@ export type Database = {
           owner: string;
           position: number;
           question_chunk_id: string;
+          solution_chunk_id?: string | null;
         };
         Update: {
           course_id?: string;
@@ -814,6 +816,7 @@ export type Database = {
           owner?: string;
           position?: number;
           question_chunk_id?: string;
+          solution_chunk_id?: string | null;
         };
         Relationships: [
           {
@@ -833,6 +836,13 @@ export type Database = {
           {
             foreignKeyName: "exercises_question_chunk_id_fkey";
             columns: ["question_chunk_id"];
+            isOneToOne: true;
+            referencedRelation: "chunks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "exercises_solution_chunk_id_fkey";
+            columns: ["solution_chunk_id"];
             isOneToOne: false;
             referencedRelation: "chunks";
             referencedColumns: ["id"];

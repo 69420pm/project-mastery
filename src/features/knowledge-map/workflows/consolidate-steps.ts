@@ -17,9 +17,11 @@ import {
   type AlikePair,
   type ClusterKc,
 } from "@/features/knowledge-map/domain/kc-clusters";
+import { exerciseDifficulty } from "@/features/knowledge-map/domain/exercise-extraction";
 import { acyclicLinks } from "@/features/knowledge-map/domain/prerequisite-cycles";
 import {
   storedExtractionSchema,
+  type ExtractedExercise,
   type StoredExtraction,
 } from "@/features/knowledge-map/schemas";
 import {
@@ -40,7 +42,9 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * REVIVE_SIMILARITY of a retired KC revives it, and one within
  * SAME_KC_SIMILARITY of another KC forms a cluster, about which a merge call
  * (task `map`, 15 clusters per call) says which KCs are the same. A merged
- * new KC is never stored: the KC it merges into gains its sources.
+ * new KC is never stored: the KC it merges into gains its sources. An
+ * exercise Part's extraction also stores its Exercises, in place by their
+ * question chunks.
  */
 
 /** The most clusters one merge call is asked about. */
@@ -166,16 +170,21 @@ async function embedMissing(
 
 type Match = { id: string; similarity: number };
 
-async function matchKcs(
+/**
+ * The Course's `count` live KCs, or with `retired` its retired ones,
+ * nearest to `embedding` (a vector, or its text form), most alike first.
+ */
+export async function matchKcs(
   supabase: AdminSupabase,
   courseId: string,
-  embedding: number[],
+  embedding: number[] | string,
   count: number,
   retired: boolean,
 ): Promise<Match[]> {
   const { data, error } = await supabase.rpc("match_kcs", {
     p_course_id: courseId,
-    p_embedding: JSON.stringify(embedding),
+    p_embedding:
+      typeof embedding === "string" ? embedding : JSON.stringify(embedding),
     p_count: count,
     p_retired: retired,
   });
@@ -379,6 +388,7 @@ type StoredKcRow = {
   name?: string;
   description?: string;
   type?: string;
+  origin?: "content" | "exercise";
   bigIdea: string;
   embedding?: string;
   sources: string[];
@@ -418,6 +428,7 @@ async function storeKcs(
       name: kc.name,
       description: kc.description,
       type: kc.type,
+      origin: batch[part]!.extraction.exercises ? "exercise" : "content",
       bigIdea: bigIdeaOf(part),
       embedding: JSON.stringify(kc.embedding),
       sources: [],
@@ -466,8 +477,37 @@ async function storeKcs(
     p_parts: readyParts.map(({ part, partId, extraction }) => ({
       partId,
       kcIds: extraction.kcs.map((_, k) => idOf(`${part}:${k}`)),
+      ...(extraction.exercises && {
+        exercises: storedExercises(extraction.exercises, (k) =>
+          idOf(`${part}:${k}`),
+        ),
+      }),
     })),
   });
   if (error) failed("Storing the KCs", error);
   return data;
+}
+
+/**
+ * The Exercises of an exercise Part's extraction as `store_part_kcs` takes
+ * them: its new KCs by their stored ids, and its difficulty.
+ */
+function storedExercises(
+  exercises: ExtractedExercise[],
+  newKcId: (index: number) => string,
+) {
+  return exercises
+    .filter((exercise) => !exercise.notAnExercise)
+    .map((exercise) => {
+      const kcIds = [
+        ...new Set([...exercise.kcIds, ...exercise.newKcs.map(newKcId)]),
+      ];
+      return {
+        questionChunkId: exercise.chunkId,
+        solutionChunkId: exercise.solutionChunkId,
+        kcIds,
+        finalAnswers: exercise.finalAnswers,
+        difficulty: exerciseDifficulty(kcIds.length, exercise.solutionLines),
+      };
+    });
 }

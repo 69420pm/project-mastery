@@ -73,6 +73,7 @@ function createDb() {
         ofCourse({
           id: `exercise-${n(i)}`,
           question_chunk_id: chunkId(i),
+          solution_chunk_id: null,
           difficulty: 1,
           position: i,
         }),
@@ -80,7 +81,6 @@ function createDb() {
       exercise_kcs: each((i) =>
         ofCourse({ exercise_id: `exercise-${n(i)}`, kc_id: kcId(i) }),
       ),
-      exercise_solutions: [] as FakeRow[],
     },
     maxRows: 1000,
     maxInValues: 100,

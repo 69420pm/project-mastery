@@ -87,6 +87,8 @@ export type ChunkSource = {
   pageFrom: number;
   pageTo: number;
   markdown: string;
+  /** As printed, such as "7.2b"; null for chunks that are no exercise. */
+  exerciseNumber: string | null;
   /** Whether its Material is an old exam. */
   isExam: boolean;
 };
@@ -106,7 +108,9 @@ export async function loadChunkSources(
   for (let start = 0; start < ids.length; start += ID_SLICE) {
     const { data, error } = await supabase
       .from("chunks")
-      .select("id, material_id, position, page_from, page_to, markdown")
+      .select(
+        "id, material_id, position, page_from, page_to, markdown, exercise_number",
+      )
       .in("id", ids.slice(start, start + ID_SLICE));
     if (error) failed("Loading the chunks", error);
     rows.push(...data);
@@ -133,33 +137,9 @@ export async function loadChunkSources(
       pageFrom: row.page_from,
       pageTo: row.page_to,
       markdown: row.markdown,
+      exerciseNumber: row.exercise_number,
       isExam: material.get(row.material_id)!.is_exam === true,
     }));
-}
-
-/**
- * The Course's exercise subtask chunks with their paired solution chunks,
- * as the last pairing pass stored them: exercise chunk id to solution chunk
- * id, or null without a solution. Reads on the admin client, or on a
- * Student's session client, where Row Level Security scopes it.
- */
-export async function loadExerciseSolutions(
-  supabase: Supabase,
-  courseId: string,
-): Promise<Record<string, string | null>> {
-  const rows = await allRows("Loading the exercise solutions", (from, to) =>
-    supabase
-      .from("exercise_solutions")
-      .select("exercise_chunk_id, solution_chunk_id")
-      .eq("course_id", courseId)
-      .order("exercise_chunk_id")
-      .range(from, to),
-  );
-  const pairs: Record<string, string | null> = {};
-  for (const pair of rows) {
-    pairs[pair.exercise_chunk_id] = pair.solution_chunk_id;
-  }
-  return pairs;
 }
 
 /** A chunk's text as a Reading section shows it. */
