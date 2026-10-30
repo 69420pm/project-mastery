@@ -177,6 +177,24 @@ describe("Update map", () => {
     });
   });
 
+  test("names the Topics of a long chapter in calls of at most 10", async () => {
+    const titles = Array.from({ length: 11 }, (_, index) => `Part ${index}`);
+    seedMaterial(db, {
+      parts: titles.map((title) => ({ title, chapter: "Vector spaces" })),
+    });
+    const { namings } = useBuildModels({
+      kcsOf: (part) => [1, 2, 3].map((n) => `${part.title} KC ${n}`),
+    });
+
+    await update();
+
+    expect(namings.map((call) => call.topics.length)).toEqual([10, 1]);
+    expect(db.tables.topics).toHaveLength(11);
+    expect(db.tables.big_ideas.map((row) => row.name)).toEqual([
+      "Vector spaces",
+    ]);
+  });
+
   test("makes what a KC assumes a Prerequisite on an earlier KC, once", async () => {
     seedMaterial(db, {
       parts: [{ title: "Vectors" }, { title: "Sums" }, { title: "Bases" }],

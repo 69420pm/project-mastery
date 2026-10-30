@@ -69,10 +69,14 @@ async function loadPlan(supabase: AdminSupabase, courseId: string) {
 const storedTopicOf = (topic: PlannedTopic, stored: StoredTopic[]) =>
   stored.find((row) => sameParts(row.part_hashes, topic.partHashes));
 
+/** The most Topics one naming call names, so no prompt grows with a chapter. */
+const TOPICS_PER_CALL = 10;
+
 /**
  * Names the planned Topics no stored Topic holds the Parts of: one call per
- * Big idea, up to PARTS_PER_STEP Big ideas a step, each stored as it
- * finishes. A reached Daily limit stops the build.
+ * Big idea, or per TOPICS_PER_CALL of its Topics, up to PARTS_PER_STEP
+ * calls a step, each stored as it finishes. A reached Daily limit stops the
+ * build.
  */
 export async function nameTopics(courseId: string): Promise<StepOutcome> {
   "use step";
@@ -83,8 +87,21 @@ export async function nameTopics(courseId: string): Promise<StepOutcome> {
 
   const { input, plan, stored } = await loadPlan(supabase, courseId);
   const unnamed = plan.topics.filter((topic) => !storedTopicOf(topic, stored));
-  const bigIdeas = [...Map.groupBy(unnamed, (topic) => topic.bigIdea)];
-  if (bigIdeas.length === 0) return { ok: true, left: 0 };
+  const batches = [...Map.groupBy(unnamed, (topic) => topic.bigIdea)].flatMap(
+    ([bigIdea, topics]) =>
+      Array.from(
+        { length: Math.ceil(topics.length / TOPICS_PER_CALL) },
+        (_, index) =>
+          [
+            bigIdea,
+            topics.slice(
+              index * TOPICS_PER_CALL,
+              (index + 1) * TOPICS_PER_CALL,
+            ),
+          ] as const,
+      ),
+  );
+  if (batches.length === 0) return { ok: true, left: 0 };
 
   const language = await loadCourseLanguage(supabase, courseId);
   const kcName = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
@@ -92,7 +109,7 @@ export async function nameTopics(courseId: string): Promise<StepOutcome> {
   let limitReached = false;
   let running = true;
   await runCalls(
-    bigIdeas.slice(0, PARTS_PER_STEP),
+    batches.slice(0, PARTS_PER_STEP),
     async ([bigIdea, topics]) => {
       const offered = topics.map((topic, index): OfferedTopic => ({
         id: `t${index + 1}`,
@@ -136,7 +153,7 @@ export async function nameTopics(courseId: string): Promise<StepOutcome> {
   );
   if (!running) return { ok: true, left: null };
   if (limitReached) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: bigIdeas.length - done };
+  return { ok: true, left: batches.length - done };
 }
 
 /**
