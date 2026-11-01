@@ -351,6 +351,17 @@ function describeNotes(context: TutorContext): string[] {
   ];
 }
 
+/** The notes of the Course's Materials; contexts stored before have none. */
+function describeMaterialNotes(context: TutorContext): string[] {
+  const notes = context.materialNotes ?? [];
+  if (notes.length === 0) return [];
+  return [
+    `Notation and conventions of the Course's Materials, found when they were read; use them when you explain from a Material:\n${notes
+      .map(({ material, text }) => `- ${material}:\n${text}`)
+      .join("\n")}`,
+  ];
+}
+
 /** The AI's instructions in a Chat, with the current tutor context. */
 export function tutorInstructions(context: TutorContext): string {
   // Contexts stored before #180, which the Context sheet re-renders, have
@@ -386,6 +397,7 @@ export function tutorInstructions(context: TutorContext): string {
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
     ...describeNotes(context),
+    ...describeMaterialNotes(context),
     ...describePlan(context),
     ...(mock !== undefined
       ? [describeMockResults(mock)]

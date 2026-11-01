@@ -27,7 +27,10 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
-import { loadTutorNotes } from "@/features/study/server/notes";
+import {
+  loadMaterialNotes,
+  loadTutorNotes,
+} from "@/features/study/server/notes";
 import { loadMockReview } from "@/features/study/server/mock-results";
 import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
@@ -187,6 +190,7 @@ export async function startTutoring(
     topics,
     map,
   });
+  const materialNotes = await loadMaterialNotes(supabase, courseId);
   return {
     context: {
       today: utcDay(now),
@@ -213,6 +217,7 @@ export async function startTutoring(
       ...(practiceKcs && { practiceKcs }),
       ...(mockResults && { mockResults }),
       ...notes,
+      ...(materialNotes.length > 0 && { materialNotes }),
     },
     tools: tutorTools(
       tutorToolActions(supabase, {

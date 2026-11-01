@@ -178,6 +178,16 @@ test("hold the Memory under its heading when it is set", () => {
   );
 });
 
+test("list the Materials' notes under their Material's name, and nothing without any", () => {
+  expect(tutorInstructions(context)).not.toContain("Notation and conventions");
+
+  const instructions = tutorInstructions({
+    ...context,
+    materialNotes: [{ material: "Lecture notes", text: "Vectors are bold." }],
+  });
+  expect(instructions).toContain("- Lecture notes:\nVectors are bold.");
+});
+
 test("hold the Notes rules, and the notes when the context has them", () => {
   const without = tutorInstructions(context);
   expect(without).toContain("Notes from earlier sessions:");

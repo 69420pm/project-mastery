@@ -91,6 +91,19 @@ export type TutorContext = {
    * stored before #187.
    */
   topicNotes?: TopicNoteEntry[];
+  /**
+   * The notes of the Course's Materials (`materials.notes`), in Material
+   * order, Materials without notes left out; absent in contexts stored
+   * before the Outline.
+   */
+  materialNotes?: MaterialNoteEntry[];
+};
+
+/** A Material's notation and conventions as the AI is told of them. */
+export type MaterialNoteEntry = {
+  /** The Material's name. */
+  material: string;
+  text: string;
 };
 
 /** A Session note as the AI is told of it. */
