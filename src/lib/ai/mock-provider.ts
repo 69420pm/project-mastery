@@ -255,8 +255,8 @@ function mockTutorQuestions(
   if (!rebuild && !text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId =
     typeof system === "string"
-      ? // A KC's id is followed by its type; a Topic's by a parenthesis.
-        new RegExp(`\\(id (${UUID}),`).exec(system)?.[1]
+      ? // A KC's id is followed by its state or Topic; a Topic's by a parenthesis.
+        new RegExp(`\\(id (${UUID})[;,]`).exec(system)?.[1]
       : undefined;
   if (!kcId) return null;
   return toolCallStream("mock-ask", "ask", {
