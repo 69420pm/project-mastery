@@ -25,9 +25,9 @@ export function openingMessageId(courseId: string): string {
 }
 
 /**
- * The id of the static message that asks whether `materialIds` are old
+ * The id of the static message that asks whether `chapterIds` are old
  * exams, so the same question is stored once.
  */
-export function oldExamsMessageId(materialIds: string[]): string {
-  return staticMessageId(`old-exams:${materialIds.toSorted().join(",")}`);
+export function oldExamsMessageId(chapterIds: string[]): string {
+  return staticMessageId(`old-exams:${chapterIds.toSorted().join(",")}`);
 }

@@ -40,6 +40,7 @@ function addChunk(n: number, material: string, markdown: string) {
     ...owned,
     id: chunkOf(n),
     material_id: material,
+    chapter_id: `root-${material}`,
     position: n,
     page_from: n,
     page_to: n,
@@ -78,8 +79,16 @@ function seedExercises() {
     ...owned,
     id: EXAM,
     name: "Exam 2024",
-    is_exam: true,
     created_at: "2025-12-02T00:00:00.000Z",
+  });
+  db.tables.chapters.push({
+    ...owned,
+    id: `root-${EXAM}`,
+    material_id: EXAM,
+    parent_id: null,
+    title: "Exam 2024",
+    depth: 0,
+    is_exam: true,
   });
   addChunk(1, EXAM, "Compute the thrust of the engine.");
   addChunk(2, EXAM, "Solution: 42 kN.");
@@ -472,7 +481,7 @@ describe("findProblems", () => {
     db.tables.briefs.push({
       course_id: COURSE,
       owner: STUDENT,
-      reserved_exam_material_id: EXAM,
+      reserved_exam_chapter_id: `root-${EXAM}`,
     });
     const model = mockToolModel(
       [

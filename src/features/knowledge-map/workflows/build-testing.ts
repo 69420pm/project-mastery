@@ -33,6 +33,7 @@ const now = () => new Date().toISOString();
 export function createBuildDb() {
   return fakeSupabase({
     tables: {
+      courses: [] as FakeRow[],
       materials: [] as FakeRow[],
       chapters: [] as FakeRow[],
       chunks: [] as FakeRow[],

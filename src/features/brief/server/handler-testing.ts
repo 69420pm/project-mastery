@@ -17,6 +17,35 @@ export const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 export const OLD_EXAM = "aaaaaaaa-0000-4000-8000-00000000e024";
 export const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
 
+/** The root Chapters of the two Materials, titled by their names. */
+export const OLD_EXAM_ROOT = "aaaaaaaa-0c40-4000-8000-00000000e024";
+export const LECTURE_ROOT = "aaaaaaaa-0c40-4000-8000-000000000001";
+/** An old exam inside Lecture 1, which the parse proposed. */
+export const LECTURE_EXAM = "aaaaaaaa-0c40-4000-8000-000000000002";
+
+function chapter(
+  id: string,
+  materialId: string,
+  parentId: string | null,
+  position: number,
+  title: string,
+  examProposed = false,
+): FakeRow {
+  return {
+    id,
+    owner: STUDENT,
+    course_id: COURSE,
+    material_id: materialId,
+    parent_id: parentId,
+    position,
+    depth: parentId === null ? 0 : 1,
+    title,
+    exam_proposed: examProposed,
+    is_exam: null,
+    exam_asked: false,
+  };
+}
+
 /** A top-level Topic, holding `TOPIC`. */
 export const INTEGRALS = "aaaaaaaa-b000-4000-8000-000000000001";
 export const TOPIC = "aaaaaaaa-7000-4000-8000-000000000001";
@@ -66,8 +95,6 @@ function createDb() {
           name: "Old exam 2024",
           created_at: "2026-10-01T00:00:00Z",
           parse_status: "parsed",
-          is_exam: null,
-          exam_asked: false,
         },
         {
           id: LECTURE,
@@ -76,10 +103,13 @@ function createDb() {
           name: "Lecture 1",
           created_at: "2026-10-02T00:00:00Z",
           parse_status: "parsed",
-          is_exam: null,
-          exam_asked: false,
         },
       ] as FakeRow[],
+      chapters: [
+        chapter(OLD_EXAM_ROOT, OLD_EXAM, null, 0, "Old exam 2024"),
+        chapter(LECTURE_ROOT, LECTURE, null, 0, "Lecture 1"),
+        chapter(LECTURE_EXAM, LECTURE, LECTURE_ROOT, 1, "Klausur 2023", true),
+      ],
       briefs: [],
       mock_exams: [],
       brief_excluded_materials: [],
@@ -117,19 +147,33 @@ function createDb() {
         const brief = ownBrief(tables.briefs, args.course_id);
         if (!brief) return false;
         Object.assign(brief, args.fields);
-        const exams = args.exam_material_ids as string[] | undefined;
-        const asked = (args.asked_material_ids ?? []) as string[];
+        const exams = args.exam_chapter_ids as string[] | undefined;
+        const asked = (args.asked_chapter_ids ?? []) as string[];
         if (exams) {
-          for (const material of tables.materials) {
-            if (material.course_id !== args.course_id) continue;
-            material.is_exam = exams.includes(material.id as string);
-            if (
-              material.parse_status === "parsed" &&
-              asked.includes(material.id as string)
-            ) {
-              material.exam_asked = true;
+          for (const chapter of tables.chapters) {
+            if (chapter.course_id !== args.course_id) continue;
+            const id = chapter.id as string;
+            if (exams.includes(id)) chapter.is_exam = true;
+            else if (chapter.is_exam === true || asked.includes(id)) {
+              chapter.is_exam = false;
             }
+            const parsed = tables.materials.some(
+              (m) =>
+                m.id === chapter.material_id && m.parse_status === "parsed",
+            );
+            if (parsed && asked.includes(id)) chapter.exam_asked = true;
           }
+          if (
+            brief.reserved_exam_chapter_id &&
+            !exams.includes(brief.reserved_exam_chapter_id as string)
+          ) {
+            brief.reserved_exam_chapter_id = null;
+            brief.reserved_exam_answered = false;
+          }
+        }
+        if (args.course_language) {
+          const course = tables.courses.find((c) => c.id === args.course_id);
+          if (course) course.language = args.course_language;
         }
         const ids = args.excluded_material_ids as string[] | undefined;
         if (ids) {

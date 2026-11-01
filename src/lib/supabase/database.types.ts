@@ -241,7 +241,7 @@ export type Database = {
           owner: string;
           question_style: string | null;
           reserved_exam_answered: boolean;
-          reserved_exam_material_id: string | null;
+          reserved_exam_chapter_id: string | null;
           scope_confirmed: boolean;
           updated_at: string;
         };
@@ -260,7 +260,7 @@ export type Database = {
           owner?: string;
           question_style?: string | null;
           reserved_exam_answered?: boolean;
-          reserved_exam_material_id?: string | null;
+          reserved_exam_chapter_id?: string | null;
           scope_confirmed?: boolean;
           updated_at?: string;
         };
@@ -278,7 +278,7 @@ export type Database = {
           owner?: string;
           question_style?: string | null;
           reserved_exam_answered?: boolean;
-          reserved_exam_material_id?: string | null;
+          reserved_exam_chapter_id?: string | null;
           scope_confirmed?: boolean;
           updated_at?: string;
         };
@@ -298,10 +298,10 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "briefs_reserved_exam_material_id_fkey";
-            columns: ["reserved_exam_material_id"];
+            foreignKeyName: "briefs_reserved_exam_chapter_id_fkey";
+            columns: ["reserved_exam_chapter_id"];
             isOneToOne: false;
-            referencedRelation: "materials";
+            referencedRelation: "chapters";
             referencedColumns: ["id"];
           },
         ];
@@ -376,8 +376,10 @@ export type Database = {
           course_id: string;
           created_at: string;
           depth: number;
+          exam_asked: boolean;
           exam_proposed: boolean;
           id: string;
+          is_exam: boolean | null;
           material_id: string;
           owner: string;
           page_from: number;
@@ -390,8 +392,10 @@ export type Database = {
           course_id: string;
           created_at?: string;
           depth: number;
+          exam_asked?: boolean;
           exam_proposed?: boolean;
           id?: string;
+          is_exam?: boolean | null;
           material_id: string;
           owner: string;
           page_from: number;
@@ -403,8 +407,10 @@ export type Database = {
           course_id?: string;
           created_at?: string;
           depth?: number;
+          exam_asked?: boolean;
           exam_proposed?: boolean;
           id?: string;
+          is_exam?: boolean | null;
           material_id?: string;
           owner?: string;
           page_from?: number;
@@ -619,6 +625,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          language: string | null;
           name: string;
           owner: string;
           pairing_requested: number;
@@ -628,6 +635,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          language?: string | null;
           name: string;
           owner?: string;
           pairing_requested?: number;
@@ -636,6 +644,7 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          language?: string | null;
           name?: string;
           owner?: string;
           pairing_requested?: number;
@@ -1230,10 +1239,8 @@ export type Database = {
         Row: {
           course_id: string;
           created_at: string;
-          exam_asked: boolean;
           heartbeat_at: string;
           id: string;
-          is_exam: boolean | null;
           language: string | null;
           media_type: string;
           name: string;
@@ -1253,10 +1260,8 @@ export type Database = {
         Insert: {
           course_id: string;
           created_at?: string;
-          exam_asked?: boolean;
           heartbeat_at?: string;
           id?: string;
-          is_exam?: boolean | null;
           language?: string | null;
           media_type: string;
           name: string;
@@ -1275,10 +1280,8 @@ export type Database = {
         Update: {
           course_id?: string;
           created_at?: string;
-          exam_asked?: boolean;
           heartbeat_at?: string;
           id?: string;
-          is_exam?: boolean | null;
           language?: string | null;
           media_type?: string;
           name?: string;
@@ -1362,7 +1365,7 @@ export type Database = {
           id: string;
           owner: string;
           predicted_score: number | null;
-          reserved_material_id: string | null;
+          reserved_chapter_id: string | null;
           score: number | null;
           session_id: string | null;
           started_at: string | null;
@@ -1383,7 +1386,7 @@ export type Database = {
           id?: string;
           owner: string;
           predicted_score?: number | null;
-          reserved_material_id?: string | null;
+          reserved_chapter_id?: string | null;
           score?: number | null;
           session_id?: string | null;
           started_at?: string | null;
@@ -1403,7 +1406,7 @@ export type Database = {
           id?: string;
           owner?: string;
           predicted_score?: number | null;
-          reserved_material_id?: string | null;
+          reserved_chapter_id?: string | null;
           score?: number | null;
           session_id?: string | null;
           started_at?: string | null;
@@ -1426,10 +1429,10 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "mock_exams_reserved_material_id_fkey";
-            columns: ["reserved_material_id"];
+            foreignKeyName: "mock_exams_reserved_chapter_id_fkey";
+            columns: ["reserved_chapter_id"];
             isOneToOne: false;
-            referencedRelation: "materials";
+            referencedRelation: "chapters";
             referencedColumns: ["id"];
           },
           {
@@ -2282,9 +2285,10 @@ export type Database = {
       retire_unsourced_kcs: { Args: { p_course_id: string }; Returns: number };
       save_brief: {
         Args: {
-          asked_material_ids?: string[];
+          asked_chapter_ids?: string[];
           course_id: string;
-          exam_material_ids?: string[];
+          course_language?: string;
+          exam_chapter_ids?: string[];
           excluded_material_ids?: string[];
           fields?: Json;
         };

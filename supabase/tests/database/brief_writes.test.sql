@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, email)
 values
@@ -95,39 +95,55 @@ select is(
   'add_brief_note refuses notes past the limit'
 );
 
--- The reserved exam.
+-- The reserved exam: the old exam's root Chapter, the Lecture's root and
+-- Bob's Notes' root.
 reset role;
-update public.materials set is_exam = true where id = 'aaaaaaaa-0000-0000-0000-0000000000f1';
+insert into public.chapters (id, owner, course_id, material_id, position, depth, title, page_from, is_exam)
+values
+  ('aaaaaaaa-0c00-0000-0000-0000000000f1', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f1', 0, 0, 'Old exam', 1, true),
+  ('aaaaaaaa-0c00-0000-0000-0000000000f2', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f2', 0, 0, 'Lecture', 1, null),
+  ('bbbbbbbb-0c00-0000-0000-0000000000f1', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-c000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-0000000000f1', 0, 0, 'Notes', 1, true);
 set local role authenticated;
 
 select ok(
   public.save_brief(
     'aaaaaaaa-c000-0000-0000-000000000001',
-    '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f1", "reserved_exam_answered": true}'
+    '{"reserved_exam_chapter_id": "aaaaaaaa-0c00-0000-0000-0000000000f1", "reserved_exam_answered": true}'
   ),
   'save_brief reserves an old exam of the Course'
 );
 
 select throws_ok(
-  $$select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f2"}')$$,
+  $$select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_chapter_id": "aaaaaaaa-0c00-0000-0000-0000000000f2"}')$$,
   '23514',
   null,
-  'a Material that is no old exam cannot be reserved'
+  'a Chapter that is no old exam cannot be reserved'
 );
 
 select throws_ok(
-  $$update public.briefs set reserved_exam_material_id = 'bbbbbbbb-0000-0000-0000-0000000000f1' where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$update public.briefs set reserved_exam_chapter_id = 'bbbbbbbb-0c00-0000-0000-0000000000f1' where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
   '23514',
   null,
-  'another Student''s Material cannot be reserved'
+  'another Student''s Chapter cannot be reserved'
 );
 
 delete from public.materials where id = 'aaaaaaaa-0000-0000-0000-0000000000f1';
 
 select results_eq(
-  $$select reserved_exam_material_id, reserved_exam_answered from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$select reserved_exam_chapter_id, reserved_exam_answered from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
   $$values (null::uuid, true)$$,
-  'deleting the reserved Material clears the reservation'
+  'deleting the reserved exam''s Material clears the reservation'
+);
+
+select ok(
+  public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', course_language => 'German'),
+  'save_brief sets the Course language'
+);
+
+select is(
+  (select language from public.courses where id = 'aaaaaaaa-c000-0000-0000-000000000001'),
+  'German',
+  'the Course language is stored'
 );
 
 select * from finish();

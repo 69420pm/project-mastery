@@ -60,7 +60,8 @@ async function send(
 type Seeded = {
   courseId: string;
   labManualId: string;
-  examId: string;
+  /** The root Chapter of the old exam Klausur 2025. */
+  examChapterId: string;
   /** The KCs of Chapter 2, which an admin text says is not examined. */
   chapter2Kcs: string[];
   /** The Topic that holds them. */
@@ -107,10 +108,32 @@ async function seedCourse(
       created_at: new Date(Date.UTC(2026, 9, 1 + index)).toISOString(),
     })),
   );
+  // Each Material's root Chapter, titled by its name.
+  const roots = new Map<string, string>(
+    [labManualId, examId, notesId].map((id) => [id, randomUUID()]),
+  );
+  await insertRows(
+    supabase,
+    "chapters",
+    [
+      [labManualId, "Lab manual"],
+      [examId, "Klausur 2025"],
+      [notesId, "Lecture notes"],
+    ].map(([materialId, title]) => ({
+      ...owned,
+      id: roots.get(materialId!)!,
+      material_id: materialId,
+      position: 0,
+      depth: 0,
+      title,
+      page_from: 1,
+    })),
+  );
   const chunk = (page: number, label: string, markdown: string) => ({
     ...owned,
     id: randomUUID(),
     material_id: notesId,
+    chapter_id: roots.get(notesId)!,
     position: page - 1,
     page_from: page,
     page_to: page,
@@ -170,7 +193,7 @@ async function seedCourse(
   return {
     courseId,
     labManualId,
-    examId,
+    examChapterId: roots.get(examId)!,
     chapter2Kcs: [kcs[1]!.id],
     chapter2Topic: matrices,
   };
@@ -213,7 +236,7 @@ export const briefSmoke: SmokeCheck = {
         .select("material_id")
         .eq("course_id", courseId),
       supabase
-        .from("materials")
+        .from("chapters")
         .select("id")
         .eq("course_id", courseId)
         .eq("is_exam", true),
@@ -252,7 +275,7 @@ export const briefSmoke: SmokeCheck = {
       client,
       studentId,
       courseId,
-      seeded.examId,
+      seeded.examChapterId,
     );
     return [
       ...fields,
@@ -269,7 +292,7 @@ export const briefSmoke: SmokeCheck = {
       ),
       result(
         "Klausur 2025 is the only old exam",
-        examIds.length === 1 && examIds[0] === seeded.examId,
+        examIds.length === 1 && examIds[0] === seeded.examChapterId,
         `${examIds.length} old exams`,
       ),
       result(
@@ -337,7 +360,7 @@ async function answerReservation(
 
   const stored = await supabase
     .from("briefs")
-    .select("reserved_exam_material_id, reserved_exam_answered")
+    .select("reserved_exam_chapter_id, reserved_exam_answered")
     .eq("course_id", courseId)
     .single();
   if (stored.error) throw new Error(stored.error.message);
@@ -350,7 +373,7 @@ async function answerReservation(
     result(
       "the reserved exam is stored",
       stored.data.reserved_exam_answered &&
-        stored.data.reserved_exam_material_id === examId,
+        stored.data.reserved_exam_chapter_id === examId,
       JSON.stringify(stored.data),
     ),
   ];

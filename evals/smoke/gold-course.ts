@@ -90,7 +90,7 @@ async function loadGoldCourse(
   supabase: AdminSupabase,
   courseId: string,
 ): Promise<GoldCourse> {
-  const [kcs, links, topics, exercises, brief] = await Promise.all([
+  const [kcs, links, topics, exercises, brief, chapters] = await Promise.all([
     supabase
       .from("kcs")
       .select("id, name, description")
@@ -109,17 +109,22 @@ async function loadGoldCourse(
     supabase
       .from("exercises")
       .select(
-        "id, final_answers, exercise_kcs(kc_id), chunks!exercises_question_chunk_id_fkey(markdown, page_from, material_id, materials(name))",
+        "id, final_answers, exercise_kcs(kc_id), chunks!exercises_question_chunk_id_fkey(markdown, page_from, chapter_id, materials(name))",
       )
       .eq("course_id", courseId)
       .order("position"),
     supabase
       .from("briefs")
-      .select("reserved_exam_material_id")
+      .select("reserved_exam_chapter_id")
       .eq("course_id", courseId)
       .maybeSingle(),
+    supabase.from("chapters").select("id, parent_id").eq("course_id", courseId),
   ]);
-  const reserved = must(brief)?.reserved_exam_material_id ?? null;
+  // The reserved exam's Chapter and every Chapter below it.
+  const reservedId = must(brief)?.reserved_exam_chapter_id ?? null;
+  const parentOf = new Map(must(chapters).map((c) => [c.id, c.parent_id]));
+  const inReserved = (id: string | null): boolean =>
+    id !== null && (id === reservedId || inReserved(parentOf.get(id) ?? null));
   return {
     courseId,
     kcs: must(kcs),
@@ -149,7 +154,7 @@ async function loadGoldCourse(
         finalAnswers: exercise.final_answers as FinalAnswer[] | null,
         markdown: chunk.markdown,
         label: `${chunk.materials.name} p. ${chunk.page_from}`,
-        reserved: chunk.material_id === reserved,
+        reserved: reservedId !== null && inReserved(chunk.chapter_id),
       };
     }),
   };

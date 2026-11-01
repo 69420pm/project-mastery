@@ -29,9 +29,9 @@ beforeEach(() => {
           media_type: "application/pdf",
           storage_path: FILE,
           parse_status: "parsed",
-          is_exam: false,
         },
       ] as FakeRow[],
+      chapters: [] as FakeRow[],
       chunks: [
         {
           id: "c1",

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getExamFacts, getReservedExam } from "@/features/brief/server";
 import {
   loadChunkSources,
-  loadMaterialChunkIds,
+  loadChapterChunkIds,
 } from "@/features/ingestion/server";
 import {
   loadStoredMap,
@@ -88,7 +88,7 @@ export async function planMockExam(
       getReservedExam(supabase, courseId),
     ]);
   const reserved = new Set(
-    reservedId === null ? [] : await loadMaterialChunkIds(supabase, reservedId),
+    reservedId === null ? [] : await loadChapterChunkIds(supabase, reservedId),
   );
   const schedules = await loadSchedules(
     supabase,
@@ -293,11 +293,11 @@ async function questionChunks(
 async function setFinal(
   supabase: Supabase,
   mockId: string,
-  materialId: string,
+  chapterId: string,
 ): Promise<void> {
   const { error } = await supabase
     .from("mock_exams")
-    .update({ reserved_material_id: materialId })
+    .update({ reserved_chapter_id: chapterId })
     .eq("id", mockId)
     .eq("status", "assembling");
   if (error) failed("Marking the final mock exam", error);

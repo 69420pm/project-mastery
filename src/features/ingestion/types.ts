@@ -51,7 +51,10 @@ export type MaterialChunks = {
   courseId: string;
   name: string;
   parseStatus: ParseStatus;
-  /** An old exam, as the Brief confirmed it. */
-  isExam: boolean;
+  /**
+   * The titles of its old exams, as the Brief confirmed them: Chapters not
+   * inside another; the Material's name when the whole Material is one.
+   */
+  examChapters: string[];
   chunks: ChunkView[];
 };

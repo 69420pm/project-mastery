@@ -28,7 +28,6 @@ export function createDb() {
     size_bytes: 1,
     position,
     parse_status: "parsed",
-    is_exam: false,
   });
   const chunk = (
     chunkId: string,
@@ -52,6 +51,7 @@ export function createDb() {
         material(LECTURE, "Lecture 1", 0),
       ],
       material_pages: [],
+      chapters: [],
       // Stored against reading order, which the readers restore.
       chunks: [
         chunk(D1, NOTES, 0, [1, 1]),

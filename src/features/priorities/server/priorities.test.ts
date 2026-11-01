@@ -14,18 +14,46 @@ const OTHER = "aaaaaaaa-c000-4000-8000-000000000002";
 let signedIn = true;
 let db = createDb();
 
+function chapter(
+  id: string,
+  parentId: string | null,
+  depth: number,
+  isExam: boolean | null,
+): FakeRow {
+  return {
+    id,
+    course_id: COURSE,
+    material_id: "notes",
+    parent_id: parentId,
+    title: id,
+    depth,
+    is_exam: isExam,
+  };
+}
+
 function createDb() {
   return fakeSupabase({
     tables: {
       materials: [
-        { id: "notes", course_id: COURSE, name: "Notes", is_exam: false },
-        { id: "exam", course_id: COURSE, name: "Exam 2024", is_exam: true },
-        { id: "extra", course_id: COURSE, name: "Extra", is_exam: false },
+        { id: "notes", course_id: COURSE, name: "Notes" },
+        { id: "extra", course_id: COURSE, name: "Extra" },
       ] as FakeRow[],
+      // The Notes hold an old exam the Student confirmed, with a problem
+      // Chapter inside it.
+      chapters: [
+        chapter("n0", null, 0, null),
+        chapter("exam", "n0", 1, true),
+        chapter("problem", "exam", 2, null),
+      ],
       chunks: [
-        { id: "c1", course_id: COURSE, material_id: "notes" },
-        { id: "c2", course_id: COURSE, material_id: "extra" },
-        { id: "q1", course_id: COURSE, material_id: "exam" },
+        { id: "c1", course_id: COURSE, material_id: "notes", chapter_id: "n0" },
+        { id: "c2", course_id: COURSE, material_id: "extra", chapter_id: null },
+        {
+          id: "q1",
+          course_id: COURSE,
+          material_id: "notes",
+          chapter_id: "problem",
+        },
       ] as FakeRow[],
       brief_excluded_materials: [
         { course_id: COURSE, material_id: "extra" },

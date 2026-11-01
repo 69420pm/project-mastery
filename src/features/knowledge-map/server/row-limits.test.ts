@@ -31,10 +31,10 @@ function createDb() {
           size_bytes: 1,
           created_at: "2026-01-01",
           parse_status: "parsed",
-          is_exam: false,
         },
       ] as FakeRow[],
       material_pages: [] as FakeRow[],
+      chapters: [] as FakeRow[],
       chunks: each((i) => ({
         id: chunkId(i),
         material_id: MATERIAL,

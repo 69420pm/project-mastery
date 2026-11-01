@@ -4,6 +4,7 @@ import { briefPath } from "@/features/brief/domain/brief-paths";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import type { BriefFields } from "@/features/brief/domain/intake";
 import {
+  loadOldExams,
   loadTopics,
   loadFields,
   openBrief,
@@ -42,7 +43,7 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     supabase
       .from("briefs")
       .select(
-        "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at, reserved_exam_answered, reserved_exam_material_id",
+        "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at, reserved_exam_answered, reserved_exam_chapter_id",
       )
       .eq("course_id", courseId)
       .single(),
@@ -50,16 +51,10 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
       .from("brief_excluded_materials")
       .select("material_id, materials(id, name, created_at)")
       .eq("course_id", courseId),
-    supabase
-      .from("materials")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .eq("is_exam", true)
-      .order("created_at"),
+    loadOldExams(supabase, courseId),
     loadTopics(supabase, courseId),
     loadExamScopes(supabase, courseId),
   ]);
-  if (exams.error) failed("Loading the old exams", exams.error);
   if (brief.error) {
     throw new Error(`Loading the Brief failed: ${brief.error.message}`);
   }
@@ -92,39 +87,38 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     notes: data.notes,
     notesUpdatedAt: data.notes_updated_at,
     excludedMaterials,
-    oldExams: exams.data.map(({ id, name }) => ({
+    oldExams: exams.map(({ id, name, materialId }) => ({
       id,
       name,
-      href: materialChunksPath(courseId, id),
+      href: materialChunksPath(courseId, materialId),
     })),
     examScopes: scopes.flatMap(({ topicId, scope, words }) => {
       const topic = topics.find(({ id }) => id === topicId);
       return topic ? [{ name: topic.name, scope, words }] : [];
     }),
-    reservedExam: data.reserved_exam_answered
-      ? await loadReservedExamLink(
-          supabase,
-          courseId,
-          data.reserved_exam_material_id,
-        )
-      : null,
+    reservedExam: reservedExamLink(
+      courseId,
+      exams,
+      data.reserved_exam_answered,
+      data.reserved_exam_chapter_id,
+    ),
   };
 }
 
-async function loadReservedExamLink(
-  supabase: Supabase,
+/**
+ * The panel's reserved exam: null before the Student answered, "none"
+ * when they keep none or its Chapter is gone.
+ */
+function reservedExamLink(
   courseId: string,
-  materialId: string | null,
-): Promise<BriefWithMessages["reservedExam"]> {
-  if (materialId === null) return "none";
-  const { data, error } = await supabase
-    .from("materials")
-    .select("name")
-    .eq("id", materialId)
-    .maybeSingle();
-  if (error) failed("Loading the reserved exam", error);
-  return data
-    ? { name: data.name, href: materialChunksPath(courseId, materialId) }
+  exams: Awaited<ReturnType<typeof loadOldExams>>,
+  answered: boolean,
+  chapterId: string | null,
+): BriefWithMessages["reservedExam"] {
+  if (!answered) return null;
+  const exam = exams.find(({ id }) => id === chapterId);
+  return exam
+    ? { name: exam.name, href: materialChunksPath(courseId, exam.materialId) }
     : "none";
 }
 
@@ -174,11 +168,11 @@ export async function getExamAids(
 }
 
 /**
- * The Course's active reserved exam Material, read with `supabase`, a
+ * The Course's active reserved exam Chapter, read with `supabase`, a
  * Student's session client or the admin client; null when none is reserved,
  * once a submitted Mock exam has used it, or without a Brief. While it is
  * active, the tutor, problem generation and every mock but the final one
- * leave its Exercises and chunks out.
+ * leave the Exercises and chunks of its subtree out.
  */
 export async function getReservedExam(
   supabase: Supabase,
@@ -186,21 +180,21 @@ export async function getReservedExam(
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from("briefs")
-    .select("reserved_exam_material_id")
+    .select("reserved_exam_chapter_id")
     .eq("course_id", courseId)
     .maybeSingle();
   if (error) failed("Loading the reserved exam", error);
-  const materialId = data?.reserved_exam_material_id ?? null;
-  if (materialId === null) return null;
+  const chapterId = data?.reserved_exam_chapter_id ?? null;
+  if (chapterId === null) return null;
   const used = await supabase
     .from("mock_exams")
     .select("id")
     .eq("course_id", courseId)
-    .eq("reserved_material_id", materialId)
+    .eq("reserved_chapter_id", chapterId)
     .eq("status", "submitted")
     .limit(1);
   if (used.error) failed("Loading the final mock exam", used.error);
-  return used.data.length > 0 ? null : materialId;
+  return used.data.length > 0 ? null : chapterId;
 }
 
 /**

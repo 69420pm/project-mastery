@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { examChapterIds } from "@/features/ingestion/domain/old-exam-chapters";
 import {
   CHUNK_LABELS,
   type ExerciseSolution,
@@ -26,7 +27,7 @@ export async function getMaterialChunks(
 
   const material = await supabase
     .from("materials")
-    .select("id, course_id, name, parse_status, is_exam")
+    .select("id, course_id, name, parse_status")
     .eq("id", materialId)
     .maybeSingle();
   if (material.error) {
@@ -43,9 +44,26 @@ export async function getMaterialChunks(
       .range(from, to),
   );
 
-  const solutions = await exerciseSolutions(
-    supabase,
-    chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
+  const [solutions, chapters] = await Promise.all([
+    exerciseSolutions(
+      supabase,
+      chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
+    ),
+    allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select("id, parent_id, title, is_exam")
+        .eq("material_id", materialId)
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  const examIds = examChapterIds(
+    chapters.map((c) => ({
+      id: c.id,
+      parentId: c.parent_id,
+      isExam: c.is_exam === true,
+    })),
   );
 
   const row = material.data;
@@ -54,7 +72,10 @@ export async function getMaterialChunks(
     courseId: row.course_id,
     name: row.name,
     parseStatus: row.parse_status as ParseStatus,
-    isExam: row.is_exam === true,
+    // A confirmed Chapter whose parent is in no old exam.
+    examChapters: chapters
+      .filter((c) => examIds.has(c.id) && !examIds.has(c.parent_id ?? ""))
+      .map((c) => c.title),
     chunks: chunks.map((chunk) => ({
       id: chunk.id,
       position: chunk.position,

@@ -61,7 +61,7 @@ export async function getMockExam(
     supabase
       .from("mock_exams")
       .select(
-        "id, course_id, status, failure, created_at, started_at, grading_started_at, gaps_total, gaps_done, duration_minutes, reserved_material_id, mock_items(position, prompt, points, predicted_success, question_id, points_awarded, steps, check, graded_at, topics(name), questions(answer_text, confidence))",
+        "id, course_id, status, failure, created_at, started_at, grading_started_at, gaps_total, gaps_done, duration_minutes, reserved_chapter_id, mock_items(position, prompt, points, predicted_success, question_id, points_awarded, steps, check, graded_at, topics(name), questions(answer_text, confidence))",
       )
       .eq("id", mockId)
       .eq("course_id", courseId)
@@ -126,7 +126,7 @@ export async function getMockExam(
     durationMinutes: data.duration_minutes,
     itemCount: data.mock_items.length,
     aids: examProfile(aids).aids,
-    final: data.reserved_material_id !== null,
+    final: data.reserved_chapter_id !== null,
     deadline: deadline?.toISOString() ?? null,
     serverNow: now.toISOString(),
     tasks,

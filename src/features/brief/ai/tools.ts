@@ -37,11 +37,11 @@ export const saveBriefInputSchema = z.object({
     .describe(
       "The ids of every Material the exam does not cover. Replaces the stored set; [] includes all.",
     ),
-  examMaterialIds: z
+  examChapterIds: z
     .array(z.string())
     .nullish()
     .describe(
-      "The ids of every Material that is an old exam, as the Student said. Replaces the stored set; [] when none is.",
+      "The ids of every Chapter that is an old exam, as the Student said; a Material's top Chapter stands for the whole Material, and a Chapter covers the Chapters inside it. Replaces the stored set; [] when none is.",
     ),
   scopeConfirmed: z
     .boolean()
@@ -49,11 +49,19 @@ export const saveBriefInputSchema = z.object({
     .describe(
       "True once the Student has answered the scope step: which Materials the exam covers, which are old exams, and whether the exam leaves out or stresses a Topic.",
     ),
-  reservedExamMaterialId: z
+  reservedExamChapterId: z
     .string()
     .nullish()
     .describe(
       'The id of the old exam the Student keeps unseen for their final Mock exam, or "none" when they keep none.',
+    ),
+  courseLanguage: z
+    .string()
+    .min(2)
+    .max(35)
+    .nullish()
+    .describe(
+      "The language the Student asks their Knowledge map to be in, as an English name such as German. Only when they ask for another than the Course language.",
     ),
 });
 

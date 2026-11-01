@@ -25,6 +25,16 @@ function pageRange({ pageFrom, pageTo }: ChunkView): string {
     : `Pages ${pageFrom}–${pageTo}`;
 }
 
+/**
+ * "Old exam" when the whole Material is one, else its old exams by title;
+ * nothing without any.
+ */
+function examDescription({ name, examChapters }: MaterialChunks) {
+  if (examChapters.length === 0) return null;
+  if (examChapters.length === 1 && examChapters[0] === name) return "Old exam";
+  return `${examChapters.length === 1 ? "Old exam" : "Old exams"}: ${examChapters.join(", ")}`;
+}
+
 type ChunkListProps = {
   material: MaterialChunks;
   /** Where "Back to materials" leads. */
@@ -55,7 +65,7 @@ export function ChunkList({
           </Button>
         }
         title={material.name}
-        description={material.isExam && "Old exam"}
+        description={examDescription(material)}
       />
 
       {material.chunks.length === 0 ? (

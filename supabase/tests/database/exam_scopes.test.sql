@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 insert into auth.users (id, email)
 values
@@ -33,6 +33,14 @@ values
   ('aaaaaaaa-b000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', null, '{}', 'Matrices', null, 0),
   ('aaaaaaaa-7000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-b000-0000-0000-000000000001', '{aaaaaaaa-1111-0000-0000-000000000001}', 'Determinants', 'Why?', 1),
   ('bbbbbbbb-b000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-c000-0000-0000-000000000001', null, '{bbbbbbbb-1111-0000-0000-000000000001}', 'Cells', 'C?', 0);
+
+-- The Materials' root Chapters, and an old exam inside the Notes.
+insert into public.chapters (id, owner, course_id, material_id, parent_id, position, depth, title, page_from)
+values
+  ('aaaaaaaa-0c00-0000-0000-0000000000f1', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f1', null, 0, 0, 'Klausur', 1),
+  ('aaaaaaaa-0c00-0000-0000-0000000000f2', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f2', null, 0, 0, 'Lecture', 1),
+  ('aaaaaaaa-0c00-0000-0000-0000000000f3', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f3', null, 0, 0, 'Notes', 1),
+  ('aaaaaaaa-0c00-0000-0000-0000000000e3', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-0000000000f3', 'aaaaaaaa-0c00-0000-0000-0000000000f3', 1, 1, 'Probeklausur', 5);
 
 update public.briefs set updated_at = '2026-01-01' where course_id = 'aaaaaaaa-c000-0000-0000-000000000001';
 
@@ -88,18 +96,27 @@ select throws_ok(
 -- Old exams -------------------------------------------------------------------
 
 update public.briefs set reserved_exam_answered = true where course_id = 'aaaaaaaa-c000-0000-0000-000000000001';
-select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"reserved_exam_material_id": "aaaaaaaa-0000-0000-0000-0000000000f1"}', exam_material_ids => array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[], asked_material_ids => array['aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-0000000000f2']::uuid[]);
+select public.save_brief(
+  'aaaaaaaa-c000-0000-0000-000000000001',
+  '{"reserved_exam_chapter_id": "aaaaaaaa-0c00-0000-0000-0000000000e3"}',
+  exam_chapter_ids => array['aaaaaaaa-0c00-0000-0000-0000000000f1', 'aaaaaaaa-0c00-0000-0000-0000000000e3']::uuid[],
+  asked_chapter_ids => array['aaaaaaaa-0c00-0000-0000-0000000000f1', 'aaaaaaaa-0c00-0000-0000-0000000000f2', 'aaaaaaaa-0c00-0000-0000-0000000000e3']::uuid[]);
 
 select results_eq(
-  $$select name, is_exam, exam_asked from public.materials order by name$$,
-  $$values ('Klausur', true, true), ('Lecture', false, false), ('Notes', false, false)$$,
-  'save_brief sets the old exams and marks the parsed Materials the question listed asked');
-
-select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', exam_material_ids => array[]::uuid[]);
+  $$select title, is_exam, exam_asked from public.chapters order by title$$,
+  $$values ('Klausur', true, true), ('Lecture', false, false), ('Notes', null::boolean, false), ('Probeklausur', true, true)$$,
+  'save_brief sets the old-exam Chapters, answers the asked ones, and marks those of parsed Materials asked');
 
 select results_eq(
-  $$select reserved_exam_material_id, reserved_exam_answered from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
-  $$values (null::uuid, false)$$,
+  $$select reserved_exam_chapter_id from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$values ('aaaaaaaa-0c00-0000-0000-0000000000e3'::uuid)$$,
+  'an old exam inside a script can be reserved');
+
+select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', exam_chapter_ids => array['aaaaaaaa-0c00-0000-0000-0000000000f1']::uuid[]);
+
+select results_eq(
+  $$select b.reserved_exam_chapter_id, b.reserved_exam_answered, c.is_exam from public.briefs b, public.chapters c where b.course_id = 'aaaaaaaa-c000-0000-0000-000000000001' and c.title = 'Probeklausur'$$,
+  $$values (null::uuid, false, false)$$,
   'a Reserved exam that is no longer an old exam loses its reservation');
 
 -- Another Student ---------------------------------------------------------------

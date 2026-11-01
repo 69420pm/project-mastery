@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, email)
 values
@@ -15,12 +15,12 @@ insert into public.courses (id, owner, name)
 values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Analysis');
 
 -- An old exam, as the Brief confirmed it.
-insert into public.materials (id, owner, course_id, name, media_type, size_bytes, storage_path, parse_status, is_exam)
+insert into public.materials (id, owner, course_id, name, media_type, size_bytes, storage_path, parse_status)
 values (
   'aaaaaaaa-1111-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'Exam 2023', 'application/pdf', 1000,
   '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/aaaaaaaa-1111-0000-0000-000000000001',
-  'parsing', true
+  'parsing'
 );
 
 -- An earlier parse's chunk.
@@ -81,9 +81,37 @@ select results_eq(
       '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid)$$,
   'the Chapters hang below the root by their parents'' positions');
 
-select is(
-  (select is_exam from public.materials where id = 'aaaaaaaa-1111-0000-0000-000000000001'),
-  true, 'the Brief''s old exam stays an old exam');
+-- The Brief confirms "1 Limits" as an old exam and reserves it; a new
+-- parse with the same Outline keeps both on its new Chapter.
+insert into public.briefs (course_id, owner)
+values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111');
+update public.chapters set is_exam = true, exam_asked = true where title = '1 Limits';
+update public.briefs
+set reserved_exam_chapter_id = (select id from public.chapters where title = '1 Limits'),
+  reserved_exam_answered = true;
+
+set local role service_role;
+select public.replace_material_chunks(
+  'aaaaaaaa-1111-0000-0000-000000000001',
+  '[
+    {"position": 0, "parent_position": null, "depth": 0, "title": "Exam 2023", "page_from": 1, "exam_proposed": false},
+    {"position": 1, "parent_position": 0, "depth": 1, "title": "1 Limits", "page_from": 1, "exam_proposed": false},
+    {"position": 2, "parent_position": 1, "depth": 2, "title": "1.1 Exercises", "page_from": 3, "exam_proposed": true}
+  ]',
+  '[
+    {"position": 0, "page_from": 1, "page_to": 2, "label": "content", "markdown": "A limit ...", "chapter_position": 1},
+    {"position": 1, "page_from": 2, "page_to": 2, "label": "admin", "markdown": "Exam in March", "chapter_position": 0},
+    {"position": 2, "page_from": 3, "page_to": 3, "label": "exercise", "markdown": "a) Show ...", "chapter_position": 2}
+  ]');
+reset role;
+
+select results_eq(
+  $$select ch.title, ch.is_exam, ch.exam_asked, b.reserved_exam_chapter_id = ch.id
+    from public.chapters as ch, public.briefs as b
+    where ch.material_id = 'aaaaaaaa-1111-0000-0000-000000000001' order by ch.position$$,
+  $$values ('Exam 2023', null::boolean, false, false), ('1 Limits', true, true, true),
+    ('1.1 Exercises', null::boolean, false, false)$$,
+  'a new parse keeps the Brief''s old exam and its reservation');
 
 -- A bad chunk or Chapter rolls back the whole write: the earlier ones stay.
 set local role service_role;
@@ -107,9 +135,11 @@ select results_eq(
     + (select count(*)::int from public.chapters where material_id = 'aaaaaaaa-1111-0000-0000-000000000001')$$,
   array[6], 'a failed write keeps the earlier Outline and chunks');
 
--- Row Level Security: the owner reads the Chapters, nobody writes them.
-select policies_are('public', 'chapters', array['Students can read their own chapters'],
-  'chapters has only the read policy');
+-- Row Level Security: the owner reads the Chapters and updates only their
+-- old-exam answers (through save_brief); nobody adds them.
+select policies_are('public', 'chapters',
+  array['Students can read their own chapters', 'Students can update their own chapters'],
+  'chapters has the read and update policies');
 
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}';
@@ -121,6 +151,9 @@ select throws_ok(
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
       'aaaaaaaa-1111-0000-0000-000000000001', 9, 0, 'Forged', 1)$$,
   '42501', null, 'a Student cannot add Chapters');
+select throws_ok(
+  $$update public.chapters set title = 'Forged' where title = '1 Limits'$$,
+  '42501', null, 'a Student cannot change a Chapter''s title');
 reset role;
 
 select * from finish();

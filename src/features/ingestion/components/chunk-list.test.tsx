@@ -16,13 +16,13 @@ function chunk(overrides: Partial<ChunkView>): ChunkView {
   };
 }
 
-function renderList(chunks: ChunkView[], isExam = false) {
+function renderList(chunks: ChunkView[], examChapters: string[] = []) {
   const material: MaterialChunks = {
     materialId: "m1",
     courseId: "course",
     name: "Lecture 1",
     parseStatus: "parsed",
-    isExam,
+    examChapters,
     chunks,
   };
   return render(
@@ -35,9 +35,15 @@ function renderList(chunks: ChunkView[], isExam = false) {
 }
 
 test("an old exam says so in its header", () => {
-  renderList([chunk({})], true);
+  renderList([chunk({})], ["Lecture 1"]);
 
   expect(screen.getByText("Old exam").tagName).toBe("P");
+});
+
+test("a Material with an old exam inside names it in its header", () => {
+  renderList([chunk({})], ["Klausur 2023"]);
+
+  expect(screen.getByText("Old exam: Klausur 2023")).toBeTruthy();
 });
 
 test("a Material that is no exam has no exam header", () => {

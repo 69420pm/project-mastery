@@ -16,7 +16,7 @@ import { after } from "next/server";
 import { briefReplySettings } from "@/features/brief/ai/reply";
 import { briefTools } from "@/features/brief/ai/tools";
 import { isIntakeDone } from "@/features/brief/domain/intake";
-import { askedMaterialIds } from "@/features/brief/domain/old-exams";
+import { askedChapterIds } from "@/features/brief/domain/old-exams";
 import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
@@ -187,11 +187,13 @@ async function streamReply({
             courseId,
             context,
             studentTexts,
-            askedMaterialIds(
+            askedChapterIds(
               messages,
               isIntakeDone(context.fields)
                 ? []
-                : context.materials.map(({ id }) => id),
+                : context.materials.flatMap(({ chapters }) =>
+                    chapters.map(({ id }) => id),
+                  ),
             ),
           ),
         ),

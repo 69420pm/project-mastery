@@ -1,5 +1,10 @@
 import "server-only";
 import { z } from "zod";
+import {
+  chapterSubtree,
+  examChapterIds,
+  type ExamChapterNode,
+} from "@/features/ingestion/domain/old-exam-chapters";
 import { CHUNK_LABELS, type ChunkLabel } from "@/features/ingestion/types";
 import { getUser } from "@/lib/auth/user";
 import { allRows } from "@/lib/supabase/all-rows";
@@ -58,25 +63,6 @@ export async function getChunkPlaces(
   return places;
 }
 
-/**
- * The ids of a Material's chunks. Reads on the admin client or a Student's
- * session client, where Row Level Security leaves another Student's out.
- */
-export async function loadMaterialChunkIds(
-  supabase: Supabase,
-  materialId: string,
-): Promise<string[]> {
-  const rows = await allRows("Loading the Material's chunks", (from, to) =>
-    supabase
-      .from("chunks")
-      .select("id")
-      .eq("material_id", materialId)
-      .order("id")
-      .range(from, to),
-  );
-  return rows.map(({ id }) => id);
-}
-
 /** A chunk with its text and where it is, as the AI cites it. */
 export type ChunkSource = {
   id: string;
@@ -87,7 +73,7 @@ export type ChunkSource = {
   markdown: string;
   /** Its deepest Chapter's title; null when it is in none below the root. */
   chapterTitle: string | null;
-  /** Whether its Material is an old exam. */
+  /** Whether its Chapter, or one above it, is an old exam. */
   isExam: boolean;
 };
 
@@ -115,16 +101,21 @@ export async function loadChunkSources(
   }
   if (rows.length === 0) return [];
 
-  const materials = await supabase
-    .from("materials")
-    .select("id, name, position, is_exam")
-    .in("id", [...new Set(rows.map((row) => row.material_id))]);
+  const materialIds = [...new Set(rows.map((row) => row.material_id))];
+  const [materials, chapters] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, name, position")
+      .in("id", materialIds),
+    loadMaterialChapters(supabase, materialIds),
+  ]);
   if (materials.error) failed("Loading the Materials", materials.error);
   const material = new Map(materials.data.map((m) => [m.id, m]));
-  const chapterTitles = await loadChapterTitles(
-    supabase,
-    rows.flatMap((row) => row.chapter_id ?? []),
+  // A root Chapter's title is its Material's name, so it is left out.
+  const chapterTitles = new Map(
+    chapters.flatMap((c) => (c.depth > 0 ? [[c.id, c.title]] : [])),
   );
+  const examChapters = examChapterIds(chapters);
   return rows
     .filter((row) => material.has(row.material_id))
     .toSorted(
@@ -140,31 +131,85 @@ export async function loadChunkSources(
       pageTo: row.page_to,
       markdown: row.markdown,
       chapterTitle: chapterTitles.get(row.chapter_id ?? "") ?? null,
-      isExam: material.get(row.material_id)!.is_exam === true,
+      isExam: examChapters.has(row.chapter_id ?? ""),
     }));
 }
 
-/**
- * The titles of these Chapters by id, leaving out a Material's root
- * Chapter, whose title is the Material's name. No ids make no request.
- */
-async function loadChapterTitles(
+/** A Chapter with its place in the tree and old-exam answer. */
+type StoredChapter = ExamChapterNode & {
+  materialId: string;
+  title: string;
+  depth: number;
+};
+
+/** Every Chapter of these Materials. No ids make no request. */
+async function loadMaterialChapters(
   supabase: Supabase,
-  chapterIds: string[],
-): Promise<Map<string, string>> {
-  const ids = [...new Set(chapterIds)];
-  const titles = new Map<string, string>();
-  for (let start = 0; start < ids.length; start += ID_SLICE) {
-    const { data, error } = await supabase
-      .from("chapters")
-      .select("id, title, depth")
-      .in("id", ids.slice(start, start + ID_SLICE));
-    if (error) failed("Loading the Chapters", error);
-    for (const chapter of data) {
-      if (chapter.depth > 0) titles.set(chapter.id, chapter.title);
-    }
+  materialIds: string[],
+): Promise<StoredChapter[]> {
+  const chapters: StoredChapter[] = [];
+  for (let start = 0; start < materialIds.length; start += ID_SLICE) {
+    const rows = await allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select("id, material_id, parent_id, title, depth, is_exam")
+        .in("material_id", materialIds.slice(start, start + ID_SLICE))
+        .order("id")
+        .range(from, to),
+    );
+    chapters.push(...rows.map(storedChapter));
   }
-  return titles;
+  return chapters;
+}
+
+function storedChapter(row: {
+  id: string;
+  material_id: string;
+  parent_id: string | null;
+  title: string;
+  depth: number;
+  is_exam: boolean | null;
+}): StoredChapter {
+  return {
+    id: row.id,
+    materialId: row.material_id,
+    parentId: row.parent_id,
+    title: row.title,
+    depth: row.depth,
+    isExam: row.is_exam === true,
+  };
+}
+
+/**
+ * The ids of the chunks in a Chapter's subtree: for a reserved old exam,
+ * the chunks it hides. Empty when the Chapter is gone. Reads on the admin
+ * client or a Student's session client, where Row Level Security leaves
+ * another Student's out.
+ */
+export async function loadChapterChunkIds(
+  supabase: Supabase,
+  chapterId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("chapters")
+    .select("material_id")
+    .eq("id", chapterId)
+    .maybeSingle();
+  if (error) failed("Loading the Chapter", error);
+  if (!data) return [];
+  const chapters = await loadMaterialChapters(supabase, [data.material_id]);
+  const subtree = chapterSubtree(chapters, chapterId);
+  const rows = await allRows("Loading the Chapter's chunks", (from, to) =>
+    supabase
+      .from("chunks")
+      .select("id, chapter_id")
+      .eq("material_id", data.material_id)
+      .order("id")
+      .range(from, to),
+  );
+  return rows
+    .filter((row) => subtree.has(row.chapter_id ?? ""))
+    .map(({ id }) => id);
 }
 
 /** A chunk's text as a Reading section shows it. */
@@ -334,44 +379,52 @@ export async function findChunkSpan(
 export type ChunkMaterials = {
   /** Each chunk's Material id by chunk id. */
   chunkMaterials: Record<string, string>;
-  /** The Course's Materials by id: name and whether it is an old exam. */
-  materials: Record<string, { name: string; isExam: boolean }>;
+  /** The Course's Materials' names by id. */
+  materials: Record<string, { name: string }>;
+  /** The chunks in an old exam: their Chapter or one above it is one. */
+  examChunkIds: string[];
 };
 
 /**
- * Every chunk of the Course with its Material, and the Course's Materials.
- * Scopes the reads to the Course, so it reads on the admin client or a
- * Student's session client alike.
+ * Every chunk of the Course with its Material, the Course's Materials and
+ * its old-exam chunks. Scopes the reads to the Course, so it reads on the
+ * admin client or a Student's session client alike.
  */
 export async function loadChunkMaterials(
   supabase: Supabase,
   courseId: string,
 ): Promise<ChunkMaterials> {
-  const [chunks, materials] = await Promise.all([
+  const [chunks, materials, chapters] = await Promise.all([
     allRows("Loading the chunks", (from, to) =>
       supabase
         .from("chunks")
-        .select("id, material_id")
+        .select("id, material_id, chapter_id")
         .eq("course_id", courseId)
         .order("id")
         .range(from, to),
     ),
-    supabase
-      .from("materials")
-      .select("id, name, is_exam")
-      .eq("course_id", courseId),
+    supabase.from("materials").select("id, name").eq("course_id", courseId),
+    allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select("id, material_id, parent_id, title, depth, is_exam")
+        .eq("course_id", courseId)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
   if (materials.error) failed("Loading the Materials", materials.error);
+  const examChapters = examChapterIds(chapters.map(storedChapter));
   return {
     chunkMaterials: Object.fromEntries(
       chunks.map((chunk) => [chunk.id, chunk.material_id]),
     ),
     materials: Object.fromEntries(
-      materials.data.map((m) => [
-        m.id,
-        { name: m.name, isExam: m.is_exam === true },
-      ]),
+      materials.data.map((m) => [m.id, { name: m.name }]),
     ),
+    examChunkIds: chunks
+      .filter((chunk) => examChapters.has(chunk.chapter_id ?? ""))
+      .map(({ id }) => id),
   };
 }
 

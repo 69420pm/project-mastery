@@ -22,9 +22,9 @@ const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
  * What the Brief's tools do, as the signed-in Student, to the Course's
- * Brief. `context` holds the Course's Materials and Topics when
+ * Brief. `context` holds the Course's Materials, Chapters and Topics when
  * the reply started, `studentTexts` the Student's messages so far and
- * `askedMaterialIds` the Materials the Student was asked about as old
+ * `askedChapterIds` the Chapters the Student was asked about as old
  * exams. Each tool writes in one transaction, so a failed call changes
  * nothing.
  */
@@ -33,13 +33,19 @@ export function briefToolActions(
   courseId: string,
   context: BriefContext,
   studentTexts: string[],
-  askedMaterialIds: string[],
+  askedChapterIds: string[],
 ): BriefToolActions {
-  const known = new Set(context.materials.map(({ id }) => id));
-  const ofCourse = (ids: string[] | undefined) => ({
-    kept: ids?.filter((id) => known.has(id)) ?? null,
-    unknown: ids?.filter((id) => !known.has(id)) ?? [],
-  });
+  const known = (ids: Iterable<string>) => {
+    const set = new Set(ids);
+    return (given: string[] | undefined) => ({
+      kept: given?.filter((id) => set.has(id)) ?? null,
+      unknown: given?.filter((id) => !set.has(id)) ?? [],
+    });
+  };
+  const ofMaterials = known(context.materials.map(({ id }) => id));
+  const ofChapters = known(
+    context.materials.flatMap(({ chapters }) => chapters.map(({ id }) => id)),
+  );
 
   return {
     async saveBrief(input: SaveBriefInput) {
@@ -56,34 +62,36 @@ export function briefToolActions(
         }).filter(([, value]) => value !== undefined),
       );
 
-      // Only the Course's own Materials count; other ids are dropped.
-      const excluded = ofCourse(given(input.excludedMaterialIds));
-      const exams = ofCourse(given(input.examMaterialIds));
+      // Only the Course's own Materials and the Chapters the context lists
+      // count; other ids are dropped.
+      const excluded = ofMaterials(given(input.excludedMaterialIds));
+      const exams = ofChapters(given(input.examChapterIds));
 
       // Only an old exam of the Course can be reserved; another id is
       // dropped. Once a submitted mock used the reservation, it stays as it is.
       const examIds = new Set(exams.kept ?? context.exams.map(({ id }) => id));
-      const reserved = given(input.reservedExamMaterialId);
+      const reserved = given(input.reservedExamChapterId);
       const reservable = reserved === "none" || examIds.has(reserved ?? "");
       const used =
         reserved !== undefined &&
-        context.reservedExam.materialId !== null &&
+        context.reservedExam.chapterId !== null &&
         (await getReservedExam(supabase, courseId)) === null;
       if (reserved !== undefined && reservable && !used) {
-        fields.reserved_exam_material_id =
-          reserved === "none" ? null : reserved;
+        fields.reserved_exam_chapter_id = reserved === "none" ? null : reserved;
         fields.reserved_exam_answered = true;
       }
 
       await saveBrief(supabase, courseId, fields, {
         excludedMaterialIds: excluded.kept,
-        examMaterialIds: exams.kept,
-        askedMaterialIds,
+        examChapterIds: exams.kept,
+        askedChapterIds,
+        language: given(input.courseLanguage)?.trim() || null,
       });
-      const unknown = [...excluded.unknown, ...exams.unknown];
       const ignored = [
-        unknown.length > 0 &&
-          `These are no Material ids of the Course and were ignored: ${unknown.join(", ")}.`,
+        excluded.unknown.length > 0 &&
+          `These are no Material ids of the Course and were ignored: ${excluded.unknown.join(", ")}.`,
+        exams.unknown.length > 0 &&
+          `These are no Chapter ids of the Course and were ignored: ${exams.unknown.join(", ")}.`,
         reserved !== undefined &&
           !reservable &&
           `${reserved} is no old exam of the Course and was ignored: send the id of one, or "none".`,

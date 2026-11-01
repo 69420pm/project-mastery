@@ -18,9 +18,10 @@ export {
   loadChunkSources,
   loadChunkTexts,
   type ChunkText,
-  loadMaterialChunkIds,
+  loadChapterChunkIds,
   type ChunkMaterials,
 } from "./server/course-chunks";
+export { loadCourseLanguage } from "./server/course-language";
 export { startPairing } from "./server/start-pairing";
 export { startParse } from "./server/start-parse";
 export { pairCourse } from "./workflows/pair-exercises";

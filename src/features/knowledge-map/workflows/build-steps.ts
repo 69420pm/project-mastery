@@ -6,7 +6,7 @@ import {
   unitHash,
 } from "@/features/knowledge-map/domain/chapter-units";
 import type { UnitExtraction } from "@/features/knowledge-map/domain/chapter-extraction";
-import { courseLanguage } from "@/features/knowledge-map/domain/course-language";
+import { loadCourseLanguage as loadLanguage } from "@/features/ingestion/server";
 import type { StoredExtraction } from "@/features/knowledge-map/schemas";
 import { meteredStream } from "@/features/usage/server";
 import { getAiEnv } from "@/lib/ai/env";
@@ -300,20 +300,15 @@ export async function loadCurrentExtractions(
 }
 
 /**
- * The Course language: the most common language of its Materials; English
- * when none has one.
+ * The Course language by name: the one the Student asked for in the
+ * Brief, else the most common language of its Materials; English when none
+ * has one.
  */
 export async function loadCourseLanguage(
   supabase: AdminSupabase,
   courseId: string,
 ): Promise<string> {
-  const { data, error } = await supabase
-    .from("materials")
-    .select("language")
-    .eq("course_id", courseId)
-    .order("position");
-  if (error) failed("Loading the Materials' languages", error);
-  return courseLanguage(data.map((material) => material.language));
+  return (await loadLanguage(supabase, courseId)).name;
 }
 
 /**

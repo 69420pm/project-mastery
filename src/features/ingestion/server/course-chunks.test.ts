@@ -27,7 +27,22 @@ const material = (
   name: `Material ${id}`,
   parse_status: parseStatus,
   position,
-  is_exam: false,
+});
+
+const chapter = (
+  id: string,
+  parentId: string | null,
+  depth: number,
+  title: string,
+  isExam: boolean | null = null,
+): FakeRow => ({
+  id,
+  course_id: COURSE,
+  material_id: "a",
+  parent_id: parentId,
+  depth,
+  title,
+  is_exam: isExam,
 });
 
 /** `count` chunks of `materialId`, stored in reverse reading order. */
@@ -95,9 +110,12 @@ beforeEach(() => {
       ...chunksOf("unparsed", 3),
       ...chunksOf("other", 3),
     ],
+    // Material a: 4 Vector Spaces, and an old exam with a problem inside.
     chapters: [
-      { id: "root-a", depth: 0, title: "Material a" },
-      { id: "c4", depth: 1, title: "4 Vector Spaces" },
+      chapter("root-a", null, 0, "Material a"),
+      chapter("c4", "root-a", 1, "4 Vector Spaces"),
+      chapter("exam", "root-a", 1, "Klausur 2023", true),
+      chapter("problem", "exam", 2, "Aufgabe 1"),
     ],
   };
 });
@@ -130,22 +148,29 @@ describe("loadCourseChunks", () => {
 });
 
 describe("loadChunkMaterials", () => {
-  test("reads every chunk of the Course with its Material", async () => {
-    tables.materials[0]!.is_exam = true;
+  test("reads every chunk of the Course with its Material, and the old-exam chunks", async () => {
     tables.chunks = tables.chunks.map((chunk) => ({
       ...chunk,
       course_id: chunk.material_id === "other" ? "course-2" : COURSE,
+      chapter_id:
+        chunk.id === "a-0001"
+          ? "problem"
+          : chunk.id === "a-0002"
+            ? "exam"
+            : chunk.id === "a-0003"
+              ? "c4"
+              : null,
     }));
     const { client } = withRowLimit(tables);
 
-    const { chunkMaterials, materials } = await loadChunkMaterials(
-      client as unknown as Supabase,
-      COURSE,
-    );
+    const { chunkMaterials, materials, examChunkIds } =
+      await loadChunkMaterials(client as unknown as Supabase, COURSE);
 
     expect(Object.keys(chunkMaterials)).toHaveLength(1505);
     expect(chunkMaterials["b-0001"]).toBe("b");
-    expect(materials.b).toEqual({ name: "Material b", isExam: true });
+    expect(materials.b).toEqual({ name: "Material b" });
+    // The exam Chapter and the problem inside it; not 4 Vector Spaces.
+    expect(examChunkIds.toSorted()).toEqual(["a-0001", "a-0002"]);
   });
 });
 
@@ -167,6 +192,7 @@ describe("loadChunkSources and getChunkPlaces", () => {
     };
     chapterOf("a-0000", "c4");
     chapterOf("a-0001", "root-a");
+    chapterOf("a-0002", "problem");
     const { client, inLengths } = withRowLimit(tables);
 
     const sources = await loadChunkSources(client as unknown as Supabase, ids);
@@ -187,8 +213,14 @@ describe("loadChunkSources and getChunkPlaces", () => {
       isExam: false,
     });
     // A Material's root Chapter is no Chapter title.
-    expect(sources.slice(1).map((source) => source.chapterTitle)).toEqual(
-      sources.slice(1).map(() => null),
+    expect(sources[1]!.chapterTitle).toBeNull();
+    // A chunk inside an old-exam Chapter is an old-exam chunk.
+    expect(sources[2]).toMatchObject({
+      chapterTitle: "Aufgabe 1",
+      isExam: true,
+    });
+    expect(sources.slice(3).map((source) => source.chapterTitle)).toEqual(
+      sources.slice(3).map(() => null),
     );
     expect(places).toHaveLength(152);
     expect(new Set(places.map((place) => place.id))).toEqual(

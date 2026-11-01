@@ -19,6 +19,7 @@ const TABLES = [
   "problems",
   "problem_kcs",
   "materials",
+  "chapters",
   "chunks",
   "kcs",
   "kc_sources",
@@ -159,13 +160,22 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     id: "m1",
     ...owned,
     name: "Sheet 7",
-    is_exam: false,
     created_at: "2026-10-01T00:00:00Z",
+  });
+  t.chapters.push({
+    id: "ch1",
+    ...owned,
+    material_id: "m1",
+    parent_id: null,
+    title: "Sheet 7",
+    depth: 0,
+    is_exam: null,
   });
   t.chunks.push({
     id: QUESTION_CHUNK,
     ...owned,
     material_id: "m1",
+    chapter_id: "ch1",
     position: 0,
     page_from: 1,
     page_to: 1,
@@ -309,11 +319,22 @@ describe("Topic stock", () => {
 
   test("the reserved exam's Exercises are no stock and no variant source", async () => {
     seedCourse(["k1"]);
-    db.tables.materials[0]!.is_exam = true;
+    // The exam is a Chapter inside the sheet, and the question is in it.
+    db.tables.chapters.push({
+      id: "ch2",
+      owner: STUDENT,
+      course_id: COURSE,
+      material_id: "m1",
+      parent_id: "ch1",
+      title: "Klausur 2023",
+      depth: 1,
+      is_exam: true,
+    });
+    db.tables.chunks[0]!.chapter_id = "ch2";
     db.tables.briefs.push({
       course_id: COURSE,
       owner: STUDENT,
-      reserved_exam_material_id: "m1",
+      reserved_exam_chapter_id: "ch2",
     });
     seedRun("topic");
     useGenerateModel(DRAFT);
@@ -328,17 +349,17 @@ describe("Topic stock", () => {
 
   test("once a submitted mock used the reservation, its exam is an ordinary Material", async () => {
     seedCourse(["k1"]);
-    db.tables.materials[0]!.is_exam = true;
+    db.tables.chapters[0]!.is_exam = true;
     db.tables.briefs.push({
       course_id: COURSE,
       owner: STUDENT,
-      reserved_exam_material_id: "m1",
+      reserved_exam_chapter_id: "ch1",
     });
     db.tables.mock_exams.push({
       id: "mock1",
       course_id: COURSE,
       status: "submitted",
-      reserved_material_id: "m1",
+      reserved_chapter_id: "ch1",
     });
     seedRun("topic");
     useGenerateModel(DRAFT);
