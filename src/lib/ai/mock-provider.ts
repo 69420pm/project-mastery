@@ -301,19 +301,23 @@ function languageModel(modelId: string) {
     doStream: async ({
       prompt,
       tools,
+      responseFormat,
     }: {
       prompt: Prompt;
       tools?: ReadonlyArray<{ name: string }>;
+      responseFormat?: ResponseFormat;
     }) => ({
       stream:
         mockTutorQuestions(prompt, tools) ??
         simulateReadableStream({
           initialDelayInMs: null,
-          chunkDelayInMs: WORD_DELAY_MS,
+          // Structured output streams at once: no Student watches it.
+          chunkDelayInMs:
+            responseFormat?.type === "json" ? null : WORD_DELAY_MS,
           chunks: [
             { type: "stream-start" as const, warnings: [] },
             { type: "text-start" as const, id: "text-1" },
-            ...mockReply(prompt)
+            ...mockText(prompt, responseFormat)
               .split(/(?<= )/)
               .map((delta) => ({
                 type: "text-delta" as const,

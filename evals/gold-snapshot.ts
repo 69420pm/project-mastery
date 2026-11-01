@@ -24,7 +24,6 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
     table: "material_pages",
     parent: { table: "materials", column: "material_id" },
   },
-  { table: "parts" },
   { table: "chunks" },
   { table: "part_extractions" },
   { table: "knowledge_map_builds" },

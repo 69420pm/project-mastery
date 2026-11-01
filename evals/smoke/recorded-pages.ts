@@ -16,8 +16,7 @@ export const GOLD = "evals/gold/linear-algebra-I";
 export type RecordedPage = {
   page_number: number;
   skipped: string | null;
-  language: string | null;
-  units: Array<{ label: string; exerciseNumber: string | null }>;
+  units: Array<Record<string, unknown>>;
 };
 
 type Supabase = Parameters<SmokeCheck["run"]>[0]["supabase"];
@@ -85,7 +84,6 @@ export async function parseSeeded(
       material_id: materialId,
       page_number: page.page_number,
       skipped: page.skipped,
-      language: page.language,
       units: page.units as Json[],
     })),
   );

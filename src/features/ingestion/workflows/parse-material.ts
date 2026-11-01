@@ -13,10 +13,11 @@ import {
 /**
  * Parses one Material into chunks (ADR 0007, 0009): prepares its pages and
  * skips slide overlays, reads the pages without a stored result in steps of
- * up to PAGES_PER_STEP, one vision call per page, then turns the units into
- * chunks, embeds them, pairs the Course's exercises with their solutions and
- * marks the Material parsed. A page whose call fails is stored unreadable
- * and the parse goes on; a retried parse resumes at the first page without a
+ * up to PAGES_PER_STEP, one vision call per batch of pages, then turns the
+ * units into chunks, embeds them, pairs the Course's exercises with their
+ * solutions and marks the Material parsed. A page that cannot be read is
+ * stored unreadable and the parse goes on; a retried parse resumes at the
+ * first page without a
  * result. Steps retry on their own; a step that fails for good, or a reached
  * Daily limit, marks the parse failed with a reason: the file's when a step
  * named it, a general one for any other failure. A deleted Material stops

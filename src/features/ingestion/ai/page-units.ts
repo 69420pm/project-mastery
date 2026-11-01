@@ -1,92 +1,124 @@
 import "server-only";
 import { Output } from "ai";
 import { z } from "zod";
-import { CHUNK_LABELS } from "@/features/ingestion/types";
+import { HEADING_STYLES, UNIT_LABELS } from "@/features/ingestion/types";
 import { aiTask } from "@/lib/ai/models";
 
-/** One unit of a page, in reading order. */
-const pageUnitSchema = z.object({
+/** One unit of a page batch, in reading order. */
+const batchUnitSchema = z.object({
   markdown: z
     .string()
     .describe(
-      "The unit's content as Markdown in the page's language. Formulas in LaTeX ($...$ inline, $$...$$ display). A plot, chart or drawing as a blockquote starting with **Figure:** that describes it.",
+      "The unit's content as Markdown in the page's language. Formulas in LaTeX ($...$ inline, $$...$$ display). A plot, chart or drawing as a blockquote starting with **Figure:** that describes it. A heading's text verbatim, without Markdown heading marks.",
     ),
-  label: z.enum(CHUNK_LABELS),
-  exerciseNumber: z
-    .string()
+  label: z.enum(UNIT_LABELS),
+  pageFrom: z.number().int().describe("The page number the unit starts on."),
+  pageTo: z.number().int().describe("The page number the unit ends on."),
+  style: z
+    .enum(HEADING_STYLES)
     .nullable()
     .describe(
-      "For an exercise or a solution: the number exactly as printed, such as 7.2a, b) or Aufgabe 3. Else null.",
+      "For a heading: title (the largest on its page or a slide title), large (set larger than the text) or bold (text size, bold). Else null.",
     ),
-  continuesFromPreviousPage: z.boolean(),
-  continuesOnNextPage: z.boolean(),
+  continuesFromPreviousBatch: z
+    .boolean()
+    .describe(
+      "Only for the first unit: it starts mid-way, going on from before these pages (the context unit, when given).",
+    ),
+  continuesOnNextBatch: z
+    .boolean()
+    .describe(
+      "Only for the last unit: it is cut off at the end of the last page and goes on after it.",
+    ),
 });
 
-/** What one page call returns. */
-export const pageResultSchema = z.object({
-  language: z
-    .string()
-    .describe("The page's language as a BCP 47 tag, such as de or en."),
-  units: z.array(pageUnitSchema),
-});
+/** What one page batch call returns. */
+export const batchResultSchema = z.object({ units: z.array(batchUnitSchema) });
 
-/** The units of a stored page result. */
-export const storedUnitsSchema = z.array(pageUnitSchema);
+/** The units of a stored page result: those that start on that page. */
+export const storedUnitsSchema = z.array(batchUnitSchema);
 
-/** One unit of a stored page result. */
-export type PageUnit = z.infer<typeof pageUnitSchema>;
+/** One unit of a page batch, as stored. */
+export type PageUnit = z.infer<typeof batchUnitSchema>;
 
-const PAGE_INSTRUCTIONS = `You transcribe one page of a Student's course material (slides, a script, an exercise sheet, a solution sheet or an old exam) into ordered units.
+const BATCH_INSTRUCTIONS = `You transcribe consecutive pages of a Student's course material (slides, a script, an exercise sheet, a solution sheet or an old exam) into ordered units.
 
-- The page image is the source. When the page's text layer is given, use it to get words and symbols right, but it may be out of order and garbles formulas: where it disagrees with the image, the image wins.
-- Split the page by its own structure: a slide, a heading section, an exercise subtask, a solution. Not by length. Give each exercise subtask its own unit; a statement shared by the subtasks is its own unit before them.
-- Write each unit's content as Markdown in the page's own language. Do not translate, summarize or solve anything. Keep headings as Markdown headings.
+- Each page comes as its number, its image and, when it has one, its text layer. The image is the source. Use the text layer to get words and symbols right, but it may be out of order and garbles formulas: where it disagrees with the image, the image wins.
+- A unit is the longest run of one label under one heading. Definitions, theorems, proofs, examples and remarks stay inside their content unit; they are not headings.
+- Every line that looks like a heading (a title, a numbered section, a slide title, a bold line on its own) is its own heading unit, copied verbatim with its number. Give its style.
+- An exercise with all its subtasks is one exercise unit; its solution is one solution unit.
+- Label each unit: heading, exercise (a task for the Student), solution (only the answer to an exercise or exam problem, never a proof in teaching text), admin (organisational content only: dates, format, admission, allowed aids, what is examined) or content (everything else). A result printed for checking, such as "Result for checking: 8 solutions", stays in its exercise's unit.
+- Write each unit as Markdown in the page's own language. Do not translate, summarize or solve anything.
 - Write every formula in LaTeX: $...$ inline, $$...$$ for display.
 - Describe a plot, chart or technical drawing inside its unit as a blockquote that starts with **Figure:**, saying what it shows. Leave out decorative images such as logos.
 - Do not transcribe running headers, footers, page numbers, logos, title pages, tables of contents, indexes or reference lists. A page with nothing else has no units.
-- Label each unit: exercise (a task for the Student), solution (a worked solution or answer to an exercise), admin (organisational content only: dates, format, admission, allowed aids, what is examined), or content (everything else).
-- For an exercise or a solution, give its number exactly as printed, such as 7.2a or b). A result printed for checking, such as "Result for checking: 8 solutions", stays in its exercise's unit.
-- Mark a unit that continues from the previous page or on the next page.
-- Give the page's language as a BCP 47 tag.`;
+- Give each unit the page it starts on and the page it ends on. A unit may run over several of these pages.
+- When the context unit from before these pages is given, do not transcribe it again. Mark the first unit when it starts mid-way and goes on from before these pages, and the last unit when it is cut off at the end of the last page.`;
 
 /**
- * Call settings for one page call of a parse (task `ingest`):
+ * Call settings for one page batch call of a parse (task `ingest`),
+ * streamed so the Gateway's headers arrive before Node's 5-minute timeout:
  *
- *   generateText({ ...pageCallSettings(), messages: pageMessages(image, mediaType, text) })
+ *   streamText({ ...batchCallSettings(), messages: batchMessages(pages, context) })
  */
-export function pageCallSettings() {
+export function batchCallSettings() {
   return {
     ...aiTask("ingest"),
     // With reasoning on, MiMo can answer a structured output with an empty
     // text (docs/agents/notes/ai-sdk.md).
     reasoning: "none" as const,
-    maxOutputTokens: 8000,
-    instructions: PAGE_INSTRUCTIONS,
-    output: Output.object({ schema: pageResultSchema }),
+    maxOutputTokens: 16000,
+    instructions: BATCH_INSTRUCTIONS,
+    output: Output.object({ schema: batchResultSchema }),
   };
 }
 
+/** A page of a batch: its number, image and text layer, if any. */
+export type BatchPage = {
+  pageNumber: number;
+  image: Uint8Array;
+  mediaType: string;
+  text: string | null;
+};
+
 /**
- * The user message of a page call: the page image and, when the PDF has a
- * text layer on the page, its text as a hint.
+ * The user message of a batch call: the last unit before the batch as
+ * context, if any, then each page's number, image and text layer.
  */
-export function pageMessages(
-  image: Uint8Array,
-  mediaType: string,
-  text: string | null,
+export function batchMessages(
+  pages: readonly BatchPage[],
+  context: Pick<PageUnit, "label" | "markdown"> | null,
 ) {
-  const hint = text?.trim()
+  const intro = context
     ? [
         {
           type: "text" as const,
-          text: `The page's text layer, possibly out of order:\n\n${text.trim()}`,
+          text: `Context, the last unit before these pages (${context.label}), not to transcribe again:\n\n${context.markdown}`,
         },
       ]
     : [];
   return [
     {
       role: "user" as const,
-      content: [{ type: "file" as const, data: image, mediaType }, ...hint],
+      content: [
+        ...intro,
+        ...pages.flatMap((page) => [
+          { type: "text" as const, text: `Page ${page.pageNumber}` },
+          {
+            type: "file" as const,
+            data: page.image,
+            mediaType: page.mediaType,
+          },
+          ...(page.text?.trim()
+            ? [
+                {
+                  type: "text" as const,
+                  text: `Page ${page.pageNumber}'s text layer, possibly out of order:\n\n${page.text.trim()}`,
+                },
+              ]
+            : []),
+        ]),
+      ],
     },
   ];
 }

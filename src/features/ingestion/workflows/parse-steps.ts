@@ -1,16 +1,19 @@
 import "server-only";
 import {
-  pageCallSettings,
-  pageMessages,
-  pageResultSchema,
+  batchCallSettings,
+  batchMessages,
+  batchResultSchema,
+  storedUnitsSchema,
+  type BatchPage,
   type PageUnit,
 } from "@/features/ingestion/ai/page-units";
 import { missingPages } from "@/features/ingestion/domain/missing-pages";
 import {
-  languageTag,
-  mostCommonLanguage,
-  overlayPages,
-} from "@/features/ingestion/domain/pages";
+  PAGES_PER_BATCH,
+  pageBatches,
+  unitsOnPages,
+} from "@/features/ingestion/domain/page-batches";
+import { overlayPages } from "@/features/ingestion/domain/pages";
 import { dailyLimitReason } from "@/features/ingestion/domain/parse-failure";
 import type { PageSkip } from "@/features/ingestion/types";
 import {
@@ -18,7 +21,7 @@ import {
   type OpenedPdf,
 } from "@/features/ingestion/workflows/page-images";
 import {
-  meteredGenerate,
+  meteredStream,
   RATE_LIMITED_STEP_RETRIES,
 } from "@/features/usage/server";
 import { getAiEnv } from "@/lib/ai/env";
@@ -42,11 +45,11 @@ const FOREIGN_KEY_VIOLATION = "23503";
 /** Postgres error code of a row that is there already. */
 const UNIQUE_VIOLATION = "23505";
 
-/** The most pages one read step reads. */
-export const PAGES_PER_STEP = 8;
+/** The most pages one read step reads: four batches. */
+export const PAGES_PER_STEP = 4 * PAGES_PER_BATCH;
 
 /**
- * How long after its start a read step may still start a page call. Later
+ * How long after its start a read step may still start a batch call. Later
  * pages are left to the next step, so a step ends within Vercel Hobby's
  * 300-second limit even at MiMo's pace.
  */
@@ -108,9 +111,9 @@ async function storedPageNumbers(
   return data.map((page) => page.page_number);
 }
 
-/** One stored page: read, with its units and language, or skipped. */
+/** One stored page: read, with the units that start on it, or skipped. */
 type PageRow =
-  | { pageNumber: number; units: PageUnit[]; language: string | null }
+  | { pageNumber: number; units: PageUnit[] }
   | { pageNumber: number; skipped: PageSkip };
 
 /**
@@ -128,7 +131,7 @@ async function storePage(
     page_number: page.pageNumber,
     ...("skipped" in page
       ? { units: [], skipped: page.skipped }
-      : { units: page.units, language: page.language }),
+      : { units: page.units }),
   });
   if (stored.error?.code === FOREIGN_KEY_VIOLATION) return false;
   if (stored.error && stored.error.code !== UNIQUE_VIOLATION) {
@@ -228,11 +231,14 @@ async function pageSource(
 }
 
 /**
- * Reads up to PAGES_PER_STEP of the Material's pages with one vision call
- * each (task `ingest`), at most AI_CONCURRENCY at a time, opening the PDF
- * once. Each page is stored as it finishes: read, `blank` without a call, or
- * `unreadable` when its call fails for good, and the parse goes on. No call
- * starts after CALL_WINDOW_MS; the pages not started are left to the next
+ * Reads up to PAGES_PER_STEP of the Material's pages, opening the PDF once.
+ * A blank page is stored `blank` without a call; the others are read in
+ * batches of up to PAGES_PER_BATCH with one streamed vision call each (task
+ * `ingest`), at most AI_CONCURRENCY at a time. A batch's pages are stored as
+ * it finishes, each with the units that start on it; a batch whose call
+ * fails for good is read again page by page, and a page that still fails is
+ * stored `unreadable`, so the parse goes on. No call starts after
+ * CALL_WINDOW_MS; the pages of batches not started are left to the next
  * step. A reached Daily limit stops the parse.
  */
 export async function readPages(
@@ -246,28 +252,52 @@ export async function readPages(
   if (!material) return { ok: true, left: null };
   // A retried step reads the pages its earlier attempt stored no more.
   const stored = new Set(await storedPageNumbers(supabase, materialId));
-  const queue = pageNumbers.filter((page) => !stored.has(page));
   const source = await pageSource(supabase, material);
+
+  const toRead = new Map<number, BatchPage>();
+  for (const pageNumber of pageNumbers) {
+    if (stored.has(pageNumber)) continue;
+    const image = await source.image(pageNumber);
+    if (image) {
+      toRead.set(pageNumber, {
+        pageNumber,
+        image: image.bytes,
+        mediaType: image.mediaType,
+        text: await source.text(pageNumber),
+      });
+      continue;
+    }
+    const blank = { pageNumber, skipped: "blank" as const };
+    if (!(await storePage(supabase, material, blank))) {
+      return { ok: true, left: null };
+    }
+    await recordProgress(supabase, materialId);
+  }
+  const queue = pageBatches([...toRead.keys()]).map((batch) =>
+    batch.map((pageNumber) => toRead.get(pageNumber)!),
+  );
 
   let started = 0;
   let limitReached = false;
   let gone = false;
-  const read = async (pageNumber: number) => {
-    const page = await readPage(supabase, material, source, pageNumber);
-    if (page === "limit") {
-      limitReached = true;
-      return;
+  const read = async (batch: BatchPage[]) => {
+    const { pages, limit } = await readBatch(supabase, material, batch);
+    if (limit) limitReached = true;
+    for (const page of pages) {
+      if (!(await storePage(supabase, material, page))) {
+        gone = true;
+        return;
+      }
     }
-    if (!(await storePage(supabase, material, page))) gone = true;
-    else await recordProgress(supabase, materialId);
+    if (pages.length > 0) await recordProgress(supabase, materialId);
   };
   const worker = async () => {
     while (!limitReached && !gone) {
       if (started > 0 && Date.now() - startedAt > CALL_WINDOW_MS) return;
-      const pageNumber = queue.shift();
-      if (pageNumber === undefined) return;
+      const batch = queue.shift();
+      if (batch === undefined) return;
       started += 1;
-      await read(pageNumber);
+      await read(batch);
     }
   };
   await Promise.all(
@@ -276,58 +306,121 @@ export async function readPages(
 
   if (gone) return { ok: true, left: null };
   if (limitReached) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: queue };
+  return {
+    ok: true,
+    left: queue.flatMap((batch) => batch.map((page) => page.pageNumber)),
+  };
 }
 
 readPages.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /**
- * Reads one page: its result to store, or "limit" when the Student's Daily
- * limit is reached.
+ * Reads one batch: the results of its pages read so far, and whether the
+ * Student's Daily limit stopped it. A batch whose call fails is read again
+ * page by page once; a page that still fails is unreadable.
  */
-async function readPage(
+async function readBatch(
   supabase: AdminSupabase,
   material: ParseMaterialRow,
-  source: PageSource,
-  pageNumber: number,
-): Promise<PageRow | "limit"> {
-  const image = await source.image(pageNumber);
-  if (!image) return { pageNumber, skipped: "blank" };
-  const text = await source.text(pageNumber);
-  const unreadable = (error: unknown): PageRow => {
-    console.error(`The page call for page ${pageNumber} failed:`, error);
-    return { pageNumber, skipped: "unreadable" };
-  };
+  batch: BatchPage[],
+): Promise<{ pages: PageRow[]; limit: boolean }> {
+  const placed = (pages: BatchPage[], units: PageUnit[]): PageRow[] =>
+    [
+      ...unitsOnPages(
+        units,
+        pages.map((page) => page.pageNumber),
+      ),
+    ].map(([pageNumber, onPage]) => ({ pageNumber, units: onPage }));
 
-  let result: Awaited<ReturnType<typeof meteredGenerate>>;
+  let context = await lastUnitBefore(supabase, material.id, batch[0]!);
+  const units = await callBatch(supabase, material, batch, context);
+  if (units === "limit") return { pages: [], limit: true };
+  if (units !== "failed") return { pages: placed(batch, units), limit: false };
+
+  const pages: PageRow[] = [];
+  for (const page of batch) {
+    const single = await callBatch(supabase, material, [page], context);
+    if (single === "limit") return { pages, limit: true };
+    if (single === "failed") {
+      pages.push({ pageNumber: page.pageNumber, skipped: "unreadable" });
+      context = null;
+    } else {
+      pages.push(...placed([page], single));
+      context = single.at(-1) ?? null;
+    }
+  }
+  return { pages, limit: false };
+}
+
+/**
+ * One streamed batch call: its units, "failed" when the call fails for
+ * good or gives no valid answer, or "limit" when the Student's Daily limit
+ * is reached.
+ */
+async function callBatch(
+  supabase: AdminSupabase,
+  material: ParseMaterialRow,
+  batch: BatchPage[],
+  context: PageUnit | null,
+): Promise<PageUnit[] | "failed" | "limit"> {
+  const failedCall = (error: unknown) => {
+    const pages = batch.map((page) => page.pageNumber).join(", ");
+    console.error(`The batch call for pages ${pages} failed:`, error);
+    return "failed" as const;
+  };
+  let result: Awaited<ReturnType<typeof meteredStream>>;
   try {
-    result = await meteredGenerate(
+    result = await meteredStream(
       supabase,
       {
         studentId: material.owner,
         task: "ingest",
-        traceName: "parse-page",
+        traceName: "parse-batch",
         callFailed: (error) => {
           throw new PageCallFailed(String(error), { cause: error });
         },
       },
-      {
-        ...pageCallSettings(),
-        messages: pageMessages(image.bytes, image.mediaType, text),
-      },
+      { ...batchCallSettings(), messages: batchMessages(batch, context) },
     );
   } catch (error) {
     // Any other failure, such as the database's, is the step's.
-    if (error instanceof PageCallFailed) return unreadable(error.cause);
+    if (error instanceof PageCallFailed) return failedCall(error.cause);
     throw error;
   }
   if (!result) return "limit";
   try {
-    const { language, units } = pageResultSchema.parse(result.output);
-    return { pageNumber, units, language: languageTag(language) };
+    return batchResultSchema.parse(await result.output).units;
   } catch (error) {
-    return unreadable(error);
+    return failedCall(error);
   }
+}
+
+/**
+ * The last unit of the read pages right before a batch, as its context:
+ * null when one of them is not stored yet, such as a page another batch of
+ * the step still reads, or none has a unit.
+ */
+async function lastUnitBefore(
+  supabase: AdminSupabase,
+  materialId: string,
+  first: BatchPage,
+): Promise<PageUnit | null> {
+  const { data, error } = await supabase
+    .from("material_pages")
+    .select("page_number, units")
+    .eq("material_id", materialId)
+    .lt("page_number", first.pageNumber)
+    .order("page_number", { ascending: false })
+    .limit(PAGES_PER_STEP);
+  if (error) failed("Loading the page results", error);
+  let expected = first.pageNumber - 1;
+  for (const page of data) {
+    if (page.page_number !== expected) return null;
+    const last = storedUnitsSchema.parse(page.units).at(-1);
+    if (last) return last;
+    expected -= 1;
+  }
+  return null;
 }
 
 /** Sets the Material's progress to the count of its stored page results. */
@@ -346,25 +439,14 @@ async function recordProgress(
   if (progress.error) failed("Recording the progress", progress.error);
 }
 
-/**
- * Marks the Material parsed, with the most common language of its pages:
- * the last step of a parse.
- */
+/** Marks the Material parsed: the last step of a parse. */
 export async function markParsed(materialId: string): Promise<void> {
   "use step";
-  const supabase = createAdminClient();
-  const pages = await supabase
-    .from("material_pages")
-    .select("language")
-    .eq("material_id", materialId)
-    .order("page_number");
-  if (pages.error) failed("Loading the page languages", pages.error);
-  const { error } = await supabase
+  const { error } = await createAdminClient()
     .from("materials")
     .update({
       parse_status: "parsed",
       parse_failure: null,
-      language: mostCommonLanguage(pages.data.map((page) => page.language)),
       heartbeat_at: new Date().toISOString(),
     })
     .eq("id", materialId);

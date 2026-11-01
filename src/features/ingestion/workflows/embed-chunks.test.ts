@@ -31,11 +31,11 @@ beforeEach(() => {
 
 const twoPages = () =>
   pageModel([
-    { units: [unit({ label: "content", markdown: "Alpha." })] },
     {
       units: [
-        unit({ label: "content", markdown: "Beta." }),
-        unit({ label: "exercise", markdown: "Gamma." }),
+        unit({ label: "content", markdown: "Alpha." }),
+        unit({ label: "content", markdown: "Beta.", pageFrom: 2, pageTo: 2 }),
+        unit({ label: "exercise", markdown: "Gamma.", pageFrom: 2, pageTo: 2 }),
       ],
     },
   ]);
@@ -97,7 +97,6 @@ describe("the embed step of a parse", () => {
             unit({ label: "content", markdown: "Alpha." }),
           ],
         },
-        { units: [] },
       ]).model,
       embed,
     });

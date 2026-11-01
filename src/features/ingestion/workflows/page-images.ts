@@ -5,7 +5,6 @@ import {
   definePDFJSModule,
   getDocumentProxy,
 } from "unpdf";
-import type { OutlineEntry } from "@/features/ingestion/domain/chapters";
 import { isBlankRender } from "@/features/ingestion/domain/pages";
 import {
   fileUnreadableReason,
@@ -41,6 +40,15 @@ const pdfjsReady = definePDFJSModule(
 
 /** The app's own canvas package, which `next.config.ts` ships to the function. */
 const canvasImport = () => import("@napi-rs/canvas");
+
+/** An entry of a PDF's outline, in document order. */
+export type OutlineEntry = {
+  title: string;
+  /** 1 for a top-level entry. */
+  level: number;
+  /** The 1-based page it points at. */
+  page: number;
+};
 
 /** A page rendered for its page call. */
 export type RenderedPage = {

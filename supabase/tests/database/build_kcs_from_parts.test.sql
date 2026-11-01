@@ -1,10 +1,10 @@
--- The build from Parts (#225): Course order of Materials, Part extractions,
--- KC vectors with match_kcs, retired KCs that keep their Attempts, and the
--- build's lease. Run with `pnpm db:test`.
+-- The build (#225): Course order of Materials, Part extractions, KC vectors
+-- with match_kcs, retired KCs that keep their Attempts, and the build's
+-- lease. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(17);
 
 insert into auth.users (id, email)
 values
@@ -48,16 +48,12 @@ select results_eq(
   $$values ('Lecture 2'), ('Lecture 10'), ('Formulas')$$,
   'the moves swap neighbours');
 
--- A Part with one chunk, its extraction and two KCs ------------------------------
+-- A chunk, an extraction and two KCs -------------------------------------------
 
-insert into public.parts (id, owner, course_id, material_id, position, kind, title, chapter_title, page_from, page_to, content_hash)
-values ('eeeeeeee-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000002', 0, 'teaching',
-  'Vector spaces', 'Vector spaces', 1, 1, repeat('a', 64));
-insert into public.chunks (id, owner, course_id, material_id, part_id, position, page_from, page_to, label, markdown)
+insert into public.chunks (id, owner, course_id, material_id, position, page_from, page_to, label, markdown)
 values ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000002',
-  'eeeeeeee-0000-0000-0000-000000000001', 0, 1, 1, 'content', 'A vector space is a set.');
+  0, 1, 1, 'content', 'A vector space is a set.');
 insert into public.part_extractions (part_id, owner, course_id, content_hash, output)
 values ('eeeeeeee-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', repeat('a', 64),
@@ -82,31 +78,19 @@ $$;
 insert into public.knowledge_map_builds (course_id, owner, status)
 values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'building');
 
-select is(
-  public.store_part_kcs(
-    'aaaaaaaa-0000-0000-0000-000000000001',
-    jsonb_build_array(
-      jsonb_build_object('id', 'bbbbbbbb-0000-0000-0000-000000000001', 'new', true,
-        'name', 'Vector space', 'description', 'A set with addition.', 'type', 'concept',
-        'bigIdea', 'Vector spaces', 'embedding', pg_temp.vec(1),
-        'sources', jsonb_build_array('cccccccc-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000099')),
-      jsonb_build_object('id', 'bbbbbbbb-0000-0000-0000-000000000002', 'new', true,
-        'name', 'Subspace', 'description', 'A closed subset.', 'type', 'concept',
-        'bigIdea', 'Vector spaces', 'embedding', pg_temp.vec(2),
-        'sources', jsonb_build_array('cccccccc-0000-0000-0000-000000000001'))),
-    '[{"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',
-    '[{"partId": "eeeeeeee-0000-0000-0000-000000000001", "kcIds": ["bbbbbbbb-0000-0000-0000-000000000001"]}]'),
-  true, 'the running build stores KCs');
-select results_eq(
-  $$select k.name, b.name, (select count(*)::int from public.kc_sources s where s.kc_id = k.id)
-    from public.kcs k join public.big_ideas b on b.id = k.big_idea_id order by k.position$$,
-  $$values ('Vector space', 'Vector spaces', 1), ('Subspace', 'Vector spaces', 1)$$,
-  'new KCs land in their Big idea with the sources whose chunks exist');
-select is((select count(*)::int from public.prerequisite_links), 1, 'with their Prerequisites');
-select is(
-  (select kc_ids::text || (output -> 'kcs' -> 0 ? 'embedding')::text from public.part_extractions),
-  '{bbbbbbbb-0000-0000-0000-000000000001}false',
-  'the extraction is marked stored and drops its vectors');
+insert into public.big_ideas (id, owner, course_id, name, description, position)
+values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+  'aaaaaaaa-0000-0000-0000-000000000001', 'Vector spaces', 'Vector spaces', 0);
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position, embedding)
+values
+  ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+    'Vector space', 'A set with addition.', 'concept', 'content', 0, pg_temp.vec(1)::extensions.vector),
+  ('bbbbbbbb-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000001',
+    'Subspace', 'A closed subset.', 'concept', 'content', 1, pg_temp.vec(2)::extensions.vector);
+insert into public.kc_sources (kc_id, chunk_id, owner, course_id)
+select id, 'cccccccc-0000-0000-0000-000000000001', owner, course_id from public.kcs;
 
 select results_eq(
   $$select id, round(similarity::numeric, 3) from public.match_kcs('aaaaaaaa-0000-0000-0000-000000000001', pg_temp.vec(1), 5)$$,
@@ -153,10 +137,6 @@ set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", 
 select is(public.queue_knowledge_map_build('aaaaaaaa-0000-0000-0000-000000000001'), true,
   'a build silent for 30 minutes no longer holds a new one back');
 reset role;
-
-select throws_ok(
-  $$select public.store_part_kcs('aaaaaaaa-0000-0000-0000-000000000099', '[]', '[]', '[]') from (select set_config('role', 'authenticated', true)) as s$$,
-  '42501', null, 'a Student cannot store KCs');
 
 select * from finish();
 rollback;

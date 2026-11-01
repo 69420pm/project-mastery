@@ -19,8 +19,9 @@ const PAGES = "--pages";
 const PAGES_OUT = "--pages-out";
 
 /**
- * One vision call per page, plus the embedding call and at most one pairing
- * call, must stay within the runner's cap of 30 calls.
+ * A vision call per batch of 5 pages, and per page when a batch fails, plus
+ * the embedding call and at most one pairing call, must stay within the
+ * runner's cap of 30 calls.
  */
 const MAX_PAGES = 10;
 
@@ -145,7 +146,7 @@ async function writePages(
 ) {
   const { data, error } = await supabase
     .from("material_pages")
-    .select("page_number, skipped, language, units")
+    .select("page_number, skipped, units")
     .eq("material_id", materialId)
     .order("page_number");
   if (error) throw new Error(error.message);
@@ -177,19 +178,17 @@ async function checkParse(
   const [material, storedPages, chunks] = await Promise.all([
     supabase
       .from("materials")
-      .select("parse_status, parse_failure, language")
+      .select("parse_status, parse_failure")
       .eq("id", materialId)
       .single(),
     supabase
       .from("material_pages")
-      .select("page_number, skipped, language, units")
+      .select("page_number, skipped, units")
       .eq("material_id", materialId)
       .order("page_number"),
     supabase
       .from("chunks")
-      .select(
-        "position, page_from, page_to, label, markdown, embedding, part_id",
-      )
+      .select("position, page_from, page_to, label, markdown, embedding")
       .eq("material_id", materialId)
       .order("position"),
   ]);
@@ -205,7 +204,7 @@ async function checkParse(
   for (const page of rows) {
     const units = unitsOf(page);
     console.info(
-      `  p${page.page_number} ${page.skipped ?? page.language}: ${units.length} units`,
+      `  p${page.page_number} ${page.skipped ?? "read"}: ${units.length} units`,
     );
     for (const unit of units.slice(0, 3)) {
       const text = String(unit.markdown).replaceAll(/\s+/g, " ").slice(0, 90);
@@ -216,10 +215,7 @@ async function checkParse(
   const unaccounted = pages.filter((page) => {
     const row = rows.find((r) => r.page_number === page);
     return (
-      !row ||
-      (row.skipped === null
-        ? row.language === null
-        : !SKIP_REASONS.includes(row.skipped))
+      !row || (row.skipped !== null && !SKIP_REASONS.includes(row.skipped))
     );
   });
   const pageNumberUnits = rows.flatMap((page) =>
@@ -248,11 +244,11 @@ async function checkParse(
       "the Material is parsed",
       m.parse_status === "parsed",
       m.parse_status === "parsed"
-        ? `language ${m.language}`
+        ? `${chunkRows.length} chunks`
         : `${m.parse_status}: ${m.parse_failure}`,
     ),
     result(
-      "every page is read, with a language, or skipped with a reason",
+      "every page is read or skipped with a reason",
       unaccounted.length === 0,
       unaccounted.length ? `pages ${unaccounted.join(", ")}` : undefined,
     ),
@@ -278,13 +274,8 @@ async function checkParse(
         outOfRange.length === 0,
     ),
     result(
-      "every non-admin chunk is in a Part and embedded, no admin chunk is either",
-      chunkRows.every((c) =>
-        c.label === "admin"
-          ? c.part_id === null && c.embedding === null
-          : c.part_id !== null && c.embedding !== null,
-      ),
-      `${new Set(chunkRows.map((c) => c.part_id).filter(Boolean)).size} Parts`,
+      "every non-admin chunk is embedded, no admin chunk is",
+      chunkRows.every((c) => (c.label === "admin") === (c.embedding === null)),
     ),
   ];
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { embedMany, generateText } from "ai";
+import { embedMany, generateText, streamText } from "ai";
 import { RetryableError } from "workflow";
 import { checkDailyLimit } from "@/features/usage/server/daily-limit";
 import {
@@ -94,6 +94,65 @@ export async function meteredGenerate(
     { studentId },
   );
   return result;
+}
+
+/** A `streamText` call, with the settings `aiTask` gives. */
+type StreamCall = Parameters<typeof streamText>[0] & {
+  model: string;
+  providerOptions?: { gateway?: { models?: readonly string[] } };
+};
+
+/**
+ * A metered `streamText` call with structured output, read to its end: the
+ * Gateway sends headers with the first tokens, so a long answer does not
+ * hit Node's 5-minute headers timeout as `generateText` can
+ * (docs/agents/notes/ai-sdk.md). The result's `output` rejects, after the
+ * usage is recorded, when the answer is no valid output; an error of the
+ * stream is the call's.
+ */
+export async function meteredStream(
+  admin: AdminSupabase,
+  { studentId, task, traceName, callFailed }: Omit<GenerateScope, "dailyLimit">,
+  call: StreamCall,
+): Promise<{ readonly output: Promise<unknown> } | null> {
+  const limit = await checkDailyLimit(admin, { studentId });
+  if (limit.level === "reached") return null;
+
+  const result = await withTraceAttributes(
+    { userId: studentId, traceName },
+    async () => {
+      let streamError: unknown;
+      const stream = streamText({
+        ...call,
+        onError: ({ error }) => {
+          streamError ??= error;
+        },
+      });
+      const output = Promise.resolve(stream.output);
+      output.catch(() => {});
+      try {
+        const [usage, step] = await Promise.all([
+          stream.usage,
+          stream.finalStep,
+        ]);
+        if (streamError) throw streamError;
+        return { usage, modelId: step.response.modelId, output };
+      } catch (error) {
+        throw streamError ?? error;
+      }
+    },
+  ).catch((error: unknown) => quotaAsNull(error, callFailed));
+  if (!result) return null;
+  await recordAiUsage(
+    admin,
+    {
+      task,
+      modelId: answeringModel(call, result.modelId),
+      usage: tokenUsage(result.usage),
+    },
+    { studentId },
+  );
+  return { output: result.output };
 }
 
 /**

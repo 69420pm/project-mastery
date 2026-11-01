@@ -10,6 +10,7 @@ export {
 export {
   meteredEmbed,
   meteredGenerate,
+  meteredStream,
   RATE_LIMITED_STEP_RETRIES,
 } from "./server/metered-call";
 export { getMonthlyUsage } from "./server/monthly-usage";

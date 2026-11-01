@@ -11,6 +11,7 @@ import {
   pageModel,
   seedMaterial as seedMaterialIn,
   sentImages,
+  storedChunks,
   STORAGE_PATH,
   STUDENT,
   unit,
@@ -37,33 +38,37 @@ beforeEach(() => {
 
 type Prompt = Array<{ role: string; content: Array<{ text?: string }> }>;
 
-/** The text hint each page call sent, or null without one. */
+/** The text parts each batch call sent, in order. */
 const sentTexts = (prompts: unknown[]) =>
-  prompts.map(
-    (prompt) =>
-      (prompt as Prompt)
-        .flatMap((message) => message.content)
-        .find((part) => typeof part.text === "string")?.text ?? null,
+  prompts.map((prompt) =>
+    (prompt as Prompt)
+      .filter((message) => message.role === "user")
+      .flatMap((message) => message.content)
+      .flatMap((part) => (typeof part.text === "string" ? [part.text] : [])),
   );
 
+const storedPages = () =>
+  db.tables.material_pages
+    .toSorted((a, b) => Number(a.page_number) - Number(b.page_number))
+    .map((page) => [
+      page.page_number,
+      page.skipped ?? null,
+      (page.units as Array<{ markdown: string }>).map((u) => u.markdown),
+    ]);
+
 describe("parsing a PDF Material", () => {
-  test("turns every page's units into chunks with labels and pages, and ends parsed with the pages' language", async () => {
+  test("reads its pages in one batch call with each page's number, image and text layer, and stores the units on the pages they start", async () => {
     seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
     const { model, prompts } = pageModel([
       {
-        language: "de",
         units: [
-          unit({ markdown: "**Grenzwert.** $\\lim a_n = a$ ..." }),
+          unit({ markdown: "**Grenzwert.** $\\lim a_n = a$ ...", pageTo: 2 }),
           unit({ label: "admin", markdown: "Nicht prüfungsrelevant." }),
-        ],
-      },
-      {
-        language: "de",
-        units: [
           unit({
             label: "exercise",
             markdown: "Zeige $1/n \\to 0$.",
-            exerciseNumber: "1.2",
+            pageFrom: 2,
+            pageTo: 2,
           }),
         ],
       },
@@ -72,148 +77,44 @@ describe("parsing a PDF Material", () => {
 
     await parseMaterial(MATERIAL);
 
+    expect(sentImages(prompts)).toEqual([["image/jpeg", "image/jpeg"]]);
+    expect(sentTexts(prompts)).toEqual([
+      [
+        "Page 1",
+        expect.stringContaining("Definition: limit"),
+        "Page 2",
+        expect.stringContaining("Example: 1/n to 0"),
+      ],
+    ]);
+    expect(storedPages()).toEqual([
+      [
+        1,
+        null,
+        ["**Grenzwert.** $\\lim a_n = a$ ...", "Nicht prüfungsrelevant."],
+      ],
+      [2, null, ["Zeige $1/n \\to 0$."]],
+    ]);
+    expect(storedChunks(db)).toEqual([
+      {
+        position: 0,
+        page_from: 1,
+        page_to: 2,
+        label: "content",
+        markdown: "**Grenzwert.** $\\lim a_n = a$ ...",
+      },
+      expect.objectContaining({ position: 1, label: "admin", page_from: 1 }),
+      expect.objectContaining({ position: 2, label: "exercise", page_from: 2 }),
+    ]);
+    expect(db.tables.chunks[0]).toMatchObject({
+      owner: STUDENT,
+      course_id: COURSE,
+      material_id: MATERIAL,
+    });
     expect(db.tables.materials[0]).toMatchObject({
       parse_status: "parsed",
       pages_total: 2,
       pages_done: 2,
-      language: "de",
     });
-    const owned = { owner: STUDENT, course_id: COURSE, material_id: MATERIAL };
-    expect(
-      db.tables.chunks.toSorted(
-        (a, b) => Number(a.position) - Number(b.position),
-      ),
-    ).toEqual([
-      expect.objectContaining({
-        ...owned,
-        position: 0,
-        page_from: 1,
-        page_to: 1,
-        label: "content",
-        markdown: "**Grenzwert.** $\\lim a_n = a$ ...",
-        exercise_number: null,
-      }),
-      expect.objectContaining({ position: 1, label: "admin", page_from: 1 }),
-      expect.objectContaining({
-        position: 2,
-        page_from: 2,
-        label: "exercise",
-        exercise_number: "1.2",
-      }),
-    ]);
-    // One vision call per page, each with its page rendered as JPEG and its
-    // text layer as a hint.
-    expect(sentImages(prompts)).toEqual([["image/jpeg"], ["image/jpeg"]]);
-    expect(sentTexts(prompts)).toEqual([
-      expect.stringContaining("Definition: limit"),
-      expect.stringContaining("Example: 1/n to 0"),
-    ]);
-  });
-
-  test("joins a unit continued on the next page, and stores every non-admin chunk in a Part", async () => {
-    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
-    useMockModels({
-      ingest: pageModel([
-        {
-          units: [
-            unit({
-              markdown: "# Limits\n\nA sequence converges when",
-              continuesOnNextPage: true,
-            }),
-            unit({ label: "admin", markdown: "Exam on 3 March." }),
-          ],
-        },
-        {
-          units: [
-            unit({ markdown: "its terms approach a limit." }),
-            unit({
-              label: "exercise",
-              markdown: "Show it.",
-              exerciseNumber: "1.2",
-            }),
-          ],
-        },
-      ]).model,
-    });
-
-    await parseMaterial(MATERIAL);
-
-    const chunks = db.tables.chunks.toSorted(
-      (a, b) => Number(a.position) - Number(b.position),
-    );
-    const parts = db.tables.parts.toSorted(
-      (a, b) => Number(a.position) - Number(b.position),
-    );
-    expect(
-      chunks.map((chunk) => [chunk.label, chunk.page_from, chunk.page_to]),
-    ).toEqual([
-      ["content", 1, 2],
-      ["admin", 1, 1],
-      ["exercise", 2, 2],
-    ]);
-    expect(parts).toEqual([
-      expect.objectContaining({
-        position: 0,
-        kind: "teaching",
-        title: "Limits",
-        chapter_title: "Limits",
-        page_from: 1,
-        page_to: 2,
-        content_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
-      }),
-      expect.objectContaining({ position: 1, kind: "exercise", title: "1.2" }),
-    ]);
-    expect(chunks.map((chunk) => chunk.part_id)).toEqual([
-      parts[0]!.id,
-      null,
-      parts[1]!.id,
-    ]);
-    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
-  });
-
-  test("stores each page's result and language, and no page image in Storage", async () => {
-    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
-    useMockModels({
-      ingest: pageModel([
-        { units: [unit({ markdown: "Page one" })] },
-        { units: [unit({ markdown: "Page two" })] },
-      ]).model,
-    });
-
-    await parseMaterial(MATERIAL);
-
-    const pages = db.tables.material_pages.toSorted(
-      (a, b) => Number(a.page_number) - Number(b.page_number),
-    );
-    expect(pages).toEqual(
-      [1, 2].map((page) =>
-        expect.objectContaining({
-          owner: STUDENT,
-          material_id: MATERIAL,
-          page_number: page,
-          language: "en",
-          units: [
-            expect.objectContaining({
-              markdown: `Page ${["one", "two"][page - 1]}`,
-            }),
-          ],
-        }),
-      ),
-    );
-    expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
-  });
-
-  test("records the usage of every page call for the Student", async () => {
-    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
-    useMockModels({
-      ingest: pageModel([
-        { units: [unit({ markdown: "One" })] },
-        { units: [unit({ markdown: "Two" })] },
-      ]).model,
-    });
-
-    await parseMaterial(MATERIAL);
-
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({
         owner: STUDENT,
@@ -222,28 +123,82 @@ describe("parsing a PDF Material", () => {
         input_tokens: 1000,
         output_tokens: 200,
       }),
-      expect.objectContaining({ owner: STUDENT, task: "ingest" }),
       expect.objectContaining({ owner: STUDENT, task: "embed" }),
     ]);
+    expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
   });
 
-  test("skips a slide overlay and a blank page without a call", async () => {
-    seedMaterial("application/pdf", await fixture("slides-with-blank.pdf"));
+  test("reads 7 pages in batches of 5 and 2, gives the second the first's last unit, and joins a unit across the batch edge", async () => {
+    seedMaterial("application/pdf", await fixture("seven-page-script.pdf"));
     const { model, prompts } = pageModel([
-      { units: [unit({ markdown: "Vectors add up." })] },
+      {
+        units: [
+          unit({ label: "heading", markdown: "1 Vectors", style: "title" }),
+          unit({
+            markdown: "A vector space is",
+            pageTo: 5,
+            continuesOnNextBatch: true,
+          }),
+        ],
+      },
+      {
+        units: [
+          unit({
+            markdown: "a set with addition.",
+            pageFrom: 6,
+            pageTo: 6,
+            continuesFromPreviousBatch: true,
+          }),
+          unit({
+            label: "exercise",
+            markdown: "Show it.",
+            pageFrom: 7,
+            pageTo: 7,
+          }),
+        ],
+      },
     ]);
     useMockModels({ ingest: model });
 
     await parseMaterial(MATERIAL);
 
-    expect(prompts).toHaveLength(1);
-    expect(
-      db.tables.material_pages
-        .toSorted((a, b) => Number(a.page_number) - Number(b.page_number))
-        .map((page) => [page.page_number, page.skipped ?? null, page.units]),
-    ).toEqual([
+    expect(sentImages(prompts).map((images) => images.length)).toEqual([5, 2]);
+    expect(sentTexts(prompts)[1]![0]).toContain("A vector space is");
+    expect(storedChunks(db)).toEqual([
+      {
+        position: 0,
+        page_from: 1,
+        page_to: 6,
+        label: "content",
+        markdown: "**1 Vectors**\n\nA vector space is\n\na set with addition.",
+      },
+      {
+        position: 1,
+        page_from: 7,
+        page_to: 7,
+        label: "exercise",
+        markdown: "Show it.",
+      },
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({
+      parse_status: "parsed",
+      pages_done: 7,
+    });
+  });
+
+  test("skips a slide overlay and a blank page without a call", async () => {
+    seedMaterial("application/pdf", await fixture("slides-with-blank.pdf"));
+    const { model, prompts } = pageModel([
+      { units: [unit({ markdown: "Vectors add up.", pageFrom: 2 })] },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(sentImages(prompts)).toEqual([["image/jpeg"]]);
+    expect(storedPages()).toEqual([
       [1, "overlay", []],
-      [2, null, [expect.objectContaining({ markdown: "Vectors add up." })]],
+      [2, null, ["Vectors add up."]],
       [3, "blank", []],
     ]);
     expect(db.tables.materials[0]).toMatchObject({
@@ -255,7 +210,7 @@ describe("parsing a PDF Material", () => {
 });
 
 describe("parsing an image Material", () => {
-  test("parses the uploaded image as its one page, without rendering or a text hint", async () => {
+  test("parses the uploaded image as its one page, without rendering or a text layer", async () => {
     const png = await readFile(
       path.join(import.meta.dirname, "test-files", "whiteboard.png"),
     );
@@ -276,13 +231,12 @@ describe("parsing an image Material", () => {
       expect.objectContaining({ page_from: 1, page_to: 1, markdown: "$x^2$" }),
     ]);
     expect(sentImages(prompts)).toEqual([["image/png"]]);
-    expect(sentTexts(prompts)).toEqual([null]);
-    expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
+    expect(sentTexts(prompts)).toEqual([["Page 1"]]);
   });
 });
 
 describe("the Daily limit", () => {
-  test("is checked before each page call, and a reached limit fails the parse with that reason", async () => {
+  test("is checked before each batch call, and a reached limit fails the parse with that reason", async () => {
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
     db.tables.ai_usage.push({
       owner: STUDENT,

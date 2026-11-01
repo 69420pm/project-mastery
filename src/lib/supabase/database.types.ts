@@ -462,7 +462,6 @@ export type Database = {
           owner: string;
           page_from: number;
           page_to: number;
-          part_id: string | null;
           position: number;
         };
         ComputedFields: never;
@@ -478,7 +477,6 @@ export type Database = {
           owner: string;
           page_from: number;
           page_to: number;
-          part_id?: string | null;
           position: number;
         };
         Update: {
@@ -493,7 +491,6 @@ export type Database = {
           owner?: string;
           page_from?: number;
           page_to?: number;
-          part_id?: string | null;
           position?: number;
         };
         Relationships: [
@@ -516,13 +513,6 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "chunks_part_id_fkey";
-            columns: ["part_id"];
-            isOneToOne: false;
-            referencedRelation: "parts";
             referencedColumns: ["id"];
           },
         ];
@@ -1119,7 +1109,6 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
-          language: string | null;
           material_id: string;
           owner: string;
           page_number: number;
@@ -1130,7 +1119,6 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
-          language?: string | null;
           material_id: string;
           owner: string;
           page_number: number;
@@ -1140,7 +1128,6 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
-          language?: string | null;
           material_id?: string;
           owner?: string;
           page_number?: number;
@@ -1516,81 +1503,6 @@ export type Database = {
           },
           {
             foreignKeyName: "part_extractions_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "part_extractions_part_id_fkey";
-            columns: ["part_id"];
-            isOneToOne: true;
-            referencedRelation: "parts";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      parts: {
-        Row: {
-          chapter_title: string;
-          content_hash: string;
-          course_id: string;
-          created_at: string;
-          id: string;
-          kind: string;
-          material_id: string;
-          owner: string;
-          page_from: number;
-          page_to: number;
-          position: number;
-          title: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          chapter_title: string;
-          content_hash: string;
-          course_id: string;
-          created_at?: string;
-          id?: string;
-          kind: string;
-          material_id: string;
-          owner: string;
-          page_from: number;
-          page_to: number;
-          position: number;
-          title: string;
-        };
-        Update: {
-          chapter_title?: string;
-          content_hash?: string;
-          course_id?: string;
-          created_at?: string;
-          id?: string;
-          kind?: string;
-          material_id?: string;
-          owner?: string;
-          page_from?: number;
-          page_to?: number;
-          position?: number;
-          title?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "parts_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "parts_material_id_fkey";
-            columns: ["material_id"];
-            isOneToOne: false;
-            referencedRelation: "materials";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "parts_owner_fkey";
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
@@ -2330,7 +2242,7 @@ export type Database = {
         Returns: boolean;
       };
       replace_material_chunks: {
-        Args: { p_chunks: Json; p_material_id: string; p_parts: Json };
+        Args: { p_chunks: Json; p_material_id: string };
         Returns: undefined;
       };
       request_exercise_pairing: {
@@ -2386,15 +2298,6 @@ export type Database = {
       };
       store_named_topics: {
         Args: { p_course_id: string; p_topics: Json };
-        Returns: boolean;
-      };
-      store_part_kcs: {
-        Args: {
-          p_course_id: string;
-          p_kcs: Json;
-          p_parts: Json;
-          p_prerequisites: Json;
-        };
         Returns: boolean;
       };
       store_session_close: {

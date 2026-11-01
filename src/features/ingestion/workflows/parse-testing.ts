@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { MockLanguageModelV4 } from "ai/test";
+import { MockLanguageModelV4, simulateReadableStream } from "ai/test";
 import { vi } from "vitest";
 import {
   mockEmbeddingModel,
@@ -12,7 +12,7 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 /**
  * Test helpers for the parse workflow in-process (`parse-material.ts`): the
  * admin client as a `fakeSupabase`, a seeded Material, and an `ingest` model
- * with canned page and file results. Each test file mocks
+ * with canned batch results. Each test file mocks
  * `@/lib/supabase/admin` with its own `db`:
  *
  *   let db = createParseDb();
@@ -30,7 +30,7 @@ export const BUCKET = MATERIALS_BUCKET;
 /**
  * `useMockModels` for a parse test: the `embed` task answers too, unless the
  * test gives its own, because every parse ends by embedding its chunks. One
- * page call runs at a time, so canned page results answer pages in order.
+ * batch call runs at a time, so canned batch results answer batches in order.
  */
 export function useMockModels(models: Parameters<typeof useModels>[0]) {
   useModels({ embed: mockEmbeddingModel(), ...models });
@@ -42,7 +42,6 @@ type ParseTable =
   | "materials"
   | "material_pages"
   | "chunks"
-  | "parts"
   | "exercise_solutions"
   | "ai_usage";
 
@@ -62,7 +61,6 @@ export function createParseDb({
       materials: [] as FakeRow[],
       material_pages: [] as FakeRow[],
       chunks: [] as FakeRow[],
-      parts: [] as FakeRow[],
       exercise_solutions: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
@@ -99,27 +97,14 @@ export function createParseDb({
           course_id: material.course_id,
           material_id: material.id,
         };
-        const parts: FakeRow[] = (args.p_parts as FakeRow[]).map((part) => ({
-          id: crypto.randomUUID(),
-          ...owned,
-          ...part,
-        }));
-        tables.parts = [
-          ...tables.parts.filter((part) => part.material_id !== material.id),
-          ...parts,
-        ];
         tables.chunks = [
           ...tables.chunks.filter((chunk) => chunk.material_id !== material.id),
-          ...(args.p_chunks as FakeRow[]).map(
-            ({ part_position, ...chunk }) => ({
-              id: crypto.randomUUID(),
-              ...owned,
-              ...chunk,
-              part_id:
-                parts.find((part) => part.position === part_position)?.id ??
-                null,
-            }),
-          ),
+          ...(args.p_chunks as FakeRow[]).map((chunk) => ({
+            id: crypto.randomUUID(),
+            ...owned,
+            exercise_number: null,
+            ...chunk,
+          })),
         ];
         return null;
       },
@@ -254,22 +239,24 @@ export function seedMaterial(
   db.files.seed(BUCKET, storagePath, { body, contentType: mediaType });
 }
 
-/** A unit of a canned page result. */
+/** A unit of a canned batch result, on page 1 unless it says otherwise. */
 export const unit = (overrides: Record<string, unknown>) => ({
   markdown: "",
   label: "content",
-  exerciseNumber: null,
-  continuesFromPreviousPage: false,
-  continuesOnNextPage: false,
+  pageFrom: 1,
+  pageTo: 1,
+  style: null,
+  continuesFromPreviousBatch: false,
+  continuesOnNextBatch: false,
   ...overrides,
 });
 
-/** A canned page result; its language is `en` unless it gives one. */
-type CannedPage = { language?: string; units: Array<Record<string, unknown>> };
+/** A canned batch result. */
+type CannedBatch = { units: unknown };
 
 type Prompt = Array<{ role: string; content: unknown }>;
 
-/** Whether a call is a page call: it carries the page image. */
+/** Whether a call is a batch call: it carries page images. */
 export const isPageCall = (prompt: unknown) =>
   (prompt as Prompt).some(
     (message) =>
@@ -311,40 +298,61 @@ export const isPairingCall = (prompt: unknown) =>
 export const sentPairing = (prompt: unknown) =>
   JSON.parse(promptText(prompt)) as SentPairing;
 
+const usage = {
+  inputTokens: {
+    total: 1000,
+    noCache: 1000,
+    cacheRead: undefined,
+    cacheWrite: undefined,
+  },
+  outputTokens: { total: 200, text: 200, reasoning: undefined },
+};
+
+/** A streamed answer of `text`, as a batch call reads it. */
+export function streamedAnswer(text: string) {
+  return {
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "text-start" as const, id: "text-1" },
+        { type: "text-delta" as const, id: "text-1", delta: text },
+        { type: "text-end" as const, id: "text-1" },
+        {
+          type: "finish" as const,
+          finishReason: { unified: "stop" as const, raw: undefined },
+          usage,
+        },
+      ],
+    }),
+  };
+}
+
 /**
- * The `ingest` model of a parse: answers each page call (it carries the page
- * image) with the next canned page result, and pairing's content-matching
- * call with `pairing` of what it offered, or no pairs. Remembers what each
- * kind of call was sent.
+ * The `ingest` model of a parse: answers each batch call (streamed; it
+ * carries page images) with the next canned batch result, and pairing's
+ * content-matching call with `pairing` of what it offered, or no pairs.
+ * Remembers what each kind of call was sent.
  */
 export function pageModel(
-  pages: CannedPage[],
+  batches: CannedBatch[],
   pairing?: (sent: SentPairing) => CannedPairing | Promise<CannedPairing>,
 ) {
   const prompts: unknown[] = [];
   const pairingPrompts: unknown[] = [];
   const model = new MockLanguageModelV4({
+    doStream: async ({ prompt }) => {
+      prompts.push(prompt);
+      const answer = batches[prompts.length - 1] ?? { units: [] };
+      return streamedAnswer(JSON.stringify(answer));
+    },
     doGenerate: async ({ prompt }) => {
-      let answer: unknown;
-      if (isPageCall(prompt)) {
-        prompts.push(prompt);
-        answer = { language: "en", units: [], ...pages[prompts.length - 1] };
-      } else {
-        pairingPrompts.push(prompt);
-        answer = pairing ? await pairing(sentPairing(prompt)) : { pairs: [] };
-      }
+      pairingPrompts.push(prompt);
+      const answer = pairing
+        ? await pairing(sentPairing(prompt))
+        : { pairs: [] };
       return {
         content: [{ type: "text", text: JSON.stringify(answer) }],
         finishReason: { unified: "stop", raw: undefined },
-        usage: {
-          inputTokens: {
-            total: 1000,
-            noCache: 1000,
-            cacheRead: undefined,
-            cacheWrite: undefined,
-          },
-          outputTokens: { total: 200, text: 200, reasoning: undefined },
-        },
+        usage,
         warnings: [],
       };
     },
@@ -373,6 +381,5 @@ export function storedChunks(db: ParseDb) {
       page_to: chunk.page_to,
       label: chunk.label,
       markdown: chunk.markdown,
-      exercise_number: chunk.exercise_number,
     }));
 }

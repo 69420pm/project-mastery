@@ -1,5 +1,4 @@
 import { expect, test } from "vitest";
-import { joinUnits } from "@/features/ingestion/domain/chunk-joining";
 import {
   exerciseKeys,
   normalizeExerciseNumber,
@@ -29,24 +28,6 @@ test("without a preceding number of its label, the key is null", () => {
   expect(
     exerciseKeys([chunk("solution", "3"), chunk("exercise", "b)")]),
   ).toEqual(["3", null]);
-});
-
-test("b) on the page after its exercise keys under it", () => {
-  const unit = (markdown: string, exerciseNumber: string) => ({
-    markdown,
-    label: "exercise" as const,
-    exerciseNumber,
-    continuesFromPreviousPage: false,
-    continuesOnNextPage: false,
-  });
-  const chunks = joinUnits([
-    {
-      pageNumber: 1,
-      units: [unit("**Aufgabe 7.2** Zeigen Sie:", "Aufgabe 7.2")],
-    },
-    { pageNumber: 2, units: [unit("b) Folgern Sie.", "b)")] },
-  ]);
-  expect(exerciseKeys(chunks)).toEqual(["7.2", "7.2.b"]);
 });
 
 test("a number is read the same however it is printed", () => {
