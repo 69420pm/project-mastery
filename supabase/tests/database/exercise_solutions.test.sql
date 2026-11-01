@@ -25,17 +25,17 @@ values
     '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/aaaaaaaa-1111-0000-0000-000000000002',
     'parsed');
 
-insert into public.chunks (id, owner, course_id, material_id, position, page_from, page_to, label, markdown, exercise_number)
+insert into public.chunks (id, owner, course_id, material_id, position, page_from, page_to, label, markdown)
 values
   ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
-    0, 1, 1, 'exercise', 'a) Show ...', '7.2a'),
+    0, 1, 1, 'exercise', 'a) Show ...'),
   ('cccccccc-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
-    1, 1, 1, 'exercise', 'b) Prove ...', '7.2b'),
+    1, 1, 1, 'exercise', 'b) Prove ...'),
   ('cccccccc-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000002',
-    0, 1, 1, 'solution', 'a) Since ...', '7.2a');
+    0, 1, 1, 'solution', 'a) Since ...');
 
 -- Students cannot request or write a pairing pass.
 set local role authenticated;
@@ -66,23 +66,21 @@ select is(
 select is(
   public.replace_exercise_solutions('aaaaaaaa-0000-0000-0000-000000000001', 2,
     '[{"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000001", "solution_chunk_id": "cccccccc-0000-0000-0000-000000000003"},
-      {"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000002", "solution_chunk_id": null,
-       "candidates_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]'),
+      {"exercise_chunk_id": "cccccccc-0000-0000-0000-000000000002", "solution_chunk_id": null}]'),
   true, 'the latest request''s pass writes its pairs');
 reset role;
 
 select results_eq(
-  $$select exercise_chunk_id, solution_chunk_id, status, owner, course_id, candidates_hash
+  $$select exercise_chunk_id, solution_chunk_id, status, owner, course_id
     from public.exercise_solutions
     where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'
     order by exercise_chunk_id$$,
   $$values
     ('cccccccc-0000-0000-0000-000000000001'::uuid, 'cccccccc-0000-0000-0000-000000000003'::uuid, 'paired',
-      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid, null::text),
+      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid),
     ('cccccccc-0000-0000-0000-000000000002'::uuid, null::uuid, 'no_solution',
-      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
-      repeat('a', 64))$$,
-  'pairs are stored as paired or no_solution, owned like the Course, with the memo of their call');
+      '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-0000-0000-0000-000000000001'::uuid)$$,
+  'pairs are stored as paired or no_solution, owned like the Course');
 
 -- Owners only.
 set local role authenticated;

@@ -11,7 +11,6 @@ function chunk(overrides: Partial<ChunkView>): ChunkView {
     pageTo: 1,
     label: "content",
     markdown: "Some text",
-    exerciseNumber: null,
     solution: null,
     ...overrides,
   };
@@ -47,25 +46,22 @@ test("a Material that is no exam has no exam header", () => {
   expect(screen.queryByText(/Old exam/)).toBeNull();
 });
 
-test("an exercise shows its number and paired solution", () => {
+test("an exercise shows its paired solution", () => {
   renderList([
     chunk({
       id: "e1",
       label: "exercise",
-      exerciseNumber: "7.2b",
       solution: {
         status: "paired",
         chunkId: "s1",
         materialId: "m2",
         materialName: "Solutions 7",
-        exerciseNumber: "7.2b",
       },
     }),
     chunk({ id: "e2", label: "exercise" }),
   ]);
 
   const [first, second] = screen.getAllByRole("article");
-  expect(within(first!).getByText("Exercise 7.2b")).toBeTruthy();
   expect(
     within(first!)
       .getByRole("link", { name: "Solution in Solutions 7" })

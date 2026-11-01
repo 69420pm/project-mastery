@@ -31,8 +31,7 @@ export type ChunkView = {
   pageTo: number;
   label: ChunkLabel;
   markdown: string;
-  exerciseNumber: string | null;
-  /** An exercise subtask's solution; null for other chunks. */
+  /** An exercise's solution; null for other chunks. */
   solution: ExerciseSolution | null;
 };
 
@@ -43,7 +42,6 @@ export type ExerciseSolution =
       chunkId: string;
       materialId: string;
       materialName: string;
-      exerciseNumber: string | null;
     }
   | { status: "no_solution" };
 

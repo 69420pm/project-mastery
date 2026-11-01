@@ -1,8 +1,10 @@
 -- Page batches and Outlines (#228, slices 12–15 of #222). A Material is
 -- read in batches of pages whose units carry no language and no exercise
 -- number; Parts and their store function go. A Material gets an Outline of
--- Chapters, a language and notes. Changes the schema only: no rows exist
--- (#222, Shipping).
+-- Chapters, a language and notes. Exercises are paired with solutions by
+-- one call per Course, so chunks lose their printed exercise numbers and
+-- pairs their shortlist memo. Changes the schema only: no rows exist (#222,
+-- Shipping).
 
 -- Page batches ----------------------------------------------------------------
 
@@ -152,3 +154,58 @@ revoke execute on function public.replace_material_chunks(uuid, jsonb, jsonb)
   from public, anon, authenticated;
 grant execute on function public.replace_material_chunks(uuid, jsonb, jsonb)
   to service_role;
+
+-- Pairing -----------------------------------------------------------------------
+
+alter table public.chunks drop column exercise_number;
+
+alter table public.exercise_solutions drop column candidates_hash;
+
+comment on table public.exercise_solutions is 'An exercise chunk with its solution chunk in the same Course, or no solution, as the Course''s pairing call decided.';
+
+-- p_pairs is a jsonb array of { exercise_chunk_id, solution_chunk_id or
+-- null }. While p_request is still the Course's latest request, it replaces
+-- all of the Course's pairs in one transaction, skipping exercises deleted
+-- meanwhile and storing an exercise whose solution was deleted meanwhile
+-- with no solution.
+create or replace function public.replace_exercise_solutions(
+  p_course_id uuid,
+  p_request bigint,
+  p_pairs jsonb
+)
+returns boolean
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_owner uuid;
+  v_latest bigint;
+begin
+  select owner, pairing_requested into v_owner, v_latest
+  from public.courses
+  where id = p_course_id
+  for update;
+  if not found or v_latest <> p_request then
+    return false;
+  end if;
+
+  delete from public.exercise_solutions where course_id = p_course_id;
+
+  insert into public.exercise_solutions (
+    owner, course_id, exercise_chunk_id, solution_chunk_id, status
+  )
+  select
+    v_owner, p_course_id, exercise.id, solution.id,
+    case when solution.id is null then 'no_solution' else 'paired' end
+  from jsonb_to_recordset(p_pairs) as p (
+    exercise_chunk_id uuid, solution_chunk_id uuid
+  )
+  join public.chunks as exercise
+    on exercise.id = p.exercise_chunk_id and exercise.course_id = p_course_id
+  left join public.chunks as solution
+    on solution.id = p.solution_chunk_id and solution.course_id = p_course_id;
+
+  return true;
+end;
+$$;

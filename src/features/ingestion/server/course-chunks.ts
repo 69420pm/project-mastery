@@ -15,8 +15,6 @@ export type CourseChunk = {
   pageFrom: number;
   label: ChunkLabel;
   markdown: string;
-  /** As printed, such as "7.2b"; null for chunks that are no exercise. */
-  exerciseNumber: string | null;
 };
 
 /** Where a chunk is: its Material, first page and position. */
@@ -87,8 +85,8 @@ export type ChunkSource = {
   pageFrom: number;
   pageTo: number;
   markdown: string;
-  /** As printed, such as "7.2b"; null for chunks that are no exercise. */
-  exerciseNumber: string | null;
+  /** Its deepest Chapter's title; null when it is in none below the root. */
+  chapterTitle: string | null;
   /** Whether its Material is an old exam. */
   isExam: boolean;
 };
@@ -109,7 +107,7 @@ export async function loadChunkSources(
     const { data, error } = await supabase
       .from("chunks")
       .select(
-        "id, material_id, position, page_from, page_to, markdown, exercise_number",
+        "id, material_id, position, page_from, page_to, markdown, chapter_id",
       )
       .in("id", ids.slice(start, start + ID_SLICE));
     if (error) failed("Loading the chunks", error);
@@ -123,6 +121,10 @@ export async function loadChunkSources(
     .in("id", [...new Set(rows.map((row) => row.material_id))]);
   if (materials.error) failed("Loading the Materials", materials.error);
   const material = new Map(materials.data.map((m) => [m.id, m]));
+  const chapterTitles = await loadChapterTitles(
+    supabase,
+    rows.flatMap((row) => row.chapter_id ?? []),
+  );
   return rows
     .filter((row) => material.has(row.material_id))
     .toSorted(
@@ -137,9 +139,32 @@ export async function loadChunkSources(
       pageFrom: row.page_from,
       pageTo: row.page_to,
       markdown: row.markdown,
-      exerciseNumber: row.exercise_number,
+      chapterTitle: chapterTitles.get(row.chapter_id ?? "") ?? null,
       isExam: material.get(row.material_id)!.is_exam === true,
     }));
+}
+
+/**
+ * The titles of these Chapters by id, leaving out a Material's root
+ * Chapter, whose title is the Material's name. No ids make no request.
+ */
+async function loadChapterTitles(
+  supabase: Supabase,
+  chapterIds: string[],
+): Promise<Map<string, string>> {
+  const ids = [...new Set(chapterIds)];
+  const titles = new Map<string, string>();
+  for (let start = 0; start < ids.length; start += ID_SLICE) {
+    const { data, error } = await supabase
+      .from("chapters")
+      .select("id, title, depth")
+      .in("id", ids.slice(start, start + ID_SLICE));
+    if (error) failed("Loading the Chapters", error);
+    for (const chapter of data) {
+      if (chapter.depth > 0) titles.set(chapter.id, chapter.title);
+    }
+  }
+  return titles;
 }
 
 /** A chunk's text as a Reading section shows it. */
@@ -208,7 +233,7 @@ export async function loadCourseChunks(
     const rows = await allRows("Loading the chunks", (from, to) =>
       supabase
         .from("chunks")
-        .select("id, position, page_from, label, markdown, exercise_number")
+        .select("id, position, page_from, label, markdown")
         .eq("material_id", material.id)
         .order("position")
         .range(from, to),
@@ -221,7 +246,6 @@ export async function loadCourseChunks(
         pageFrom: chunk.page_from,
         label: z.enum(CHUNK_LABELS).parse(chunk.label),
         markdown: chunk.markdown,
-        exerciseNumber: chunk.exercise_number,
       });
     }
   }

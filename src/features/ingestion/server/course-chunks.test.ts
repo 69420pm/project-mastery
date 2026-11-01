@@ -40,19 +40,23 @@ const chunksOf = (materialId: string, count: number): FakeRow[] =>
     page_to: 1,
     label: "content",
     markdown: `text ${i}`,
-    exercise_number: null,
+    chapter_id: null,
   })).reverse();
 
 /**
  * The fake with PostgREST's limits: at most 1,000 rows per response. Records
  * the length of every `in` list, which must stay short for the query string.
  */
-function withRowLimit(tables: { materials: FakeRow[]; chunks: FakeRow[] }) {
+function withRowLimit(tables: {
+  materials: FakeRow[];
+  chunks: FakeRow[];
+  chapters: FakeRow[];
+}) {
   const db = fakeSupabase({ tables });
   const inLengths: number[] = [];
   const client = {
     ...db,
-    from(table: "materials" | "chunks") {
+    from(table: "materials" | "chunks" | "chapters") {
       const builder = db.from(table);
       const { in: filterIn, then } = builder;
       builder.in = (column, values) => {
@@ -76,7 +80,7 @@ function withRowLimit(tables: { materials: FakeRow[]; chunks: FakeRow[] }) {
   return { client, inLengths };
 }
 
-let tables: { materials: FakeRow[]; chunks: FakeRow[] };
+let tables: { materials: FakeRow[]; chunks: FakeRow[]; chapters: FakeRow[] };
 beforeEach(() => {
   tables = {
     materials: [
@@ -90,6 +94,10 @@ beforeEach(() => {
       ...chunksOf("a", 1500),
       ...chunksOf("unparsed", 3),
       ...chunksOf("other", 3),
+    ],
+    chapters: [
+      { id: "root-a", depth: 0, title: "Material a" },
+      { id: "c4", depth: 1, title: "4 Vector Spaces" },
     ],
   };
 });
@@ -117,7 +125,6 @@ describe("loadCourseChunks", () => {
       pageFrom: 1,
       label: "content",
       markdown: "text 0",
-      exerciseNumber: null,
     });
   });
 });
@@ -155,6 +162,11 @@ describe("loadChunkSources and getChunkPlaces", () => {
   ];
 
   test("read more than 100 ids whole, skipping missing ones", async () => {
+    const chapterOf = (id: string, chapterId: string) => {
+      tables.chunks.find((chunk) => chunk.id === id)!.chapter_id = chapterId;
+    };
+    chapterOf("a-0000", "c4");
+    chapterOf("a-0001", "root-a");
     const { client, inLengths } = withRowLimit(tables);
 
     const sources = await loadChunkSources(client as unknown as Supabase, ids);
@@ -171,8 +183,13 @@ describe("loadChunkSources and getChunkPlaces", () => {
     expect(sources[0]).toMatchObject({
       materialName: "Material a",
       pageTo: 1,
+      chapterTitle: "4 Vector Spaces",
       isExam: false,
     });
+    // A Material's root Chapter is no Chapter title.
+    expect(sources.slice(1).map((source) => source.chapterTitle)).toEqual(
+      sources.slice(1).map(() => null),
+    );
     expect(places).toHaveLength(152);
     expect(new Set(places.map((place) => place.id))).toEqual(
       new Set(sources.map((source) => source.id)),

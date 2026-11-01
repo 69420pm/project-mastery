@@ -527,7 +527,6 @@ export type Database = {
           course_id: string;
           created_at: string;
           embedding: string | null;
-          exercise_number: string | null;
           id: string;
           label: string;
           markdown: string;
@@ -543,7 +542,6 @@ export type Database = {
           course_id: string;
           created_at?: string;
           embedding?: string | null;
-          exercise_number?: string | null;
           id?: string;
           label: string;
           markdown: string;
@@ -558,7 +556,6 @@ export type Database = {
           course_id?: string;
           created_at?: string;
           embedding?: string | null;
-          exercise_number?: string | null;
           id?: string;
           label?: string;
           markdown?: string;
@@ -794,7 +791,6 @@ export type Database = {
       };
       exercise_solutions: {
         Row: {
-          candidates_hash: string | null;
           course_id: string;
           created_at: string;
           exercise_chunk_id: string;
@@ -805,7 +801,6 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
-          candidates_hash?: string | null;
           course_id: string;
           created_at?: string;
           exercise_chunk_id: string;
@@ -815,7 +810,6 @@ export type Database = {
           status: string;
         };
         Update: {
-          candidates_hash?: string | null;
           course_id?: string;
           created_at?: string;
           exercise_chunk_id?: string;

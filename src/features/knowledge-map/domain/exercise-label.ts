@@ -1,14 +1,14 @@
 /**
- * An Exercise's label, built when read from its question chunk (#221):
- * "<number as printed> · <Material> p. N", or "<Material> p. N" without a
- * number.
+ * An Exercise's label, built when read from its question chunk (#228):
+ * "<Chapter title> · <Material> p. N", or "<Material> p. N" when the chunk
+ * is in no Chapter below its Material's root.
  */
 export function exerciseLabel(question: {
-  exerciseNumber: string | null;
+  chapterTitle: string | null;
   materialName: string;
   pageFrom: number;
 }): string {
   const place = `${question.materialName} p. ${question.pageFrom}`;
-  const number = question.exerciseNumber?.trim();
-  return number ? `${number} · ${place}` : place;
+  const chapter = question.chapterTitle?.trim();
+  return chapter ? `${chapter} · ${place}` : place;
 }

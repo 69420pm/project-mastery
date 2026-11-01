@@ -37,9 +37,7 @@ export async function getMaterialChunks(
   const chunks = await allRows("Loading the chunks", (from, to) =>
     supabase
       .from("chunks")
-      .select(
-        "id, position, page_from, page_to, label, markdown, exercise_number",
-      )
+      .select("id, position, page_from, page_to, label, markdown")
       .eq("material_id", materialId)
       .order("position")
       .range(from, to),
@@ -64,7 +62,6 @@ export async function getMaterialChunks(
       pageTo: chunk.page_to,
       label: z.enum(CHUNK_LABELS).parse(chunk.label),
       markdown: chunk.markdown,
-      exerciseNumber: chunk.exercise_number,
       solution: solutions.get(chunk.id) ?? null,
     })),
   };
@@ -117,11 +114,7 @@ async function exerciseSolutions(
   const solutionChunks = await inSlices(
     "Loading the solution chunks",
     pairs.flatMap((pair) => pair.solution_chunk_id ?? []),
-    (ids) =>
-      supabase
-        .from("chunks")
-        .select("id, material_id, exercise_number")
-        .in("id", ids),
+    (ids) => supabase.from("chunks").select("id, material_id").in("id", ids),
   );
   const materials = await inSlices(
     "Loading the solutions' Materials",
@@ -140,7 +133,6 @@ async function exerciseSolutions(
         chunkId: solution.id,
         materialId: material.id,
         materialName: material.name,
-        exerciseNumber: solution.exercise_number,
       });
     } else if (pair.status === "no_solution") {
       result.set(pair.exercise_chunk_id, { status: "no_solution" });

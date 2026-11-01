@@ -41,7 +41,6 @@ beforeEach(() => {
           page_to: 1,
           label: "content",
           markdown: "Plot",
-          exercise_number: null,
         },
         {
           id: "c2",
@@ -51,7 +50,6 @@ beforeEach(() => {
           page_to: 2,
           label: "content",
           markdown: "Text",
-          exercise_number: null,
         },
       ] as FakeRow[],
       exercise_solutions: [] as FakeRow[],
@@ -74,7 +72,6 @@ test("an exercise carries its paired solution in another Material, or no solutio
     page_to: 3,
     label: "exercise",
     markdown: `Exercise ${number}`,
-    exercise_number: number,
   });
   const tables = db.tables as Record<string, FakeRow[]>;
   tables.materials!.push({
@@ -91,7 +88,6 @@ test("an exercise carries its paired solution in another Material, or no solutio
     page_to: 1,
     label: "solution",
     markdown: "Since ...",
-    exercise_number: "7.2 a)",
   });
   tables.exercise_solutions!.push(
     { exercise_chunk_id: "e1", solution_chunk_id: "s1", status: "paired" },
@@ -106,7 +102,6 @@ test("an exercise carries its paired solution in another Material, or no solutio
     chunkId: "s1",
     materialId: SOLUTIONS,
     materialName: "Solutions 7",
-    exerciseNumber: "7.2 a)",
   });
   expect(second?.solution).toEqual({ status: "no_solution" });
   expect(text?.solution).toBeNull();
@@ -121,7 +116,6 @@ test("a Material past the row limit comes back whole, each exercise with its sol
     page_to: 3,
     label: "exercise",
     markdown: `Exercise ${i}`,
-    exercise_number: String(i),
   }));
   const tables = db.tables as Record<string, FakeRow[]>;
   db = fakeSupabase({

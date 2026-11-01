@@ -119,7 +119,6 @@ export function createParseDb({
             ({ chapter_position, ...chunk }) => ({
               id: crypto.randomUUID(),
               ...owned,
-              exercise_number: null,
               chapter_id: chapterAt(chapter_position),
               ...chunk,
             }),
@@ -163,7 +162,6 @@ export function createParseDb({
                 exercise_chunk_id: pair.exercise_chunk_id,
                 solution_chunk_id: solution?.id ?? null,
                 status: solution ? "paired" : "no_solution",
-                candidates_hash: pair.candidates_hash ?? null,
               };
             }),
         ];
@@ -288,18 +286,13 @@ export const isPageCall = (prompt: unknown) =>
       ),
   );
 
-/** What a content-matching call of pairing offered, by id. */
-export type SentPairing = {
-  exercises: Array<{
-    id: string;
-    number: string | null;
-    markdown: string;
-    candidates: string[];
-  }>;
-  solutions: Array<{ id: string; number: string | null; markdown: string }>;
-};
+/** An exercise or solution chunk as a pairing call was sent it. */
+type SentItem = { id: string; material: string; chapter: string; text: string };
 
-/** A content-matching call's answer: pairs of offered ids. */
+/** What a pairing call was sent, by id. */
+export type SentPairing = { exercises: SentItem[]; solutions: SentItem[] };
+
+/** A pairing call's answer: pairs of offered ids. */
 export type CannedPairing = {
   pairs: Array<{ exerciseId: string; solutionId: string }>;
 };
@@ -311,14 +304,6 @@ function promptText(prompt: unknown) {
     .map((part) => part.text ?? "")
     .join("");
 }
-
-/** Whether a call is pairing's content-matching call. */
-export const isPairingCall = (prompt: unknown) =>
-  !isPageCall(prompt) && "exercises" in JSON.parse(promptText(prompt));
-
-/** The exercises and solutions a content-matching call offered. */
-export const sentPairing = (prompt: unknown) =>
-  JSON.parse(promptText(prompt)) as SentPairing;
 
 const usage = {
   inputTokens: {
@@ -363,9 +348,9 @@ export type SentOutline = {
 /**
  * The `ingest` model of a parse: answers each batch call (streamed; it
  * carries page images) with the next canned batch result, the structure
- * call (streamed, without images) with `outline` of what it was sent, and
- * pairing's content-matching call with `pairing` of what it offered, or no
- * pairs. Remembers what each kind of call was sent.
+ * call (without images) with `outline` of what it was sent, and a pairing
+ * call (its JSON has exercises) with `pairing` of what it was sent, or no
+ * pairs; all streamed. Remembers what each kind of call was sent.
  */
 export function pageModel(
   batches: CannedBatch[],
@@ -374,29 +359,22 @@ export function pageModel(
 ) {
   const prompts: unknown[] = [];
   const outlinePrompts: SentOutline[] = [];
-  const pairingPrompts: unknown[] = [];
+  const pairingPrompts: SentPairing[] = [];
   const model = new MockLanguageModelV4({
     doStream: async ({ prompt }) => {
-      if (!isPageCall(prompt)) {
-        const sent = JSON.parse(promptText(prompt)) as SentOutline;
-        outlinePrompts.push(sent);
-        return streamedAnswer(JSON.stringify(outline(sent)));
+      if (isPageCall(prompt)) {
+        prompts.push(prompt);
+        const answer = batches[prompts.length - 1] ?? { units: [] };
+        return streamedAnswer(JSON.stringify(answer));
       }
-      prompts.push(prompt);
-      const answer = batches[prompts.length - 1] ?? { units: [] };
-      return streamedAnswer(JSON.stringify(answer));
-    },
-    doGenerate: async ({ prompt }) => {
-      pairingPrompts.push(prompt);
-      const answer = pairing
-        ? await pairing(sentPairing(prompt))
-        : { pairs: [] };
-      return {
-        content: [{ type: "text", text: JSON.stringify(answer) }],
-        finishReason: { unified: "stop", raw: undefined },
-        usage,
-        warnings: [],
-      };
+      const sent = JSON.parse(promptText(prompt)) as SentOutline | SentPairing;
+      if ("exercises" in sent) {
+        pairingPrompts.push(sent);
+        const answer = pairing ? await pairing(sent) : { pairs: [] };
+        return streamedAnswer(JSON.stringify(answer));
+      }
+      outlinePrompts.push(sent);
+      return streamedAnswer(JSON.stringify(outline(sent)));
     },
   });
   return { model, prompts, outlinePrompts, pairingPrompts };

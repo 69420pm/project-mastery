@@ -93,9 +93,6 @@ function ChunkCard({
       <header className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
         <Badge variant="secondary">{LABEL_NAMES[chunk.label]}</Badge>
         <span>{pageRange(chunk)}</span>
-        {chunk.exerciseNumber !== null && (
-          <span>Exercise {chunk.exerciseNumber}</span>
-        )}
       </header>
       {/* The chunk's own headings, scaled to the card. */}
       <Markdown className="min-w-0 [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base">
