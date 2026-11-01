@@ -97,6 +97,7 @@ async function extractUnit(
       messages: chapterExtractionMessages(offeredUnit),
     },
     chapterExtractionSchema(),
+    (extraction) => extraction.kcs.length === 0,
   );
   if (answer === "limit") return "limit";
   return checkExtraction(

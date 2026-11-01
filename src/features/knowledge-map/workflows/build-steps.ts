@@ -88,25 +88,31 @@ export async function runCalls<Item>(
 
 /**
  * One structured call of the build, streamed and metered, its answer
- * parsed with `schema`. A call whose answer is empty or no valid output is
- * made once more; a second such answer fails the step. "limit" when the
- * Daily limit is reached.
+ * parsed with `schema`. A call whose answer is missing or no valid output is
+ * made once more; a second such answer fails the step. A valid answer that
+ * `isEmpty` calls empty is also asked once more, and the second answer is
+ * kept as it is. "limit" when the Daily limit is reached.
  */
 export async function buildCall<Schema extends z.ZodType>(
   supabase: AdminSupabase,
   scope: Parameters<typeof meteredStream>[1],
   call: Parameters<typeof meteredStream>[2],
   schema: Schema,
+  isEmpty: (answer: z.infer<Schema>) => boolean = () => false,
 ): Promise<z.infer<Schema> | "limit"> {
   for (let attempt = 1; ; attempt += 1) {
     const result = await meteredStream(supabase, scope, call);
     if (!result) return "limit";
+    let answer: z.infer<Schema>;
     try {
-      return schema.parse(await result.output);
+      answer = schema.parse(await result.output);
     } catch (error) {
       if (attempt >= 2) throw error;
       console.warn(`The ${scope.traceName} call gave no answer; once more.`);
+      continue;
     }
+    if (attempt >= 2 || !isEmpty(answer)) return answer;
+    console.warn(`The ${scope.traceName} call answered empty; once more.`);
   }
 }
 

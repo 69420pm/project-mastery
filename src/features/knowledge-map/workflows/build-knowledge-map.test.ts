@@ -150,6 +150,19 @@ describe("Update map", () => {
     expect(liveKcs(db)).toEqual(["Material 0"]);
   });
 
+  test("asks once more when a unit's answer has no KCs", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+    let calls = 0;
+    const { extractions } = useBuildModels({
+      kcsOf: () => (calls++ === 0 ? [] : ["Vectors"]),
+    });
+
+    await update();
+
+    expect(extractions).toHaveLength(2);
+    expect(liveKcs(db)).toEqual(["Vectors"]);
+  });
+
   test("drops a KC that cites a chunk it was not offered, and builds the rest", async () => {
     seedMaterial(db, { chapters: [{ title: "Vectors" }] });
     useBuildModels({
