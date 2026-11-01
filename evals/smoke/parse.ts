@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getDocumentProxy } from "unpdf";
-import { parseMaterial } from "@/features/ingestion/server";
+import { parseMaterial, type OutlineAnswer } from "@/features/ingestion/server";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke-check";
 
@@ -93,9 +93,11 @@ export const parseSmoke: SmokeCheck = {
     if (materialError) throw new Error(materialError.message);
 
     console.info(`Parsing ${file}, pages ${pages.join(", ")}…`);
-    await parseMaterial(materialId, selection ? { pages } : {});
+    const outline = await parseMaterial(materialId, selection ? { pages } : {});
     const results = await checkParse(supabase, materialId, pages, total);
-    if (pagesOut) await writePages(supabase, materialId, file, pagesOut);
+    if (pagesOut) {
+      await writePages(supabase, materialId, file, pagesOut, outline);
+    }
     return results;
   },
 };
@@ -134,15 +136,17 @@ function parseArgs(args: string[]) {
 }
 
 /**
- * Writes the stored page results under the file's name into `out`, keeping
- * the other files' results there: rows later slices insert as
- * `material_pages` without a Material.
+ * Writes the stored page results and the Outline the structure call gave
+ * under the file's name into `out`, keeping the other files' results there:
+ * pages later slices insert as `material_pages` without a Material, and an
+ * Outline they parse them with instead of the call (`recorded-pages.ts`).
  */
 async function writePages(
   supabase: Parameters<SmokeCheck["run"]>[0]["supabase"],
   materialId: string,
   file: string,
   out: string,
+  outline: OutlineAnswer | null,
 ) {
   const { data, error } = await supabase
     .from("material_pages")
@@ -156,7 +160,7 @@ async function writePages(
   } catch {
     // A new recording.
   }
-  recording[path.basename(file)] = data;
+  recording[path.basename(file)] = { pages: data, outline };
   const sorted = Object.fromEntries(
     Object.entries(recording).toSorted(([a], [b]) => a.localeCompare(b)),
   );
@@ -169,16 +173,20 @@ type Unit = { markdown?: unknown };
 /** A unit that is only a page number: "19", "- 19 -", "Seite 19 von 38". */
 const PAGE_NUMBER = /^\W*(page|seite|s\.)?\s*\d+(\s*(of|von|\/)\s*\d+)?\W*$/i;
 
+/** A title that names a statement of teaching text, not a Chapter. */
+const STATEMENT_TITLE =
+  /^(\*\*)?(definition|theorem|lemma|proposition|corollary|example|proof|remark|satz|beweis|beispiel|bemerkung)\b/i;
+
 async function checkParse(
   supabase: Parameters<SmokeCheck["run"]>[0]["supabase"],
   materialId: string,
   pages: number[],
   total: number,
 ): Promise<SmokeResult[]> {
-  const [material, storedPages, chunks] = await Promise.all([
+  const [material, storedPages, chunks, chapters] = await Promise.all([
     supabase
       .from("materials")
-      .select("parse_status, parse_failure")
+      .select("parse_status, parse_failure, language, notes")
       .eq("id", materialId)
       .single(),
     supabase
@@ -188,16 +196,24 @@ async function checkParse(
       .order("page_number"),
     supabase
       .from("chunks")
-      .select("position, page_from, page_to, label, markdown, embedding")
+      .select(
+        "position, page_from, page_to, label, markdown, embedding, chapter_id",
+      )
+      .eq("material_id", materialId)
+      .order("position"),
+    supabase
+      .from("chapters")
+      .select("id, parent_id, position, depth, title, page_from, exam_proposed")
       .eq("material_id", materialId)
       .order("position"),
   ]);
-  for (const { error } of [material, storedPages, chunks]) {
+  for (const { error } of [material, storedPages, chunks, chapters]) {
     if (error) throw new Error(error.message);
   }
   const m = material.data!;
   const rows = storedPages.data!;
   const chunkRows = chunks.data!;
+  const chapterRows = chapters.data!;
   const unitsOf = (page: (typeof rows)[number]) =>
     (Array.isArray(page.units) ? page.units : []) as Unit[];
 
@@ -235,6 +251,34 @@ async function checkParse(
     }
   }
   const repeated = [...unitPages].filter(([, on]) => on.size >= 3);
+  console.info(`  Language: ${m.language}; notes: ${m.notes || "none"}`);
+  for (const chapter of chapterRows) {
+    const chunkCount = chunkRows.filter(
+      (c) => c.chapter_id === chapter.id,
+    ).length;
+    console.info(
+      `  ${"  ".repeat(chapter.depth)}${chapter.title} (p. ${chapter.page_from}${chapter.exam_proposed ? ", exam" : ""}): ${chunkCount} chunks`,
+    );
+  }
+  const labels = Object.entries(Object.groupBy(chunkRows, (c) => c.label)).map(
+    ([label, of]) => `${of?.length} ${label}`,
+  );
+  console.info(`  Chunks: ${labels.join(", ")}`);
+
+  const byId = new Map(chapterRows.map((c) => [c.id, c]));
+  const misplaced = chapterRows.filter((chapter, index) => {
+    if (index === 0) return chapter.depth !== 0 || chapter.parent_id !== null;
+    const parent = byId.get(chapter.parent_id ?? "");
+    return (
+      !parent ||
+      parent.position >= chapter.position ||
+      parent.depth + 1 !== chapter.depth ||
+      chapter.page_from < chapterRows[index - 1]!.page_from
+    );
+  });
+  const statements = chapterRows.filter((c) =>
+    STATEMENT_TITLE.test(c.title.trim()),
+  );
   const outOfRange = chunkRows.filter(
     (c) => c.page_from < 1 || c.page_to > total || c.page_from > c.page_to,
   );
@@ -273,6 +317,21 @@ async function checkParse(
       chunkRows.every((c) => c.markdown.trim().length > 0) &&
         outOfRange.length === 0,
     ),
+    result(
+      "the Outline is a tree in reading order below a root Chapter",
+      chapterRows.length > 0 && misplaced.length === 0,
+      misplaced.map((c) => c.title).join(" | ") || undefined,
+    ),
+    result(
+      "no Chapter is titled by a definition, theorem, lemma, example or proof",
+      statements.length === 0,
+      statements.map((c) => c.title).join(" | ") || undefined,
+    ),
+    result(
+      "every chunk is in a Chapter",
+      chunkRows.every((c) => c.chapter_id !== null && byId.has(c.chapter_id)),
+    ),
+    result("the structure call named the language", m.language !== null),
     result(
       "every non-admin chunk is embedded, no admin chunk is",
       chunkRows.every((c) => (c.label === "admin") === (c.embedding === null)),

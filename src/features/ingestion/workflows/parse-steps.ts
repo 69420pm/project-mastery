@@ -92,6 +92,38 @@ export async function loadMaterial(
   return data;
 }
 
+/**
+ * Whether the Material has chunks. They are written in one transaction
+ * after every page is read, so existing ones are complete: a parse started
+ * again after a failed embed keeps them, their Outline and their vectors.
+ */
+export async function hasChunks(
+  supabase: AdminSupabase,
+  materialId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("chunks")
+    .select("id")
+    .eq("material_id", materialId)
+    .limit(1);
+  if (error) failed("Loading the chunks", error);
+  return data.length > 0;
+}
+
+/** The units of the Material's read pages, in reading order. */
+export async function loadUnits(
+  supabase: AdminSupabase,
+  materialId: string,
+): Promise<PageUnit[]> {
+  const { data, error } = await supabase
+    .from("material_pages")
+    .select("page_number, units")
+    .eq("material_id", materialId)
+    .order("page_number");
+  if (error) failed("Loading the page results", error);
+  return data.flatMap((page) => storedUnitsSchema.parse(page.units));
+}
+
 async function download(supabase: AdminSupabase, path: string) {
   const { data, error } = await supabase.storage.from(BUCKET).download(path);
   if (error) failed(`Reading ${path}`, error);

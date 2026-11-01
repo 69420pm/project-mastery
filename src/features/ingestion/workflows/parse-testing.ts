@@ -41,6 +41,7 @@ type ParseTable =
   | "courses"
   | "materials"
   | "material_pages"
+  | "chapters"
   | "chunks"
   | "exercise_solutions"
   | "ai_usage";
@@ -60,6 +61,7 @@ export function createParseDb({
       courses: [] as FakeRow[],
       materials: [] as FakeRow[],
       material_pages: [] as FakeRow[],
+      chapters: [] as FakeRow[],
       chunks: [] as FakeRow[],
       exercise_solutions: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
@@ -97,14 +99,31 @@ export function createParseDb({
           course_id: material.course_id,
           material_id: material.id,
         };
+        const chapters: FakeRow[] = (args.p_chapters as FakeRow[]).map(
+          (chapter) => ({ id: crypto.randomUUID(), ...owned, ...chapter }),
+        );
+        const chapterAt = (position: unknown) =>
+          chapters.find((chapter) => chapter.position === position)?.id ?? null;
+        tables.chapters = [
+          ...tables.chapters.filter(
+            (chapter) => chapter.material_id !== material.id,
+          ),
+          ...chapters.map(({ parent_position, ...chapter }) => ({
+            ...chapter,
+            parent_id: chapterAt(parent_position),
+          })),
+        ];
         tables.chunks = [
           ...tables.chunks.filter((chunk) => chunk.material_id !== material.id),
-          ...(args.p_chunks as FakeRow[]).map((chunk) => ({
-            id: crypto.randomUUID(),
-            ...owned,
-            exercise_number: null,
-            ...chunk,
-          })),
+          ...(args.p_chunks as FakeRow[]).map(
+            ({ chapter_position, ...chunk }) => ({
+              id: crypto.randomUUID(),
+              ...owned,
+              exercise_number: null,
+              chapter_id: chapterAt(chapter_position),
+              ...chunk,
+            }),
+          ),
         ];
         return null;
       },
@@ -182,6 +201,9 @@ export function deleteMaterialRows(db: ParseDb, materialId: string) {
   );
   db.tables.material_pages = db.tables.material_pages.filter(
     (page) => page.material_id !== materialId,
+  );
+  db.tables.chapters = db.tables.chapters.filter(
+    (chapter) => chapter.material_id !== materialId,
   );
   db.tables.chunks = db.tables.chunks.filter((chunk) => !gone.has(chunk.id));
   db.tables.exercise_solutions = db.tables.exercise_solutions.filter(
@@ -326,20 +348,40 @@ export function streamedAnswer(text: string) {
   };
 }
 
+/** A structure call's answer: an English Material without Chapters. */
+export const NO_OUTLINE = { language: "English", notes: "", chapters: [] };
+
+/** What a structure call was sent: the Material as JSON. */
+export type SentOutline = {
+  material: string;
+  pages: number;
+  pdfOutline?: Array<{ title: string; level: number; page: number }>;
+  headings: Array<{ id: string; page: number; style: string; text: string }>;
+  pageStarts: Array<{ page: number; text: string }>;
+};
+
 /**
  * The `ingest` model of a parse: answers each batch call (streamed; it
- * carries page images) with the next canned batch result, and pairing's
- * content-matching call with `pairing` of what it offered, or no pairs.
- * Remembers what each kind of call was sent.
+ * carries page images) with the next canned batch result, the structure
+ * call (streamed, without images) with `outline` of what it was sent, and
+ * pairing's content-matching call with `pairing` of what it offered, or no
+ * pairs. Remembers what each kind of call was sent.
  */
 export function pageModel(
   batches: CannedBatch[],
   pairing?: (sent: SentPairing) => CannedPairing | Promise<CannedPairing>,
+  outline: (sent: SentOutline) => unknown = () => NO_OUTLINE,
 ) {
   const prompts: unknown[] = [];
+  const outlinePrompts: SentOutline[] = [];
   const pairingPrompts: unknown[] = [];
   const model = new MockLanguageModelV4({
     doStream: async ({ prompt }) => {
+      if (!isPageCall(prompt)) {
+        const sent = JSON.parse(promptText(prompt)) as SentOutline;
+        outlinePrompts.push(sent);
+        return streamedAnswer(JSON.stringify(outline(sent)));
+      }
       prompts.push(prompt);
       const answer = batches[prompts.length - 1] ?? { units: [] };
       return streamedAnswer(JSON.stringify(answer));
@@ -357,7 +399,7 @@ export function pageModel(
       };
     },
   });
-  return { model, prompts, pairingPrompts };
+  return { model, prompts, outlinePrompts, pairingPrompts };
 }
 
 /** The image parts each page call sent, as media types. */

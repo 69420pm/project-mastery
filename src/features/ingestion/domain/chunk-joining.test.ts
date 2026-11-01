@@ -42,7 +42,7 @@ describe("chunksFromUnits", () => {
       unit({ markdown: "Not flagged.", pageFrom: 11, pageTo: 11 }),
     ]);
 
-    expect(chunks).toEqual([
+    expect(chunks).toMatchObject([
       {
         pageFrom: 1,
         pageTo: 6,
@@ -81,7 +81,7 @@ describe("chunksFromUnits", () => {
       unit({ label: "heading", markdown: "Appendix", pageFrom: 4, pageTo: 4 }),
     ]);
 
-    expect(chunks).toEqual([
+    expect(chunks).toMatchObject([
       { pageFrom: 1, pageTo: 1, label: "content", markdown: "Intro" },
       {
         pageFrom: 2,
@@ -90,6 +90,40 @@ describe("chunksFromUnits", () => {
         markdown: "**4 Vector Spaces**\n\n**4.1 Definition**\n\nBody",
       },
       { pageFrom: 4, pageTo: 4, label: "content", markdown: "**Appendix**" },
+    ]);
+  });
+
+  test("cuts at every Chapter start: a Chapter's heading becomes a Markdown heading of its depth, and no unit joins across the cut", () => {
+    const chunks = chunksFromUnits(
+      [
+        unit({ markdown: "Preface" }),
+        unit({ label: "heading", markdown: "4 Vector Spaces", pageFrom: 2 }),
+        unit({ label: "heading", markdown: "4.1 Subspaces", pageFrom: 2 }),
+        unit({ label: "heading", markdown: "Definition 4.1.1", pageFrom: 2 }),
+        unit({ markdown: "A subspace is", continuesOnNextBatch: true }),
+        unit({
+          markdown: "closed.",
+          pageFrom: 6,
+          continuesFromPreviousBatch: true,
+        }),
+        unit({ markdown: "From the PDF outline.", pageFrom: 7 }),
+      ],
+      [
+        { position: 0, depth: 0, startUnit: 0, startsAtHeading: false },
+        { position: 1, depth: 1, startUnit: 1, startsAtHeading: true },
+        { position: 2, depth: 2, startUnit: 2, startsAtHeading: true },
+        { position: 3, depth: 2, startUnit: 5, startsAtHeading: false },
+      ],
+    );
+
+    expect(
+      chunks.map((chunk) => [chunk.chapterPosition, chunk.markdown]),
+    ).toEqual([
+      [0, "Preface"],
+      [1, "# 4 Vector Spaces"],
+      [2, "## 4.1 Subspaces\n\n**Definition 4.1.1**\n\nA subspace is"],
+      [3, "closed."],
+      [3, "From the PDF outline."],
     ]);
   });
 

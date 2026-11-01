@@ -123,6 +123,7 @@ describe("parsing a PDF Material", () => {
         input_tokens: 1000,
         output_tokens: 200,
       }),
+      expect.objectContaining({ owner: STUDENT, task: "ingest" }),
       expect.objectContaining({ owner: STUDENT, task: "embed" }),
     ]);
     expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
@@ -205,6 +206,129 @@ describe("parsing a PDF Material", () => {
       parse_status: "parsed",
       pages_total: 3,
       pages_done: 3,
+    });
+  });
+});
+
+describe("the Outline", () => {
+  const units = [
+    unit({ label: "heading", markdown: "4 Vector Spaces", style: "title" }),
+    unit({ markdown: "Intro to vector spaces." }),
+    unit({ label: "heading", markdown: "4.1 Subspaces", pageFrom: 2 }),
+    unit({
+      label: "heading",
+      markdown: "Lemma 4.1.2",
+      style: "bold",
+      pageFrom: 2,
+    }),
+    unit({ markdown: "A subspace is closed.", pageFrom: 2, pageTo: 2 }),
+  ];
+
+  test("comes from one structure call over the headings and page starts, and the chunks are cut at its Chapters", async () => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    const { model, outlinePrompts } = pageModel([{ units }], undefined, () => ({
+      language: "English",
+      notes: "Vectors are rows.",
+      chapters: [
+        {
+          title: "4 Vector Spaces",
+          level: 1,
+          heading: "h1",
+          page: null,
+          exam: false,
+        },
+        {
+          title: "4.1 Subspaces",
+          level: 2,
+          heading: "h2",
+          page: null,
+          exam: false,
+        },
+        {
+          title: "Lemma 4.1.2",
+          level: 3,
+          heading: "h9",
+          page: null,
+          exam: false,
+        },
+      ],
+    }));
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(outlinePrompts).toEqual([
+      {
+        material: "Lecture 1",
+        pages: 2,
+        headings: [
+          { id: "h1", page: 1, style: "title", text: "4 Vector Spaces" },
+          { id: "h2", page: 2, style: null, text: "4.1 Subspaces" },
+          { id: "h3", page: 2, style: "bold", text: "Lemma 4.1.2" },
+        ],
+        pageStarts: [
+          { page: 1, text: "4 Vector Spaces Intro to vector spaces." },
+          { page: 2, text: "4.1 Subspaces Lemma 4.1.2 A subspace is closed." },
+        ],
+      },
+    ]);
+    const chapters = db.tables.chapters.toSorted(
+      (a, b) => Number(a.position) - Number(b.position),
+    );
+    expect(
+      chapters.map((c) => [c.title, c.depth, c.page_from, c.material_id]),
+    ).toEqual([
+      ["Lecture 1", 0, 1, MATERIAL],
+      ["4 Vector Spaces", 1, 1, MATERIAL],
+      ["4.1 Subspaces", 2, 2, MATERIAL],
+    ]);
+    expect(chapters.map((c) => c.parent_id)).toEqual([
+      null,
+      chapters[0]!.id,
+      chapters[1]!.id,
+    ]);
+    const chapterOf = (id: unknown) =>
+      chapters.find((chapter) => chapter.id === id)?.title;
+    expect(
+      db.tables.chunks.map((c) => [chapterOf(c.chapter_id), c.markdown]),
+    ).toEqual([
+      ["4 Vector Spaces", "# 4 Vector Spaces\n\nIntro to vector spaces."],
+      [
+        "4.1 Subspaces",
+        "## 4.1 Subspaces\n\n**Lemma 4.1.2**\n\nA subspace is closed.",
+      ],
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({
+      parse_status: "parsed",
+      language: "English",
+      notes: "Vectors are rows.",
+    });
+  });
+
+  test("when the structure call gives no valid answer, has only the root Chapter without a PDF outline, and the parse goes on", async () => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    const { model } = pageModel([{ units }], undefined, () => ({
+      chapters: "nope",
+    }));
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(db.tables.chapters).toEqual([
+      expect.objectContaining({
+        title: "Lecture 1",
+        depth: 0,
+        parent_id: null,
+      }),
+    ]);
+    expect(db.tables.chunks.map((c) => c.markdown)).toEqual([
+      "**4 Vector Spaces**\n\nIntro to vector spaces.",
+      "**4.1 Subspaces**\n\n**Lemma 4.1.2**\n\nA subspace is closed.",
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({
+      parse_status: "parsed",
+      language: null,
+      notes: null,
     });
   });
 });

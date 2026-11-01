@@ -246,8 +246,9 @@ describe("pairing exercises with solutions", () => {
     expect(offered.solutions.map((s) => s.markdown)).toEqual([
       "pi is about 3.14.",
     ]);
-    // Page call, embedding and content call, each recorded for the Student.
-    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(3);
+    // Page call, structure call, embedding and content call, each recorded
+    // for the Student.
+    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(4);
     expect(db.tables.ai_usage.at(-1)).toMatchObject({
       owner: STUDENT,
       task: "ingest",
