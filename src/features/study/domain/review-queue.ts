@@ -29,7 +29,6 @@ export type ReviewGroupStatus = "open" | "done" | "retry";
 type ReviewKc = {
   id: string;
   name: string;
-  type: string;
   /** Its first Topic; null without one. */
   topicId: string | null;
 };
@@ -62,7 +61,8 @@ type SessionAttempt = {
  * recall at the start), ties in map order, and cut to 20 minutes at
  * `minutesPerReview`, keeping at least one. Groups are built greedily in
  * rank order: the top ungrouped KC seeds one, and up to 2 more join in rank
- * order when they share its Topic (`topicOf`) or link (`links`, either way)
+ * order when they share its Topic (`topicOf`) or a Prerequisite (`links`,
+ * either way)
  * to a KC already in it. Groups go by their seed's rank, but never after a
  * group of the same Topic while one of another is left.
  */
@@ -77,13 +77,13 @@ export function planReviewQueue({
   questions,
   attempts,
 }: {
-  kcs: Array<{ id: string; name: string; type: string }>;
+  kcs: Array<{ id: string; name: string }>;
   schedules: ReadonlyMap<string, KcSchedule>;
   priorities: Record<string, number>;
   startedAt: Date;
   minutesPerReview: number;
   topicOf: ReadonlyMap<string, string>;
-  /** Prerequisite and semantic links between KCs. */
+  /** Prerequisites between KCs. */
   links: ReadonlyArray<{ from: string; to: string }>;
   questions: SessionQuestion[];
   attempts: SessionAttempt[];
@@ -98,10 +98,9 @@ export function planReviewQueue({
       return [{ kc, position, urgency }];
     })
     .toSorted((a, b) => b.urgency - a.urgency || a.position - b.position)
-    .map(({ kc: { id, name, type } }) => ({
+    .map(({ kc: { id, name } }) => ({
       id,
       name,
-      type,
       topicId: topicOf.get(id) ?? null,
     }));
   const fits =

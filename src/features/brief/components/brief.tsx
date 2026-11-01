@@ -80,8 +80,8 @@ export function Brief({ brief, dailyLimit: initialDailyLimit }: BriefProps) {
       }),
     }),
   });
-  // `useChat` takes `messages` only once. A refresh can post the next
-  // Finding's static question, so it is appended as a reload would show it.
+  // `useChat` takes `messages` only once. A refresh can post the static
+  // old-exam question, so it is appended as a reload would show it.
   useEffect(() => {
     setMessages((shown) => withNewStaticMessages(shown, brief.messages));
   }, [brief.messages, setMessages]);

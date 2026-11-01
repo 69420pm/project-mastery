@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(18);
 
 insert into auth.users (id, email)
 values
@@ -31,12 +31,16 @@ from (values
   ('bbbbbbbb-1111-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-0000-0000-0000-000000000001', 'Bob''s', 'queued')
 ) as seed (id, owner, course_id, name, status);
 
--- A Material whose workflow started but has waited an hour to run. The
--- trigger would set updated_at to now().
-alter table public.materials disable trigger materials_set_updated_at;
-update public.materials set updated_at = now() - interval '1 hour'
-where id = 'aaaaaaaa-1111-0000-0000-000000000005';
-alter table public.materials enable trigger materials_set_updated_at;
+-- Parses whose workflow died: no heartbeat for 31 minutes.
+insert into public.materials (id, owner, course_id, name, media_type, size_bytes, storage_path, parse_status, heartbeat_at)
+select
+  id::uuid, '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', name,
+  'application/pdf', 1000, '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/' || id,
+  status, now() - interval '31 minutes'
+from (values
+  ('aaaaaaaa-1111-0000-0000-000000000007', 'Stalled parse', 'parsing'),
+  ('aaaaaaaa-1111-0000-0000-000000000008', 'Stalled wait', 'queued')
+) as seed (id, name, status);
 
 -- Anonymous visitors cannot call them.
 set local role anon;
@@ -67,7 +71,13 @@ select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000003'), f
 select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000004'), false,
   'a parsed Material is not queued');
 select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000005'), false,
-  'a Material whose workflow started is not queued again, however long it waits');
+  'a Material whose workflow started is not queued again while its heartbeat is recent');
+select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000007'), true,
+  'a parsing Material without a heartbeat for 30 minutes is queued again');
+select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000008'), true,
+  'and so is a queued one');
+select is(public.queue_material_parse('aaaaaaaa-1111-0000-0000-000000000007'), false,
+  'queueing set its heartbeat, so a second press does nothing');
 
 select is(public.record_parse_start_failure('aaaaaaaa-1111-0000-0000-000000000006'), true,
   'a queued Material whose workflow did not start is marked');
@@ -88,7 +98,8 @@ select results_eq(
     order by id$$,
   array[
     'queued:-:false', 'queued:-:false', 'parsing:-:false', 'parsed:-:false',
-    'queued:-:false', 'queued:-:false', 'queued:-:false'
+    'queued:-:false', 'queued:-:false', 'queued:-:false', 'queued:-:false',
+    'queued:-:false'
   ],
   'queued Materials have no failure reason, and a re-queue clears the failed start');
 

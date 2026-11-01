@@ -12,18 +12,66 @@ const { openPdf } = await import("./page-images");
 // its own font files.
 const LECTURE = path.join(__dirname, "test-files/two-page-lecture.pdf");
 
+// Page 3 holds only a small page number.
+const BLANK = path.join(__dirname, "test-files/slides-with-blank.pdf");
+
 describe("openPdf", () => {
-  test("counts pages and renders a page with its text", async () => {
+  test("counts pages, reads their text layer and renders a page with its text as a 2,000-pixel JPEG", async () => {
     const pdf = await openPdf(new Uint8Array(await readFile(LECTURE)));
 
-    const png = await pdf.renderPage(1);
+    const page = await pdf.renderPage(1);
 
     expect(pdf.pageCount).toBe(2);
-    const { data } = await sharp(png)
+    expect((await pdf.pageTexts()).every((text) => text.trim() !== "")).toBe(
+      true,
+    );
+    expect(page.blank).toBe(false);
+    const { data, info } = await sharp(page.jpeg)
       .greyscale()
       .raw()
       .toBuffer({ resolveWithObject: true });
+    expect(info.format).toBe("raw");
+    expect(Math.max(info.width, info.height)).toBe(2000);
     const darkPixels = data.filter((value) => value < 128).length;
     expect(darkPixels).toBeGreaterThan(500);
+  });
+
+  test("a page with only a page number renders blank, a page with a word does not", async () => {
+    const pdf = await openPdf(new Uint8Array(await readFile(BLANK)));
+
+    expect((await pdf.renderPage(3)).blank).toBe(true);
+    expect((await pdf.renderPage(1)).blank).toBe(false);
+  });
+
+  test.each([
+    [
+      "lecture-notes.pdf",
+      [
+        "Preliminaries: Logic, Sets and Maps",
+        "Algebraic Structures: Groups, Rings, Fields",
+        "Systems of Linear Equations",
+        "Vector Spaces",
+        "Linear Maps and Matrices",
+        "Determinants",
+        "Eigenvalues and Diagonalisation",
+      ],
+    ],
+    [
+      "past-exams.pdf",
+      ["Final Exam, Winter Term 2025/26", "Resit Exam, Winter Term 2025/26"],
+    ],
+  ])("the gold %s's outline has the chapters %j", async (file, chapters) => {
+    const pdf = await openPdf(
+      new Uint8Array(
+        await readFile(
+          path.join(process.cwd(), "evals/gold/linear-algebra-I", file),
+        ),
+      ),
+    );
+    const outline = await pdf.outline();
+
+    expect(outline.map((entry) => entry.title)).toEqual(
+      expect.arrayContaining(chapters),
+    );
   });
 });

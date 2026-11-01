@@ -91,12 +91,6 @@ export type ChatSource = {
   /** The page it opens at. */
   pageFrom: number;
   pageTo: number;
-  /** A Reading section's mode and texts; null for a cited chunk. */
-  reading: {
-    mode: "original" | "annotated" | "study_text";
-    annotations: Array<{ page: number; note: string }> | null;
-    studyText: string | null;
-  } | null;
 };
 
 /** A Chat as the sidebar lists it. */

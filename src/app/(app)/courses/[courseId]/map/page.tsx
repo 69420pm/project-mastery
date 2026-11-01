@@ -8,7 +8,6 @@ import {
   getKnowledgeMap,
   loadCourseTopics,
 } from "@/features/knowledge-map/server";
-import { ensurePriorities, getPriorities } from "@/features/priorities/server";
 import {
   ExamResultCard,
   FitLine,
@@ -35,20 +34,17 @@ export const metadata: Metadata = {
 
 /**
  * A Course's home, the Course map: build the Knowledge map and see its
- * Topics on its Big ideas. It starts computing the Priorities when they are
- * stale.
+ * nested Topics.
  */
 export default async function CourseMapPage({
   params,
 }: PageProps<"/courses/[courseId]/map">) {
   const { courseId } = await params;
   await requireUser(courseMapPath(courseId));
-  await ensurePriorities(courseId);
   const [
     course,
     map,
     topics,
-    priorities,
     learning,
     topicStates,
     plan,
@@ -60,7 +56,6 @@ export default async function CourseMapPage({
     getCourse(courseId),
     getKnowledgeMap(courseId),
     loadCourseTopics(courseId),
-    getPriorities(courseId),
     getKcLearning(courseId),
     getTopicStates(courseId),
     getPlan(courseId),
@@ -74,14 +69,13 @@ export default async function CourseMapPage({
   return (
     <CourseMap
       map={map}
-      topics={topics.map(({ id, bigIdeaId, name, centralQuestion, kcs }) => ({
+      topics={topics.map(({ id, parentId, name, centralQuestion, kcs }) => ({
         id,
-        bigIdeaId,
+        parentId,
         name,
         centralQuestion,
         kcs,
       }))}
-      priorities={priorities}
       learning={learning}
       topicStates={topicStates}
       topicReadiness={readiness.topics}

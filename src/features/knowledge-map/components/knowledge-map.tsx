@@ -12,10 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
 import { legendEntries } from "@/features/knowledge-map/domain/encodings";
-import {
-  STATE_NAMES,
-  TYPE_NAMES,
-} from "@/features/knowledge-map/domain/kc-labels";
+import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
 import type {
   KnowledgeMapView,
@@ -23,7 +20,6 @@ import type {
   MapPriorities,
 } from "@/features/knowledge-map/types";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { BigIdeaPanel } from "./big-idea-panel";
 import { EncodingControls, Legend } from "./encoding-controls";
 import { ExercisePanel } from "./exercise-panel";
 import { FocusDepthMenu } from "./focus-depth";
@@ -71,14 +67,7 @@ export function KnowledgeMap({
       <div className="flex min-h-96 flex-1 gap-4">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Legend
-              entries={legendEntries(
-                colorBy,
-                map.bigIdeas,
-                TYPE_NAMES,
-                STATE_NAMES,
-              )}
-            />
+            <Legend entries={legendEntries(colorBy, STATE_NAMES)} />
             <div className="flex shrink-0 flex-wrap gap-2">
               <FocusDepthMenu depth={depth} onChange={setDepth} />
               <EncodingControls
@@ -156,7 +145,7 @@ export function KnowledgeMap({
 }
 
 /**
- * The selected KC's, Exercise's or Big idea's panel with its label; null
+ * The selected KC's or Exercise's panel with its label; null
  * when nothing, or a node the map no longer has, is selected.
  */
 function selectedPanel({
@@ -173,8 +162,7 @@ function selectedPanel({
   onSelect: (id: string) => void;
 }): { label: string; panel: ReactNode } | null {
   if (id === null) return null;
-  const kcs = [...map.bigIdeas.flatMap((b) => b.kcs), ...map.priorKnowledge];
-  const kc = kcs.find((k) => k.id === id);
+  const kc = map.kcs.find((k) => k.id === id);
   if (kc) {
     return {
       label: "KC details",
@@ -196,18 +184,11 @@ function selectedPanel({
       panel: (
         <ExercisePanel
           exercise={exercise}
-          kcs={new Map(kcs.map((k) => [k.id, k]))}
+          kcs={new Map(map.kcs.map((k) => [k.id, k]))}
           learning={learning}
           onSelect={onSelect}
         />
       ),
-    };
-  }
-  const bigIdea = map.bigIdeas.find((b) => b.id === id);
-  if (bigIdea) {
-    return {
-      label: "Big idea details",
-      panel: <BigIdeaPanel bigIdea={bigIdea} learning={learning} />,
     };
   }
   return null;

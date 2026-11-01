@@ -15,7 +15,7 @@ export type TaskConfig = {
    */
   fallbacks: readonly string[];
   /** Environment variable that overrides `model` without a code change. */
-  override: keyof AiEnv;
+  override: Extract<keyof AiEnv, `AI_MODEL_${string}`>;
 };
 
 /**
@@ -53,47 +53,23 @@ export const AI_TASKS = {
     fallbacks: [],
     override: "AI_MODEL_INGEST",
   },
-  /** Builds a Course's Knowledge map from its chunks, one call per step. */
+  /** Builds a Course's Knowledge map from its chunks. */
   map: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_MAP",
   },
-  /**
-   * One exercise subtask of a Knowledge map build: its KCs, task type and a
-   * solution to check the given one against. Calls add medium thinking.
-   */
+  /** The Exercises of a Knowledge map build and the KCs they test. */
   exercise: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_EXERCISE",
   },
-  /**
-   * One call per Big idea of a Knowledge map build that groups its new KCs
-   * into Topics, with structured output.
-   */
+  /** Names the Topics of a Knowledge map build, with structured output. */
   topic: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
     override: "AI_MODEL_TOPIC",
-  },
-  /**
-   * Two calls per new Reading section of a Knowledge map build: its reading
-   * mode, then its annotations or study text, with structured output.
-   */
-  reading: {
-    model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: [],
-    override: "AI_MODEL_READING",
-  },
-  /**
-   * One call per priority run that adjusts the KCs' Priority multipliers
-   * from the Brief's notes and the answered Findings, with structured output.
-   */
-  priority: {
-    model: "xiaomi/mimo-v2.6-flash",
-    fallbacks: [],
-    override: "AI_MODEL_PRIORITY",
   },
   /**
    * One call per generated Problem, a variant of an Exercise or a new
@@ -137,6 +113,15 @@ export const AI_TASKS = {
 } as const satisfies Record<string, TaskConfig>;
 
 export type AiTask = keyof typeof AI_TASKS;
+
+/**
+ * Provider options of an `embed` call whose values are documents to be
+ * searched, such as chunks: Cohere's input type, which the Gateway takes
+ * (docs/agents/notes/cohere-embeddings.md).
+ */
+export const EMBED_AS_DOCUMENTS = {
+  cohere: { inputType: "search_document" },
+} as const;
 
 /**
  * Retries per call for retryable errors such as `429` from rate limits. The

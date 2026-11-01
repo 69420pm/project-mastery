@@ -23,7 +23,6 @@ const PRACTICE_STATES: readonly TopicStateName[] = [
 export type PracticeKc = {
   id: string;
   name: string;
-  type: string;
   /** The first practised Topic with the KC. */
   topicId: string;
 };
@@ -41,7 +40,7 @@ export function selectPracticeKcs({
   priorities,
   now,
 }: {
-  kcs: Array<{ id: string; name: string; type: string }>;
+  kcs: Array<{ id: string; name: string }>;
   topics: Array<{
     id: string;
     kcs: string[];
@@ -71,10 +70,5 @@ export function selectPracticeKcs({
     })
     .toSorted((a, b) => b.urgency - a.urgency || a.position - b.position)
     .slice(0, MAX_PRACTICE_KCS)
-    .map(({ kc: { id, name, type }, topicId }) => ({
-      id,
-      name,
-      type,
-      topicId,
-    }));
+    .map(({ kc: { id, name }, topicId }) => ({ id, name, topicId }));
 }

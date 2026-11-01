@@ -2,37 +2,51 @@ import "server-only";
 import type {
   BriefToolActions,
   SaveBriefInput,
+  SetExamScopeInput,
 } from "@/features/brief/ai/tools";
-import { findingQuestion, reviewQueue } from "@/features/brief/domain/findings";
 import type { BriefContext } from "@/features/brief/domain/intake";
-import {
-  answerFinding,
-  getOpenFindings,
-} from "@/features/knowledge-map/server";
 import {
   addBriefNote,
   saveBrief,
   type BriefFieldsUpdate,
 } from "@/features/brief/server/brief-store";
+import { storeExamScope } from "@/features/brief/server/exam-scopes";
 import { getReservedExam } from "@/features/brief/server/queries";
 import type { Supabase } from "@/lib/supabase/types";
 
 /** Null, as the models send for a field they leave out, means "not given". */
 const given = <T>(value: T | null | undefined) => value ?? undefined;
 
+/** Text as `setExamScope` compares it: lower case, whitespace collapsed. */
+const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
 /**
  * What the Brief's tools do, as the signed-in Student, to the Course's
- * Brief. `context` holds the Course's Materials when the reply started.
- * Each tool writes in one transaction, so a failed call changes nothing.
- * `asks` hears of each Finding a tool result tells the AI to ask; the caller
- * marks it asked once the reply is stored.
+ * Brief. `context` holds the Course's Materials, Chapters and Topics when
+ * the reply started, `studentTexts` the Student's messages so far and
+ * `askedChapterIds` the Chapters the Student was asked about as old
+ * exams. Each tool writes in one transaction, so a failed call changes
+ * nothing.
  */
 export function briefToolActions(
   supabase: Supabase,
   courseId: string,
   context: BriefContext,
-  asks: (findingId: string) => void,
+  studentTexts: string[],
+  askedChapterIds: string[],
 ): BriefToolActions {
+  const known = (ids: Iterable<string>) => {
+    const set = new Set(ids);
+    return (given: string[] | undefined) => ({
+      kept: given?.filter((id) => set.has(id)) ?? null,
+      unknown: given?.filter((id) => !set.has(id)) ?? [],
+    });
+  };
+  const ofMaterials = known(context.materials.map(({ id }) => id));
+  const ofChapters = known(
+    context.materials.flatMap(({ chapters }) => chapters.map(({ id }) => id)),
+  );
+
   return {
     async saveBrief(input: SaveBriefInput) {
       const fields: BriefFieldsUpdate = Object.fromEntries(
@@ -48,34 +62,36 @@ export function briefToolActions(
         }).filter(([, value]) => value !== undefined),
       );
 
-      // Only an old exam of the Course can be reserved; another id is dropped.
-      // Once a submitted mock used the reservation, it stays as it is.
-      const reserved = given(input.reservedExamMaterialId);
-      const reservable =
-        reserved === "none" || context.exams.some(({ id }) => id === reserved);
+      // Only the Course's own Materials and the Chapters the context lists
+      // count; other ids are dropped.
+      const excluded = ofMaterials(given(input.excludedMaterialIds));
+      const exams = ofChapters(given(input.examChapterIds));
+
+      // Only an old exam of the Course can be reserved; another id is
+      // dropped. Once a submitted mock used the reservation, it stays as it is.
+      const examIds = new Set(exams.kept ?? context.exams.map(({ id }) => id));
+      const reserved = given(input.reservedExamChapterId);
+      const reservable = reserved === "none" || examIds.has(reserved ?? "");
       const used =
         reserved !== undefined &&
-        context.reservedExam.materialId !== null &&
+        context.reservedExam.chapterId !== null &&
         (await getReservedExam(supabase, courseId)) === null;
       if (reserved !== undefined && reservable && !used) {
-        fields.reserved_exam_material_id =
-          reserved === "none" ? null : reserved;
+        fields.reserved_exam_chapter_id = reserved === "none" ? null : reserved;
         fields.reserved_exam_answered = true;
       }
 
-      const excluded = given(input.excludedMaterialIds);
-      // Only the Course's own Materials can be excluded; other ids are dropped.
-      const known = new Set(context.materials.map(({ id }) => id));
-      const unknown = excluded?.filter((id) => !known.has(id)) ?? [];
-      await saveBrief(
-        supabase,
-        courseId,
-        fields,
-        excluded ? excluded.filter((id) => known.has(id)) : null,
-      );
+      await saveBrief(supabase, courseId, fields, {
+        excludedMaterialIds: excluded.kept,
+        examChapterIds: exams.kept,
+        askedChapterIds,
+        language: given(input.courseLanguage)?.trim() || null,
+      });
       const ignored = [
-        unknown.length > 0 &&
-          `These are no Material ids of the Course and were ignored: ${unknown.join(", ")}.`,
+        excluded.unknown.length > 0 &&
+          `These are no Material ids of the Course and were ignored: ${excluded.unknown.join(", ")}.`,
+        exams.unknown.length > 0 &&
+          `These are no Chapter ids of the Course and were ignored: ${exams.unknown.join(", ")}.`,
         reserved !== undefined &&
           !reservable &&
           `${reserved} is no old exam of the Course and was ignored: send the id of one, or "none".`,
@@ -91,16 +107,30 @@ export function briefToolActions(
         : "Not saved: the notes are full. Nothing changed.";
     },
 
-    async answerFinding(findingId, answer) {
-      if (!(await answerFinding(supabase, courseId, findingId, answer))) {
-        return "Not saved: that is no open question about this Course's materials; it may be answered already. Nothing changed.";
+    async setExamScope(input: SetExamScopeInput) {
+      const { topicId } = input;
+      if (!context.topics.some(({ id }) => id === topicId)) {
+        return `Not saved: ${topicId} is no Topic of the Course. Nothing changed.`;
       }
-      const { asking } = reviewQueue(await getOpenFindings(supabase, courseId));
-      if (!asking) {
-        return "Saved. No questions about the materials are left: tell the Student they are done.";
+      const words = given(input.words) ?? null;
+      if (input.scope !== null) {
+        // The Student confirms: their words must come from their messages.
+        const said = words !== null && plain(words) !== "";
+        if (
+          !said ||
+          !studentTexts.some((text) => plain(text).includes(plain(words)))
+        ) {
+          return "Not saved: words must quote the Student's own confirmation from their message. Ask the Student to confirm it in their own words first. Nothing changed.";
+        }
       }
-      asks(asking.id);
-      return `Saved. In this reply, ask the Student the next question about the materials (id ${asking.id}), with its sources:\n${findingQuestion(asking)}`;
+      const stored = await storeExamScope(supabase, courseId, {
+        topicId,
+        scope: input.scope,
+        words: input.scope === null ? null : words,
+      });
+      if (!stored)
+        return "Not saved: the Brief was not found. Nothing changed.";
+      return input.scope === null ? "Removed." : "Saved.";
     },
   };
 }

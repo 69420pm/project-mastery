@@ -16,10 +16,10 @@ function message(
 }
 
 const opening = message("opening", "assistant", STATIC_MODEL_ID);
-const question = message("finding-2", "assistant", STATIC_MODEL_ID);
+const question = message("old-exams", "assistant", STATIC_MODEL_ID);
 
 describe("withNewStaticMessages", () => {
-  test("appends the next Finding's question once, not the stored reply", () => {
+  test("appends the old-exam question once, not the stored reply", () => {
     // The client's reply id need not match the stored one.
     const shown = [
       opening,
@@ -38,7 +38,7 @@ describe("withNewStaticMessages", () => {
       "opening",
       "u1",
       "client-reply",
-      "finding-2",
+      "old-exams",
     ]);
     expect(withNewStaticMessages(merged, stored)).toBe(merged);
   });

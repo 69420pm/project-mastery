@@ -16,8 +16,7 @@ const card = (stability: number): KcSchedule => ({
   },
 });
 
-const kcs = (...ids: string[]) =>
-  ids.map((id) => ({ id, name: `KC ${id}`, type: "procedure" }));
+const kcs = (...ids: string[]) => ids.map((id) => ({ id, name: `KC ${id}` }));
 
 const select = (input: Partial<Parameters<typeof selectPracticeKcs>[0]> = {}) =>
   selectPracticeKcs({
@@ -89,7 +88,6 @@ test("keeps the top 8 and names each KC's first practised Topic", () => {
   expect(result[0]).toEqual({
     id: "k0",
     name: "KC k0",
-    type: "procedure",
     topicId: "t1",
   });
 });

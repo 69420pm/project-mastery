@@ -6,154 +6,41 @@ import {
   mathRunner,
 } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
-import type { AdminSupabase } from "@/lib/supabase/types";
-import { insertGoldMap, insertGoldTopics } from "./gold-map";
+import { insertRows, seedGoldCourse } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
-/** The gold Exercise the Student has seen, with real data and a key. */
-const THRUST_EXERCISE = {
-  name: "Ex. 7.2a",
-  markdown:
-    "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
-  solution:
-    "Solution 7.2a: $F = \\dot m (v_e - v_0) = 50 \\cdot (600 - 250) = 17\\,500$ N $= 17.5$ kN.",
-  finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
-};
-
-async function insertRows(
-  supabase: AdminSupabase,
-  table: string,
-  rows: object[],
-) {
-  const { error } = await supabase.from(table as "kcs").insert(rows as never);
-  if (error) throw new Error(`${table}: ${error.message}`);
-}
-
 /**
- * The jet-engines gold map and Topics without model calls, with Ex. 7.2a
- * testing every KC of the thrust Topic (so the Topic stock's first KC gets
- * its variant) and asked in an earlier session. A Learn session then
- * starts on the thrust Topic, queues the Topic stock as the tutor's first
- * reply does, and the real `generateProblems` runs in process: one
- * `generate` call per Problem, two with the retry, at most 4 Problems.
+ * The gold course with the first Topic whose first KC an Exercise tests,
+ * that Exercise asked in an earlier session (so the Topic stock's first KC
+ * gets its variant). A Learn session then starts on that Topic, queues the
+ * Topic stock as the tutor's first reply does, and the real
+ * `generateProblems` runs in process: one `generate` call per Problem, two
+ * with the retry, at most 4 Problems.
  */
 export const generateSmoke: SmokeCheck = {
   name: "generate",
-  usage: `pnpm smoke generate (the gold map, a Learn session on the thrust Topic with ${THRUST_EXERCISE.name} seen, then one generate run)`,
+  usage:
+    "pnpm smoke generate (the gold course, a Learn session on a Topic with an Exercise of its first KC seen, then one generate run)",
   maxCalls: 10,
   async run({ supabase, studentId }) {
-    const { data: course, error } = await supabase
-      .from("courses")
-      .insert({ owner: studentId, name: "Smoke check" })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    const owned = { owner: studentId, course_id: course.id };
-    const goldMap = await insertGoldMap(supabase, studentId, course.id);
-    const { gold, id } = goldMap;
+    const gold = await seedGoldCourse(supabase, studentId);
+    const { courseId } = gold;
+    const owned = { owner: studentId, course_id: courseId };
+    const pick = gold.topics.flatMap((topic) => {
+      const exercise = gold.exercises.find(
+        (e) => !e.reserved && e.kcs.includes(topic.kcs[0] ?? ""),
+      );
+      return exercise ? [{ topic, exercise }] : [];
+    })[0];
+    if (!pick) {
+      throw new Error(
+        "No Exercise of the gold course tests a Topic's first KC.",
+      );
+    }
+    const { topic, exercise } = pick;
+    console.info(`Topic: ${topic.name}; seen: ${exercise.label}`);
 
-    const materialId = randomUUID();
-    await insertRows(supabase, "materials", [
-      {
-        ...owned,
-        id: materialId,
-        name: "Jet engines",
-        media_type: "application/pdf",
-        size_bytes: 1,
-        storage_path: `${studentId}/${course.id}/${materialId}`,
-      },
-    ]);
-    const chunk = (position: number, label: string, markdown: string) => ({
-      ...owned,
-      id: randomUUID(),
-      material_id: materialId,
-      position,
-      page_from: position + 1,
-      page_to: position + 1,
-      label,
-      markdown,
-    });
-    const source = chunk(
-      0,
-      "content",
-      "A jet engine accelerates air rearward, and the reaction pushes the engine forward (Newton's third law). Thrust is the mass flow times the change in velocity: $F = \\dot m (v_e - v_0)$ for a fully expanded nozzle.",
-    );
-    const questions = gold.exercises.map((exercise, index) =>
-      chunk(
-        index + 1,
-        "exercise",
-        exercise.name === THRUST_EXERCISE.name
-          ? THRUST_EXERCISE.markdown
-          : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
-      ),
-    );
-    const thrustIndex = gold.exercises.findIndex(
-      ({ name }) => name === THRUST_EXERCISE.name,
-    );
-    const solution = chunk(
-      questions.length + 1,
-      "solution",
-      THRUST_EXERCISE.solution,
-    );
-    await insertRows(supabase, "chunks", [source, ...questions, solution]);
-    await insertRows(supabase, "exercise_solutions", [
-      {
-        ...owned,
-        exercise_chunk_id: questions[thrustIndex]!.id,
-        solution_chunk_id: solution.id,
-        status: "paired",
-      },
-    ]);
-    await insertRows(
-      supabase,
-      "kc_sources",
-      gold.kcs
-        .filter((kc) => kc.bigIdea !== null)
-        .map((kc) => ({ ...owned, kc_id: id(kc.id), chunk_id: source.id })),
-    );
-    const thrustKcs = gold.kcs.filter((kc) => kc.bigIdea === "BI1");
-    const exerciseIds = gold.exercises.map(() => randomUUID());
-    await insertRows(
-      supabase,
-      "exercises",
-      gold.exercises.map((exercise, position) => ({
-        ...owned,
-        id: exerciseIds[position],
-        name: exercise.name,
-        task_type: exercise.taskType,
-        difficulty: exercise.difficulty,
-        solution_status: exercise.solutionStatus,
-        solution: null,
-        question_chunk_id: questions[position]!.id,
-        final_answers:
-          position === thrustIndex ? THRUST_EXERCISE.finalAnswers : null,
-        position,
-      })),
-    );
-    await insertRows(
-      supabase,
-      "exercise_kcs",
-      gold.exercises.flatMap((exercise, position) =>
-        (position === thrustIndex
-          ? thrustKcs.map((kc) => kc.id)
-          : exercise.kcs
-        ).map((kc) => ({
-          ...owned,
-          exercise_id: exerciseIds[position],
-          kc_id: id(kc),
-        })),
-      ),
-    );
-    const topicIds = await insertGoldTopics(
-      supabase,
-      studentId,
-      course.id,
-      goldMap,
-    );
-    const thrustTopic = topicIds.get("BI1")!;
-    const thrustExerciseId = exerciseIds[thrustIndex]!;
-
-    // Ex. 7.2a was asked in an earlier session, so it is seen.
+    // The Exercise was asked in an earlier session, so it is seen.
     const earlier = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     const session = { id: randomUUID(), owner: studentId };
     await insertRows(supabase, "study_sessions", [
@@ -170,7 +57,7 @@ export const generateSmoke: SmokeCheck = {
         ...owned,
         id: randomUUID(),
         mode: "learn",
-        topic_id: thrustTopic,
+        topic_id: topic.id,
         stage: "orient",
         started_at: new Date().toISOString(),
         ended_at: null,
@@ -181,8 +68,8 @@ export const generateSmoke: SmokeCheck = {
         owner: studentId,
         session_id: session.id,
         kind: "question",
-        exercise_id: thrustExerciseId,
-        prompt: THRUST_EXERCISE.markdown,
+        exercise_id: exercise.id,
+        prompt: exercise.markdown,
         asked_at: earlier.toISOString(),
       },
     ]);
@@ -190,26 +77,26 @@ export const generateSmoke: SmokeCheck = {
     // The Learn session's start queues the Topic stock as the Student.
     const client = await signInAsUser(supabase, studentId);
     const queued = await client.rpc("queue_problem_run", {
-      p_course_id: course.id,
-      p_topic_id: thrustTopic,
+      p_course_id: courseId,
+      p_topic_id: topic.id,
     });
     if (queued.error || !queued.data) {
       throw new Error(`queue_problem_run: ${queued.error?.message ?? "false"}`);
     }
-    await generateProblems(course.id);
+    await generateProblems(courseId);
 
     const [run, problems] = await Promise.all([
       supabase
         .from("problem_runs")
         .select("status")
-        .eq("course_id", course.id)
+        .eq("course_id", courseId)
         .single(),
       supabase
         .from("problems")
         .select(
           "id, source, status, original_exercise_id, statement, solution, program, final_answers, failure",
         )
-        .eq("course_id", course.id)
+        .eq("course_id", courseId)
         .order("created_at"),
     ]);
     if (run.error) throw new Error(run.error.message);
@@ -221,8 +108,7 @@ export const generateSmoke: SmokeCheck = {
     }
     const ready = problems.data.filter((p) => p.status === "ready");
     const variant = ready.find(
-      (p) =>
-        p.source === "variant" && p.original_exercise_id === thrustExerciseId,
+      (p) => p.source === "variant" && p.original_exercise_id === exercise.id,
     );
 
     const rerun = await Promise.all(
@@ -248,14 +134,13 @@ export const generateSmoke: SmokeCheck = {
         }),
     );
 
-    const map = await loadStoredMap(client, course.id);
-    const thrustKc = gold.exercises[thrustIndex]!.kcs[0]!;
-    const found = await findProblems(client, course.id, map, [id(thrustKc)]);
+    const map = await loadStoredMap(client, courseId);
+    const found = await findProblems(client, courseId, map, [topic.kcs[0]!]);
 
     return [
       result("the run is done", run.data.status === "done", run.data.status),
       result(
-        `a ready variant of ${THRUST_EXERCISE.name}`,
+        `a ready variant of ${exercise.label}`,
         variant !== undefined,
         problems.data
           .map(

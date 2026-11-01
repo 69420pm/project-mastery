@@ -51,8 +51,6 @@ const kc = (
   id,
   name,
   description: "",
-  type: "concept" as const,
-  bloom: null,
   origin,
   sources: [],
 });
@@ -60,43 +58,40 @@ const kc = (
 const map: KnowledgeMapView = {
   courseId: "c1",
   build: { status: "built", failureReason: null, finishedAt: null },
-  bigIdeas: [
-    {
-      id: "b1",
-      name: "Thrust",
-      description: "",
-      kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles"), kc("k3", "Staging")],
-    },
+  kcs: [
+    kc("k1", "Momentum"),
+    kc("k2", "Nozzles"),
+    kc("k3", "Staging"),
+    kc("p1", "Algebra", "exercise"),
   ],
-  priorKnowledge: [kc("p1", "Algebra", "prior")],
   prerequisites: [
-    { from: "k1", to: "k2", confidence: 1 },
-    { from: "p1", to: "k2", confidence: 1 },
-    { from: "k2", to: "k3", confidence: 1 },
+    { from: "k1", to: "k2" },
+    { from: "p1", to: "k2" },
+    { from: "k2", to: "k3" },
   ],
-  semanticLinks: [],
   exercises: [],
   checkReport: null,
   canBuild: true,
 };
 
+// Basics holds a KC of its own and the Topic Nozzle flow.
 const basics: MapTopic = {
   id: "t1",
-  bigIdeaId: "b1",
+  parentId: null,
   name: "Basics",
   centralQuestion: "What pushes a rocket?",
   kcs: [{ id: "k1", name: "Momentum" }],
 };
 const nozzleFlow: MapTopic = {
   id: "t2",
-  bigIdeaId: "b1",
+  parentId: "t1",
   name: "Nozzle flow",
   centralQuestion: "How does a nozzle speed up gas?",
   kcs: [{ id: "k2", name: "Nozzles" }],
 };
 const stages: MapTopic = {
   id: "t3",
-  bigIdeaId: "b1",
+  parentId: null,
   name: "Stages",
   centralQuestion: "Why stage?",
   kcs: [{ id: "k3", name: "Staging" }],
@@ -105,7 +100,6 @@ const topics = [basics, nozzleFlow, stages];
 
 const topic: MapTopicDetail = {
   ...nozzleFlow,
-  whyItMatters: "Exit speed sets the thrust.",
   anchors: [
     { id: "k1", name: "Momentum" },
     { id: "p1", name: "Algebra" },
@@ -122,7 +116,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       topic={detail}
       topics={topics}
       map={map}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
+      priorities={{ kcs: {} }}
       learning={{}}
       topicState={{ state: "solid", recall: 0.91 }}
       badges={["pinned", "won't fit"]}
@@ -131,16 +125,44 @@ const renderTopic = (detail: MapTopicDetail) =>
   );
 
 describe("TopicDetail", () => {
-  test("shows the name, Big idea, question and why it matters", () => {
+  test("shows the name, the Topic it sits in and question", () => {
     renderTopic(topic);
     expect(
       screen.getByRole("heading", { level: 1, name: "Nozzle flow" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Big idea: Thrust")).toBeInTheDocument();
+    expect(screen.getByText("Part of Basics")).toBeInTheDocument();
     expect(
       screen.getByText("How does a nozzle speed up gas?"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Exit speed sets the thrust.")).toBeInTheDocument();
+  });
+
+  test("a parent lists its own KCs and the Topics inside it", () => {
+    renderTopic({ ...basics, anchors: [], readingSections: [] });
+    expect(
+      within(screen.getByRole("region", { name: "KCs" })).getByText("Momentum"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Topics inside" })).getByRole(
+        "link",
+        { name: "Nozzle flow" },
+      ),
+    ).toHaveAttribute("href", "/courses/c1/map/t2");
+  });
+
+  test("a parent without KCs of its own shows no state, question or KC graph", () => {
+    renderTopic({
+      ...basics,
+      centralQuestion: null,
+      kcs: [],
+      anchors: [],
+      readingSections: [],
+    });
+    expect(screen.queryByRole("region", { name: "KCs" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Central question" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Topics inside" })).toBeVisible();
   });
 
   test("shows the plan badges and the pin and skip controls", () => {
@@ -156,7 +178,7 @@ describe("TopicDetail", () => {
     expect(screen.getByText("Recall today 91%")).toBeInTheDocument();
   });
 
-  test("links an anchor to its Topic and shows prior knowledge as text", () => {
+  test("links an anchor to its Topic and shows one in no Topic as text", () => {
     renderTopic(topic);
     const anchors = screen.getByRole("region", { name: "Anchors" });
     expect(
@@ -188,7 +210,6 @@ describe("TopicDetail", () => {
   test("has no previous link on the first Topic", () => {
     renderTopic({
       ...basics,
-      whyItMatters: "",
       anchors: [],
       readingSections: [],
     });

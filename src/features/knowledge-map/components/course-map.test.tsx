@@ -44,8 +44,6 @@ const kc = (id: string) => ({
   id,
   name: id,
   description: "",
-  type: "concept" as const,
-  bloom: null,
   origin: "content" as const,
   sources: [],
 });
@@ -57,12 +55,8 @@ const map: KnowledgeMapView = {
     failureReason: null,
     finishedAt: "2026-10-20T10:00:00Z",
   },
-  bigIdeas: [
-    { id: "b1", name: "Thrust", description: "", kcs: [kc("k1"), kc("k2")] },
-  ],
-  priorKnowledge: [],
-  prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [],
+  kcs: [kc("k1"), kc("k2")],
+  prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [],
   checkReport: null,
   canBuild: true,
@@ -71,14 +65,14 @@ const map: KnowledgeMapView = {
 const topics: MapTopic[] = [
   {
     id: "t1",
-    bigIdeaId: "b1",
+    parentId: null,
     name: "Momentum",
     centralQuestion: "Why does a rocket move forward?",
     kcs: [{ id: "k1", name: "k1" }],
   },
   {
     id: "t2",
-    bigIdeaId: "b1",
+    parentId: "t1",
     name: "Nozzles",
     centralQuestion: "How does a nozzle speed up its gas?",
     kcs: [{ id: "k2", name: "k2" }],
@@ -105,7 +99,6 @@ const renderMap = (
     <CourseMap
       map={view}
       topics={mapTopics}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
@@ -131,7 +124,8 @@ test("each Topic is a card opening its Topic page", async () => {
   const card = await within(graph).findByRole("link", { name: "Momentum" });
   expect(card).toHaveTextContent("Why does a rocket move forward?");
   expect(card).toHaveAttribute("href", "/courses/c1/map/t1");
-  expect(within(graph).getByText("Thrust")).toBeVisible();
+  // Momentum holds Nozzles: a box around its own card and Nozzles'.
+  expect(within(graph).getByRole("group", { name: "Momentum" })).toBeVisible();
   expect(within(graph).getByRole("link", { name: "Nozzles" })).toBeVisible();
   // The KC graph is gone.
   expect(screen.queryByRole("button", { name: "k1" })).toBeNull();
@@ -158,19 +152,17 @@ test("the header shows the Readiness line and a card its Readiness", async () =>
   );
 });
 
-test("a built map without Topics asks for an update", () => {
+test("a map whose update stopped before its Topics asks for an update", () => {
   renderMap(map, []);
   expect(
-    screen.getByRole("heading", {
-      name: "Update map to group your KCs into Topics",
-    }),
+    screen.getByRole("heading", { name: "Update map to finish your Topics" }),
   ).toBeVisible();
   expect(screen.getAllByRole("button", { name: "Update map" })).toHaveLength(2);
   expect(screen.queryByRole("application")).toBeNull();
 });
 
 test("without a map, the page says so", () => {
-  renderMap({ ...map, build: null, bigIdeas: [] }, []);
+  renderMap({ ...map, build: null, kcs: [] }, []);
   expect(screen.getByRole("heading", { name: "No map yet" })).toBeVisible();
   expect(
     screen.getByRole("button", { name: "Build knowledge map" }),

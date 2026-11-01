@@ -25,8 +25,8 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
         name: "Nozzles",
         centralQuestion: "How does a nozzle speed up its gas?",
         kcs: [
-          { id: "k1", name: "Nozzle shape", type: "concept", taught: true },
-          { id: "k2", name: "Exit velocity", type: "procedure", taught: false },
+          { id: "k1", name: "Nozzle shape", taught: true },
+          { id: "k2", name: "Exit velocity", taught: false },
         ],
         anchors: [{ id: "p1", name: "Momentum" }],
       },
@@ -39,9 +39,9 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
     [
       "Next Topic: Nozzles (id t1). Central question: How does a nozzle speed up its gas?",
       "Its KCs in teaching order:",
-      "- Nozzle shape (id k1, concept; taught)",
-      "- Exit velocity (id k2, procedure; not taught yet)",
-      "Anchors (the prior knowledge and KCs of other Topics it docks onto):",
+      "- Nozzle shape (id k1; taught)",
+      "- Exit velocity (id k2; not taught yet)",
+      "Anchors (the KCs of other Topics it docks onto):",
       "- Momentum (id p1)",
     ].join("\n"),
   );
@@ -78,12 +78,7 @@ test("hold one block per stage and the session's stage when it has a Topic, and 
 });
 
 test("a review session holds the queue in order instead of the learn guidance, or says nothing is due", () => {
-  const kc = (id: string, type = "concept") => ({
-    id,
-    name: `KC ${id}`,
-    type,
-    topicId: "t1",
-  });
+  const kc = (id: string) => ({ id, name: `KC ${id}`, topicId: "t1" });
   const review = tutorInstructions({
     ...context,
     hasMap: true,
@@ -96,7 +91,7 @@ test("a review session holds the queue in order instead of the learn guidance, o
       },
       {
         topicId: "t2",
-        kcs: [kc("c", "procedure")],
+        kcs: [kc("c")],
         status: "open",
         retryKcIds: [],
       },
@@ -107,10 +102,10 @@ test("a review session holds the queue in order instead of the learn guidance, o
     [
       "Review queue, in order (Left: 1 open, 1 to retry.)",
       "1. done, to retry; retry: KC b",
-      "  - KC a (id a, concept, Topic id t1)",
-      "  - KC b (id b, concept, Topic id t1)",
+      "  - KC a (id a, Topic id t1)",
+      "  - KC b (id b, Topic id t1)",
       "2. open",
-      "  - KC c (id c, procedure, Topic id t1)",
+      "  - KC c (id c, Topic id t1)",
     ].join("\n"),
   );
   expect(review).toContain("Ask one question per open group");
@@ -126,16 +121,16 @@ test("a practice session poses Problems on the practice KCs instead of the learn
     ...context,
     hasMap: true,
     practiceKcs: [
-      { id: "a", name: "KC a", type: "procedure", topicId: "t1" },
-      { id: "b", name: "KC b", type: "concept", topicId: "t2" },
+      { id: "a", name: "KC a", topicId: "t1" },
+      { id: "b", name: "KC b", topicId: "t2" },
     ],
   });
 
   expect(practice).toContain(
     [
       "Practice KCs, most urgent first:",
-      "- KC a (id a, procedure, Topic id t1)",
-      "- KC b (id b, concept, Topic id t2)",
+      "- KC a (id a, Topic id t1)",
+      "- KC b (id b, Topic id t2)",
     ].join("\n"),
   );
   expect(practice).toContain("pose one Problem at a time through ask");
@@ -176,6 +171,16 @@ test("hold the Memory under its heading when it is set", () => {
   expect(instructions).toContain(
     `${MEMORY_HEADING}\n\n2026-10-01: Likes proofs.`,
   );
+});
+
+test("list the Materials' notes under their Material's name, and nothing without any", () => {
+  expect(tutorInstructions(context)).not.toContain("Notation and conventions");
+
+  const instructions = tutorInstructions({
+    ...context,
+    materialNotes: [{ material: "Lecture notes", text: "Vectors are bold." }],
+  });
+  expect(instructions).toContain("- Lecture notes:\nVectors are bold.");
 });
 
 test("hold the Notes rules, and the notes when the context has them", () => {

@@ -24,7 +24,10 @@ export function openingMessageId(courseId: string): string {
   return staticMessageId(`brief:${courseId}`);
 }
 
-/** The id of the static message that asks a Finding, stored once. */
-export function findingMessageId(findingId: string): string {
-  return staticMessageId(`finding:${findingId}`);
+/**
+ * The id of the static message that asks whether `chapterIds` are old
+ * exams, so the same question is stored once.
+ */
+export function oldExamsMessageId(chapterIds: string[]): string {
+  return staticMessageId(`old-exams:${chapterIds.toSorted().join(",")}`);
 }

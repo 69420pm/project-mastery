@@ -149,7 +149,6 @@ export async function planProblems(
             ...common,
             source: "variant",
             original_exercise_id: original.id,
-            task_type: original.taskType,
             difficulty: original.difficulty,
           },
           kcs: problem.kcs,

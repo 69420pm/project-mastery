@@ -28,14 +28,13 @@ export type VariantInput = {
   kind: "variant";
   exercise: {
     question: string;
-    /** Its solution, printed or generated; null without one. */
+    /** Its printed solution; null without one. */
     solution: string | null;
     finalAnswers: Array<{
       label: string;
       value: number;
       unit: string | null;
     }> | null;
-    taskType: string;
     difficulty: number;
   };
   kcs: GenerateKc[];
@@ -48,7 +47,7 @@ export type NewProblemInput = {
   kcs: Array<GenerateKc & { sources: string[] }>;
   difficulty: number;
   /** Up to 2 of the Topic's Exercises, for the examiner's style. */
-  styleAnchors: Array<{ question: string; taskType: string }>;
+  styleAnchors: Array<{ question: string }>;
 };
 
 export type GenerateInput = VariantInput | NewProblemInput;
@@ -111,15 +110,7 @@ const variantSchema = z.object({
   ...draftFields,
 });
 
-const newProblemSchema = z.object({
-  taskType: z
-    .string()
-    .trim()
-    .min(1)
-    .max(200)
-    .describe("A short kind of task, such as the anchors' task types."),
-  ...draftFields,
-});
+const newProblemSchema = z.object(draftFields);
 
 /** A draft as the workflow checks it. */
 export type ProblemDraft = {
@@ -127,8 +118,6 @@ export type ProblemDraft = {
   solution: string;
   program: string | null;
   finalAnswers: Array<{ variable: string; unit: string | null }>;
-  /** A new Problem's task type; null for a variant, which keeps its own. */
-  taskType: string | null;
   /** A variant's change; null for a new Problem. */
   change: (typeof VARIANT_CHANGES)[number] | null;
 };
@@ -159,7 +148,6 @@ export function generateCall(input: GenerateInput) {
         solution: parsed.solution,
         program: parsed.program,
         finalAnswers: parsed.finalAnswers,
-        taskType: "taskType" in parsed ? parsed.taskType : null,
         change: "change" in parsed ? parsed.change : null,
       };
     },

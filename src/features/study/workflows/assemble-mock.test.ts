@@ -19,17 +19,14 @@ const TABLES = [
   "problems",
   "problem_kcs",
   "materials",
+  "chapters",
   "chunks",
-  "exercise_solutions",
-  "big_ideas",
   "kcs",
   "kc_sources",
   "prerequisite_links",
-  "semantic_links",
   "exercises",
   "exercise_kcs",
-  "findings",
-  "finding_sources",
+  "exam_scopes",
   "knowledge_map_builds",
   "topics",
   "topic_kcs",
@@ -40,8 +37,7 @@ const TABLES = [
   "chats",
   "chat_messages",
   "briefs",
-  "kc_priorities",
-  "priority_runs",
+  "brief_excluded_materials",
   "ai_usage",
 ] as const;
 
@@ -85,7 +81,7 @@ const assembling = (courseId = COURSE): FakeRow => ({
   owner: STUDENT,
   course_id: courseId,
   status: "assembling",
-  reserved_material_id: null,
+  reserved_chapter_id: null,
   gaps_total: 0,
   gaps_done: 0,
   failure: null,
@@ -110,7 +106,6 @@ beforeEach(() => {
 
 const DRAFT = {
   change: "new_values",
-  taskType: "compute thrust",
   statement: "A turbojet takes in {{mass_flow}}. Compute the thrust.",
   solution: "The thrust is {{thrust_kN}}.",
   program: "mass_flow = 50 kg/s\nthrust_kN = to(mass_flow * 350 m/s, kN)",
@@ -154,35 +149,32 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     id: "m1",
     ...owned,
     name: "Exam 2025",
-    is_exam: exam,
     created_at: "2026-10-01T00:00:00Z",
   });
-  t.big_ideas.push({
-    id: "b1",
+  t.chapters.push({
+    id: "ch1",
     ...owned,
-    name: "Thrust",
-    description: "Thrust.",
-    position: 0,
+    material_id: "m1",
+    parent_id: null,
+    title: "Exam 2025",
+    depth: 0,
+    is_exam: exam,
   });
   ["k1", "k2"].forEach((id, position) => {
     t.kcs.push({
       id,
       ...owned,
-      big_idea_id: "b1",
       name: `KC ${id}`,
       description: `${id}.`,
-      type: "concept",
-      bloom: "apply",
       origin: "content",
       position,
     });
     t.topics.push({
       id: `t${position + 1}`,
       ...owned,
-      big_idea_id: "b1",
+      parent_id: null,
       name: `Topic ${position + 1}`,
       central_question: "Why?",
-      why_it_matters: "Planes.",
       position,
     });
     t.topic_kcs.push({
@@ -192,11 +184,12 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       position: 0,
     });
   });
-  const exercise = (id: string, kc: string, position: number, more = {}) => {
+  const exercise = (id: string, kc: string, position: number) => {
     t.chunks.push({
       id: `cccccccc-0000-4000-8000-00000000000${position}`,
       ...owned,
       material_id: "m1",
+      chapter_id: "ch1",
       position,
       page_from: 1,
       page_to: 1,
@@ -205,21 +198,16 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     t.exercises.push({
       id,
       ...owned,
-      name: `Ex. ${id}`,
       question_chunk_id: `cccccccc-0000-4000-8000-00000000000${position}`,
-      task_type: "compute thrust",
-      solution_status: "given",
-      solution: null,
+      solution_chunk_id: null,
       difficulty: 2,
       position,
       final_answers: null,
-      ...more,
     });
     t.exercise_kcs.push({ ...owned, exercise_id: id, kc_id: kc });
   };
   exercise("x1", "k1", 0);
   exercise("x2", "k2", 1);
-  exercise("x3", "k1", 2, { solution_status: "disputed" });
   const at = new Date(Date.now() - 3 * DAY_MS).toISOString();
   t.study_sessions.push({ id: "s0", ...owned, chat_id: null, ended_at: at });
   t.questions.push({
@@ -306,12 +294,12 @@ test("a mock without items left fails with the reason", async () => {
   expect(items()).toEqual([]);
 });
 
-test("in the final week with a reservation, the mock is that exam's non-disputed Exercises in order", async () => {
+test("in the final week with a reservation, the mock is that exam's Exercises in order", async () => {
   seedCourse({ exam: true });
   db.tables.briefs.push({
     ...owned,
     exam_date: new Date(Date.now() + 3 * DAY_MS).toISOString().slice(0, 10),
-    reserved_exam_material_id: "m1",
+    reserved_exam_chapter_id: "ch1",
   });
   const model = useGenerateModel(DRAFT);
 
@@ -320,7 +308,7 @@ test("in the final week with a reservation, the mock is that exam's non-disputed
   expect(model.doGenerateCalls).toHaveLength(0);
   expect(mock()).toMatchObject({
     status: "ready",
-    reserved_material_id: "m1",
+    reserved_chapter_id: "ch1",
     duration_minutes: 24,
   });
   expect(items().map((i) => i.exercise_id)).toEqual(["x1", "x2"]);

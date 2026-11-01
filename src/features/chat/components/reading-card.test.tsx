@@ -57,7 +57,7 @@ function renderCard({
   return screen.getByRole("region", { name: "Reading" });
 }
 
-function serve(section: Partial<NonNullable<ChatSource["reading"]>>) {
+function serve() {
   openSource.mockResolvedValue({
     ok: true,
     data: {
@@ -65,20 +65,14 @@ function serve(section: Partial<NonNullable<ChatSource["reading"]>>) {
       materialName: "Lecture 3",
       pageFrom: 12,
       pageTo: 14,
-      reading: {
-        mode: "original",
-        annotations: null,
-        studyText: null,
-        ...section,
-      },
-    },
+    } satisfies ChatSource,
   });
 }
 
 beforeEach(() => {
   openSource.mockReset();
   onDone.mockReset();
-  serve({});
+  serve();
 });
 
 test("an open card shows its label and purpose, opens the pane and sends Done", async () => {
@@ -117,49 +111,4 @@ test("a done card shows Read without Done, in the card and the pane", async () =
 test("Done is disabled while no answer could be sent", () => {
   const card = renderCard({ canAnswer: false });
   expect(within(card).getByRole("button", { name: "Done" })).toBeDisabled();
-});
-
-test("the mode switch starts on the stored mode and shows only the views the section has", async () => {
-  serve({ mode: "study_text", studyText: "Thrust in **short**." });
-  renderCard({ autoOpen: true });
-  const pane = screen.getByRole("complementary", { name: "Source" });
-
-  const modes = await within(pane).findByRole("tablist", {
-    name: "Reading mode",
-  });
-  expect(
-    within(modes)
-      .getAllByRole("tab")
-      .map((tab) => tab.textContent),
-  ).toEqual(["Original", "Study text"]);
-  expect(
-    within(modes).getByRole("tab", { name: "Study text" }),
-  ).toHaveAttribute("aria-selected", "true");
-  expect(pane).toHaveTextContent("Thrust in short.");
-
-  fireEvent.mouseDown(within(modes).getByRole("tab", { name: "Original" }));
-  expect(await within(pane).findByText("PDF at page 12")).toBeVisible();
-});
-
-test("the Annotated view lists the page's notes above it", async () => {
-  serve({
-    mode: "annotated",
-    annotations: [
-      { page: 12, note: "Mind the sign of $v_0$." },
-      { page: 13, note: "Not this one." },
-    ],
-  });
-  renderCard({ autoOpen: true });
-  const pane = screen.getByRole("complementary", { name: "Source" });
-
-  const notes = await within(pane).findByRole("list", {
-    name: "Notes on page 12",
-  });
-  expect(notes).toHaveTextContent("Mind the sign of");
-  expect(notes).not.toHaveTextContent("Not this one.");
-  expect(
-    within(pane)
-      .getAllByRole("tab")
-      .map((tab) => tab.textContent),
-  ).toEqual(["Original", "Annotated"]);
 });

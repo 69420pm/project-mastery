@@ -6,14 +6,19 @@ import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/user", () => ({ getUser: async () => ({ id: "me" }) }));
 
-const { loadCourseChunks, loadChunkSources, getChunkPlaces, loadChunkPoints } =
-  await import("./course-chunks");
+const {
+  loadCourseChunks,
+  loadChunkSources,
+  getChunkPlaces,
+  loadChunkMaterials,
+} = await import("./course-chunks");
 
 const COURSE = "course-1";
 
+/** A Material at `position` in Course order. */
 const material = (
   id: string,
-  createdAt: string,
+  position: number,
   parseStatus = "parsed",
   courseId = COURSE,
 ): FakeRow => ({
@@ -21,8 +26,23 @@ const material = (
   course_id: courseId,
   name: `Material ${id}`,
   parse_status: parseStatus,
-  created_at: createdAt,
-  is_exam: false,
+  position,
+});
+
+const chapter = (
+  id: string,
+  parentId: string | null,
+  depth: number,
+  title: string,
+  isExam: boolean | null = null,
+): FakeRow => ({
+  id,
+  course_id: COURSE,
+  material_id: "a",
+  parent_id: parentId,
+  depth,
+  title,
+  is_exam: isExam,
 });
 
 /** `count` chunks of `materialId`, stored in reverse reading order. */
@@ -35,19 +55,23 @@ const chunksOf = (materialId: string, count: number): FakeRow[] =>
     page_to: 1,
     label: "content",
     markdown: `text ${i}`,
-    exercise_number: null,
+    chapter_id: null,
   })).reverse();
 
 /**
  * The fake with PostgREST's limits: at most 1,000 rows per response. Records
  * the length of every `in` list, which must stay short for the query string.
  */
-function withRowLimit(tables: { materials: FakeRow[]; chunks: FakeRow[] }) {
+function withRowLimit(tables: {
+  materials: FakeRow[];
+  chunks: FakeRow[];
+  chapters: FakeRow[];
+}) {
   const db = fakeSupabase({ tables });
   const inLengths: number[] = [];
   const client = {
     ...db,
-    from(table: "materials" | "chunks") {
+    from(table: "materials" | "chunks" | "chapters") {
       const builder = db.from(table);
       const { in: filterIn, then } = builder;
       builder.in = (column, values) => {
@@ -71,20 +95,27 @@ function withRowLimit(tables: { materials: FakeRow[]; chunks: FakeRow[] }) {
   return { client, inLengths };
 }
 
-let tables: { materials: FakeRow[]; chunks: FakeRow[] };
+let tables: { materials: FakeRow[]; chunks: FakeRow[]; chapters: FakeRow[] };
 beforeEach(() => {
   tables = {
     materials: [
-      material("b", "2026-01-02"),
-      material("a", "2026-01-01"),
-      material("unparsed", "2026-01-03", "parsing"),
-      material("other", "2026-01-01", "parsed", "course-2"),
+      material("b", 1),
+      material("a", 0),
+      material("unparsed", 2, "parsing"),
+      material("other", 0, "parsed", "course-2"),
     ],
     chunks: [
       ...chunksOf("b", 2),
       ...chunksOf("a", 1500),
       ...chunksOf("unparsed", 3),
       ...chunksOf("other", 3),
+    ],
+    // Material a: 4 Vector Spaces, and an old exam with a problem inside.
+    chapters: [
+      chapter("root-a", null, 0, "Material a"),
+      chapter("c4", "root-a", 1, "4 Vector Spaces"),
+      chapter("exam", "root-a", 1, "Klausur 2023", true),
+      chapter("problem", "exam", 2, "Aufgabe 1"),
     ],
   };
 });
@@ -112,35 +143,34 @@ describe("loadCourseChunks", () => {
       pageFrom: 1,
       label: "content",
       markdown: "text 0",
-      exerciseNumber: null,
     });
   });
 });
 
-describe("loadChunkPoints", () => {
-  test("reads every chunk of the Course with its points and Material", async () => {
-    tables.materials[0]!.is_exam = true;
+describe("loadChunkMaterials", () => {
+  test("reads every chunk of the Course with its Material, and the old-exam chunks", async () => {
     tables.chunks = tables.chunks.map((chunk) => ({
       ...chunk,
       course_id: chunk.material_id === "other" ? "course-2" : COURSE,
-      points: chunk.id === "b-0001" ? "2.5" : null,
+      chapter_id:
+        chunk.id === "a-0001"
+          ? "problem"
+          : chunk.id === "a-0002"
+            ? "exam"
+            : chunk.id === "a-0003"
+              ? "c4"
+              : null,
     }));
     const { client } = withRowLimit(tables);
 
-    const chunks = await loadChunkPoints(
-      client as unknown as AdminSupabase,
-      COURSE,
-    );
+    const { chunkMaterials, materials, examChunkIds } =
+      await loadChunkMaterials(client as unknown as Supabase, COURSE);
 
-    expect(chunks).toHaveLength(1505);
-    expect(chunks.find((chunk) => chunk.id === "b-0001")).toEqual({
-      id: "b-0001",
-      materialId: "b",
-      materialName: "Material b",
-      isExam: true,
-      points: 2.5,
-    });
-    expect(chunks.find((chunk) => chunk.id === "a-1499")?.points).toBeNull();
+    expect(Object.keys(chunkMaterials)).toHaveLength(1505);
+    expect(chunkMaterials["b-0001"]).toBe("b");
+    expect(materials.b).toEqual({ name: "Material b" });
+    // The exam Chapter and the problem inside it; not 4 Vector Spaces.
+    expect(examChunkIds.toSorted()).toEqual(["a-0001", "a-0002"]);
   });
 });
 
@@ -157,6 +187,12 @@ describe("loadChunkSources and getChunkPlaces", () => {
   ];
 
   test("read more than 100 ids whole, skipping missing ones", async () => {
+    const chapterOf = (id: string, chapterId: string) => {
+      tables.chunks.find((chunk) => chunk.id === id)!.chapter_id = chapterId;
+    };
+    chapterOf("a-0000", "c4");
+    chapterOf("a-0001", "root-a");
+    chapterOf("a-0002", "problem");
     const { client, inLengths } = withRowLimit(tables);
 
     const sources = await loadChunkSources(client as unknown as Supabase, ids);
@@ -173,8 +209,19 @@ describe("loadChunkSources and getChunkPlaces", () => {
     expect(sources[0]).toMatchObject({
       materialName: "Material a",
       pageTo: 1,
+      chapterTitle: "4 Vector Spaces",
       isExam: false,
     });
+    // A Material's root Chapter is no Chapter title.
+    expect(sources[1]!.chapterTitle).toBeNull();
+    // A chunk inside an old-exam Chapter is an old-exam chunk.
+    expect(sources[2]).toMatchObject({
+      chapterTitle: "Aufgabe 1",
+      isExam: true,
+    });
+    expect(sources.slice(3).map((source) => source.chapterTitle)).toEqual(
+      sources.slice(3).map(() => null),
+    );
     expect(places).toHaveLength(152);
     expect(new Set(places.map((place) => place.id))).toEqual(
       new Set(sources.map((source) => source.id)),

@@ -25,17 +25,17 @@ values
     '11111111-1111-1111-1111-111111111111/aaaaaaaa-0000-0000-0000-000000000001/aaaaaaaa-1111-0000-0000-000000000002',
     'parsed');
 
-insert into public.chunks (id, owner, course_id, material_id, position, page_from, page_to, label, markdown, exercise_number)
+insert into public.chunks (id, owner, course_id, material_id, position, page_from, page_to, label, markdown)
 values
   ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
-    0, 1, 1, 'exercise', 'a) Show ...', '7.2a'),
+    0, 1, 1, 'exercise', 'a) Show ...'),
   ('cccccccc-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
-    1, 1, 1, 'exercise', 'b) Prove ...', '7.2b'),
+    1, 1, 1, 'exercise', 'b) Prove ...'),
   ('cccccccc-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000002',
-    0, 1, 1, 'solution', 'a) Since ...', '7.2a');
+    0, 1, 1, 'solution', 'a) Since ...');
 
 -- Students cannot request or write a pairing pass.
 set local role authenticated;

@@ -1,486 +1,354 @@
 import "server-only";
+import type { z } from "zod";
+import { UNIT_MARK } from "@/features/knowledge-map/ai/chapter-extraction";
 import {
-  loadCourseChunks,
-  loadExerciseSolutions,
-} from "@/features/ingestion/server";
-import {
-  exerciseAnswerSchema,
-  exerciseCall,
-  givenSolutionSchema,
-} from "@/features/knowledge-map/ai/exercise-calls";
-import {
-  addedKcLinksCall,
-  assignmentCall,
-  assignmentSchema,
-  fillCall,
-  fillSchema,
-  linksCall,
-  linksSchema,
-  mergeCall,
-  mergeSchema,
-  scopeCall,
-  scopeSchema,
-  skeletonCall,
-  skeletonSchema,
-} from "@/features/knowledge-map/ai/map-calls";
-import { dailyLimitReason } from "@/features/knowledge-map/domain/build-failure";
-import {
-  exerciseInputs,
-  type ExerciseInput,
-  type SkeletonInput,
-} from "@/features/knowledge-map/domain/build-input";
-import {
-  applyAssignment,
-  draftFromSkeleton,
-  type Draft,
-  type DraftBigIdea,
-  type DraftKc,
-  type KcFill,
-} from "@/features/knowledge-map/domain/draft";
-import type { ExerciseAnswer } from "@/features/knowledge-map/domain/exercises";
-import type { LinksProposal } from "@/features/knowledge-map/domain/links";
-import { aliases } from "@/features/knowledge-map/domain/update";
-import {
-  knowledgeMapSchema,
-  type CheckReport,
-  type KnowledgeMap,
-} from "@/features/knowledge-map/schemas";
-import {
-  loadProcessedChunkIds,
-  loadStoredMap,
-} from "@/features/knowledge-map/server/stored-map";
-import type { MapChunk } from "@/features/knowledge-map/types";
-import { meteredEmbed, meteredGenerate } from "@/features/usage/server";
-import type { AiTask } from "@/lib/ai/models";
+  chapterUnits,
+  unitHash,
+} from "@/features/knowledge-map/domain/chapter-units";
+import type { UnitExtraction } from "@/features/knowledge-map/domain/chapter-extraction";
+import { loadCourseLanguage as loadLanguage } from "@/features/ingestion/server";
+import type { StoredExtraction } from "@/features/knowledge-map/schemas";
+import { meteredStream } from "@/features/usage/server";
+import { getAiEnv } from "@/lib/ai/env";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
+import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
- * The steps of a Knowledge map update (`build-knowledge-map.ts`). Each runs on
- * the admin client, since no Student is signed in, and so scopes every query
- * to the Course and its owner itself. Model calls get their input from the
- * workflow, so a Material parsed during a build joins the next one.
+ * The steps of a Knowledge map update (`build-knowledge-map.ts`) that
+ * prepare and end it, and what every step shares. Each runs on the admin
+ * client, since no Student is signed in, and so scopes every query to the
+ * Course itself. Each starts with `touchBuild`, which sets the build's
+ * heartbeat, and does nothing once the build no longer runs.
  */
 
-/** A step's result, or why the build stops, for the Student. */
-export type StepOutcome<T> =
-  { ok: true; value: T } | { ok: false; reason: string };
+/** The most units one step extracts or consolidates. */
+export const UNITS_PER_STEP = 8;
 
 /**
- * What an update reads once: whose Course it is, its chunks, the ones an
- * earlier update processed, the exercise subtasks of the new chunks with
- * their paired solutions, and the stored map.
+ * How long after its start a step may still start a model call. Later
+ * calls are left to the next step, so a step ends within Vercel Hobby's
+ * 300-second limit even at MiMo's pace.
  */
-export type BuildInput = {
-  studentId: string;
-  chunks: MapChunk[];
-  processedChunkIds: string[];
-  exercises: ExerciseInput[];
-  map: KnowledgeMap;
+const CALL_WINDOW_MS = 150_000;
+
+/**
+ * What a step did: how many units it left for the next step, or null when
+ * the build no longer runs; or why the build stops.
+ */
+export type StepOutcome =
+  { ok: true; left: number | null } | { ok: false; reason: string };
+
+/**
+ * Sets the running build's heartbeat, so `queue_knowledge_map_build` sees
+ * it alive, and returns the Course's owner. Null when no build runs.
+ */
+export async function touchBuild(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("knowledge_map_builds")
+    .update({ heartbeat_at: new Date().toISOString() })
+    .eq("course_id", courseId)
+    .eq("status", "building")
+    .select("owner")
+    .maybeSingle();
+  if (error) failed("Recording the build's heartbeat", error);
+  return data?.owner ?? null;
+}
+
+/**
+ * Runs `call` on each item, at most AI_CONCURRENCY at a time, and starts
+ * none after CALL_WINDOW_MS, nor once a call returned "stop". The first
+ * always starts.
+ */
+export async function runCalls<Item>(
+  items: readonly Item[],
+  call: (item: Item) => Promise<"stop" | void>,
+): Promise<void> {
+  const startedAt = Date.now();
+  const queue = [...items];
+  let started = 0;
+  let stopped = false;
+  const worker = async () => {
+    while (!stopped) {
+      if (started > 0 && Date.now() - startedAt > CALL_WINDOW_MS) return;
+      const item = queue.shift();
+      if (item === undefined) return;
+      started += 1;
+      if ((await call(item)) === "stop") stopped = true;
+    }
+  };
+  await Promise.all(
+    Array.from({ length: getAiEnv().AI_CONCURRENCY }, () => worker()),
+  );
+}
+
+/**
+ * One structured call of the build, streamed and metered, its answer
+ * parsed with `schema`. A call whose answer is missing or no valid output is
+ * made once more; a second such answer fails the step. A valid answer that
+ * `isEmpty` calls empty is also asked once more, and the second answer is
+ * kept as it is. "limit" when the Daily limit is reached.
+ */
+export async function buildCall<Schema extends z.ZodType>(
+  supabase: AdminSupabase,
+  scope: Parameters<typeof meteredStream>[1],
+  call: Parameters<typeof meteredStream>[2],
+  schema: Schema,
+  isEmpty: (answer: z.infer<Schema>) => boolean = () => false,
+): Promise<z.infer<Schema> | "limit"> {
+  for (let attempt = 1; ; attempt += 1) {
+    const result = await meteredStream(supabase, scope, call);
+    if (!result) return "limit";
+    let answer: z.infer<Schema>;
+    try {
+      answer = schema.parse(await result.output);
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      console.warn(`The ${scope.traceName} call gave no answer; once more.`);
+      continue;
+    }
+    if (attempt >= 2 || !isEmpty(answer)) return answer;
+    console.warn(`The ${scope.traceName} call answered empty; once more.`);
+  }
+}
+
+/** A unit of the Course, as the build reads it. */
+export type CourseUnit = {
+  chapterId: string;
+  kind: "content" | "exercise";
+  unit: number;
+  contentHash: string;
+  materialName: string;
+  /** The Material's Outline, with the unit's Chapter marked. */
+  outline: string[];
+  chunks: Array<{ id: string; markdown: string }>;
 };
 
 /**
- * The owner, chunks, new exercise subtasks and stored map of the Course
- * whose build runs. Null when no build runs any more, as when the Course was
- * deleted.
+ * The Course's units of one kind in Course order: Materials by position,
+ * then their units in reading order (`chapterUnits`).
  */
-export async function loadBuildInput(
+export async function loadCourseUnits(
+  supabase: AdminSupabase,
   courseId: string,
-): Promise<BuildInput | null> {
+  kind: CourseUnit["kind"],
+): Promise<CourseUnit[]> {
+  const [materials, chapters, chunks] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, name")
+      .eq("course_id", courseId)
+      .order("position"),
+    allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select("id, material_id, parent_id, depth, title")
+        .eq("course_id", courseId)
+        .order("material_id")
+        .order("position")
+        .range(from, to),
+    ),
+    allRows("Loading the chunks", (from, to) =>
+      supabase
+        .from("chunks")
+        .select("id, material_id, chapter_id, markdown")
+        .eq("course_id", courseId)
+        .eq("label", kind)
+        .order("material_id")
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  return materials.data.flatMap((material) => {
+    const outline = chapters.filter((c) => c.material_id === material.id);
+    const ofMaterial = chunks.filter((c) => c.material_id === material.id);
+    const chunkOf = new Map(ofMaterial.map((chunk) => [chunk.id, chunk]));
+    const titleOf = new Map(outline.map((c) => [c.id, c.title]));
+    return chapterUnits(
+      outline.map((c) => ({ id: c.id, parentId: c.parent_id })),
+      ofMaterial.map((c) => ({
+        id: c.id,
+        chapterId: c.chapter_id,
+        markdown: c.markdown,
+      })),
+    ).map((unit) => {
+      const unitChunks = unit.chunkIds.map((id) => {
+        const { markdown } = chunkOf.get(id)!;
+        return { id, markdown };
+      });
+      return {
+        chapterId: unit.chapterId,
+        kind,
+        unit: unit.unit,
+        contentHash: unitHash(
+          titleOf.get(unit.chapterId) ?? "",
+          unitChunks.map((chunk) => chunk.markdown),
+        ),
+        materialName: material.name,
+        outline: outline.map(
+          (c) =>
+            `${"  ".repeat(c.depth)}${c.title}${c.id === unit.chapterId ? UNIT_MARK : ""}`,
+        ),
+        chunks: unitChunks,
+      };
+    });
+  });
+}
+
+/** A unit's key among the stored extractions. */
+export const unitKey = (unit: {
+  chapterId: string;
+  kind: string;
+  unit: number;
+}) => `${unit.chapterId}/${unit.kind}/${unit.unit}`;
+
+/** A stored unit extraction, keyed as `unitKey`. */
+export type StoredUnit = {
+  id: string;
+  key: string;
+  contentHash: string;
+  output: unknown;
+  kcIds: string[] | null;
+  assumesMatched: boolean;
+};
+
+/** The Course's stored unit extractions. */
+export async function loadStoredUnits(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<StoredUnit[]> {
+  const rows = await allRows("Loading the unit extractions", (from, to) =>
+    supabase
+      .from("chapter_extractions")
+      .select(
+        "id, chapter_id, kind, unit, content_hash, output, kc_ids, assumes_matched",
+      )
+      .eq("course_id", courseId)
+      .order("id")
+      .range(from, to),
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    key: unitKey({ chapterId: row.chapter_id, kind: row.kind, unit: row.unit }),
+    contentHash: row.content_hash,
+    output: row.output,
+    kcIds: row.kc_ids,
+    assumesMatched: row.assumes_matched,
+  }));
+}
+
+/**
+ * Stores a unit's extraction, replacing an earlier one, as not consolidated
+ * and not matched yet.
+ */
+export async function storeExtraction(
+  supabase: AdminSupabase,
+  {
+    owner,
+    courseId,
+    unit,
+  }: { owner: string; courseId: string; unit: CourseUnit },
+  output: UnitExtraction | StoredExtraction,
+) {
+  const { error } = await supabase.from("chapter_extractions").upsert(
+    {
+      chapter_id: unit.chapterId,
+      kind: unit.kind,
+      unit: unit.unit,
+      owner,
+      course_id: courseId,
+      content_hash: unit.contentHash,
+      output,
+      kc_ids: null,
+      assumes_matched: false,
+    },
+    { onConflict: "chapter_id,kind,unit" },
+  );
+  if (error) failed("Storing a unit extraction", error);
+}
+
+/**
+ * The Course's stored extractions of current units, in Course order:
+ * teaching units first, then exercise units. Extractions of units that no
+ * longer exist are deleted.
+ */
+export async function loadCurrentExtractions(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<StoredUnit[]> {
+  const [content, exercise, stored] = await Promise.all([
+    loadCourseUnits(supabase, courseId, "content"),
+    loadCourseUnits(supabase, courseId, "exercise"),
+    loadStoredUnits(supabase, courseId),
+  ]);
+  const order = new Map(
+    [...content, ...exercise].map((unit, index) => [unitKey(unit), index]),
+  );
+  const gone = stored.filter((row) => !order.has(row.key));
+  if (gone.length > 0) {
+    const { error } = await supabase
+      .from("chapter_extractions")
+      .delete()
+      .in(
+        "id",
+        gone.map((row) => row.id),
+      );
+    if (error) failed("Deleting the extractions of gone units", error);
+  }
+  return stored
+    .filter((row) => order.has(row.key))
+    .toSorted((a, b) => order.get(a.key)! - order.get(b.key)!);
+}
+
+/**
+ * The Course language by name: the one the Student asked for in the
+ * Brief, else the most common language of its Materials; English when none
+ * has one.
+ */
+export async function loadCourseLanguage(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<string> {
+  return (await loadLanguage(supabase, courseId)).name;
+}
+
+/**
+ * Prepares a build: "nothing" when the Course has no content or exercise
+ * chunks, "stopped" when the build no longer runs. Retires the KCs whose
+ * sources are all gone.
+ */
+export async function prepareBuild(
+  courseId: string,
+): Promise<"ready" | "nothing" | "stopped"> {
   "use step";
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("knowledge_map_builds")
-    .select("owner")
+  if (!(await touchBuild(supabase, courseId))) return "stopped";
+  const chunks = await supabase
+    .from("chunks")
+    .select("id")
     .eq("course_id", courseId)
-    .eq("status", "building")
-    .maybeSingle();
-  if (error) failed("Loading the build", error);
-  if (!data) return null;
-  const [chunks, pairs, processedChunkIds, map] = await Promise.all([
-    loadCourseChunks(supabase, courseId),
-    loadExerciseSolutions(supabase, courseId),
-    loadProcessedChunkIds(supabase, courseId),
-    loadStoredMap(supabase, courseId),
-  ]);
-  const processed = new Set(processedChunkIds);
-  return {
-    studentId: data.owner,
-    chunks: chunks.map(({ id, materialName, pageFrom, label, markdown }) => ({
-      id,
-      materialName,
-      pageFrom,
-      label,
-      markdown,
-    })),
-    processedChunkIds,
-    exercises: exerciseInputs(chunks, pairs).filter(
-      (exercise) => !processed.has(exercise.questionChunkId),
-    ),
-    map,
-  };
+    .in("label", ["content", "exercise"])
+    .limit(1);
+  if (chunks.error) failed("Loading the chunks", chunks.error);
+  if (chunks.data.length === 0) return "nothing";
+  await retireUnsourcedKcs(supabase, courseId);
+  return "ready";
 }
 
-/**
- * The output of one metered model call for the Student. Null when the Daily
- * limit or the provider's daily quota is used up.
- */
-export async function mapCall(
-  studentId: string,
-  traceName: string,
-  call: Parameters<typeof meteredGenerate>[2],
-  task: AiTask = "map",
-): Promise<unknown> {
-  const result = await meteredGenerate(
-    createAdminClient(),
-    { studentId, task, traceName },
-    call,
-  );
-  return result && result.output;
-}
-
-export const limitReached = { ok: false, reason: dailyLimitReason } as const;
-
-/**
- * Step 1: new big ideas and candidate KCs from the outline of the new
- * chunks, added to the `base` draft of the stored map.
- */
-export async function draftSkeleton(
-  studentId: string,
-  input: SkeletonInput,
-  base: Draft,
-): Promise<StepOutcome<Draft>> {
-  "use step";
-  const output = await mapCall(studentId, "map-skeleton", skeletonCall(input));
-  if (output === null) return limitReached;
-  return {
-    ok: true,
-    value: draftFromSkeleton(skeletonSchema.parse(output), base),
-  };
-}
-
-/**
- * Step 2, one batch: which KCs each chunk teaches, and new KCs the chunks
- * teach. Chunks, KCs and big ideas go to the model by short local ids.
- */
-export async function assignBatch(
-  studentId: string,
-  draft: Draft,
-  batch: MapChunk[],
-): Promise<StepOutcome<Draft>> {
-  "use step";
-  const chunkIds = aliases(
-    batch.map((chunk) => chunk.id),
-    "c",
-  );
-  const kcIds = aliases(
-    draft.kcs.map((kc) => kc.id),
-    "k",
-  );
-  const bigIdeaIds = aliases(
-    draft.bigIdeas.map((bigIdea) => bigIdea.id),
-    "b",
-  );
-  const bigIdeas = draft.bigIdeas.map((bigIdea) => ({
-    ...bigIdea,
-    id: bigIdeaIds.local(bigIdea.id),
-  }));
-  const kcs = draft.kcs.map((kc) => ({
-    ...kc,
-    id: kcIds.local(kc.id),
-    bigIdea: bigIdeaIds.local(kc.bigIdea),
-  }));
-  const chunks = batch.map((chunk) => ({
-    id: chunkIds.local(chunk.id),
-    label: chunk.label,
-    markdown: chunk.markdown,
-  }));
-  const output = await mapCall(
-    studentId,
-    "map-assignment",
-    assignmentCall(bigIdeas, kcs, chunks),
-  );
-  if (output === null) return limitReached;
-  const parsed = assignmentSchema(
-    chunks.map((chunk) => chunk.id),
-    kcs.map((kc) => kc.id),
-    bigIdeas.map((bigIdea) => bigIdea.id),
-  ).parse(output);
-  return {
-    ok: true,
-    value: applyAssignment(draft, {
-      taught: Object.fromEntries(
-        Object.entries(parsed.chunks).map(([id, answer]) => [
-          chunkIds.real(id),
-          answer.kcIds.map(kcIds.real),
-        ]),
-      ),
-      newKcs: Object.entries(parsed.chunks).flatMap(([id, answer]) =>
-        answer.newKcs.map((kc) => ({
-          ...kc,
-          bigIdea: bigIdeaIds.real(kc.bigIdea),
-          chunkIds: [chunkIds.real(id)],
-        })),
-      ),
-    }),
-  };
-}
-
-/**
- * Step 3, one big idea: each KC's type, Bloom level and sharper
- * description, from the chunks that teach it.
- */
-export async function fillBigIdea(
-  studentId: string,
-  bigIdea: DraftBigIdea,
-  kcs: Array<DraftKc & { chunks: string[] }>,
-): Promise<StepOutcome<Record<string, KcFill>>> {
-  "use step";
-  const output = await mapCall(studentId, "map-fill", fillCall(bigIdea, kcs));
-  if (output === null) return limitReached;
-  return {
-    ok: true,
-    value: fillSchema(kcs.map((kc) => kc.id)).parse(output).kcs,
-  };
-}
-
-/**
- * Step 4, and again for KCs exercises add: prerequisites, semantic links and
- * prior knowledge of the new KCs (`newKcIds`) over all of the map's KCs,
- * which go to the model by short local ids. When every KC is new, as in a
- * first build, the call links them all.
- */
-export async function linkNewKcs(
-  studentId: string,
-  map: KnowledgeMap,
-  newKcIds: string[],
-): Promise<StepOutcome<LinksProposal>> {
-  "use step";
-  const ids = aliases(
-    map.kcs.map((kc) => kc.id),
-    "k",
-  );
-  const kcs = map.kcs.map((kc) => ({ ...kc, id: ids.local(kc.id) }));
-  const allNew = newKcIds.length === map.kcs.length;
-  const output = await mapCall(
-    studentId,
-    allNew ? "map-links" : "map-added-kc-links",
-    allNew ? linksCall(kcs) : addedKcLinksCall(kcs, newKcIds.map(ids.local)),
-  );
-  if (output === null) return limitReached;
-  const proposal = linksSchema(kcs.map((kc) => kc.id)).parse(output);
-  const real = <Link extends { from: string; to: string }>(link: Link) => ({
-    ...link,
-    from: ids.real(link.from),
-    to: ids.real(link.to),
-  });
-  return {
-    ok: true,
-    value: {
-      prerequisites: proposal.prerequisites.map(real),
-      semanticLinks: proposal.semanticLinks.map(real),
-      priorKcs: proposal.priorKcs.map((prior) => ({
-        ...prior,
-        requiredBy: prior.requiredBy.map(ids.real),
-      })),
-    },
-  };
-}
-
-/**
- * Step 5, one exercise subtask (task `exercise`): the KCs of the linked map
- * it needs, new KCs it needs, its task type, the model's own solution and,
- * when a solution was given, whether that one matches. `taskTypes` are the
- * ones earlier subtasks of the build got, for the model to reuse.
- */
-export async function analyseExercise(
-  studentId: string,
-  exercise: ExerciseInput,
-  map: Pick<KnowledgeMap, "bigIdeas" | "kcs">,
-  taskTypes: string[],
-): Promise<StepOutcome<ExerciseAnswer>> {
-  "use step";
-  const solutionGiven = exercise.solution !== null;
-  const kcIds = aliases(
-    map.kcs.map((kc) => kc.id),
-    "k",
-  );
-  const bigIdeaIds = aliases(
-    map.bigIdeas.map((bigIdea) => bigIdea.id),
-    "b",
-  );
-  const output = await mapCall(
-    studentId,
-    "map-exercise",
-    exerciseCall({
-      exercise: exercise.markdown,
-      solution: exercise.solution,
-      bigIdeas: map.bigIdeas.map(({ id, name }) => ({
-        id: bigIdeaIds.local(id),
-        name,
-      })),
-      kcs: map.kcs.map(({ id, name, description }) => ({
-        id: kcIds.local(id),
-        name,
-        description,
-      })),
-      taskTypes,
-    }),
-    "exercise",
-  );
-  if (output === null) return limitReached;
-  const { givenFinalResult, ...answer } = exerciseAnswerSchema
-    .extend(givenSolutionSchema.partial().shape)
-    .parse(output);
-  const given = solutionGiven
-    ? givenSolutionSchema.parse({
-        givenFinalResult,
-        matchesGiven: answer.matchesGiven,
-      })
-    : null;
-  return {
-    ok: true,
-    value: {
-      kcIds: answer.kcIds.map(kcIds.real),
-      newKcs: answer.newKcs.map((kc) => ({
-        ...kc,
-        bigIdea: bigIdeaIds.real(kc.bigIdea),
-      })),
-      taskType: answer.taskType,
-      solution: answer.solution,
-      finalResult: answer.finalResult,
-      finalAnswers: answer.finalAnswers,
-      steps: answer.steps,
-      given: given && {
-        finalResult: given.givenFinalResult,
-        matches: given.matchesGiven,
-      },
-    },
-  };
-}
-
-/**
- * Step 6, dedup: the vectors of these KC texts (task `embed`), in order,
- * for the Student after checking their Daily limit. Nothing is stored.
- */
-export async function embedKcs(
-  studentId: string,
-  values: string[],
-): Promise<StepOutcome<number[][]>> {
-  "use step";
-  const embeddings = await meteredEmbed(
-    createAdminClient(),
-    { studentId, traceName: "map-dedup-embed" },
-    { values },
-  );
-  if (!embeddings) return limitReached;
-  return { ok: true, value: embeddings };
-}
-
-/**
- * Step 6, dedup: which KCs of each cluster are one KC, as groups of map ids.
- * KCs go to the model by short local ids.
- */
-export async function decideMerges(
-  studentId: string,
-  map: Pick<KnowledgeMap, "kcs">,
-  clusters: string[][],
-): Promise<StepOutcome<string[][]>> {
-  "use step";
-  const kcIds = aliases(
-    map.kcs.map((kc) => kc.id),
-    "k",
-  );
-  const kc = new Map(map.kcs.map((item) => [item.id, item]));
-  const sent = clusters.map((cluster, index) => ({
-    id: `g${index + 1}`,
-    kcs: cluster.map((id) => ({
-      id: kcIds.local(id),
-      name: kc.get(id)?.name ?? id,
-      description: kc.get(id)?.description ?? "",
-    })),
-  }));
-  const output = await mapCall(studentId, "map-merge", mergeCall(sent));
-  if (output === null) return limitReached;
-  const parsed = mergeSchema(
-    Object.fromEntries(
-      sent.map((cluster) => [cluster.id, cluster.kcs.map((item) => item.id)]),
-    ),
-  ).parse(output);
-  return {
-    ok: true,
-    value: Object.values(parsed.clusters).flatMap((cluster) =>
-      cluster.groups.map((group) => group.map(kcIds.real)),
-    ),
-  };
-}
-
-/**
- * The scope step, over the update's new `admin` chunks: one `scope` Finding
- * per remark that excludes or limits exam content, its text the question
- * for the Student and its sources the chunks. Chunks go to the model by
- * short local ids; unknown ones are dropped, and so is a remark left
- * without any.
- */
-export async function findScopeRemarks(
-  studentId: string,
-  adminChunks: MapChunk[],
-): Promise<StepOutcome<KnowledgeMap["findings"]>> {
-  "use step";
-  const ids = aliases(
-    adminChunks.map((chunk) => chunk.id),
-    "c",
-  );
-  const local = new Set(adminChunks.map((chunk) => ids.local(chunk.id)));
-  const output = await mapCall(
-    studentId,
-    "map-scope",
-    scopeCall(
-      adminChunks.map((chunk) => ({
-        id: ids.local(chunk.id),
-        material: chunk.materialName,
-        page: chunk.pageFrom,
-        markdown: chunk.markdown,
-      })),
-    ),
-  );
-  if (output === null) return limitReached;
-  return {
-    ok: true,
-    value: scopeSchema.parse(output).remarks.flatMap((remark) => {
-      const sources = [
-        ...new Set(remark.chunkIds.filter((id) => local.has(id))),
-      ].map(ids.real);
-      return sources.length === 0
-        ? []
-        : [{ kind: "scope" as const, text: remark.question, sources }];
-    }),
-  };
-}
-
-/**
- * Makes the stored map this one, records the update's new chunks as
- * processed and stores the check report, in one transaction; the build runs
- * on to the Topics stage. Rows of the stored map keep their ids. Does
- * nothing when no build runs any more.
- */
-export async function storeMap(
+/** Retires the Course's live KCs whose sources are all gone. */
+export async function retireUnsourcedKcs(
+  supabase: AdminSupabase,
   courseId: string,
-  map: KnowledgeMap,
-  newChunkIds: string[],
-  report: CheckReport,
-): Promise<void> {
-  "use step";
-  const { error } = await createAdminClient().rpc(
-    "apply_knowledge_map_update",
-    {
-      p_course_id: courseId,
-      p_map: knowledgeMapSchema.parse(map),
-      p_chunk_ids: newChunkIds,
-      p_check_report: report,
-    },
-  );
-  if (error) failed("Storing the knowledge map", error);
+) {
+  const { error } = await supabase.rpc("retire_unsourced_kcs", {
+    p_course_id: courseId,
+  });
+  if (error) failed("Retiring the KCs without sources", error);
 }
 
 /** Marks the running build failed with a reason for the Student. */

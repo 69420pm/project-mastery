@@ -28,7 +28,11 @@ const materialEntry = (page: Page, name: string) =>
 /** Sets a seeded Material's parse state, as an earlier parse left it. */
 async function setParseState(
   materialId: string,
-  state: { parse_status: string; parse_failure?: string },
+  state: {
+    parse_status: string;
+    parse_failure?: string;
+    heartbeat_at?: string;
+  },
 ) {
   const { error } = await adminClient()
     .from("materials")
@@ -73,19 +77,73 @@ test("a failed parse shows its reason, and Retry finishes it", async ({
   });
   await setParseState(id, {
     parse_status: "failed",
-    parse_failure: "The AI could not read page 2",
+    parse_failure: "Daily limit reached",
   });
 
   await page.goto(`/courses/${course.id}/materials`);
   const entry = materialEntry(page, "Broken lecture");
+  await expect(entry.getByText("Failed: Daily limit reached")).toBeVisible();
+  await entry.getByRole("button", { name: "Retry" }).click();
+
+  await expect(entry.getByText("Parsed", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+});
+
+test("a parse without a heartbeat for 30 minutes shows it stopped, and Retry finishes it", async ({
+  page,
+  student,
+  course,
+}) => {
+  const { id } = await seedMaterial(student.id, course.id, {
+    name: "Stalled lecture",
+    file: PDF,
+    mediaType: "application/pdf",
+  });
+  await setParseState(id, {
+    parse_status: "parsing",
+    heartbeat_at: new Date(Date.now() - 31 * 60_000).toISOString(),
+  });
+
+  await page.goto(`/courses/${course.id}/materials`);
+  const entry = materialEntry(page, "Stalled lecture");
   await expect(
-    entry.getByText("Failed: The AI could not read page 2"),
+    entry.getByText("Failed: The parse stopped. Parse again."),
   ).toBeVisible();
   await entry.getByRole("button", { name: "Retry" }).click();
 
   await expect(entry.getByText("Parsed", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
+});
+
+test("a parsed Material lists the pages that could not be read", async ({
+  page,
+  student,
+  course,
+}) => {
+  const { id } = await seedMaterial(student.id, course.id, {
+    name: "Smudged lecture",
+    file: PDF,
+    mediaType: "application/pdf",
+  });
+  await setParseState(id, { parse_status: "parsed" });
+  const { error } = await adminClient().from("material_pages").insert({
+    owner: student.id,
+    material_id: id,
+    page_number: 2,
+    units: [],
+    skipped: "unreadable",
+  });
+  if (error) throw new Error(error.message);
+
+  await page.goto(`/courses/${course.id}/materials`);
+
+  await expect(
+    materialEntry(page, "Smudged lecture").getByText(
+      "Page 2 could not be read",
+    ),
+  ).toBeVisible();
 });
 
 test("a parsed Material keeps only its file in Storage, and deleting it removes that", async ({

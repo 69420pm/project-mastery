@@ -7,12 +7,11 @@ import {
   priorityFractions,
   sizeScale,
 } from "./encodings";
-import { STATE_NAMES, TYPE_NAMES } from "./kc-labels";
+import { STATE_NAMES } from "./kc-labels";
 
 const priority = (level: "high" | "excluded", value: number) => ({
   level,
   value,
-  multiplier: 1,
   reasons: [],
 });
 
@@ -35,43 +34,18 @@ test("size scale shrinks a KC to 70% at the lowest Priority and none at all", ()
 });
 
 test("colours follow the chosen attribute", () => {
-  const kc = {
-    state: "due" as const,
-    type: "fact" as const,
-    bigIdeaId: "b2",
-    fraction: 1,
-  };
-  const bigIdeas = new Map([["b2", "red"]]);
-  expect(kcColor("state", kc, bigIdeas)).toBe("var(--warning)");
-  expect(kcColor("priority", kc, bigIdeas)).toBe("var(--chart-5)");
-  expect(kcColor("priority", { ...kc, fraction: 0 }, bigIdeas)).toBe(
-    "var(--chart-1)",
-  );
-  expect(kcColor("priority", { ...kc, fraction: undefined }, bigIdeas)).toBe(
-    "var(--muted-foreground)",
-  );
-  expect(kcColor("bigIdea", kc, bigIdeas)).toBe("red");
-  expect(kcColor("bigIdea", { ...kc, bigIdeaId: null }, bigIdeas)).toBe(
+  const kc = { state: "due" as const, fraction: 1 };
+  expect(kcColor("state", kc)).toBe("var(--warning)");
+  expect(kcColor("priority", kc)).toBe("var(--chart-5)");
+  expect(kcColor("priority", { ...kc, fraction: 0 })).toBe("var(--chart-1)");
+  expect(kcColor("priority", { ...kc, fraction: undefined })).toBe(
     "var(--muted-foreground)",
   );
 });
 
-test("the legend lists one entry per Big idea, plus prior knowledge", () => {
-  const entries = legendEntries(
-    "bigIdea",
-    [
-      { id: "1", name: "Forces" },
-      { id: "2", name: "Energy" },
-    ],
-    TYPE_NAMES,
-    STATE_NAMES,
-  );
-  expect(entries.map((e) => e.label)).toEqual([
-    "Forces",
-    "Energy",
-    "Prior knowledge",
-  ]);
-  expect(legendEntries("state", [], TYPE_NAMES, STATE_NAMES)).toHaveLength(4);
+test("the legend lists one entry per colour", () => {
+  expect(legendEntries("state", STATE_NAMES)).toHaveLength(4);
+  expect(legendEntries("priority", STATE_NAMES)).toHaveLength(4);
 });
 
 test("saved settings fall back to the defaults when missing or invalid", () => {
@@ -82,35 +56,25 @@ test("saved settings fall back to the defaults when missing or invalid", () => {
     JSON.stringify({
       colorBy: "nonsense",
       sizeByPriority: true,
-      layers: { exercises: false, semanticLinks: { causes: false, is_a: 3 } },
+      layers: { exercises: false },
     }),
   );
   expect(parsed.colorBy).toBe("state");
   expect(parsed.sizeByPriority).toBe(true);
   expect(parsed.layers.exercises).toBe(false);
   expect(parsed.layers.prerequisites).toBe(true);
-  expect(parsed.layers.semanticLinks.causes).toBe(false);
-  expect(parsed.layers.semanticLinks.is_a).toBe(true);
 });
 
 test("a malformed saved `layers` falls back key by key", () => {
   const layers = (value: unknown) =>
-    parseSettings(JSON.stringify({ colorBy: "bigIdea", layers: value }));
+    parseSettings(JSON.stringify({ colorBy: "priority", layers: value }));
   for (const value of ["all", null, [], 1]) {
-    expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "bigIdea" });
+    expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "priority" });
   }
   const parsed = layers({
-    priorKnowledge: false,
     exercises: "false",
-    solutionBadges: false,
     prerequisites: 0,
-    bigIdeaGroups: false,
-    semanticLinks: "none",
+    retired: false,
   });
-  expect(parsed.layers).toEqual({
-    ...DEFAULT_SETTINGS.layers,
-    priorKnowledge: false,
-    solutionBadges: false,
-    bigIdeaGroups: false,
-  });
+  expect(parsed.layers).toEqual(DEFAULT_SETTINGS.layers);
 });

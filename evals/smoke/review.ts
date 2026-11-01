@@ -2,27 +2,19 @@ import { randomUUID } from "node:crypto";
 import { startTutoring } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { AdminSupabase } from "@/lib/supabase/types";
+import { insertRows, seedGoldCourse } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
-import { insertGoldCourse, insertRows, sendMessage } from "./tutor";
+import { sendMessage } from "./tutor";
 
 const GREETING = "Let's start studying.";
 
 /** A wrong answer to whatever the first card asks. */
 const WRONG =
-  "I think the hot exhaust pushes against the still air behind the engine, like a hand pushing off a wall, and that is what moves the plane.";
-
-/** A plausible answer on the due KCs of both Topics. */
-const RIGHT =
-  "By Newton's third law the engine pushes air backwards and the air pushes the engine forwards: thrust is the net force from the change in the air's momentum, F = mdot_e v_e - mdot_0 v_0 + (p_e - p_0) A_e. A propeller accelerates a lot of air a little with blades outside the engine; a jet accelerates less air a lot. The turbojet's sections in flow order are the intake, the compressor, the combustion chamber, the turbine and the nozzle. The inlet slows and diffuses the incoming air so it reaches the compressor evenly, and the compressor raises the air's pressure before the fuel burns.";
+  "I think these are just names to memorise; nothing follows from anything else.";
 
 /** Taught long enough ago to be due, and too recently to be. */
 const DUE_DAYS_AGO = 10;
 const RECENT_HOURS_AGO = 2;
-
-/** Due: 4 KCs of Thrust from momentum and 2 of Turbojet anatomy. */
-const DUE = ["KC01", "KC02", "KC03", "KC04", "KC09", "KC10"];
-/** Taught but not due, so Thrust from momentum is learned for practice. */
-const RECENT = ["KC05", "KC06", "KC07", "KC08"];
 
 /** An ended learn session that taught `kcIds` at `at`, each graded full. */
 async function insertTaught(
@@ -31,6 +23,7 @@ async function insertTaught(
   courseId: string,
   kcIds: string[],
   at: string,
+  answer: string,
 ) {
   const session = randomUUID();
   await insertRows(supabase, "study_sessions", [
@@ -52,7 +45,7 @@ async function insertTaught(
       kind: "question",
       prompt: "Explain these.",
       asked_at: at,
-      answer_text: RIGHT,
+      answer_text: answer,
       answered_at: at,
       graded_at: at,
     },
@@ -93,38 +86,53 @@ const hoursAgo = (hours: number) =>
   new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
 /**
- * Sets up the gold Course (`insertGoldCourse`) with 6 KCs in 2 Topics
- * taught 10 days ago, so they are due, and the rest of Thrust from momentum
- * taught 2 hours ago, so that Topic is learned. In a review Chat, through
- * the real Chat handler, it greets, answers the first card wrong and
- * answers the next two; in a practice Chat it greets once. Checks that each
- * `ask` tests a group of the review queue, that `grade` uses real question
- * ids, that a KC of the wrong answer is asked again later and that practice
+ * Seeds the gold course (`seedGoldCourse`) with up to 4 KCs of its first
+ * Topic and 2 of its second taught 10 days ago, so they are due, and the
+ * rest of the first Topic taught 2 hours ago, so that Topic is learned. In
+ * a review Chat, through the real Chat handler, it greets, answers the
+ * first card wrong and answers the next two with the due KCs'
+ * descriptions; in a practice Chat it greets once. Checks that each `ask`
+ * tests a group of the review queue, that `grade` uses real question ids,
+ * that a KC of the wrong answer is asked again later and that practice
  * poses a Problem through `ask` with a `problemId`.
  */
 export const reviewSmoke: SmokeCheck = {
   name: "review",
   usage:
-    "pnpm smoke review (the gold map with 6 due KCs in 2 Topics; a review Chat: a greeting, a wrong answer, two answers; a practice Chat: a greeting)",
+    "pnpm smoke review (the gold course with 6 due KCs in 2 Topics; a review Chat: a greeting, a wrong answer, two answers; a practice Chat: a greeting)",
   async run({ supabase, studentId }) {
-    const { courseId, id, exerciseIds } = await insertGoldCourse(
-      supabase,
-      studentId,
-    );
+    const gold = await seedGoldCourse(supabase, studentId);
+    const { courseId } = gold;
+    const [first, second] = gold.topics;
+    if (!first || !second || first.kcs.length < 2) {
+      throw new Error(
+        "The gold course needs 2 Topics, the first with 2 KCs or more.",
+      );
+    }
+    const firstDue = first.kcs.slice(0, Math.min(4, first.kcs.length - 1));
+    const DUE = [...firstDue, ...second.kcs.slice(0, 2)];
+    const RECENT = first.kcs.slice(firstDue.length);
+    const RIGHT = gold.kcs
+      .filter((kc) => DUE.includes(kc.id))
+      .map((kc) => `${kc.name}: ${kc.description}`)
+      .join(" ");
     await insertTaught(
       supabase,
       studentId,
       courseId,
-      DUE.map(id),
+      DUE,
       hoursAgo(DUE_DAYS_AGO * 24),
+      RIGHT,
     );
     await insertTaught(
       supabase,
       studentId,
       courseId,
-      RECENT.map(id),
+      RECENT,
       hoursAgo(RECENT_HOURS_AGO),
+      RIGHT,
     );
+    const exerciseIds = gold.exercises.map((exercise) => exercise.id);
 
     const client = await signInAsUser(supabase, studentId);
     const chat = { chatId: randomUUID(), courseId, mode: "review" as const };

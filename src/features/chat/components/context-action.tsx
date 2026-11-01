@@ -101,7 +101,7 @@ function ContextDetails({ context }: { context: TutorContext }) {
                 <span className="font-medium">{kc.name}</span>
                 <span className="text-muted-foreground">
                   {" "}
-                  · {kc.type} · {dueReviewText(kc)}
+                  · {dueReviewText(kc)}
                 </span>
               </li>
             ))}
@@ -129,7 +129,7 @@ function ContextDetails({ context }: { context: TutorContext }) {
                   {kc.name}
                   <span className="text-muted-foreground">
                     {" "}
-                    · {kc.type} · {kc.taught ? "taught" : "not taught yet"}
+                    · {kc.taught ? "taught" : "not taught yet"}
                   </span>
                 </li>
               ))}

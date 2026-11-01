@@ -60,9 +60,9 @@ export default async function TopicPage({
           };
         }),
       }}
-      topics={topics.map(({ id, bigIdeaId, name, centralQuestion, kcs }) => ({
+      topics={topics.map(({ id, parentId, name, centralQuestion, kcs }) => ({
         id,
-        bigIdeaId,
+        parentId,
         name,
         centralQuestion,
         kcs,
