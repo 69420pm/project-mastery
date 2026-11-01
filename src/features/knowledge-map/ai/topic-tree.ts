@@ -83,8 +83,8 @@ export const topicTreeSchema = (
 
 const TREE_INSTRUCTIONS = `You get the materials of a university course as JSON: each material's outline of chapters in course order, with the names of the knowledge components (KCs) under each chapter that teaches some, and the course's stored Topic tree. Group the chapters into a tree of Topics a student learns one at a time.
 
-- A Topic covers whole chapters. Give every chapter that has KCs to exactly one Topic, by its id; leave out chapters without KCs.
-- Follow the outlines: a chapter with sections usually becomes a Topic whose children are its sections' Topics, in section order. A chapter's KCs outside its sections can sit on that parent Topic itself.
+- A Topic covers whole chapters. Give every chapter that has KCs to exactly one Topic, by its id; never list a chapter without KCs under chapterIds.
+- Follow the outlines: a chapter with sections usually becomes a Topic whose children are its sections' Topics, in section order, also when the chapter has no KCs of its own; that parent Topic then holds no chapters itself. A chapter's KCs outside its sections can sit on that parent Topic itself.
 - Join small neighbouring chapters on one subject into one Topic; split nothing.
 - Where several materials teach the same subject, such as a script and an exercise sheet, put their chapters in the same Topic.
 - List the Topics in tree order, each with its level: 1 at the top, a child one level below its parent.

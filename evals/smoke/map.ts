@@ -217,9 +217,11 @@ async function checkMap(
       )
       .map((kc) => kc.name),
   );
-  const notEnglish = kcs.data!.filter(
-    (kc) => !ENGLISH.test(kc.description) || NOT_ENGLISH.test(kc.description),
-  );
+  // Formulas aside: LaTeX's \le would read as French "le".
+  const notEnglish = kcs.data!.filter((kc) => {
+    const prose = kc.description.replace(/\$[^$]*\$/g, " ");
+    return !ENGLISH.test(prose) || NOT_ENGLISH.test(prose);
+  });
 
   // The lecture notes' Chapters in reading order, and each Topic's first.
   const lectureChapters = new Map(
@@ -282,7 +284,8 @@ async function checkMap(
     result(
       "every KC is in English",
       notEnglish.length === 0,
-      notEnglish.map((kc) => kc.name).join("; ") || undefined,
+      notEnglish.map((kc) => `${kc.name}: ${kc.description}`).join("; ") ||
+        undefined,
     ),
     result(
       "every KC cites a chunk of its unit",
