@@ -6,4 +6,6 @@
 
 **Consequences.** Two client dependencies, loaded only on the Course map (`courses/[courseId]/map`, where the Course's home redirects) and the Topic page (`map/[topicId]`). The layout runs off the main thread, so a large map does not block the page, and it reruns only when the graph's nodes or edges change, not on every poll. ELK's layered layout is deterministic for the same input, so a map keeps its shape across visits. The verified ELK facts are in `docs/agents/notes/react-flow-elk.md`. React Flow shows its attribution link, which only a paid plan may hide.
 
-**Update (#176).** The Course map draws Topics with the same stack, as compound nodes: each Big idea a parent node holding its Topics' cards.
+**Update (#176).** The Course map draws Topics with the same stack, as compound nodes.
+
+**Update (#229).** Big ideas are gone: the Course map nests Topics as ELK compound boxes to any depth, a parent Topic's own card beside its children's, and the KC graph has no groups.

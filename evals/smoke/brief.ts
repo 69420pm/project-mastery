@@ -6,11 +6,14 @@ import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 import { insertRows } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
+/** The lecture notes' last Chapter, which the parse proposed as an old exam. */
+const EXAM_TITLE = "Klausur 2025";
+
 /** What the Student tells the AI, one message per reply. */
 const MESSAGES = [
   "Exam is 2026-12-03, closed book, calculator allowed, written. I want a good grade and have 6 hours a week.",
   "Skip the lab manual. The lecturer said determinants are important.",
-  "Klausur 2025 is an old exam, the others are not.",
+  `Yes, ${EXAM_TITLE} at the end of the lecture notes is an old exam, nothing else is.`,
   "Yes, Chapter 2 is not examined, leave it out.",
 ];
 
@@ -60,7 +63,7 @@ async function send(
 type Seeded = {
   courseId: string;
   labManualId: string;
-  /** The root Chapter of the old exam Klausur 2025. */
+  /** The old exam Chapter inside the lecture notes. */
   examChapterId: string;
   /** The KCs of Chapter 2, which an admin text says is not examined. */
   chapter2Kcs: string[];
@@ -69,9 +72,10 @@ type Seeded = {
 };
 
 /**
- * A small Course seeded in code: a lab manual, an old exam named "Klausur
- * 2025" and lecture notes whose admin chunk says "Chapter 2 is not
- * examined", with a map of two top-level Topics, one per chapter.
+ * A small Course seeded in code (#229): a lab manual and lecture notes
+ * whose admin chunk says "Chapter 2 is not examined", with Chapters 1 and
+ * 2 and a last Chapter "Klausur 2025" that the parse proposed as an old
+ * exam, and a map of two top-level Topics, one per teaching Chapter.
  */
 async function seedCourse(
   supabase: AdminSupabase,
@@ -85,17 +89,12 @@ async function seedCourse(
   if (error) throw new Error(error.message);
   const courseId = course.id;
   const owned = { owner: studentId, course_id: courseId };
-  const [labManualId, examId, notesId] = [
-    randomUUID(),
-    randomUUID(),
-    randomUUID(),
-  ];
+  const [labManualId, notesId] = [randomUUID(), randomUUID()];
   await insertRows(
     supabase,
     "materials",
     [
       [labManualId, "Lab manual"],
-      [examId, "Klausur 2025"],
       [notesId, "Lecture notes"],
     ].map(([id, name], index) => ({
       ...owned,
@@ -108,32 +107,49 @@ async function seedCourse(
       created_at: new Date(Date.UTC(2026, 9, 1 + index)).toISOString(),
     })),
   );
-  // Each Material's root Chapter, titled by its name.
-  const roots = new Map<string, string>(
-    [labManualId, examId, notesId].map((id) => [id, randomUUID()]),
-  );
-  await insertRows(
-    supabase,
-    "chapters",
-    [
-      [labManualId, "Lab manual"],
-      [examId, "Klausur 2025"],
-      [notesId, "Lecture notes"],
-    ].map(([materialId, title]) => ({
-      ...owned,
-      id: roots.get(materialId!)!,
-      material_id: materialId,
-      position: 0,
-      depth: 0,
-      title,
-      page_from: 1,
-    })),
-  );
-  const chunk = (page: number, label: string, markdown: string) => ({
+  // The lab manual's root Chapter, and the lecture notes' root Chapter with
+  // its three Chapters, each titled as printed.
+  const [labRoot, notesRoot, chapter1, chapter2, examChapter] = [
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+  ];
+  const chapter = (
+    id: string,
+    materialId: string,
+    parentId: string | null,
+    position: number,
+    title: string,
+  ) => ({
+    ...owned,
+    id,
+    material_id: materialId,
+    parent_id: parentId,
+    position,
+    depth: parentId === null ? 0 : 1,
+    title,
+    page_from: Math.max(position, 1),
+    exam_proposed: title === EXAM_TITLE,
+  });
+  await insertRows(supabase, "chapters", [
+    chapter(labRoot, labManualId, null, 0, "Lab manual"),
+    chapter(notesRoot, notesId, null, 0, "Lecture notes"),
+    chapter(chapter1, notesId, notesRoot, 1, "Chapter 1: Vectors"),
+    chapter(chapter2, notesId, notesRoot, 2, "Chapter 2: Matrices"),
+    chapter(examChapter, notesId, notesRoot, 3, EXAM_TITLE),
+  ]);
+  const chunk = (
+    page: number,
+    chapterId: string,
+    label: string,
+    markdown: string,
+  ) => ({
     ...owned,
     id: randomUUID(),
     material_id: notesId,
-    chapter_id: roots.get(notesId)!,
+    chapter_id: chapterId,
     position: page - 1,
     page_from: page,
     page_to: page,
@@ -141,25 +157,36 @@ async function seedCourse(
     markdown,
   });
   const chunks = [
-    chunk(1, "admin", "Chapter 2 is not examined."),
-    chunk(2, "content", "# Chapter 1: Vectors\nA vector is ..."),
-    chunk(3, "content", "# Chapter 2: Matrices\nA matrix is ..."),
+    chunk(1, notesRoot, "admin", "Chapter 2 is not examined."),
+    chunk(2, chapter1, "content", "# Chapter 1: Vectors\nA vector is ..."),
+    chunk(3, chapter2, "content", "# Chapter 2: Matrices\nA matrix is ..."),
+    chunk(
+      4,
+      examChapter,
+      "exercise",
+      `# ${EXAM_TITLE}\n**Problem 1.** Add the vectors (1, 2) and (3, 4).`,
+    ),
   ];
   await insertRows(supabase, "chunks", chunks);
 
   // Two top-level Topics, each holding one Chapter's KC.
   const [vectors, matrices] = [randomUUID(), randomUUID()];
-  const topic = (id: string, name: string, position: number) => ({
+  const topic = (
+    id: string,
+    name: string,
+    chapterId: string,
+    position: number,
+  ) => ({
     ...owned,
     id,
     name,
     central_question: `What is ${name}?`,
-    chapter_ids: [randomUUID()],
+    chapter_ids: [chapterId],
     position,
   });
   await insertRows(supabase, "topics", [
-    topic(vectors, "Chapter 1: Vectors", 0),
-    topic(matrices, "Chapter 2: Matrices", 1),
+    topic(vectors, "Chapter 1: Vectors", chapter1, 0),
+    topic(matrices, "Chapter 2: Matrices", chapter2, 1),
   ]);
   const kc = (name: string, position: number) => ({
     ...owned,
@@ -193,7 +220,7 @@ async function seedCourse(
   return {
     courseId,
     labManualId,
-    examChapterId: roots.get(examId)!,
+    examChapterId: examChapter,
     chapter2Kcs: [kcs[1]!.id],
     chapter2Topic: matrices,
   };
@@ -291,7 +318,7 @@ export const briefSmoke: SmokeCheck = {
         `${excludedIds.length} excluded`,
       ),
       result(
-        "Klausur 2025 is the only old exam",
+        `the lecture notes' Chapter ${EXAM_TITLE} is the only old exam`,
         examIds.length === 1 && examIds[0] === seeded.examChapterId,
         `${examIds.length} old exams`,
       ),
@@ -354,7 +381,7 @@ async function answerReservation(
   console.info(`Student: ${prompt}`);
   const asked = await send(client, studentId, courseId, prompt);
   console.info(`AI: ${asked}`);
-  const answer = "Keep Klausur 2025 aside for my final mock exam.";
+  const answer = `Keep ${EXAM_TITLE} aside for my final mock exam.`;
   console.info(`Student: ${answer}`);
   console.info(`AI: ${await send(client, studentId, courseId, answer)}`);
 
@@ -367,7 +394,7 @@ async function answerReservation(
   return [
     result(
       "the AI asks about keeping the old exam",
-      asked.includes("Klausur 2025"),
+      asked.includes(EXAM_TITLE),
       JSON.stringify(asked),
     ),
     result(

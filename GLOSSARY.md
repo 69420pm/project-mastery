@@ -16,37 +16,41 @@ _Avoid_: Subject, class, folder
 A file a Student uploaded to one Course, such as slides, a script, an exercise sheet or an old exam, under a name the Student can change.
 _Avoid_: File, document, upload, attachment
 
-**Part**:
-A run of one Material's chunks under one heading, found in code when the Material is parsed: a teaching Part holds content, an exercise Part one exercise or its solution. The map build extracts KCs from one Part at a time.
-_Avoid_: Section (a Reading section is something else), chapter
+**Outline**:
+A Material's tree of Chapters, found when it is parsed from its headings, the starts of its pages and its PDF outline. Its root Chapter is titled by the Material's name.
+_Avoid_: Table of contents, structure
+
+**Chapter**:
+One node of a Material's Outline, such as a part, a chapter or a section, with its title as printed and the chunks from its start to the next Chapter's. The map build extracts KCs from whole Chapters, and a Topic covers whole Chapters.
+_Avoid_: Section (a Reading section is something else), Part, heading
+
+**Old exam**:
+A Chapter the Student confirmed in the Brief as a past exam, together with the Chapters inside it: a whole Material through its root Chapter, or an exam inside a script. Its Exercises count for Priority, and Mock exams are assembled from it.
+_Avoid_: Past paper, Altklausur, exam Material
 
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Materials are old exams, the exam scope and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Materials whose names look like old exams, and asks once about each Material parsed after intake.
+What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
 **Exam scope**:
-A Student-confirmed statement that the exam leaves out (`excluded`) or stresses (`emphasized`) one Big idea or Topic, in the Student's words. The AI proposes one only when an admin text of the Materials or the Student says so.
+A Student-confirmed statement that the exam leaves out (`excluded`) or stresses (`emphasized`) one Topic, in the Student's words; it covers the Topics inside it unless one has its own. The AI proposes one only when an admin text of the Materials or the Student says so.
 _Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Big ideas, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates.
+What a Course's Materials teach, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
-The Course's home: its Topics on its Big ideas, with the arrows between Topics that their KCs' Prerequisites imply. It shows the Knowledge map at Topic level.
+The Course's home: its Topics drawn as nested boxes, with the arrows between Topics that their KCs' Prerequisites imply. It shows the Knowledge map at Topic level.
 _Avoid_: Dashboard, overview, home page
 
-**Big idea**:
-One chapter of a Course's Materials as its Knowledge map groups it: one Big idea per chapter title, named by it, holding that chapter's Topics and Knowledge components.
-_Avoid_: Theme, chapter, module
-
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, such as a fact, concept, procedure or decision, with the chunks of the Materials that teach it. Every KC sits in one Topic and its Big idea; a KC whose chunks are all gone is retired and keeps its Attempts.
+One thing a Student can learn and be tested on, with the chunks of the Materials that teach it. Every KC sits in one Topic; a KC whose chunks are all gone is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
-A named unit of the KCs of one or a few Parts of a chapter that a Student learns and sees as one, with the central question it answers, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while its Parts stay unchanged.
-_Avoid_: Chapter, unit, lesson, module
+A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call continues it.
+_Avoid_: Big idea, chapter, unit, lesson, module
 
 **Topic state**:
 Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS card has lapsed 3 or more times), solid (every KC has a card whose recall on the exam date, or today without an exam ahead, reaches the goal's retention), learned (every KC is taught), in progress (some KC is taught) or new.
@@ -61,7 +65,7 @@ A link saying one KC must be learned before another. The Prerequisites of a Know
 _Avoid_: Dependency, requirement
 
 **Exercise**:
-One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "7.2b · Sheet 2 p. 3", is built when read. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
+One exercise subtask of a Course's Materials, such as "Ex. 7.2b", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "Linear maps · Sheet 2 p. 3" (its Chapter, Material and page), is built when read. Its statement is a chunk labelled `exercise`; an exercise with several subtasks is several Exercises.
 _Avoid_: Task, assignment
 
 **Problem**:
@@ -73,7 +77,7 @@ What the tutor files in a Study session when the Course's sources show the Knowl
 _Avoid_: Issue, error, erratum
 
 **Priority**:
-How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or Big idea. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
@@ -145,7 +149,7 @@ A timed Study session without help, assembled from old exams or from Problems in
 _Avoid_: Practice exam, test, simulation
 
 **Reserved exam**:
-An old exam the Student chose in the Brief to keep unseen for their final Mock exam. Until a submitted Mock exam has used it, the AI, Problem generation and the other Mock exams leave its Exercises and chunks out; afterwards it counts as an ordinary Material.
+An old exam the Student chose in the Brief to keep unseen for their final Mock exam. Until a submitted Mock exam has used it, the AI, Problem generation and the other Mock exams leave its Chapter's Exercises and chunks out; afterwards it counts as an ordinary old exam.
 _Avoid_: Held-back exam, hidden exam, final exam
 
 **Memory**:
