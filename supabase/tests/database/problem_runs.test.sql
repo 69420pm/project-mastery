@@ -17,13 +17,9 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Bob''s');
 
-insert into public.big_ideas (id, owner, course_id, name, description, position)
-values ('cccccccc-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
-  'aaaaaaaa-0000-0000-0000-000000000002', 'Thrust', 'Thrust.', 0);
-
-insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, position)
+insert into public.topics (id, owner, course_id, chapter_ids, name, central_question, position)
 values ('dddddddd-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222',
-  'aaaaaaaa-0000-0000-0000-000000000002', 'cccccccc-0000-0000-0000-000000000001',
+  'aaaaaaaa-0000-0000-0000-000000000002', '{cccccccc-0000-0000-0000-000000000001}',
   'Thrust', 'How much?', 0);
 
 set local role authenticated;

@@ -1,8 +1,8 @@
 import type { KnowledgeMapView } from "@/features/knowledge-map/types";
 
 /**
- * The map a Topic page draws (#176): the Topic's KCs and its anchors in
- * their Big ideas, the Exercises that test a Topic KC, and the Prerequisites
+ * The map a Topic page draws (#176): the Topic's own KCs and its anchors,
+ * the Exercises that test a Topic KC, and the Prerequisites
  * among the KCs shown. An Exercise lists only the shown KCs it tests. Pure
  * code.
  */
@@ -15,12 +15,7 @@ export function restrictMapToTopic(
 
   return {
     ...map,
-    bigIdeas: map.bigIdeas
-      .map((bigIdea) => ({
-        ...bigIdea,
-        kcs: bigIdea.kcs.filter((kc) => shown.has(kc.id)),
-      }))
-      .filter((bigIdea) => bigIdea.kcs.length > 0),
+    kcs: map.kcs.filter((kc) => shown.has(kc.id)),
     prerequisites: map.prerequisites.filter(
       (link) => shown.has(link.from) && shown.has(link.to),
     ),

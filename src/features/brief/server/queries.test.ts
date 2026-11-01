@@ -57,16 +57,16 @@ function createDb() {
       briefs: [] as FakeRow[],
       brief_excluded_materials: [] as FakeRow[],
       brief_messages: [] as FakeRow[],
-      big_ideas: [
+      topics: [
         {
-          id: "big-idea",
+          id: "integrals",
           owner: STUDENT,
           course_id: COURSE,
+          parent_id: null,
           name: "Integrals",
           position: 0,
         },
       ] as FakeRow[],
-      topics: [] as FakeRow[],
       exam_scopes: [] as FakeRow[],
     },
     primaryKeys: { briefs: ["course_id"] },
@@ -163,8 +163,7 @@ describe("getBrief", () => {
     db.tables.exam_scopes.push({
       owner: STUDENT,
       course_id: COURSE,
-      big_idea_id: "big-idea",
-      topic_id: null,
+      topic_id: "integrals",
       scope: "emphasized",
       words: "Integrals matter most",
       created_at: "2026-10-05T12:00:00Z",

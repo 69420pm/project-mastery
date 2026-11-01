@@ -25,15 +25,8 @@ async function seedReading(owner: string, courseId: string): Promise<void> {
     if (error) throw new Error(`${table}: ${error.message}`);
     return (data as { id: string }).id;
   };
-  const bigIdea = await insert("big_ideas", {
-    ...owned,
-    name: "Thrust",
-    description: "Thrust.",
-    position: 0,
-  });
   const kc = await insert("kcs", {
     ...owned,
-    big_idea_id: bigIdea,
     name: "Thrust equation",
     description: "Thrust is mass flow times the change in velocity.",
     origin: "content",
@@ -41,9 +34,9 @@ async function seedReading(owner: string, courseId: string): Promise<void> {
   });
   const topic = await insert("topics", {
     ...owned,
-    big_idea_id: bigIdea,
     name: "Thrust basics",
     central_question: "What makes a rocket accelerate?",
+    chapter_ids: [crypto.randomUUID()],
     position: 0,
   });
   const link = await admin

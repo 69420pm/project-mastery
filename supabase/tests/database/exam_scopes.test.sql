@@ -27,13 +27,12 @@ values
   ('aaaaaaaa-0000-0000-0000-0000000000f2', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Lecture', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f2', 'application/pdf', 10, 'parsing'),
   ('aaaaaaaa-0000-0000-0000-0000000000f3', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Notes', '11111111-1111-1111-1111-111111111111/aaaaaaaa-c000-0000-0000-000000000001/aaaaaaaa-0000-0000-0000-0000000000f3', 'application/pdf', 10, 'parsed');
 
-insert into public.big_ideas (id, owner, course_id, name, description, position)
+-- Matrices holds Determinants; Cells is Bob's.
+insert into public.topics (id, owner, course_id, parent_id, chapter_ids, name, central_question, position)
 values
-  ('aaaaaaaa-b000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'Matrices', 'M.', 0),
-  ('bbbbbbbb-b000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-c000-0000-0000-000000000001', 'Cells', 'C.', 0);
-
-insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, position)
-values ('aaaaaaaa-7000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-b000-0000-0000-000000000001', 'Determinants', 'Why?', 0);
+  ('aaaaaaaa-b000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', null, '{}', 'Matrices', null, 0),
+  ('aaaaaaaa-7000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-b000-0000-0000-000000000001', '{aaaaaaaa-1111-0000-0000-000000000001}', 'Determinants', 'Why?', 1),
+  ('bbbbbbbb-b000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'bbbbbbbb-c000-0000-0000-000000000001', null, '{bbbbbbbb-1111-0000-0000-000000000001}', 'Cells', 'C?', 0);
 
 update public.briefs set updated_at = '2026-01-01' where course_id = 'aaaaaaaa-c000-0000-0000-000000000001';
 
@@ -43,17 +42,17 @@ set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", 
 -- Exam scopes ----------------------------------------------------------------
 
 select ok(
-  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', big_idea_id => 'aaaaaaaa-b000-0000-0000-000000000001', scope => 'excluded', words => 'Chapter 2 is out'),
-  'set_exam_scope stores a scope of the Student''s Big idea');
+  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', topic_id => 'aaaaaaaa-b000-0000-0000-000000000001', scope => 'excluded', words => 'Chapter 2 is out'),
+  'set_exam_scope stores a scope of a Topic holding only Topics');
 
 select ok(
-  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', big_idea_id => 'aaaaaaaa-b000-0000-0000-000000000001', scope => 'emphasized', words => 'Matrices matter'),
+  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', topic_id => 'aaaaaaaa-b000-0000-0000-000000000001', scope => 'emphasized', words => 'Matrices matter'),
   'set_exam_scope replaces it');
 
 select results_eq(
   $$select scope, words from public.exam_scopes$$,
   $$values ('emphasized', 'Matrices matter')$$,
-  'one row per Big idea, with the Student''s words');
+  'one row per Topic, with the Student''s words');
 
 select ok(
   (select updated_at > '2026-01-01' from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'),
@@ -61,11 +60,11 @@ select ok(
 
 select ok(
   public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', topic_id => 'aaaaaaaa-7000-0000-0000-000000000001', scope => 'excluded', words => 'No determinants'),
-  'set_exam_scope stores a Topic''s scope');
+  'set_exam_scope stores a scope of a Topic inside it');
 
 select ok(
-  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', big_idea_id => 'aaaaaaaa-b000-0000-0000-000000000001'),
-  'scope null removes the Big idea''s scope');
+  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', topic_id => 'aaaaaaaa-b000-0000-0000-000000000001'),
+  'scope null removes the outer Topic''s scope');
 
 select results_eq(
   $$select topic_id from public.exam_scopes$$,
@@ -73,17 +72,17 @@ select results_eq(
   'only the Topic''s scope is left');
 
 select is(
-  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', big_idea_id => 'bbbbbbbb-b000-0000-0000-000000000001', scope => 'excluded', words => 'x'),
+  public.set_exam_scope('aaaaaaaa-c000-0000-0000-000000000001', topic_id => 'bbbbbbbb-b000-0000-0000-000000000001', scope => 'excluded', words => 'x'),
   false,
-  'set_exam_scope refuses another Course''s Big idea');
+  'set_exam_scope refuses another Course''s Topic');
 
 select is(
-  public.set_exam_scope('bbbbbbbb-c000-0000-0000-000000000001', big_idea_id => 'bbbbbbbb-b000-0000-0000-000000000001', scope => 'excluded', words => 'x'),
+  public.set_exam_scope('bbbbbbbb-c000-0000-0000-000000000001', topic_id => 'bbbbbbbb-b000-0000-0000-000000000001', scope => 'excluded', words => 'x'),
   false,
   'set_exam_scope refuses another Student''s Brief');
 
 select throws_ok(
-  $$insert into public.exam_scopes (owner, course_id, big_idea_id, scope, words) values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-b000-0000-0000-000000000001', 'excluded', 'x')$$,
+  $$insert into public.exam_scopes (owner, course_id, topic_id, scope, words) values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-c000-0000-0000-000000000001', 'aaaaaaaa-b000-0000-0000-000000000001', 'excluded', 'x')$$,
   '42501', null, 'a Student cannot insert an exam scope directly');
 
 -- Old exams -------------------------------------------------------------------

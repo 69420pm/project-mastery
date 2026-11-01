@@ -19,23 +19,16 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'Biology');
 
-insert into public.big_ideas (id, owner, course_id, name, description, position)
-values
-  ('9b9b9b9b-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'Propulsion', 'How engines push.', 0),
-  ('9b9b9b9b-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
-    'aaaaaaaa-0000-0000-0000-000000000002', 'Life', 'What lives.', 0);
-
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
+insert into public.kcs (id, owner, course_id, name, description, origin, position)
 values
   ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Thrust', 'F = ṁ Δv.', 'content', 0),
   ('bbbbbbbb-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Nozzles', 'Accelerate the flow.', 'content', 1),
   ('bbbbbbbb-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222',
-    'aaaaaaaa-0000-0000-0000-000000000002', '9b9b9b9b-0000-0000-0000-000000000002',
+    'aaaaaaaa-0000-0000-0000-000000000002',
     'Cells', 'Units of life.', 'content', 0);
 
 insert into public.chats (id, owner, course_id)

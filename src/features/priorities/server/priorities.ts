@@ -8,7 +8,8 @@ import { loadChunkMaterials } from "@/features/ingestion/server";
 import type { MapPriorities } from "@/features/knowledge-map";
 import {
   loadStoredMap,
-  loadStoredTopics,
+  loadTopicTree,
+  topicLineage,
 } from "@/features/knowledge-map/server";
 import {
   kcPriorities,
@@ -30,7 +31,7 @@ async function computePriorities(
   const [map, topics, chunks, excludedMaterialIds, examScopes] =
     await Promise.all([
       loadStoredMap(supabase, courseId),
-      loadStoredTopics(supabase, courseId),
+      loadTopicTree(supabase, courseId),
       loadChunkMaterials(supabase, courseId),
       loadExcludedMaterialIds(supabase, courseId),
       loadExamScopes(supabase, courseId),
@@ -38,13 +39,16 @@ async function computePriorities(
   const topicOf = new Map(
     topics.flatMap((topic) => topic.kcs.map((kc) => [kc, topic.id] as const)),
   );
+  const parentOf = new Map(topics.map((topic) => [topic.id, topic.parentId]));
   return kcPriorities({
-    kcs: map.kcs.map((kc) => ({
-      id: kc.id,
-      bigIdeaId: kc.bigIdea,
-      topicId: topicOf.get(kc.id) ?? null,
-      sources: kc.sources,
-    })),
+    kcs: map.kcs.map((kc) => {
+      const topicId = topicOf.get(kc.id);
+      return {
+        id: kc.id,
+        topics: topicId ? topicLineage(topicId, parentOf) : [],
+        sources: kc.sources,
+      };
+    }),
     exercises: map.exercises.map(({ questionChunk, kcs }) => ({
       questionChunk,
       kcs,

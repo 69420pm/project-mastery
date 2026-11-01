@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 
 /**
  * A Course's home, the Course map: build the Knowledge map and see its
- * Topics on its Big ideas.
+ * nested Topics.
  */
 export default async function CourseMapPage({
   params,
@@ -69,9 +69,9 @@ export default async function CourseMapPage({
   return (
     <CourseMap
       map={map}
-      topics={topics.map(({ id, bigIdeaId, name, centralQuestion, kcs }) => ({
+      topics={topics.map(({ id, parentId, name, centralQuestion, kcs }) => ({
         id,
-        bigIdeaId,
+        parentId,
         name,
         centralQuestion,
         kcs,

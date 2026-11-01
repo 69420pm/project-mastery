@@ -15,14 +15,13 @@ export type FinalAnswer = { label: string; value: number; unit: string | null };
 /** What a smoke check reads of the seeded Course, in course order. */
 export type GoldCourse = {
   courseId: string;
-  bigIdeas: Array<{ id: string; name: string }>;
   kcs: Array<{
     id: string;
     name: string;
     description: string;
-    bigIdeaId: string;
   }>;
   prerequisites: Array<{ from: string; to: string }>;
+  /** The Topics with KCs of their own, in tree order. */
   topics: Array<{
     id: string;
     name: string;
@@ -91,15 +90,10 @@ async function loadGoldCourse(
   supabase: AdminSupabase,
   courseId: string,
 ): Promise<GoldCourse> {
-  const [bigIdeas, kcs, links, topics, exercises, brief] = await Promise.all([
-    supabase
-      .from("big_ideas")
-      .select("id, name")
-      .eq("course_id", courseId)
-      .order("position"),
+  const [kcs, links, topics, exercises, brief] = await Promise.all([
     supabase
       .from("kcs")
-      .select("id, name, description, big_idea_id")
+      .select("id, name, description")
       .eq("course_id", courseId)
       .is("retired_at", null)
       .order("position"),
@@ -128,32 +122,25 @@ async function loadGoldCourse(
   const reserved = must(brief)?.reserved_exam_material_id ?? null;
   return {
     courseId,
-    bigIdeas: must(bigIdeas),
-    // Only a retired KC has no Big idea.
-    kcs: must(kcs).flatMap((kc) =>
-      kc.big_idea_id
-        ? [
-            {
-              id: kc.id,
-              name: kc.name,
-              description: kc.description,
-              bigIdeaId: kc.big_idea_id,
-            },
-          ]
-        : [],
-    ),
+    kcs: must(kcs),
     prerequisites: must(links).map((link) => ({
       from: link.from_kc,
       to: link.to_kc,
     })),
-    topics: must(topics).map((topic) => ({
-      id: topic.id,
-      name: topic.name,
-      centralQuestion: topic.central_question,
-      kcs: topic.topic_kcs
-        .toSorted((a, b) => a.position - b.position)
-        .map((row) => row.kc_id),
-    })),
+    topics: must(topics).flatMap((topic) =>
+      topic.central_question === null || topic.topic_kcs.length === 0
+        ? []
+        : [
+            {
+              id: topic.id,
+              name: topic.name,
+              centralQuestion: topic.central_question,
+              kcs: topic.topic_kcs
+                .toSorted((a, b) => a.position - b.position)
+                .map((row) => row.kc_id),
+            },
+          ],
+    ),
     exercises: must(exercises).map((exercise) => {
       const chunk = exercise.chunks;
       return {

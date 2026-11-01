@@ -29,17 +29,13 @@ values
     'aaaaaaaa-0000-0000-0000-000000000001', 'aaaaaaaa-1111-0000-0000-000000000001',
     1, 1, 1, 'solution', '46.5%');
 
-insert into public.big_ideas (id, owner, course_id, name, description, position)
-values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'Cycle', 'Brayton.', 0);
-
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
+insert into public.kcs (id, owner, course_id, name, description, origin, position)
 values
   ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Thermal efficiency', 'η.', 'content', 0),
   ('dddddddd-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Propulsive power', 'F V0.', 'exercise', 1);
 
 insert into public.exercises (id, owner, course_id, question_chunk_id, difficulty, position, final_answers)

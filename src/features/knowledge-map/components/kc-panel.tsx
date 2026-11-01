@@ -55,8 +55,7 @@ export function KcPanel({
   priorities: MapPriorities;
   onSelect: (kcId: string) => void;
 }) {
-  const kcs = new Map(map.bigIdeas.flatMap((b) => b.kcs).map((k) => [k.id, k]));
-  const bigIdea = map.bigIdeas.find((b) => b.kcs.some((k) => k.id === kc.id));
+  const kcs = new Map(map.kcs.map((k) => [k.id, k]));
   const learned = learning[kc.id];
   const priority = priorities.kcs[kc.id];
   const exerciseName = new Map(map.exercises.map((e) => [e.id, e.name]));
@@ -77,11 +76,6 @@ export function KcPanel({
         </div>
         <dl className="flex flex-col gap-1">
           <Fact label="Origin">{ORIGIN_NAMES[kc.origin]}</Fact>
-          {bigIdea && (
-            <Fact label="Big idea">
-              <Markdown>{bigIdea.name}</Markdown>
-            </Fact>
-          )}
         </dl>
       </Section>
 

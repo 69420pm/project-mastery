@@ -18,5 +18,10 @@ export {
 export { getKnowledgeMap } from "./server/queries";
 export { getTopicNames } from "./server/topic-names";
 export { loadStoredMap } from "./server/stored-map";
-export { loadStoredTopics } from "./server/stored-topics";
+export {
+  loadStoredTopics,
+  loadTopicTree,
+  type TreeTopic,
+} from "./server/stored-topics";
+export { topicLineage } from "./domain/topic-tree";
 export { buildKnowledgeMap } from "./workflows/build-knowledge-map";

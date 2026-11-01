@@ -1,7 +1,12 @@
 import { cosineSimilarity } from "@/features/knowledge-map/domain/kc-clusters";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
-export { unitTitle, useBuildModels } from "./build-models-testing";
+export {
+  flatTree,
+  unitTitle,
+  useBuildModels,
+  type SentCourse,
+} from "./build-models-testing";
 
 /**
  * Test helpers for the build workflow in-process (`build-knowledge-map.ts`):
@@ -40,6 +45,8 @@ export function createBuildDb() {
       exercises: [] as FakeRow[],
       exercise_kcs: [] as FakeRow[],
       attempts: [] as FakeRow[],
+      topics: [] as FakeRow[],
+      topic_kcs: [] as FakeRow[],
       ai_usage: [] as FakeRow[],
     },
     defaults: {
@@ -91,7 +98,6 @@ export function createBuildDb() {
             tables.kcs.push({
               ...owned,
               id: kc.id,
-              big_idea_id: null,
               name: kc.name,
               description: kc.description,
               origin: kc.origin ?? "content",
@@ -237,12 +243,38 @@ export function createBuildDb() {
           const index = order.indexOf(kc.id as string);
           kc.position = index < 0 ? order.length + Number(kc.position) : index;
         }
+        // The Topic tree: continued ids kept, the others new.
+        const planned = args.p_topics as FakeRow[];
+        const ids = planned.map((topic) =>
+          tables.topics.some((row) => row.id === topic.id)
+            ? (topic.id as string)
+            : crypto.randomUUID(),
+        );
+        tables.topics = planned.map((topic, index) => ({
+          id: ids[index],
+          owner: build.owner,
+          course_id: args.p_course_id,
+          parent_id: topic.parent === null ? null : ids[topic.parent as number],
+          name: topic.name,
+          central_question: topic.centralQuestion,
+          chapter_ids: topic.chapterIds,
+          position: index,
+        }));
+        tables.topic_kcs = planned.flatMap((topic, index) =>
+          (topic.kcs as string[]).map((kcId, position) => ({
+            topic_id: ids[index],
+            kc_id: kcId,
+            owner: build.owner,
+            position,
+          })),
+        );
         Object.assign(build, {
           status: "built",
           failure_reason: null,
           finished_at: now(),
           heartbeat_at: now(),
           check_report: args.p_check_report,
+          topic_tree_hash: args.p_topic_tree_hash,
         });
         return true;
       },
@@ -400,8 +432,12 @@ export function pair(db: BuildDb, exercise: string, solution: string) {
   });
 }
 
-/** Queues a build, as `queue_knowledge_map_build` does. */
+/**
+ * Queues a build, as `queue_knowledge_map_build` does, keeping what the
+ * stored Topic tree was built from.
+ */
 export function queueBuild(db: BuildDb) {
+  const last = db.tables.knowledge_map_builds[0];
   db.tables.knowledge_map_builds = [
     {
       course_id: COURSE,
@@ -410,8 +446,26 @@ export function queueBuild(db: BuildDb) {
       failure_reason: null,
       finished_at: null,
       heartbeat_at: now(),
+      topic_tree_hash: last?.topic_tree_hash ?? null,
     },
   ];
+}
+
+/** The stored Topic tree in tree order, as "name > parent name: KC names". */
+export function topicTree(db: BuildDb): string[] {
+  const topics = db.tables.topics.toSorted(
+    (a, b) => Number(a.position) - Number(b.position),
+  );
+  const nameOf = (id: unknown) => topics.find((t) => t.id === id)?.name;
+  const kcName = (id: unknown) => db.tables.kcs.find((k) => k.id === id)?.name;
+  return topics.map((topic) => {
+    const kcs = db.tables.topic_kcs
+      .filter((row) => row.topic_id === topic.id)
+      .toSorted((a, b) => Number(a.position) - Number(b.position))
+      .map((row) => kcName(row.kc_id));
+    const parent = topic.parent_id ? ` > ${nameOf(topic.parent_id)}` : "";
+    return `${topic.name}${parent}: ${kcs.join(", ")}`;
+  });
 }
 
 /** The live KCs' names in map order. */

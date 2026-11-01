@@ -5,22 +5,27 @@ import type {
 } from "@/features/knowledge-map/types";
 
 /**
- * The Course map as a graph (#176): each Big idea with Topics a group
- * holding them, and an arrow from Topic A to Topic B when a KC of A is a
- * Prerequisite of a KC of B, reduced to the arrows no other path implies.
- * Pure code: the Course map lays it out with ELK and draws it with React
- * Flow, as the KC graph is (ADR 0017).
+ * The Course map as a graph (#176, #229): the Topic tree as nested boxes,
+ * each Topic with child Topics a box holding them and, when it has KCs of
+ * its own, its own card beside them; and an arrow from Topic A to Topic B
+ * when a KC of A is a Prerequisite of a KC of B, reduced to the arrows no
+ * other path implies. Pure code: the Course map lays it out with ELK and
+ * draws it with React Flow, as the KC graph is (ADR 0017).
  */
 
 /** A Topic card's size; the card clamps longer text. */
 const TOPIC_NODE_SIZE = { width: 256, height: 148 } as const;
 
-/** Room around a group's Topics, with its name on top. */
-const GROUP_PADDING = "[top=44,left=16,bottom=16,right=16]";
+/** Room around a box's Topics, with its name on top. */
+const BOX_PADDING = "[top=44,left=16,bottom=16,right=16]";
+
+/** The id of the box of a Topic with child Topics. */
+export const boxId = (topicId: string) => `box:${topicId}`;
 
 export type TopicGraphNode =
-  | { id: string; kind: "bigIdea"; name: string }
-  /** `parentId`: its Big idea's group; null when the map lacks the Big idea. */
+  /** `parentId`: the box it sits in; null at the top. */
+  | { id: string; kind: "box"; parentId: string | null; topic: MapTopic }
+  /** The card of a Topic's own KCs; its id is the Topic's. */
   | { id: string; kind: "topic"; parentId: string | null; topic: MapTopic };
 
 /** Topic `source` holds a Prerequisite of a KC in Topic `target`. */
@@ -29,27 +34,32 @@ export type TopicGraphEdge = { id: string; source: string; target: string };
 export type TopicGraph = { nodes: TopicGraphNode[]; edges: TopicGraphEdge[] };
 
 /**
- * The Topics as a graph: each Big idea with Topics a group in map order,
- * followed by its Topics in Course order, and the reduced arrows between
- * them. A KC no Topic holds adds no arrow.
+ * The Topic tree as a graph in tree order: a Topic with children becomes a
+ * box, followed by its own card when it has KCs of its own and then its
+ * children; any other Topic a card. Arrows run between cards. A KC no
+ * Topic holds adds no arrow.
  */
 export function buildTopicGraph(
   topics: MapTopic[],
-  map: Pick<KnowledgeMapView, "bigIdeas" | "prerequisites">,
+  map: Pick<KnowledgeMapView, "prerequisites">,
 ): TopicGraph {
+  const parents = new Set(topics.flatMap((topic) => topic.parentId ?? []));
   const nodes: TopicGraphNode[] = [];
-  const placed = new Set<string>();
-  for (const bigIdea of map.bigIdeas) {
-    const held = topics.filter((topic) => topic.bigIdeaId === bigIdea.id);
-    if (held.length === 0) continue;
-    nodes.push({ id: bigIdea.id, kind: "bigIdea", name: bigIdea.name });
-    for (const topic of held) {
-      nodes.push({ id: topic.id, kind: "topic", parentId: bigIdea.id, topic });
-      placed.add(topic.id);
+  for (const topic of topics) {
+    const parentId = topic.parentId === null ? null : boxId(topic.parentId);
+    if (!parents.has(topic.id)) {
+      nodes.push({ id: topic.id, kind: "topic", parentId, topic });
+      continue;
     }
-  }
-  for (const topic of topics.filter((t) => !placed.has(t.id))) {
-    nodes.push({ id: topic.id, kind: "topic", parentId: null, topic });
+    nodes.push({ id: boxId(topic.id), kind: "box", parentId, topic });
+    if (topic.kcs.length > 0) {
+      nodes.push({
+        id: topic.id,
+        kind: "topic",
+        parentId: boxId(topic.id),
+        topic,
+      });
+    }
   }
   return { nodes, edges: reducedArrows(topics, map.prerequisites) };
 }
@@ -138,28 +148,24 @@ function reachable(
 
 /**
  * The graph as ELK lays it out: layered, left to right in learning order,
- * with arrows between groups' Topics laid out across groups
- * (`INCLUDE_CHILDREN`). Its value changes only when nodes or arrows do, so
- * it keys the layout.
+ * boxes nested to any depth, with arrows between boxes' Topics laid out
+ * across boxes (`INCLUDE_CHILDREN`). Its value changes only when nodes or
+ * arrows do, so it keys the layout.
  */
 export function toElkTopicGraph(graph: TopicGraph): ElkNode {
-  const card = (id: string): ElkNode => ({ id, ...TOPIC_NODE_SIZE });
-  const children: ElkNode[] = [];
-  for (const node of graph.nodes) {
-    if (node.kind === "bigIdea") {
-      children.push({
-        id: node.id,
-        layoutOptions: { "elk.padding": GROUP_PADDING },
-        children: graph.nodes
-          .filter(
-            (child) => child.kind === "topic" && child.parentId === node.id,
-          )
-          .map((child) => card(child.id)),
-      });
-    } else if (node.parentId === null) {
-      children.push(card(node.id));
-    }
-  }
+  const childrenOf = (parentId: string | null): ElkNode[] =>
+    graph.nodes
+      .filter((node) => node.parentId === parentId)
+      .map((node) =>
+        node.kind === "box"
+          ? {
+              id: node.id,
+              layoutOptions: { "elk.padding": BOX_PADDING },
+              children: childrenOf(node.id),
+            }
+          : { id: node.id, ...TOPIC_NODE_SIZE },
+      );
+  const children = childrenOf(null);
   return {
     id: "root",
     layoutOptions: {

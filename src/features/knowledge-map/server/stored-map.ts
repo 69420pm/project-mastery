@@ -20,20 +20,12 @@ export async function loadStoredMap(
   supabase: Supabase,
   courseId: string,
 ): Promise<KnowledgeMap> {
-  const [bigIdeas, kcs, sources, prerequisites, exercises, exerciseKcs] =
+  const [kcs, sources, prerequisites, exercises, exerciseKcs] =
     await Promise.all([
-      allRows("Loading the big ideas", (from, to) =>
-        supabase
-          .from("big_ideas")
-          .select("id, name, description")
-          .eq("course_id", courseId)
-          .order("position")
-          .range(from, to),
-      ),
       allRows("Loading the KCs", (from, to) =>
         supabase
           .from("kcs")
-          .select("id, big_idea_id, name, description, origin")
+          .select("id, name, description, origin")
           .eq("course_id", courseId)
           .is("retired_at", null)
           .order("position")
@@ -79,12 +71,10 @@ export async function loadStoredMap(
 
   const kcOrder = new Map(kcs.map((kc, index) => [kc.id, index]));
   return knowledgeMapSchema.parse({
-    bigIdeas,
     kcs: kcs.map((kc) => ({
       id: kc.id,
       name: kc.name,
       description: kc.description,
-      bigIdea: kc.big_idea_id,
       origin: kc.origin,
       sources: sources
         .filter((source) => source.kc_id === kc.id)

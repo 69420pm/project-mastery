@@ -21,11 +21,7 @@ const exercise = (id: string, kcs: string[]) => ({
 const map: KnowledgeMapView = {
   courseId: "c",
   build: null,
-  bigIdeas: [
-    { id: "b1", name: "B1", description: "", kcs: [kc("a"), kc("b")] },
-    { id: "b2", name: "B2", description: "", kcs: [kc("c"), kc("d")] },
-    { id: "b3", name: "B3", description: "", kcs: [kc("p")] },
-  ],
+  kcs: [kc("a"), kc("b"), kc("c"), kc("d"), kc("p")],
   prerequisites: [
     { from: "p", to: "c" },
     { from: "b", to: "c" },
@@ -48,12 +44,8 @@ describe("restrictMapToTopic", () => {
   };
   const view = restrictMapToTopic(map, topic);
 
-  test("keeps the Topic's KCs and its anchors in their Big ideas", () => {
-    expect(view.bigIdeas.map((b) => [b.id, b.kcs.map((k) => k.id)])).toEqual([
-      ["b1", ["b"]],
-      ["b2", ["c"]],
-      ["b3", ["p"]],
-    ]);
+  test("keeps the Topic's KCs and its anchors, in map order", () => {
+    expect(view.kcs.map((k) => k.id)).toEqual(["b", "c", "p"]);
   });
 
   test("keeps the Prerequisites among the shown KCs", () => {

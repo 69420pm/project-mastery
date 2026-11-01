@@ -3,18 +3,15 @@ import { knowledgeMapSchema } from "@/features/knowledge-map/schemas";
 
 describe("knowledgeMapSchema", () => {
   const ids = {
-    bigIdea: "00000000-0000-4000-8000-000000000001",
     kc: "00000000-0000-4000-8000-000000000002",
     other: "00000000-0000-4000-8000-000000000003",
   };
   const map = {
-    bigIdeas: [{ id: ids.bigIdea, name: "Thrust", description: "Momentum." }],
     kcs: [
       {
         id: ids.kc,
         name: "Thrust",
         description: "Net forward force.",
-        bigIdea: ids.bigIdea,
         origin: "content",
         sources: [],
       },

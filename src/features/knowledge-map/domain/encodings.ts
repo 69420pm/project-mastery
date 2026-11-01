@@ -9,13 +9,12 @@ import { DEFAULT_LAYERS, type MapLayers } from "./map-graph";
  * by one attribute, size by Priority, and the saved settings. Pure code.
  */
 
-export const COLOR_BYS = ["state", "priority", "bigIdea"] as const;
+export const COLOR_BYS = ["state", "priority"] as const;
 export type ColorBy = (typeof COLOR_BYS)[number];
 
 export const COLOR_BY_NAMES: Record<ColorBy, string> = {
   state: "KC state",
   priority: "Priority",
-  bigIdea: "Big idea",
 };
 
 /** What the Student can change in the graph and the page remembers. */
@@ -49,18 +48,6 @@ const PRIORITY_RAMP = [
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
-];
-
-/** Categorical colours for Big ideas, handed out in order and reused. */
-const BIG_IDEA_COLORS = [
-  "oklch(0.65 0.14 250)",
-  "oklch(0.68 0.15 150)",
-  "oklch(0.7 0.15 60)",
-  "oklch(0.64 0.17 330)",
-  "oklch(0.66 0.13 195)",
-  "oklch(0.64 0.18 25)",
-  "oklch(0.62 0.15 290)",
-  "oklch(0.72 0.13 105)",
 ];
 
 /** The smallest a KC node's visual gets when sized by Priority. */
@@ -105,34 +92,16 @@ function rampColor(fraction: number): string {
 /** What `kcColor` needs to colour one KC. */
 export type ColorContext = {
   state: KcState;
-  /** The id of its Big idea. */
-  bigIdeaId: string;
   /** From `priorityFractions`; undefined without a Priority. */
   fraction: number | undefined;
 };
 
-/** A colour per Big idea id, in the map's order. */
-export function bigIdeaColors(bigIdeaIds: string[]): Map<string, string> {
-  return new Map(
-    bigIdeaIds.map((id, i) => [
-      id,
-      BIG_IDEA_COLORS[i % BIG_IDEA_COLORS.length]!,
-    ]),
-  );
-}
-
-export function kcColor(
-  colorBy: ColorBy,
-  kc: ColorContext,
-  bigIdeas: Map<string, string>,
-): string {
+export function kcColor(colorBy: ColorBy, kc: ColorContext): string {
   switch (colorBy) {
     case "state":
       return STATE_COLORS[kc.state];
     case "priority":
       return kc.fraction === undefined ? NEUTRAL : rampColor(kc.fraction);
-    case "bigIdea":
-      return bigIdeas.get(kc.bigIdeaId) ?? NEUTRAL;
   }
 }
 
@@ -141,7 +110,6 @@ export type LegendEntry = { label: string; color: string };
 /** The legend for `colorBy`: one entry per colour the graph can show. */
 export function legendEntries(
   colorBy: ColorBy,
-  bigIdeas: Array<{ id: string; name: string }>,
   stateNames: Record<KcState, string>,
 ): LegendEntry[] {
   switch (colorBy) {
@@ -157,10 +125,6 @@ export function legendEntries(
         { label: "Highest", color: PRIORITY_RAMP[4]! },
         { label: "Excluded or none", color: NEUTRAL },
       ];
-    case "bigIdea": {
-      const colors = bigIdeaColors(bigIdeas.map((b) => b.id));
-      return bigIdeas.map((b) => ({ label: b.name, color: colors.get(b.id)! }));
-    }
   }
 }
 
@@ -188,10 +152,6 @@ export function parseSettings(saved: string | null): MapSettings {
     prerequisites: flag(
       storedLayers.prerequisites,
       DEFAULT_LAYERS.prerequisites,
-    ),
-    bigIdeaGroups: flag(
-      storedLayers.bigIdeaGroups,
-      DEFAULT_LAYERS.bigIdeaGroups,
     ),
   };
   return {

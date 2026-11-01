@@ -40,20 +40,29 @@ vi.mock("@/lib/auth/user", () => ({
   getUser: async () => (signedIn ? { id: "student" } : null),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
-vi.mock("@/features/knowledge-map/server", () => ({
+vi.mock("@/features/knowledge-map/server", async () => ({
   loadStoredMap: async (_: unknown, courseId: string) => ({
     kcs:
       courseId === COURSE
         ? [
-            { id: "k1", bigIdea: "b1", sources: ["c1"] },
-            { id: "k2", bigIdea: "b1", sources: ["c1"] },
-            { id: "k3", bigIdea: "b1", sources: ["c2"] },
+            { id: "k1", sources: ["c1"] },
+            { id: "k2", sources: ["c1"] },
+            { id: "k3", sources: ["c2"] },
           ]
         : [],
     exercises:
       courseId === COURSE ? [{ questionChunk: "q1", kcs: ["k1"] }] : [],
   }),
-  loadStoredTopics: async () => [{ id: "t1", kcs: ["k1", "k2"] }],
+  // t1 sits inside "top", which holds no KCs of its own.
+  loadTopicTree: async () => [
+    { id: "top", parentId: null, kcs: [] },
+    { id: "t1", parentId: "top", kcs: ["k1", "k2"] },
+  ],
+  topicLineage: (
+    await vi.importActual<
+      typeof import("@/features/knowledge-map/domain/topic-tree")
+    >("@/features/knowledge-map/domain/topic-tree")
+  ).topicLineage,
 }));
 
 const { getPriorities, loadKcPriorities } = await import("./priorities");
@@ -72,13 +81,12 @@ describe("loadKcPriorities", () => {
     });
   });
 
-  test("weighs in the Brief's exam scopes", async () => {
+  test("weighs in the Brief's exam scopes, inherited down the Topic tree", async () => {
     db.tables.exam_scopes.push({
       course_id: COURSE,
-      big_idea_id: null,
-      topic_id: "t1",
+      topic_id: "top",
       scope: "emphasized",
-      words: "Topic 1 matters",
+      words: "All of it matters",
       created_at: "2026-10-29",
     });
     expect(await loadKcPriorities(db as never, COURSE)).toEqual({

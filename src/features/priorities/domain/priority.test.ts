@@ -7,8 +7,8 @@ const kc = (
   sources = [`c-${id}`],
 ) => ({
   id,
-  bigIdeaId: "b1",
-  topicId,
+  // Every Topic sits in the top-level Topic "top".
+  topics: topicId === null ? [] : [topicId, "top"],
   sources,
 });
 
@@ -75,19 +75,17 @@ describe("kcPriorities", () => {
     ]);
   });
 
-  it("lets a Topic's exam scope win over its Big idea's", () => {
+  it("lets a Topic take its own exam scope, else the nearest one up its ancestors", () => {
     const result = byId(
       kcPriorities(
         input({
           examScopes: [
             {
-              bigIdeaId: "b1",
-              topicId: null,
+              topicId: "top",
               scope: "excluded",
               words: "No chapter 1",
             },
             {
-              bigIdeaId: null,
               topicId: "t1",
               scope: "emphasized",
               words: "Bases come up a lot",
@@ -114,12 +112,7 @@ describe("kcPriorities", () => {
           kcs: [kc("a", null, ["c-a", "c-c"]), kc("c")],
           excludedMaterialIds: ["notes", "slides"],
           examScopes: [
-            {
-              bigIdeaId: "b1",
-              topicId: null,
-              scope: "emphasized",
-              words: "All of it",
-            },
+            { topicId: "top", scope: "emphasized", words: "All of it" },
           ],
         }),
       ),

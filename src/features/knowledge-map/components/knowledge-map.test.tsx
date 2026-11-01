@@ -58,14 +58,7 @@ const kc = (id: string, name: string): KcView => ({
 const map: KnowledgeMapView = {
   courseId: "c1",
   build: { status: "built", failureReason: null, finishedAt: null },
-  bigIdeas: [
-    {
-      id: "b1",
-      name: "Thrust",
-      description: "Thrust.",
-      kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles")],
-    },
-  ],
+  kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles")],
   prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [
     {
@@ -229,11 +222,11 @@ describe("saved settings", () => {
 
     localStorage.setItem(
       "knowledge-map-settings",
-      JSON.stringify({ colorBy: "bigIdea", layers: { exercises: false } }),
+      JSON.stringify({ colorBy: "priority", layers: { exercises: false } }),
     );
     renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Thrust");
+    expect(legend()).toHaveTextContent("Highest");
     expect(screen.queryByRole("button", { name: "Ex. 7.2b" })).toBeNull();
   });
 
@@ -245,13 +238,4 @@ describe("saved settings", () => {
     expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();
     localStorage.clear();
   });
-});
-
-test("a Big idea opens its KC count per state", async () => {
-  renderMap();
-  fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));
-  const panel = screen.getByRole("complementary", { name: "Big idea details" });
-  expect(within(panel).getByRole("region", { name: "KCs" })).toHaveTextContent(
-    "All2New2Learning0",
-  );
 });

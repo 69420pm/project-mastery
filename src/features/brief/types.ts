@@ -27,7 +27,7 @@ export type BriefWithMessages = {
   excludedMaterials: Array<{ id: string; name: string; href: string }>;
   /** The Materials the Student said are old exams, oldest first. */
   oldExams: Array<{ id: string; name: string; href: string }>;
-  /** The exam scopes, each with its Big idea's or Topic's name. */
+  /** The exam scopes, each with its Topic's name. */
   examScopes: Array<{
     name: string;
     scope: "excluded" | "emphasized";

@@ -8,8 +8,6 @@ const id = z.string().trim().min(1).max(100);
 const name = z.string().trim().min(1).max(200);
 const description = z.string().trim().min(1).max(1000);
 
-const bigIdeaSchema = z.object({ id, name, description });
-
 /**
  * A knowledge component that its `sources` chunks teach. It comes from the
  * content, or from an exercise that needs it when the content does not
@@ -19,8 +17,6 @@ const kcSchema = z.object({
   id,
   name,
   description,
-  /** Null for a KC the build stored without Topics (#229). */
-  bigIdea: id.nullable(),
   origin: z.enum(["content", "exercise"]),
   sources: z.array(id),
 });
@@ -62,7 +58,6 @@ const exerciseSchema = z.object({
  */
 export const knowledgeMapSchema = z
   .object({
-    bigIdeas: z.array(bigIdeaSchema),
     kcs: z.array(kcSchema),
     prerequisites: z.array(prerequisiteSchema),
     /** In reading order. */
@@ -71,13 +66,7 @@ export const knowledgeMapSchema = z
   .superRefine((map, ctx) => {
     const issue = (message: string) =>
       ctx.addIssue({ code: "custom", message });
-    const bigIdeas = new Set(map.bigIdeas.map((bigIdea) => bigIdea.id));
     const kcs = new Set(map.kcs.map((kc) => kc.id));
-    for (const kc of map.kcs) {
-      if (kc.bigIdea !== null && !bigIdeas.has(kc.bigIdea)) {
-        issue(`KC ${kc.id} names an unknown big idea ${kc.bigIdea}`);
-      }
-    }
     for (const exercise of map.exercises) {
       for (const kcId of exercise.kcs) {
         if (!kcs.has(kcId)) {

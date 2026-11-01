@@ -5,7 +5,6 @@ import { chunkAnchor } from "@/features/ingestion/server";
 import { readingSectionId } from "@/features/knowledge-map/domain/topic-reading";
 import type { Supabase } from "@/lib/supabase/types";
 import {
-  BIG_IDEA,
   C1,
   C2,
   C3,
@@ -79,7 +78,7 @@ describe("getKnowledgeMap", () => {
     expect(await getKnowledgeMap(courseId)).toEqual({
       courseId,
       build: null,
-      bigIdeas: [],
+      kcs: [],
       prerequisites: [],
       exercises: [],
       checkReport: null,
@@ -96,7 +95,7 @@ describe("getKnowledgeMap", () => {
       finishedAt: "2026-01-02",
     });
     expect(view.canBuild).toBe(true);
-    const [momentum, thrust] = view.bigIdeas[0]?.kcs ?? [];
+    const [momentum, thrust] = view.kcs;
     expect(momentum?.sources.map((s) => [s.chunkId, s.pages])).toEqual([
       [C1, "p. 1"],
       [C2, "pp. 2–3"],
@@ -128,7 +127,6 @@ describe("getKnowledgeMap", () => {
 
   test.each([
     ["knowledge_map_builds", "Loading the build failed"],
-    ["big_ideas", "Loading the big ideas failed"],
     ["kcs", "Loading the KCs failed"],
     ["kc_sources", "Loading the KC sources failed"],
     ["prerequisite_links", "Loading the prerequisites failed"],
@@ -147,7 +145,7 @@ describe("loadCourseTopics", () => {
     expect(topics).toEqual([
       {
         id: T1,
-        bigIdeaId: BIG_IDEA,
+        parentId: null,
         name: "One",
         centralQuestion: "One?",
         kcs: [{ id: K1, name: "Momentum" }],
@@ -169,6 +167,7 @@ describe("loadCourseTopics", () => {
       },
       expect.objectContaining({
         id: T2,
+        parentId: T1,
         kcs: [{ id: K2, name: "Thrust equation" }],
         anchors: [{ id: K1, name: "Momentum" }],
         readingSections: [
@@ -214,10 +213,10 @@ describe("loadStoredMap", () => {
   test("gives the stored map with row ids, each KC with its own sources", async () => {
     const map = await loadStoredMap(client(), COURSE);
 
-    expect(map.kcs.map((kc) => [kc.id, kc.bigIdea, kc.sources])).toEqual([
-      [K1, BIG_IDEA, [C1, C2]],
-      [K2, BIG_IDEA, [C2]],
-      [K3, BIG_IDEA, []],
+    expect(map.kcs.map((kc) => [kc.id, kc.sources])).toEqual([
+      [K1, [C1, C2]],
+      [K2, [C2]],
+      [K3, []],
     ]);
     expect(map.prerequisites).toEqual([{ from: K1, to: K2 }]);
     // An Exercise's KCs in map order.
@@ -229,7 +228,6 @@ describe("loadStoredMap", () => {
 
   test("gives an empty map for a Course without one", async () => {
     expect(await loadStoredMap(client(), OTHER_COURSE)).toMatchObject({
-      bigIdeas: [],
       kcs: [],
     });
   });

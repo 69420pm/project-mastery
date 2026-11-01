@@ -31,8 +31,8 @@ const BUILD_POLL_MS = 2000;
  * A Course's home, the Course map: the build's state with Build or Update
  * map, the reviews due and the study plan's line (`planLine`, a slot,
  * since the study feature that owns the plan depends on this one), the
- * Today card (`today`, a slot too), then its Topics on its Big ideas as a
- * graph filling the rest of the page, each with its Topic state and recall
+ * Today card (`today`, a slot too), then its Topic tree as a graph of
+ * nested boxes filling the rest of the page, each with its Topic state and recall
  * today from `topicStates` and its plan badges from `topicBadges`, which the
  * page passes in since the study feature computes them. The page refreshes
  * itself while a build runs.
@@ -49,7 +49,7 @@ export function CourseMap({
   today,
 }: {
   map: KnowledgeMapView;
-  /** In Course order; empty before a build stored Topics. */
+  /** The Topic tree in tree order; empty before a build stored Topics. */
   topics: MapTopic[];
   learning: MapKcLearning;
   topicStates: MapTopicStates;
@@ -61,7 +61,7 @@ export function CourseMap({
   /** The study feature's Today card, shown above the graph. */
   today?: ReactNode;
 }) {
-  const kcs = map.bigIdeas.flatMap((b) => b.kcs);
+  const { kcs } = map;
   const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building);
@@ -83,7 +83,7 @@ export function CourseMap({
         />
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm text-muted-foreground">
           <BuildStatus build={map.build} />
-          {map.bigIdeas.length > 0 && (
+          {kcs.length > 0 && (
             <>
               <p>
                 {dueCount} {dueCount === 1 ? "review" : "reviews"} due
@@ -95,7 +95,7 @@ export function CourseMap({
         </div>
       </div>
 
-      {map.bigIdeas.length === 0 || (topics.length === 0 && building) ? (
+      {kcs.length === 0 || (topics.length === 0 && building) ? (
         <div className="max-w-3xl">
           <EmptyMap building={building} />
         </div>

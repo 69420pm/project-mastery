@@ -3,7 +3,17 @@ import { loadChunkSources } from "@/features/ingestion/server";
 import { SAME_KC_SIMILARITY } from "@/features/knowledge-map/domain/kc-clusters";
 import { exerciseLabel } from "@/features/knowledge-map/domain/exercise-label";
 import { redundantLinks } from "@/features/knowledge-map/domain/prerequisite-cycles";
+import {
+  planTopicTree,
+  storedAsProposed,
+} from "@/features/knowledge-map/domain/topic-tree";
+import { teachingOrder } from "@/features/knowledge-map/domain/topics";
 import type { CheckReport } from "@/features/knowledge-map/schemas";
+import {
+  loadStoredTree,
+  treeKcs,
+  type TreeProposal,
+} from "@/features/knowledge-map/workflows/topic-steps";
 import {
   retireUnsourcedKcs,
   touchBuild,
@@ -19,8 +29,8 @@ import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
- * The last step of a build: the map in Course order with its check report.
- * KCs are stored without Topics until the Topic tree (#229, slice 17).
+ * The last step of a build: the map in Course order with its Topic tree
+ * and check report.
  */
 
 /** The most duplicate pairs the check report lists. */
@@ -29,24 +39,42 @@ const MAX_DUPLICATES = 100;
 /**
  * Ends a build: retires the KCs whose sources went meanwhile, puts the KCs
  * in the order of their first sources and the Exercises in Course order,
- * drops redundant Prerequisites, stores the check report and marks the
- * build built.
+ * stores the Topic tree `tree` proposes (or the stored one again) with each
+ * Topic's KCs in teaching order, drops redundant Prerequisites, stores the
+ * check report and marks the build built.
  */
-export async function arrangeKnowledgeMap(courseId: string): Promise<void> {
+export async function arrangeKnowledgeMap(
+  courseId: string,
+  tree: TreeProposal,
+): Promise<void> {
   "use step";
   const supabase = createAdminClient();
   if (!(await touchBuild(supabase, courseId))) return;
   await retireUnsourcedKcs(supabase, courseId);
 
-  const input = await loadMapInput(supabase, courseId);
+  const [input, stored] = await Promise.all([
+    loadMapInput(supabase, courseId),
+    loadStoredTree(supabase, courseId),
+  ]);
   const places = firstSourcePlaces(input);
   const kcs = input.kcs
     .map((kc) => kc.id)
     .filter((id) => places.has(id))
     .toSorted((a, b) => places.get(a)! - places.get(b)!);
+  const topics = planTopicTree({
+    proposed: tree.topics ?? storedAsProposed(stored),
+    chapters: input.chapters,
+    kcs: treeKcs(input),
+    storedIds: new Set(stored.map((topic) => topic.id)),
+  }).map((topic) => ({
+    ...topic,
+    kcs: teachingOrder(topic.kcs, input.prerequisites),
+  }));
   const { error } = await supabase.rpc("arrange_knowledge_map", {
     p_course_id: courseId,
     p_kcs: kcs,
+    p_topics: topics,
+    p_topic_tree_hash: tree.hash,
     p_dropped_prerequisites: redundantLinks(input.prerequisites),
     p_check_report: await checkReport(supabase, courseId, input),
   });

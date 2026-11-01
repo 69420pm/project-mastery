@@ -279,18 +279,11 @@ export async function seedKc(
 ): Promise<{ name: string; topicId: string }> {
   const admin = adminClient();
   const owned = { owner, course_id: courseId };
-  const bigIdea = await admin
-    .from("big_ideas")
-    .insert({ ...owned, name: "Thrust", description: "Thrust.", position: 0 })
-    .select("id")
-    .single();
-  if (bigIdea.error) throw new Error(bigIdea.error.message);
   const name = "Thrust equation";
   const kc = await admin
     .from("kcs")
     .insert({
       ...owned,
-      big_idea_id: bigIdea.data.id,
       name,
       description: "Thrust is mass flow times the change in velocity.",
       origin: "content",
@@ -303,9 +296,10 @@ export async function seedKc(
     .from("topics")
     .insert({
       ...owned,
-      big_idea_id: bigIdea.data.id,
       name: "Thrust basics",
       central_question: "What makes a rocket accelerate?",
+      // A Topic with KCs of its own holds a Chapter's.
+      chapter_ids: [crypto.randomUUID()],
       position: 0,
     })
     .select("id")

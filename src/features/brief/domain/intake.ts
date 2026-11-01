@@ -40,20 +40,23 @@ export type ReservedExam = {
   materialId: string | null;
 };
 
-/** A stored exam scope: one Big idea or Topic the exam leaves out or stresses. */
+/**
+ * A stored exam scope: one Topic the exam leaves out or stresses, with its
+ * subtree unless a Topic below has its own.
+ */
 export type BriefExamScope = {
-  bigIdeaId: string | null;
-  topicId: string | null;
+  topicId: string;
   scope: "excluded" | "emphasized";
   /** The Student's words. */
   words: string;
 };
 
-/** A Big idea of the Course with its Topics, as the AI sees them. */
-export type BriefBigIdea = {
+/** A Topic of the Course's Topic tree, as the AI sees it. */
+export type BriefTopic = {
   id: string;
   name: string;
-  topics: Array<{ id: string; name: string }>;
+  /** 0 at the top. */
+  depth: number;
 };
 
 /** An admin text of the Materials, with where it first appears. */
@@ -72,8 +75,8 @@ export type BriefContext = {
   /** The Course's old exams, oldest upload first. */
   exams: ExamMaterial[];
   reservedExam: ReservedExam;
-  /** The Course's Big ideas and Topics, in Course order. */
-  bigIdeas: BriefBigIdea[];
+  /** The Course's Topic tree in tree order: a parent before its children. */
+  topics: BriefTopic[];
   examScopes: BriefExamScope[];
   /** The distinct admin texts of the Materials, in Course order. */
   adminTexts: AdminText[];

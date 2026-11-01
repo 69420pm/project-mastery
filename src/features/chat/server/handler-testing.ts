@@ -23,7 +23,6 @@ export const OTHER_COURSE = "aaaaaaaa-c000-4000-8000-000000000002";
  * which the tutor context reads. Visible to the Course's owner.
  */
 const COURSE_TABLES = [
-  "big_ideas",
   "kcs",
   "kc_sources",
   "prerequisite_links",
@@ -63,7 +62,6 @@ function createDb() {
       chat_messages: [],
       ai_usage: [],
       materials: [],
-      big_ideas: [],
       kcs: [],
       kc_sources: [],
       prerequisite_links: [],
@@ -430,7 +428,6 @@ export function seedChat(owner: string, messages: FakeRow[] = []) {
 
 /** The ids of the map `seedMap` stores in the Student's Course. */
 export const MAP = {
-  bigIdea: "aaaaaaaa-b000-4000-8000-000000000001",
   /** Newton's second law, outside the Topic: its anchor. */
   newton: "aaaaaaaa-0000-4000-8000-000000000001",
   /** Thrust, taught by `chunks[0]` and `chunks[1]`, Priority 0.8. */
@@ -457,15 +454,7 @@ export function seedMap() {
     position,
     name,
     description: `${name}, as the lecture states it.`,
-    big_idea_id: MAP.bigIdea,
     origin: "content",
-  });
-  db.tables.big_ideas.push({
-    ...owned,
-    id: MAP.bigIdea,
-    position: 0,
-    name: "Thrust generation",
-    description: "How engines make thrust.",
   });
   db.tables.kcs.push(
     kc(MAP.newton, 0, "Newton's second law"),
@@ -479,7 +468,7 @@ export function seedMap() {
   db.tables.topics.push({
     course_id: COURSE,
     id: MAP.topic,
-    big_idea_id: MAP.bigIdea,
+    parent_id: null,
     position: 0,
     name: "Thrust",
     central_question: "How does an engine make thrust?",

@@ -10,7 +10,6 @@ import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
-const BIG_IDEA = "aaaaaaaa-b000-4000-8000-000000000001";
 const COUNT = 1200;
 const n = (i: number) => String(i).padStart(4, "0");
 const chunkId = (i: number) => `chunk-${n(i)}`;
@@ -45,13 +44,9 @@ function createDb() {
         markdown: `Text ${i}`,
       })),
       knowledge_map_builds: [] as FakeRow[],
-      big_ideas: [
-        ofCourse({ id: BIG_IDEA, name: "All", description: "", position: 0 }),
-      ],
       kcs: each((i) =>
         ofCourse({
           id: kcId(i),
-          big_idea_id: BIG_IDEA,
           name: `KC ${i}`,
           description: "",
           origin: "content",
@@ -103,7 +98,7 @@ describe("past the row limit", () => {
   test("getKnowledgeMap gives every KC with its source, every link and Exercise", async () => {
     const view = await getKnowledgeMap(COURSE);
 
-    const kcs = view.bigIdeas[0]?.kcs ?? [];
+    const { kcs } = view;
     expect(kcs.map((kc) => kc.id)).toEqual(
       Array.from({ length: COUNT }, (_, i) => kcId(i)),
     );

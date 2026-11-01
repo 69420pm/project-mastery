@@ -12,6 +12,7 @@ import { consolidateKcs } from "@/features/knowledge-map/workflows/consolidate-s
 import { extractExercises } from "@/features/knowledge-map/workflows/exercise-steps";
 import { extractChapters } from "@/features/knowledge-map/workflows/extract-steps";
 import { matchAssumptions } from "@/features/knowledge-map/workflows/prerequisite-steps";
+import { proposeTopicTree } from "@/features/knowledge-map/workflows/topic-steps";
 
 /**
  * Updates a Course's Knowledge map from its Chapters (#229). The workflow
@@ -20,7 +21,9 @@ import { matchAssumptions } from "@/features/knowledge-map/workflows/prerequisit
  * extracts the teaching units without a current extraction, stores their
  * KCs merged with alike ones, then extracts and stores the exercise units'
  * Exercises the same way. It matches what the KCs assume to earlier KCs as
- * Prerequisites and puts the map in Course order. A step that fails for
+ * Prerequisites, groups the Chapters into a Topic tree (one call, only
+ * when the Outlines or KCs changed) and puts the map in Course order. A
+ * step that fails for
  * good, or a reached Daily limit, fails the build with a reason and loses
  * only that step's calls: the next Update map resumes where the build
  * stopped.
@@ -53,7 +56,13 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
         if (outcome.left === 0) break;
       }
     }
-    await arrangeKnowledgeMap(courseId);
+    const proposal = await proposeTopicTree(courseId);
+    if (!proposal.ok) {
+      await failBuild(courseId, proposal.reason);
+      return;
+    }
+    if (proposal.tree === null) return;
+    await arrangeKnowledgeMap(courseId, proposal.tree);
   } catch (error) {
     console.error("Building the knowledge map failed:", error);
     await failBuild(courseId, buildFailedReason);

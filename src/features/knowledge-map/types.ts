@@ -52,14 +52,6 @@ type PrerequisiteView = {
 /** The last build's check report. */
 export type CheckReportView = CheckReport;
 
-/** A big idea with its KCs, as the map page shows it. */
-export type BigIdeaView = {
-  id: string;
-  name: string;
-  description: string;
-  kcs: KcView[];
-};
-
 /** An Exercise as the map page shows it. */
 export type ExerciseView = {
   id: string;
@@ -118,13 +110,18 @@ export type MapKcLearning = Record<
   }
 >;
 
-/** A stored Topic as the Course map shows it, in Course order. */
+/**
+ * A stored Topic of the Topic tree as the Course map shows it, in tree
+ * order: a parent before its children.
+ */
 export type MapTopic = {
   id: string;
-  bigIdeaId: string;
+  /** The Topic it sits in; null at the top. */
+  parentId: string | null;
   name: string;
-  centralQuestion: string;
-  /** In teaching order. */
+  /** Null for a Topic without KCs of its own. */
+  centralQuestion: string | null;
+  /** Its own KCs, in teaching order. */
   kcs: Array<{ id: string; name: string }>;
 };
 
@@ -167,7 +164,8 @@ export type MapTopicDetail = MapTopic & {
 export type KnowledgeMapView = {
   courseId: string;
   build: MapBuild;
-  bigIdeas: BigIdeaView[];
+  /** The live KCs, in map order. */
+  kcs: KcView[];
   prerequisites: PrerequisiteView[];
   /** In reading order. */
   exercises: ExerciseView[];

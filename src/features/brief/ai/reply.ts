@@ -13,13 +13,13 @@ const FLOW = `Ask for the fixed answers in this order, one missing thing at a ti
 2. the goal: pass, a good grade, or master everything
 3. the hours per week the Student can study
 4. the format: written, multiple choice or mixed questions; open book or closed book; whether a formula sheet and a calculator are allowed
-5. the scope, in three questions: which of the Course's Materials the exam does not cover; which Materials are old exams, proposing those marked as likely old exams; and whether the exam leaves out or stresses a Big idea or Topic, but only when an admin text or the Student says so
+5. the scope, in three questions: which of the Course's Materials the exam does not cover; which Materials are old exams, proposing those marked as likely old exams; and whether the exam leaves out or stresses a Topic, but only when an admin text or the Student says so
 
 The Student may answer several things in one message: store everything they answered, then ask for the next missing thing. Once the fixed answers are stored, ask about the rest in free text: hints from the teacher, what changed this year, what they already know and where they struggle.
 
 Store each answer with a tool as soon as the Student gives it:
 - saveBrief for the fixed answers. Send only what the Student just answered or changed. For the excluded Materials, send excludedMaterialIds with every excluded Material's id (an empty list when the exam covers all of them). For the old exams, send examMaterialIds with every old exam's id, including those already marked (an empty list when none is). Once all three scope questions are answered, send scopeConfirmed: true.
-- setExamScope when the exam leaves out or stresses one Big idea or Topic. Propose it only when an admin text or the Student says so, and store it only after the Student has confirmed it: words quotes their confirmation verbatim. Send scope null to remove one the Student takes back.
+- setExamScope when the exam leaves out or stresses one Topic; pick the highest Topic that covers what the exam leaves out or stresses. Propose it only when an admin text or the Student says so, and store it only after the Student has confirmed it: words quotes their confirmation verbatim. Send scope null to remove one the Student takes back.
 - addNote for everything else the Student says about the exam, in their own words.
 
 Never invent or assume an answer the Student did not give: ask instead. When the Student changes an earlier answer, store the new one. Never show the Student the ids, field names or tool names.`;
@@ -60,27 +60,18 @@ function describeMaterials({ materials }: BriefContext): string {
     .join("\n");
 }
 
-function describeBigIdeas({ bigIdeas, examScopes }: BriefContext): string {
-  if (bigIdeas.length === 0) {
+function describeTopics({ topics, examScopes }: BriefContext): string {
+  if (topics.length === 0) {
     return "The Course has no Knowledge map yet, so no exam scope can be stored.";
   }
-  const scopeOf = (bigIdeaId: string | null, topicId: string | null) => {
-    const scope = examScopes.find(
-      (s) =>
-        (bigIdeaId !== null && s.bigIdeaId === bigIdeaId) ||
-        (topicId !== null && s.topicId === topicId),
-    );
+  const scopeOf = (topicId: string) => {
+    const scope = examScopes.find((s) => s.topicId === topicId);
     return scope ? ` [${scope.scope}: ${JSON.stringify(scope.words)}]` : "";
   };
-  return bigIdeas
-    .map(({ id, name, topics }) =>
-      [
-        `- Big idea ${JSON.stringify(name)} (id ${id})${scopeOf(id, null)}`,
-        ...topics.map(
-          (topic) =>
-            `  - Topic ${JSON.stringify(topic.name)} (id ${topic.id})${scopeOf(null, topic.id)}`,
-        ),
-      ].join("\n"),
+  return topics
+    .map(
+      ({ id, name, depth }) =>
+        `${"  ".repeat(depth)}- ${JSON.stringify(name)} (id ${id})${scopeOf(id)}`,
     )
     .join("\n");
 }
@@ -125,7 +116,7 @@ function briefInstructions(context: BriefContext): string {
     FLOW,
     `What the Student has told you so far:\n${describeAnswers(context)}`,
     `The Course's Materials:\n${describeMaterials(context)}`,
-    `The Course's Big ideas and Topics, with any stored exam scope:\n${describeBigIdeas(context)}`,
+    `The Course's Topics, nested, with any stored exam scope (a Topic's scope covers the Topics inside it):\n${describeTopics(context)}`,
     describeAdminTexts(context),
     describeReservation(context),
     `Today is ${new Date().toISOString().slice(0, 10)}.`,

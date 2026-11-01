@@ -28,7 +28,6 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
   { table: "chunks" },
   { table: "chapter_extractions" },
   { table: "knowledge_map_builds" },
-  { table: "big_ideas" },
   { table: "kcs" },
   { table: "kc_sources" },
   { table: "prerequisite_links" },

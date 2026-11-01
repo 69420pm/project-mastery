@@ -47,7 +47,7 @@ export const saveBriefInputSchema = z.object({
     .boolean()
     .nullish()
     .describe(
-      "True once the Student has answered the scope step: which Materials the exam covers, which are old exams, and whether the exam leaves out or stresses a Big idea or Topic.",
+      "True once the Student has answered the scope step: which Materials the exam covers, which are old exams, and whether the exam leaves out or stresses a Topic.",
     ),
   reservedExamMaterialId: z
     .string()
@@ -69,18 +69,15 @@ export const addNoteInputSchema = z.object({
 });
 
 /**
- * What `setExamScope` takes: one Big idea or Topic, whether the exam leaves
- * it out or stresses it (null removes the scope), and the Student's words.
+ * What `setExamScope` takes: one Topic, whether the exam leaves it out or
+ * stresses it (null removes the scope), and the Student's words.
  */
 export const setExamScopeInputSchema = z.object({
-  bigIdeaId: z
-    .string()
-    .nullish()
-    .describe("The Big idea's id; leave out when giving a Topic."),
   topicId: z
     .string()
-    .nullish()
-    .describe("The Topic's id; leave out when giving a Big idea."),
+    .describe(
+      "The Topic's id. A Topic's scope covers the Topics inside it, unless one has its own.",
+    ),
   scope: z
     .enum(["excluded", "emphasized"])
     .nullable()
@@ -138,7 +135,7 @@ export function briefTools(actions: BriefToolActions) {
     }),
     setExamScope: tool({
       description:
-        "Store that the exam leaves out or stresses one Big idea or Topic, once the Student has confirmed it in their own words. Pass their words verbatim. scope null removes it.",
+        "Store that the exam leaves out or stresses one Topic, once the Student has confirmed it in their own words. Pass their words verbatim. scope null removes it.",
       inputSchema: setExamScopeInputSchema,
       execute: (input) => run(() => actions.setExamScope(input)),
     }),

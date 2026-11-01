@@ -139,52 +139,6 @@ export type Database = {
           },
         ];
       };
-      big_ideas: {
-        Row: {
-          course_id: string;
-          created_at: string;
-          description: string;
-          id: string;
-          name: string;
-          owner: string;
-          position: number;
-        };
-        ComputedFields: never;
-        Insert: {
-          course_id: string;
-          created_at?: string;
-          description: string;
-          id?: string;
-          name: string;
-          owner: string;
-          position: number;
-        };
-        Update: {
-          course_id?: string;
-          created_at?: string;
-          description?: string;
-          id?: string;
-          name?: string;
-          owner?: string;
-          position?: number;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "big_ideas_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "big_ideas_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       brief_excluded_materials: {
         Row: {
           course_id: string;
@@ -742,44 +696,34 @@ export type Database = {
       };
       exam_scopes: {
         Row: {
-          big_idea_id: string | null;
           course_id: string;
           created_at: string;
           id: string;
           owner: string;
           scope: string;
-          topic_id: string | null;
+          topic_id: string;
           words: string;
         };
         ComputedFields: never;
         Insert: {
-          big_idea_id?: string | null;
           course_id: string;
           created_at?: string;
           id?: string;
           owner: string;
           scope: string;
-          topic_id?: string | null;
+          topic_id: string;
           words: string;
         };
         Update: {
-          big_idea_id?: string | null;
           course_id?: string;
           created_at?: string;
           id?: string;
           owner?: string;
           scope?: string;
-          topic_id?: string | null;
+          topic_id?: string;
           words?: string;
         };
         Relationships: [
-          {
-            foreignKeyName: "exam_scopes_big_idea_id_fkey";
-            columns: ["big_idea_id"];
-            isOneToOne: false;
-            referencedRelation: "big_ideas";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "exam_scopes_course_id_fkey";
             columns: ["course_id"];
@@ -1033,7 +977,6 @@ export type Database = {
       };
       kcs: {
         Row: {
-          big_idea_id: string | null;
           course_id: string;
           created_at: string;
           description: string;
@@ -1047,7 +990,6 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
-          big_idea_id?: string | null;
           course_id: string;
           created_at?: string;
           description: string;
@@ -1060,7 +1002,6 @@ export type Database = {
           retired_at?: string | null;
         };
         Update: {
-          big_idea_id?: string | null;
           course_id?: string;
           created_at?: string;
           description?: string;
@@ -1073,13 +1014,6 @@ export type Database = {
           retired_at?: string | null;
         };
         Relationships: [
-          {
-            foreignKeyName: "kcs_big_idea_id_fkey";
-            columns: ["big_idea_id"];
-            isOneToOne: false;
-            referencedRelation: "big_ideas";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "kcs_course_id_fkey";
             columns: ["course_id"];
@@ -1106,6 +1040,7 @@ export type Database = {
           owner: string;
           started_at: string;
           status: string;
+          topic_tree_hash: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -1117,6 +1052,7 @@ export type Database = {
           owner: string;
           started_at?: string;
           status: string;
+          topic_tree_hash?: string | null;
         };
         Update: {
           check_report?: Json | null;
@@ -1127,6 +1063,7 @@ export type Database = {
           owner?: string;
           started_at?: string;
           status?: string;
+          topic_tree_hash?: string | null;
         };
         Relationships: [
           {
@@ -2190,47 +2127,40 @@ export type Database = {
       };
       topics: {
         Row: {
-          big_idea_id: string;
-          central_question: string;
+          central_question: string | null;
+          chapter_ids: string[];
           course_id: string;
           created_at: string;
           id: string;
           name: string;
           owner: string;
-          part_hashes: string[];
+          parent_id: string | null;
           position: number;
         };
         ComputedFields: never;
         Insert: {
-          big_idea_id: string;
-          central_question: string;
+          central_question?: string | null;
+          chapter_ids?: string[];
           course_id: string;
           created_at?: string;
           id?: string;
           name: string;
           owner: string;
-          part_hashes?: string[];
+          parent_id?: string | null;
           position: number;
         };
         Update: {
-          big_idea_id?: string;
-          central_question?: string;
+          central_question?: string | null;
+          chapter_ids?: string[];
           course_id?: string;
           created_at?: string;
           id?: string;
           name?: string;
           owner?: string;
-          part_hashes?: string[];
+          parent_id?: string | null;
           position?: number;
         };
         Relationships: [
-          {
-            foreignKeyName: "topics_big_idea_id_fkey";
-            columns: ["big_idea_id"];
-            isOneToOne: false;
-            referencedRelation: "big_ideas";
-            referencedColumns: ["id"];
-          },
           {
             foreignKeyName: "topics_course_id_fkey";
             columns: ["course_id"];
@@ -2243,6 +2173,13 @@ export type Database = {
             columns: ["owner"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "topics_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "topics";
             referencedColumns: ["id"];
           },
         ];
@@ -2275,6 +2212,8 @@ export type Database = {
           p_course_id: string;
           p_dropped_prerequisites?: Json;
           p_kcs: Json;
+          p_topic_tree_hash: string;
+          p_topics: Json;
         };
         Returns: boolean;
       };
@@ -2357,10 +2296,9 @@ export type Database = {
       };
       set_exam_scope: {
         Args: {
-          big_idea_id?: string;
           course_id: string;
           scope?: string;
-          topic_id?: string;
+          topic_id: string;
           words?: string;
         };
         Returns: boolean;

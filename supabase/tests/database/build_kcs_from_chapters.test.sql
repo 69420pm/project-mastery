@@ -131,9 +131,9 @@ select is(
           'finalAnswers', '[{"label": "dim U", "value": 2, "unit": null}]'::jsonb, 'difficulty', 1))))),
   true, 'the running build stores KCs');
 select results_eq(
-  $$select name, origin, big_idea_id is null from public.kcs order by position$$,
-  $$values ('Vector space'::text, 'content'::text, true), ('Subspace', 'exercise', true)$$,
-  'new KCs are stored without a Big idea');
+  $$select name, origin from public.kcs order by position$$,
+  $$values ('Vector space'::text, 'content'::text), ('Subspace', 'exercise')$$,
+  'new KCs are stored with their origin');
 select results_eq(
   $$select e.final_answers, k.name from public.exercises e
     join public.exercise_kcs x on x.exercise_id = e.id join public.kcs k on k.id = x.kc_id$$,
@@ -173,7 +173,7 @@ select results_eq(
   'match_kcs finds retired KCs only when asked');
 select is(
   public.arrange_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
-    '["bbbbbbbb-0000-0000-0000-000000000001"]'),
+    '["bbbbbbbb-0000-0000-0000-000000000001"]', '[]', repeat('a', 64)),
   true, 'the build ends');
 select is((select status from public.knowledge_map_builds), 'built', 'the build is built');
 

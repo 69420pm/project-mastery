@@ -32,7 +32,7 @@ export async function getKnowledgeMap(
   const empty: KnowledgeMapView = {
     courseId,
     build: null,
-    bigIdeas: [],
+    kcs: [],
     prerequisites: [],
     exercises: [],
     checkReport: null,
@@ -45,7 +45,6 @@ export async function getKnowledgeMap(
 
   const [
     build,
-    bigIdeas,
     kcs,
     sources,
     prerequisites,
@@ -58,15 +57,10 @@ export async function getKnowledgeMap(
       .select("status, failure_reason, finished_at, check_report, heartbeat_at")
       .eq("course_id", courseId)
       .maybeSingle(),
-    supabase
-      .from("big_ideas")
-      .select("id, name, description")
-      .eq("course_id", courseId)
-      .order("position"),
     allRows("Loading the KCs", (from, to) =>
       supabase
         .from("kcs")
-        .select("id, big_idea_id, name, description, origin")
+        .select("id, name, description, origin")
         .eq("course_id", courseId)
         .is("retired_at", null)
         .order("position")
@@ -111,7 +105,6 @@ export async function getKnowledgeMap(
     ),
   ]);
   if (build.error) failed("Loading the build", build.error);
-  if (bigIdeas.error) failed("Loading the big ideas", bigIdeas.error);
 
   const report = checkReportSchema
     .nullable()
@@ -172,10 +165,7 @@ export async function getKnowledgeMap(
       materials.map((material) => material.parse.status),
       mapBuild,
     ),
-    bigIdeas: bigIdeas.data.map((bigIdea) => ({
-      ...bigIdea,
-      kcs: kcs.filter((kc) => kc.big_idea_id === bigIdea.id).map(kcView),
-    })),
+    kcs: kcs.map(kcView),
     // A retired KC's links wait for it to come back.
     prerequisites: prerequisites
       .filter((link) => live.has(link.from_kc) && live.has(link.to_kc))

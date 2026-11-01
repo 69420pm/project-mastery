@@ -7,7 +7,7 @@ import {
   type ReadingSection,
 } from "@/features/knowledge-map/domain/topic-reading";
 import { loadStoredMap } from "@/features/knowledge-map/server/stored-map";
-import { loadStoredTopics } from "@/features/knowledge-map/server/stored-topics";
+import { loadTopicTree } from "@/features/knowledge-map/server/stored-topics";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
@@ -18,10 +18,12 @@ type TopicKc = { id: string; name: string };
 /** A stored Topic with what a Student reads around it. */
 export type CourseTopic = {
   id: string;
-  bigIdeaId: string;
+  /** The Topic it sits in; null at the top. */
+  parentId: string | null;
   name: string;
-  centralQuestion: string;
-  /** In teaching order. */
+  /** Null for a Topic without KCs of its own. */
+  centralQuestion: string | null;
+  /** Its own KCs, in teaching order. */
   kcs: TopicKc[];
   /** Prerequisites from outside the Topic, in map order. */
   anchors: TopicKc[];
@@ -30,7 +32,8 @@ export type CourseTopic = {
 };
 
 /**
- * The Course's Topics in Course order, each with its KCs in teaching order,
+ * The Course's whole Topic tree in tree order (a parent before its
+ * children), each Topic with its own KCs in teaching order,
  * its anchors and its Reading sections, both derived on read (ADR 0020).
  * Empty before a build stored Topics. Reads for the signed-in Student,
  * where Row Level Security leaves another Student's Course empty, or on
@@ -44,7 +47,7 @@ export async function loadCourseTopics(
     if (!z.uuid().safeParse(courseId).success || !(await getUser())) return [];
   }
   const supabase = client ?? (await createClient());
-  const topics = await loadStoredTopics(supabase, courseId);
+  const topics = await loadTopicTree(supabase, courseId);
   if (topics.length === 0) return [];
   const [map, chunks] = await Promise.all([
     loadStoredMap(supabase, courseId),
@@ -57,7 +60,7 @@ export async function loadCourseTopics(
   });
   return topics.map((topic) => ({
     id: topic.id,
-    bigIdeaId: topic.bigIdea,
+    parentId: topic.parentId,
     name: topic.name,
     centralQuestion: topic.centralQuestion,
     kcs: topic.kcs.map(listed),

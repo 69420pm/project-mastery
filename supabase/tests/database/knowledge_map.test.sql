@@ -54,22 +54,19 @@ select is(
 
 -- Students cannot write the map.
 select throws_ok(
-  $$insert into public.big_ideas (owner, course_id, name, description, position)
-    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'x', 'y', 0)$$,
-  '42501', null, 'a Student cannot insert a big idea');
+  $$insert into public.kcs (owner, course_id, name, description, origin, position)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'x', 'y', 'content', 0)$$,
+  '42501', null, 'a Student cannot insert a KC');
 reset role;
 
--- The workflow's map: one Big idea with two KCs and a Prerequisite.
-insert into public.big_ideas (id, owner, course_id, name, description, position)
-values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'Momentum makes thrust.', 0);
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
+-- The workflow's map: two KCs and a Prerequisite.
+insert into public.kcs (id, owner, course_id, name, description, origin, position)
 values
   ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Thrust', 'Net forward force.', 'content', 0),
   ('dddddddd-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
+    'aaaaaaaa-0000-0000-0000-000000000001',
     'Thrust equation', 'F = ...', 'exercise', 1);
 insert into public.prerequisite_links (owner, course_id, from_kc, to_kc)
 values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
@@ -81,12 +78,12 @@ select lives_ok(
   $$insert into public.kcs (owner, course_id, name, description, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
       'Loose', '.', 'content', 5)$$,
-  'a live KC needs no Big idea (#229)');
+  'a live KC stands without a Topic (#229)');
 select hasnt_column('public', 'kcs', 'type', 'a KC has no type (#229)');
 select throws_ok(
-  $$insert into public.kcs (owner, course_id, big_idea_id, name, description, origin, position)
+  $$insert into public.kcs (owner, course_id, name, description, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
-      'bbbbbbbb-0000-0000-0000-000000000001', 'Old', '.', 'prior', 6)$$,
+      'Old', '.', 'prior', 6)$$,
   '23514', null, 'a KC comes from the content or an exercise');
 
 -- Owners only.

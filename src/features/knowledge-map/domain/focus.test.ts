@@ -1,14 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { focusOn } from "./focus";
-import type { MapGraphEdge, MapGraphNode } from "./map-graph";
+import type { MapGraphEdge } from "./map-graph";
 
 // a → b → c → d, b → e, and Exercise x tests c.
-const kc = (id: string, parentId: string | null = null): MapGraphNode => ({
-  id,
-  kind: "kc",
-  parentId,
-});
-const nodes = [kc("a"), kc("b", "g"), kc("c", "g"), kc("d"), kc("e")];
 const prerequisite = (source: string, target: string): MapGraphEdge => ({
   id: `${source}${target}`,
   kind: "prerequisite",
@@ -24,7 +18,7 @@ const edges: MapGraphEdge[] = [
   { id: "cx", kind: "tests", source: "c", target: "x" },
 ];
 const focused = (id: string, depth: Parameters<typeof focusOn>[1]) => {
-  const focus = focusOn(id, depth, nodes, edges);
+  const focus = focusOn(id, depth, edges);
   return { nodes: [...focus.nodes].sort(), edges: [...focus.edges].sort() };
 };
 
@@ -46,13 +40,9 @@ describe("focus", () => {
     expect(focused("c", "both").nodes).toEqual(["a", "b", "c", "d", "x"]);
   });
 
-  test("a Big idea focuses from its KCs", () => {
-    expect(focused("g", "upstream").nodes).toEqual(["a", "b", "c", "g"]);
-  });
-
   test("an edge left out is not crossed", () => {
     const shown = edges.filter((edge) => edge.id !== "bc");
-    expect([...focusOn("d", "upstream", nodes, shown).nodes].sort()).toEqual([
+    expect([...focusOn("d", "upstream", shown).nodes].sort()).toEqual([
       "c",
       "d",
     ]);

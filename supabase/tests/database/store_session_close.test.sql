@@ -15,13 +15,9 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Rockets');
 
-insert into public.big_ideas (id, owner, course_id, name, description, position)
-values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'Momentum makes thrust.', 0);
-
-insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, position)
+insert into public.topics (id, owner, course_id, chapter_ids, name, central_question, position)
 values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
+  'aaaaaaaa-0000-0000-0000-000000000001', '{bbbbbbbb-0000-0000-0000-000000000001}',
   'Thrust', 'How does an engine make thrust?', 0);
 
 -- Each Chat starts a learn session: 1 with the Topic, 2 review, 3 learn

@@ -58,19 +58,11 @@ const kc = (
 const map: KnowledgeMapView = {
   courseId: "c1",
   build: { status: "built", failureReason: null, finishedAt: null },
-  bigIdeas: [
-    {
-      id: "b1",
-      name: "Thrust",
-      description: "",
-      kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles"), kc("k3", "Staging")],
-    },
-    {
-      id: "b2",
-      name: "Maths",
-      description: "",
-      kcs: [kc("p1", "Algebra", "exercise")],
-    },
+  kcs: [
+    kc("k1", "Momentum"),
+    kc("k2", "Nozzles"),
+    kc("k3", "Staging"),
+    kc("p1", "Algebra", "exercise"),
   ],
   prerequisites: [
     { from: "k1", to: "k2" },
@@ -82,23 +74,24 @@ const map: KnowledgeMapView = {
   canBuild: true,
 };
 
+// Basics holds a KC of its own and the Topic Nozzle flow.
 const basics: MapTopic = {
   id: "t1",
-  bigIdeaId: "b1",
+  parentId: null,
   name: "Basics",
   centralQuestion: "What pushes a rocket?",
   kcs: [{ id: "k1", name: "Momentum" }],
 };
 const nozzleFlow: MapTopic = {
   id: "t2",
-  bigIdeaId: "b1",
+  parentId: "t1",
   name: "Nozzle flow",
   centralQuestion: "How does a nozzle speed up gas?",
   kcs: [{ id: "k2", name: "Nozzles" }],
 };
 const stages: MapTopic = {
   id: "t3",
-  bigIdeaId: "b1",
+  parentId: null,
   name: "Stages",
   centralQuestion: "Why stage?",
   kcs: [{ id: "k3", name: "Staging" }],
@@ -132,15 +125,44 @@ const renderTopic = (detail: MapTopicDetail) =>
   );
 
 describe("TopicDetail", () => {
-  test("shows the name, Big idea and question", () => {
+  test("shows the name, the Topic it sits in and question", () => {
     renderTopic(topic);
     expect(
       screen.getByRole("heading", { level: 1, name: "Nozzle flow" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Big idea: Thrust")).toBeInTheDocument();
+    expect(screen.getByText("Part of Basics")).toBeInTheDocument();
     expect(
       screen.getByText("How does a nozzle speed up gas?"),
     ).toBeInTheDocument();
+  });
+
+  test("a parent lists its own KCs and the Topics inside it", () => {
+    renderTopic({ ...basics, anchors: [], readingSections: [] });
+    expect(
+      within(screen.getByRole("region", { name: "KCs" })).getByText("Momentum"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Topics inside" })).getByRole(
+        "link",
+        { name: "Nozzle flow" },
+      ),
+    ).toHaveAttribute("href", "/courses/c1/map/t2");
+  });
+
+  test("a parent without KCs of its own shows no state, question or KC graph", () => {
+    renderTopic({
+      ...basics,
+      centralQuestion: null,
+      kcs: [],
+      anchors: [],
+      readingSections: [],
+    });
+    expect(screen.queryByRole("region", { name: "KCs" })).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Central question" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Topics inside" })).toBeVisible();
   });
 
   test("shows the plan badges and the pin and skip controls", () => {

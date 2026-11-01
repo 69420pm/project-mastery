@@ -4,7 +4,7 @@ import { briefPath } from "@/features/brief/domain/brief-paths";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import type { BriefFields } from "@/features/brief/domain/intake";
 import {
-  loadBigIdeas,
+  loadTopics,
   loadFields,
   openBrief,
 } from "@/features/brief/server/brief-store";
@@ -38,7 +38,7 @@ export async function getBrief(
 
 /** What the Brief's panel shows of the Brief itself. */
 async function loadPanelData(supabase: Supabase, courseId: string) {
-  const [brief, excluded, exams, bigIdeas, scopes] = await Promise.all([
+  const [brief, excluded, exams, topics, scopes] = await Promise.all([
     supabase
       .from("briefs")
       .select(
@@ -56,7 +56,7 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
       .eq("course_id", courseId)
       .eq("is_exam", true)
       .order("created_at"),
-    loadBigIdeas(supabase, courseId),
+    loadTopics(supabase, courseId),
     loadExamScopes(supabase, courseId),
   ]);
   if (exams.error) failed("Loading the old exams", exams.error);
@@ -97,13 +97,9 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
       name,
       href: materialChunksPath(courseId, id),
     })),
-    examScopes: scopes.flatMap(({ bigIdeaId, topicId, scope, words }) => {
-      const bigIdea = bigIdeas.find(({ id }) => id === bigIdeaId);
-      const topic = bigIdeas
-        .flatMap(({ topics }) => topics)
-        .find(({ id }) => id === topicId);
-      const name = bigIdea?.name ?? topic?.name;
-      return name === undefined ? [] : [{ name, scope, words }];
+    examScopes: scopes.flatMap(({ topicId, scope, words }) => {
+      const topic = topics.find(({ id }) => id === topicId);
+      return topic ? [{ name: topic.name, scope, words }] : [];
     }),
     reservedExam: data.reserved_exam_answered
       ? await loadReservedExamLink(

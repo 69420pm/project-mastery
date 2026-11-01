@@ -18,12 +18,11 @@ const [PRIOR, THRUST, EFFICIENCY, NOZZLE] = [1, 2, 3, 4].map(
 ) as [string, string, string, string];
 
 const MAP = {
-  bigIdeas: [{ id: "big", name: "Thrust generation" }],
   kcs: [
-    { id: PRIOR, name: "Newton's second law", bigIdea: "big" },
-    { id: THRUST, name: "Thrust equation", bigIdea: "big" },
-    { id: EFFICIENCY, name: "Propulsive efficiency", bigIdea: "big" },
-    { id: NOZZLE, name: "Nozzle flow", bigIdea: "big" },
+    { id: PRIOR, name: "Newton's second law" },
+    { id: THRUST, name: "Thrust equation" },
+    { id: EFFICIENCY, name: "Propulsive efficiency" },
+    { id: NOZZLE, name: "Nozzle flow" },
   ],
   prerequisites: [
     { from: PRIOR, to: THRUST },
@@ -35,7 +34,7 @@ const SESSION = "aaaaaaaa-5000-4000-8000-000000000001";
 const OPEN_SESSION = "aaaaaaaa-5000-4000-8000-000000000002";
 const CHAT = "aaaaaaaa-c400-4000-8000-000000000001";
 const QUESTION = "aaaaaaaa-9000-4000-8000-000000000001";
-const EMPTY_MAP = { bigIdeas: [], kcs: [], prerequisites: [], exercises: [] };
+const EMPTY_MAP = { kcs: [], prerequisites: [], exercises: [] };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const at = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();

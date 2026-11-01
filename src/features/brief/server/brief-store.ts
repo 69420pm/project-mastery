@@ -17,7 +17,7 @@ import {
 import { STATIC_MODEL_ID } from "@/features/brief/domain/static-messages";
 import {
   isIntakeDone,
-  type BriefBigIdea,
+  type BriefTopic,
   type BriefContext,
   type BriefFields,
   type BriefMaterial,
@@ -214,54 +214,43 @@ async function loadMaterials(supabase: Supabase, courseId: string) {
   }));
 }
 
-/** The Course's Big ideas with their Topics, in Course order. */
-export async function loadBigIdeas(
+/** The Course's Topic tree in tree order, each Topic with its depth. */
+export async function loadTopics(
   supabase: Supabase,
   courseId: string,
-): Promise<BriefBigIdea[]> {
-  const [bigIdeas, topics] = await Promise.all([
-    allRows("Loading the big ideas", (from, to) =>
-      supabase
-        .from("big_ideas")
-        .select("id, name")
-        .eq("course_id", courseId)
-        .order("position")
-        .range(from, to),
-    ),
-    allRows("Loading the topics", (from, to) =>
-      supabase
-        .from("topics")
-        .select("id, name, big_idea_id")
-        .eq("course_id", courseId)
-        .order("position")
-        .range(from, to),
-    ),
-  ]);
-  return bigIdeas.map(({ id, name }) => ({
-    id,
-    name,
-    topics: topics
-      .filter((topic) => topic.big_idea_id === id)
-      .map((topic) => ({ id: topic.id, name: topic.name })),
-  }));
+): Promise<BriefTopic[]> {
+  const topics = await allRows("Loading the topics", (from, to) =>
+    supabase
+      .from("topics")
+      .select("id, name, parent_id")
+      .eq("course_id", courseId)
+      .order("position")
+      .range(from, to),
+  );
+  const depth = new Map<string, number>();
+  return topics.map(({ id, name, parent_id }) => {
+    const own = parent_id ? (depth.get(parent_id) ?? 0) + 1 : 0;
+    depth.set(id, own);
+    return { id, name, depth: own };
+  });
 }
 
 /**
  * What the AI is told about the Course's Brief: its fields and notes, the
  * Course's Materials, oldest first, each marked when the exam excludes it or
- * it is an old exam, its Big ideas and Topics, the exam scopes and the
+ * it is an old exam, its Topic tree, the exam scopes and the
  * distinct admin texts. Null when the Course has no Brief.
  */
 export async function loadContext(
   supabase: Supabase,
   courseId: string,
 ): Promise<BriefContext | null> {
-  const [brief, materials, excluded, bigIdeas, examScopes, adminChunks] =
+  const [brief, materials, excluded, topics, examScopes, adminChunks] =
     await Promise.all([
       loadBrief(supabase, courseId),
       loadMaterials(supabase, courseId),
       loadExcludedIds(supabase, courseId),
-      loadBigIdeas(supabase, courseId),
+      loadTopics(supabase, courseId),
       loadExamScopes(supabase, courseId),
       loadAdminChunks(supabase, courseId),
     ]);
@@ -281,7 +270,7 @@ export async function loadContext(
     exams: materials
       .filter(({ exam }) => exam)
       .map(({ id, name }) => ({ id, name })),
-    bigIdeas,
+    topics,
     examScopes,
     adminTexts: distinctAdminTexts(adminChunks),
   };

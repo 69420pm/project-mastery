@@ -12,71 +12,93 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 export type MapInput = {
   /** In Course order: Materials by position, then chunks by position. */
   chunks: Array<{ id: string; chapterId: string | null; label: string }>;
-  chapters: Array<{ id: string; title: string }>;
+  /** In Course order: Materials by position, then their Outlines in order. */
+  chapters: Array<{
+    id: string;
+    materialId: string;
+    title: string;
+    depth: number;
+  }>;
+  /** The Course's Materials by position. */
+  materials: Array<{ id: string; name: string }>;
   kcs: Array<{
     id: string;
     name: string;
     description: string;
+    origin: string;
     sources: string[];
   }>;
   prerequisites: Link[];
+  /** Each Exercise's live KCs. */
+  exercises: string[][];
 };
 
 export async function loadMapInput(
   supabase: AdminSupabase,
   courseId: string,
 ): Promise<MapInput> {
-  const [materials, chapters, chunks, kcs, sources, links] = await Promise.all([
-    supabase
-      .from("materials")
-      .select("id")
-      .eq("course_id", courseId)
-      .order("position"),
-    allRows("Loading the Chapters", (from, to) =>
+  const [materials, chapters, chunks, kcs, sources, links, tested] =
+    await Promise.all([
       supabase
-        .from("chapters")
-        .select("id, title")
+        .from("materials")
+        .select("id, name")
         .eq("course_id", courseId)
-        .order("id")
-        .range(from, to),
-    ),
-    allRows("Loading the chunks", (from, to) =>
-      supabase
-        .from("chunks")
-        .select("id, material_id, chapter_id, label, position")
-        .eq("course_id", courseId)
-        .order("material_id")
-        .order("position")
-        .range(from, to),
-    ),
-    allRows("Loading the KCs", (from, to) =>
-      supabase
-        .from("kcs")
-        .select("id, name, description")
-        .eq("course_id", courseId)
-        .is("retired_at", null)
-        .order("position")
-        .range(from, to),
-    ),
-    allRows("Loading the KC sources", (from, to) =>
-      supabase
-        .from("kc_sources")
-        .select("kc_id, chunk_id")
-        .eq("course_id", courseId)
-        .order("kc_id")
-        .order("chunk_id")
-        .range(from, to),
-    ),
-    allRows("Loading the Prerequisites", (from, to) =>
-      supabase
-        .from("prerequisite_links")
-        .select("from_kc, to_kc")
-        .eq("course_id", courseId)
-        .order("from_kc")
-        .order("to_kc")
-        .range(from, to),
-    ),
-  ]);
+        .order("position"),
+      allRows("Loading the Chapters", (from, to) =>
+        supabase
+          .from("chapters")
+          .select("id, material_id, title, depth")
+          .eq("course_id", courseId)
+          .order("material_id")
+          .order("position")
+          .range(from, to),
+      ),
+      allRows("Loading the chunks", (from, to) =>
+        supabase
+          .from("chunks")
+          .select("id, material_id, chapter_id, label, position")
+          .eq("course_id", courseId)
+          .order("material_id")
+          .order("position")
+          .range(from, to),
+      ),
+      allRows("Loading the KCs", (from, to) =>
+        supabase
+          .from("kcs")
+          .select("id, name, description, origin")
+          .eq("course_id", courseId)
+          .is("retired_at", null)
+          .order("position")
+          .range(from, to),
+      ),
+      allRows("Loading the KC sources", (from, to) =>
+        supabase
+          .from("kc_sources")
+          .select("kc_id, chunk_id")
+          .eq("course_id", courseId)
+          .order("kc_id")
+          .order("chunk_id")
+          .range(from, to),
+      ),
+      allRows("Loading the Prerequisites", (from, to) =>
+        supabase
+          .from("prerequisite_links")
+          .select("from_kc, to_kc")
+          .eq("course_id", courseId)
+          .order("from_kc")
+          .order("to_kc")
+          .range(from, to),
+      ),
+      allRows("Loading the exercise KCs", (from, to) =>
+        supabase
+          .from("exercise_kcs")
+          .select("exercise_id, kc_id")
+          .eq("course_id", courseId)
+          .order("exercise_id")
+          .order("kc_id")
+          .range(from, to),
+      ),
+    ]);
   if (materials.error) failed("Loading the Materials", materials.error);
 
   const sourcesOf = Map.groupBy(sources, (source) => source.kc_id);
@@ -91,7 +113,23 @@ export async function loadMapInput(
           label: chunk.label,
         })),
     ),
-    chapters,
+    chapters: materials.data.flatMap((material) =>
+      chapters
+        .filter((chapter) => chapter.material_id === material.id)
+        .map((chapter) => ({
+          id: chapter.id,
+          materialId: chapter.material_id,
+          title: chapter.title,
+          depth: chapter.depth,
+        })),
+    ),
+    materials: materials.data,
+    exercises: [
+      ...Map.groupBy(
+        tested.filter((row) => live.has(row.kc_id)),
+        (row) => row.exercise_id,
+      ).values(),
+    ].map((rows) => rows.map((row) => row.kc_id)),
     kcs: kcs.map((kc) => ({
       ...kc,
       sources: (sourcesOf.get(kc.id) ?? []).map((source) => source.chunk_id),

@@ -40,9 +40,9 @@ type TopicNodeData = {
   readiness?: number;
   badges: string[];
 };
-type BigIdeaNodeData = { name: string };
+type BoxNodeData = { topic: MapTopic; href: string };
 type TopicNode = Node<TopicNodeData, "topic">;
-type BigIdeaNode = Node<BigIdeaNodeData, "bigIdea">;
+type BoxNode = Node<BoxNodeData, "box">;
 
 /**
  * A Topic: its name, central question, Topic state and recall today,
@@ -71,7 +71,7 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
         <div
           className={`${badges.length > 0 ? "line-clamp-1" : "line-clamp-2"} text-xs text-muted-foreground`}
         >
-          <Markdown>{topic.centralQuestion}</Markdown>
+          <Markdown>{topic.centralQuestion ?? ""}</Markdown>
         </div>
         <div className="mt-auto" />
         <PlanBadges badges={badges} />
@@ -92,24 +92,42 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
   );
 }
 
-/** A Big idea: a box around its Topics, with its name on top. */
-function BigIdeaNodeView({ data }: NodeProps<BigIdeaNode>) {
+/**
+ * A Topic with child Topics: a box around them, with its name on top. The
+ * name opens the Topic's page when the Topic has no card of its own.
+ */
+function BoxNodeView({ data }: NodeProps<BoxNode>) {
+  const { topic, href } = data;
+  const name = <Markdown>{topic.name}</Markdown>;
   return (
-    <div className="size-full rounded-xl border border-dashed bg-muted/40">
-      <div className="truncate px-4 py-2.5 text-sm font-semibold text-muted-foreground">
-        <Markdown>{data.name}</Markdown>
-      </div>
+    <div
+      role="group"
+      aria-label={topic.name}
+      className="size-full rounded-xl border border-dashed bg-muted/30"
+    >
+      {topic.kcs.length > 0 ? (
+        <div className="truncate px-4 py-2.5 text-sm font-semibold text-muted-foreground">
+          {name}
+        </div>
+      ) : (
+        <Link
+          href={href}
+          className="pointer-events-auto block truncate px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        >
+          {name}
+        </Link>
+      )}
     </div>
   );
 }
 
-const nodeTypes = { topic: TopicNodeView, bigIdea: BigIdeaNodeView };
+const nodeTypes = { topic: TopicNodeView, box: BoxNodeView };
 
 /**
- * The Course map's graph, laid out left to right in learning order: each
- * Big idea a box of its Topics' cards, with arrows between Topics. A
- * skeleton shows until the first layout. Clicking a card opens its Topic
- * page.
+ * The Course map's graph, laid out left to right in learning order: the
+ * Topic tree as nested boxes, a parent's own card beside its children's,
+ * with arrows between Topics. A skeleton shows until the first layout.
+ * Clicking a card opens its Topic page.
  */
 export function CourseMapGraph({
   map,
@@ -131,11 +149,11 @@ export function CourseMapGraph({
   const { nodes, edges } = useMemo(() => {
     const layouts = laidOut ? nodeLayouts(laidOut) : new Map<string, never>();
     const shown = new Set<string>();
-    const nodes: Array<TopicNode | BigIdeaNode> = [];
+    const nodes: Array<TopicNode | BoxNode> = [];
     for (const node of graph.nodes) {
       const layout = layouts.get(node.id);
-      const parentId = node.kind === "topic" ? node.parentId : null;
-      // A node the last layout hasn't placed, or placed in another group,
+      const { parentId } = node;
+      // A node the last layout hasn't placed, or placed in another box,
       // waits for the next one.
       if (!layout || layout.parentId !== parentId) continue;
       if (parentId !== null && !shown.has(parentId)) continue;
@@ -148,8 +166,16 @@ export function CourseMapGraph({
         focusable: false,
       };
       nodes.push(
-        node.kind === "bigIdea"
-          ? { ...common, type: "bigIdea", data: { name: node.name } }
+        node.kind === "box"
+          ? {
+              ...common,
+              type: "box",
+              ...(parentId !== null && { parentId }),
+              data: {
+                topic: node.topic,
+                href: topicPath(map.courseId, node.topic.id),
+              },
+            }
           : {
               ...common,
               type: "topic",

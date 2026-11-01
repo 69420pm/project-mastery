@@ -12,7 +12,6 @@ import {
 import type { MapLayers } from "@/features/knowledge-map/domain/map-graph";
 
 const FLAGS: Array<[keyof MapLayers, string]> = [
-  ["bigIdeaGroups", "Big-idea groups"],
   ["exercises", "Exercises"],
   ["prerequisites", "Prerequisites"],
 ];

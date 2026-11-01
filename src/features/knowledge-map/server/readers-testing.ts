@@ -10,13 +10,7 @@ export const id = (n: number) =>
 export const [LECTURE, NOTES] = [id(1), id(2)];
 // c1–c3 are Lecture 1's pages 1, 2–3 and 4; d1 is page 1 of the later Notes.
 export const [C1, C2, C3, D1] = [id(11), id(12), id(13), id(14)];
-export const [BIG_IDEA, K1, K2, K3, EXERCISE] = [
-  id(21),
-  id(22),
-  id(23),
-  id(24),
-  id(25),
-];
+export const [K1, K2, K3, EXERCISE] = [id(22), id(23), id(24), id(25)];
 export const RETIRED_KC = id(26);
 export const [T1, T2] = [id(41), id(42)];
 const topicText = (name: string) => ({
@@ -77,13 +71,9 @@ export function createDb() {
           },
         },
       ]),
-      big_ideas: ofCourse([
-        { id: BIG_IDEA, name: "Thrust", description: "Force.", position: 0 },
-      ]),
       kcs: ofCourse([
         {
           id: K3,
-          big_idea_id: BIG_IDEA,
           name: "Newton",
           description: "F = ma.",
           origin: "exercise",
@@ -91,7 +81,6 @@ export function createDb() {
         },
         {
           id: K2,
-          big_idea_id: BIG_IDEA,
           name: "Thrust equation",
           description: "F = m(v2 - v1).",
           origin: "content",
@@ -99,16 +88,14 @@ export function createDb() {
         },
         {
           id: K1,
-          big_idea_id: BIG_IDEA,
           name: "Momentum",
           description: "m v.",
           origin: "content",
           position: 0,
         },
-        // Retired, without sources or a Big idea: no reader shows it.
+        // Retired, without sources: no reader shows it.
         {
           id: RETIRED_KC,
-          big_idea_id: null,
           name: "Retired",
           description: "Gone with its Material.",
           origin: "content",
@@ -140,11 +127,12 @@ export function createDb() {
         { exercise_id: EXERCISE, kc_id: RETIRED_KC },
       ]),
       topics: [
-        { id: T2, big_idea_id: BIG_IDEA, position: 1, ...topicText("Two") },
-        { id: T1, big_idea_id: BIG_IDEA, position: 0, ...topicText("One") },
+        // Two sits inside One.
+        { id: T2, parent_id: T1, position: 1, ...topicText("Two") },
+        { id: T1, parent_id: null, position: 0, ...topicText("One") },
         {
           id: id(43),
-          big_idea_id: BIG_IDEA,
+          parent_id: null,
           position: 0,
           ...topicText("Other"),
           course_id: OTHER_COURSE,

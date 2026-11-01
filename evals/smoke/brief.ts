@@ -56,19 +56,21 @@ async function send(
     .join("");
 }
 
-/** The seeded Course: its Materials and the Big idea the exam leaves out. */
+/** The seeded Course: its Materials and the Topic the exam leaves out. */
 type Seeded = {
   courseId: string;
   labManualId: string;
   examId: string;
   /** The KCs of Chapter 2, which an admin text says is not examined. */
   chapter2Kcs: string[];
+  /** The Topic that holds them. */
+  chapter2Topic: string;
 };
 
 /**
  * A small Course seeded in code: a lab manual, an old exam named "Klausur
  * 2025" and lecture notes whose admin chunk says "Chapter 2 is not
- * examined", with a map of two Big ideas, one per chapter.
+ * examined", with a map of two top-level Topics, one per chapter.
  */
 async function seedCourse(
   supabase: AdminSupabase,
@@ -122,37 +124,40 @@ async function seedCourse(
   ];
   await insertRows(supabase, "chunks", chunks);
 
+  // Two top-level Topics, each holding one Chapter's KC.
   const [vectors, matrices] = [randomUUID(), randomUUID()];
-  await insertRows(supabase, "big_ideas", [
-    {
-      ...owned,
-      id: vectors,
-      name: "Chapter 1: Vectors",
-      description: "Vectors.",
-      position: 0,
-    },
-    {
-      ...owned,
-      id: matrices,
-      name: "Chapter 2: Matrices",
-      description: "Matrices.",
-      position: 1,
-    },
+  const topic = (id: string, name: string, position: number) => ({
+    ...owned,
+    id,
+    name,
+    central_question: `What is ${name}?`,
+    chapter_ids: [randomUUID()],
+    position,
+  });
+  await insertRows(supabase, "topics", [
+    topic(vectors, "Chapter 1: Vectors", 0),
+    topic(matrices, "Chapter 2: Matrices", 1),
   ]);
-  const kc = (bigIdea: string, name: string, position: number) => ({
+  const kc = (name: string, position: number) => ({
     ...owned,
     id: randomUUID(),
-    big_idea_id: bigIdea,
     name,
     description: `${name}.`,
     origin: "content",
     position,
   });
-  const kcs = [
-    kc(vectors, "Vector addition", 0),
-    kc(matrices, "Matrix product", 1),
-  ];
+  const kcs = [kc("Vector addition", 0), kc("Matrix product", 1)];
   await insertRows(supabase, "kcs", kcs);
+  await insertRows(
+    supabase,
+    "topic_kcs",
+    [vectors, matrices].map((topicId, index) => ({
+      topic_id: topicId,
+      kc_id: kcs[index]!.id,
+      owner: studentId,
+      position: 0,
+    })),
+  );
   await insertRows(
     supabase,
     "kc_sources",
@@ -167,6 +172,7 @@ async function seedCourse(
     labManualId,
     examId,
     chapter2Kcs: [kcs[1]!.id],
+    chapter2Topic: matrices,
   };
 }
 
@@ -213,7 +219,7 @@ export const briefSmoke: SmokeCheck = {
         .eq("is_exam", true),
       supabase
         .from("exam_scopes")
-        .select("big_idea_id, topic_id, scope, words")
+        .select("topic_id, scope, words")
         .eq("course_id", courseId),
     ]);
     for (const response of [brief, excluded, exams, scopes]) {
@@ -267,10 +273,10 @@ export const briefSmoke: SmokeCheck = {
         `${examIds.length} old exams`,
       ),
       result(
-        "an exam scope excludes a Big idea",
+        "an exam scope excludes the Chapter 2 Topic",
         scopes.data!.length === 1 &&
           scopes.data![0]!.scope === "excluded" &&
-          scopes.data![0]!.big_idea_id !== null,
+          scopes.data![0]!.topic_id === seeded.chapter2Topic,
         JSON.stringify(scopes.data),
       ),
       result(

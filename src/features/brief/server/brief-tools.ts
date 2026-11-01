@@ -22,7 +22,7 @@ const plain = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
 
 /**
  * What the Brief's tools do, as the signed-in Student, to the Course's
- * Brief. `context` holds the Course's Materials, Big ideas and Topics when
+ * Brief. `context` holds the Course's Materials and Topics when
  * the reply started, `studentTexts` the Student's messages so far and
  * `askedMaterialIds` the Materials the Student was asked about as old
  * exams. Each tool writes in one transaction, so a failed call changes
@@ -100,19 +100,9 @@ export function briefToolActions(
     },
 
     async setExamScope(input: SetExamScopeInput) {
-      const bigIdeaId = given(input.bigIdeaId) ?? null;
-      const topicId = given(input.topicId) ?? null;
-      if ((bigIdeaId === null) === (topicId === null)) {
-        return "Not saved: give the id of one Big idea or of one Topic. Nothing changed.";
-      }
-      const inCourse =
-        bigIdeaId !== null
-          ? context.bigIdeas.some(({ id }) => id === bigIdeaId)
-          : context.bigIdeas.some(({ topics }) =>
-              topics.some(({ id }) => id === topicId),
-            );
-      if (!inCourse) {
-        return `Not saved: ${bigIdeaId ?? topicId} is no Big idea or Topic of the Course. Nothing changed.`;
+      const { topicId } = input;
+      if (!context.topics.some(({ id }) => id === topicId)) {
+        return `Not saved: ${topicId} is no Topic of the Course. Nothing changed.`;
       }
       const words = given(input.words) ?? null;
       if (input.scope !== null) {
@@ -126,7 +116,6 @@ export function briefToolActions(
         }
       }
       const stored = await storeExamScope(supabase, courseId, {
-        bigIdeaId,
         topicId,
         scope: input.scope,
         words: input.scope === null ? null : words,

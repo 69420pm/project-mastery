@@ -77,6 +77,60 @@ const answer = (value: unknown) => ({
   }),
 });
 
+/** The Course as the tree call sent it. */
+export type SentCourse = {
+  language: string;
+  materials: Array<{
+    name: string;
+    outline: Array<{
+      id: string;
+      title: string;
+      depth: number;
+      kcs?: string[];
+    }>;
+  }>;
+  storedTopics: Array<{
+    id: string;
+    name: string;
+    level: number;
+    chapters: string[];
+  }>;
+};
+
+/** A Topic of the tree call's answer. */
+export type TreeTopicAnswer = {
+  level: number;
+  name: string;
+  chapterIds: string[];
+  centralQuestion: string;
+  continues: string;
+};
+
+/**
+ * The default tree answer: one top-level Topic per Chapter with KCs, named
+ * by its title, continuing the stored Topic that held that Chapter.
+ */
+export function flatTree(course: SentCourse): TreeTopicAnswer[] {
+  return course.materials.flatMap((material) =>
+    material.outline.flatMap((chapter) =>
+      chapter.kcs
+        ? [
+            {
+              level: 1,
+              name: chapter.title,
+              chapterIds: [chapter.id],
+              centralQuestion: `What is ${chapter.title}?`,
+              continues:
+                course.storedTopics.find((topic) =>
+                  topic.chapters.includes(chapter.id),
+                )?.id ?? "",
+            },
+          ]
+        : [],
+    ),
+  );
+}
+
 /** A name a KC assumes, as the Prerequisite check sent it. */
 export type SentName = {
   id: string;
@@ -106,7 +160,9 @@ export function useBuildModels({
   subtaskOf = () => ({}),
   blankCalls = 0,
   afterCall,
+  treeOf = flatTree,
 }: {
+  treeOf?: (course: SentCourse) => TreeTopicAnswer[];
   kcsOf?: (unit: SentUnit) => string[];
   assumesOf?: (kc: string) => string[];
   chunkIdOf?: (kc: string, unit: SentUnit) => string;
@@ -185,6 +241,14 @@ export function useBuildModels({
       };
     },
   });
+  const trees: SentCourse[] = [];
+  const topic = new MockLanguageModelV4({
+    doStream: async ({ prompt }) => {
+      const course = userJson(prompt) as SentCourse;
+      trees.push(course);
+      return answer({ topics: treeOf(course) });
+    },
+  });
   const exercises: SentExerciseUnit[] = [];
   const exercise = new MockLanguageModelV4({
     doStream: async ({ prompt }) => {
@@ -209,7 +273,7 @@ export function useBuildModels({
       });
     },
   });
-  useMockModels({ map, embed, exercise });
+  useMockModels({ map, embed, exercise, topic });
   vi.stubEnv("AI_CONCURRENCY", "1");
-  return { extractions, merges, checks, embedded, exercises, reasoning };
+  return { extractions, merges, checks, embedded, exercises, reasoning, trees };
 }

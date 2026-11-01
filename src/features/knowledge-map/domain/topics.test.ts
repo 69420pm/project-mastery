@@ -5,7 +5,7 @@ const prerequisite = (from: string, to: string) => ({ from, to });
 
 const topic = (id: string, kcs: string[]): Topic => ({
   id,
-  bigIdea: "A",
+  parentId: null,
   name: `Topic ${id}`,
   centralQuestion: `Why ${id}?`,
   kcs,

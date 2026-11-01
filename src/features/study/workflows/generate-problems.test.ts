@@ -20,7 +20,6 @@ const TABLES = [
   "problem_kcs",
   "materials",
   "chunks",
-  "big_ideas",
   "kcs",
   "kc_sources",
   "prerequisite_links",
@@ -172,19 +171,11 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     page_to: 1,
     markdown: "Ex. 7.2a: compute the thrust.",
   });
-  t.big_ideas.push({
-    id: "b1",
-    ...owned,
-    name: "Thrust",
-    description: "Thrust.",
-    position: 0,
-  });
   const kcs = [...new Set([...kcIds, ...taught])];
   kcs.forEach((id, position) => {
     t.kcs.push({
       id,
       ...owned,
-      big_idea_id: "b1",
       name: `KC ${id}`,
       description: `${id}.`,
       origin: "content",
@@ -195,7 +186,7 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
   t.topics.push({
     id: TOPIC,
     ...owned,
-    big_idea_id: "b1",
+    parent_id: null,
     name: "Thrust",
     central_question: "How much?",
     position: 0,

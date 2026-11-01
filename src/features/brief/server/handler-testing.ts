@@ -17,8 +17,8 @@ export const CLASSMATE_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 export const OLD_EXAM = "aaaaaaaa-0000-4000-8000-00000000e024";
 export const LECTURE = "aaaaaaaa-0000-4000-8000-000000000001";
 
-/** The Course's one Big idea and its one Topic. */
-export const BIG_IDEA = "aaaaaaaa-b000-4000-8000-000000000001";
+/** A top-level Topic, holding `TOPIC`. */
+export const INTEGRALS = "aaaaaaaa-b000-4000-8000-000000000001";
 export const TOPIC = "aaaaaaaa-7000-4000-8000-000000000001";
 
 /** An admin chunk of Lecture 1, in Course order by `page`. */
@@ -85,23 +85,23 @@ function createDb() {
       brief_excluded_materials: [],
       brief_messages: [],
       ai_usage: [],
-      big_ideas: [
+      // Substitution sits inside Integrals.
+      topics: [
         {
-          id: BIG_IDEA,
+          id: INTEGRALS,
           owner: STUDENT,
           course_id: COURSE,
+          parent_id: null,
           name: "Integrals",
           position: 0,
         },
-      ] as FakeRow[],
-      topics: [
         {
           id: TOPIC,
           owner: STUDENT,
           course_id: COURSE,
-          big_idea_id: BIG_IDEA,
+          parent_id: INTEGRALS,
           name: "Substitution",
-          position: 0,
+          position: 1,
         },
       ] as FakeRow[],
       exam_scopes: [],
@@ -147,19 +147,14 @@ function createDb() {
       },
       set_exam_scope: (args, tables) => {
         if (!ownBrief(tables.briefs, args.course_id)) return false;
-        const { big_idea_id = null, topic_id = null } = args;
+        const { topic_id } = args;
         tables.exam_scopes = tables.exam_scopes.filter(
-          (row) =>
-            !(
-              (big_idea_id !== null && row.big_idea_id === big_idea_id) ||
-              (topic_id !== null && row.topic_id === topic_id)
-            ),
+          (row) => row.topic_id !== topic_id,
         );
         if (args.scope !== undefined) {
           tables.exam_scopes.push({
             owner: signedIn,
             course_id: args.course_id,
-            big_idea_id,
             topic_id,
             scope: args.scope,
             words: args.words,

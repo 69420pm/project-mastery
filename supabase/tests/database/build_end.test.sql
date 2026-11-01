@@ -57,6 +57,7 @@ select is((select assumes_matched from public.chapter_extractions), true,
 select is(
   public.arrange_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
     '["bbbbbbbb-0000-0000-0000-000000000003", "bbbbbbbb-0000-0000-0000-000000000001"]',
+    '[]', repeat('a', 64),
     '[{"from": "bbbbbbbb-0000-0000-0000-000000000002", "to": "bbbbbbbb-0000-0000-0000-000000000003"}]',
     '{"chaptersWithoutKcs": [], "exercisesWithoutKcs": [], "duplicates": []}'),
   true, 'the build ends');

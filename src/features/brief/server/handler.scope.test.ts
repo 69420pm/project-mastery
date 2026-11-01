@@ -5,7 +5,8 @@ import { describe, expect, test, vi } from "vitest";
 import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import type { Supabase } from "@/lib/supabase/types";
 import {
-  BIG_IDEA,
+  INTEGRALS,
+  TOPIC,
   COURSE,
   OLD_EXAM,
   STUDENT,
@@ -106,7 +107,7 @@ describe("setExamScope", () => {
         [
           {
             toolName: "setExamScope",
-            input: { bigIdeaId: BIG_IDEA, scope: "excluded", words },
+            input: { topicId: INTEGRALS, scope: "excluded", words },
           },
         ],
       ],
@@ -133,22 +134,21 @@ describe("setExamScope", () => {
 
     expect(db.tables.exam_scopes).toEqual([
       expect.objectContaining({
-        big_idea_id: BIG_IDEA,
-        topic_id: null,
+        topic_id: INTEGRALS,
         scope: "excluded",
         words: "integrals are NOT examined",
       }),
     ]);
   });
 
-  test("refuses a Big idea of another Course", async () => {
+  test("refuses a Topic of another Course", async () => {
     seedBrief({ done: true });
     const model = mockToolModel(
       [
         [
           {
             toolName: "setExamScope",
-            input: { bigIdeaId: "nope", scope: null },
+            input: { topicId: "nope", scope: null },
           },
         ],
       ],
@@ -159,7 +159,7 @@ describe("setExamScope", () => {
     await send({ courseId: COURSE, message: userMessage("Hi") });
 
     expect(JSON.stringify(model.doStreamCalls.at(-1)!.prompt)).toContain(
-      "nope is no Big idea or Topic of the Course",
+      "nope is no Topic of the Course",
     );
   });
 });
@@ -180,5 +180,8 @@ test("the context lists each admin text once, with where it first appears", asyn
   expect(prompt.match(/Chapter 2 is not/g)).toHaveLength(1);
   expect(prompt).toContain("Lecture 1 p. 3");
   expect(prompt).toContain("Lecture 1 p. 5");
-  expect(prompt).toContain(`Big idea \\"Integrals\\" (id ${BIG_IDEA})`);
+  // The Topic tree, nested.
+  expect(prompt).toContain(
+    `- \\"Integrals\\" (id ${INTEGRALS})\\n  - \\"Substitution\\" (id ${TOPIC})`,
+  );
 });

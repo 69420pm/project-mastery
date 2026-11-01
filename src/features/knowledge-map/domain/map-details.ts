@@ -1,6 +1,6 @@
 import type { MapAttempt, MapKcLearning } from "@/features/knowledge-map/types";
 
-/** What the map page's panels count and list about Exercises and Big ideas. */
+/** What the map page's panels count and list about Exercises. */
 
 export type KcState = MapKcLearning[string]["state"];
 

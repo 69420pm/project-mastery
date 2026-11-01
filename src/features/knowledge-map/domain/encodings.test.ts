@@ -34,37 +34,18 @@ test("size scale shrinks a KC to 70% at the lowest Priority and none at all", ()
 });
 
 test("colours follow the chosen attribute", () => {
-  const kc = {
-    state: "due" as const,
-    bigIdeaId: "b2",
-    fraction: 1,
-  };
-  const bigIdeas = new Map([["b2", "red"]]);
-  expect(kcColor("state", kc, bigIdeas)).toBe("var(--warning)");
-  expect(kcColor("priority", kc, bigIdeas)).toBe("var(--chart-5)");
-  expect(kcColor("priority", { ...kc, fraction: 0 }, bigIdeas)).toBe(
-    "var(--chart-1)",
-  );
-  expect(kcColor("priority", { ...kc, fraction: undefined }, bigIdeas)).toBe(
-    "var(--muted-foreground)",
-  );
-  expect(kcColor("bigIdea", kc, bigIdeas)).toBe("red");
-  expect(kcColor("bigIdea", { ...kc, bigIdeaId: "gone" }, bigIdeas)).toBe(
+  const kc = { state: "due" as const, fraction: 1 };
+  expect(kcColor("state", kc)).toBe("var(--warning)");
+  expect(kcColor("priority", kc)).toBe("var(--chart-5)");
+  expect(kcColor("priority", { ...kc, fraction: 0 })).toBe("var(--chart-1)");
+  expect(kcColor("priority", { ...kc, fraction: undefined })).toBe(
     "var(--muted-foreground)",
   );
 });
 
-test("the legend lists one entry per Big idea", () => {
-  const entries = legendEntries(
-    "bigIdea",
-    [
-      { id: "1", name: "Forces" },
-      { id: "2", name: "Energy" },
-    ],
-    STATE_NAMES,
-  );
-  expect(entries.map((e) => e.label)).toEqual(["Forces", "Energy"]);
-  expect(legendEntries("state", [], STATE_NAMES)).toHaveLength(4);
+test("the legend lists one entry per colour", () => {
+  expect(legendEntries("state", STATE_NAMES)).toHaveLength(4);
+  expect(legendEntries("priority", STATE_NAMES)).toHaveLength(4);
 });
 
 test("saved settings fall back to the defaults when missing or invalid", () => {
@@ -86,17 +67,14 @@ test("saved settings fall back to the defaults when missing or invalid", () => {
 
 test("a malformed saved `layers` falls back key by key", () => {
   const layers = (value: unknown) =>
-    parseSettings(JSON.stringify({ colorBy: "bigIdea", layers: value }));
+    parseSettings(JSON.stringify({ colorBy: "priority", layers: value }));
   for (const value of ["all", null, [], 1]) {
-    expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "bigIdea" });
+    expect(layers(value)).toEqual({ ...DEFAULT_SETTINGS, colorBy: "priority" });
   }
   const parsed = layers({
     exercises: "false",
     prerequisites: 0,
-    bigIdeaGroups: false,
+    retired: false,
   });
-  expect(parsed.layers).toEqual({
-    ...DEFAULT_SETTINGS.layers,
-    bigIdeaGroups: false,
-  });
+  expect(parsed.layers).toEqual(DEFAULT_SETTINGS.layers);
 });

@@ -20,7 +20,6 @@ const TABLES = [
   "problem_kcs",
   "materials",
   "chunks",
-  "big_ideas",
   "kcs",
   "kc_sources",
   "prerequisite_links",
@@ -152,18 +151,10 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     is_exam: exam,
     created_at: "2026-10-01T00:00:00Z",
   });
-  t.big_ideas.push({
-    id: "b1",
-    ...owned,
-    name: "Thrust",
-    description: "Thrust.",
-    position: 0,
-  });
   ["k1", "k2"].forEach((id, position) => {
     t.kcs.push({
       id,
       ...owned,
-      big_idea_id: "b1",
       name: `KC ${id}`,
       description: `${id}.`,
       origin: "content",
@@ -172,7 +163,7 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     t.topics.push({
       id: `t${position + 1}`,
       ...owned,
-      big_idea_id: "b1",
+      parent_id: null,
       name: `Topic ${position + 1}`,
       central_question: "Why?",
       position,

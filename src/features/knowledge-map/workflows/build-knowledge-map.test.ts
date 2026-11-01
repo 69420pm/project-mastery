@@ -10,7 +10,10 @@ import {
   COURSE,
   createBuildDb,
   deleteMaterial,
+  flatTree,
   liveKcs,
+  type SentCourse,
+  topicTree,
   queueBuild,
   seedMaterial,
   STUDENT,
@@ -34,6 +37,16 @@ vi.mock("@/lib/supabase/admin", () => ({
 const { buildKnowledgeMap } = await import("./build-knowledge-map");
 
 const build = () => db.tables.knowledge_map_builds[0];
+
+/** One KC per chunk, named by its Markdown and citing it. */
+const kcPerChunk = {
+  kcsOf: (unit: { chunks: Array<{ markdown: string }> }) =>
+    unit.chunks.map((chunk) => chunk.markdown),
+  chunkIdOf: (
+    kc: string,
+    unit: { chunks: Array<{ id: string; markdown: string }> },
+  ) => unit.chunks.find((chunk) => chunk.markdown === kc)!.id,
+};
 
 /** Text that fills more than half of a unit's 120,000 characters. */
 const halfAUnit = "word ".repeat(13_000);
@@ -91,7 +104,6 @@ describe("Update map", () => {
       "About Bases.",
       "About Sums.",
     ]);
-    expect(db.tables.kcs.every((kc) => kc.big_idea_id === null)).toBe(true);
     expect(db.tables.kc_sources).toHaveLength(3);
   });
 
@@ -276,6 +288,98 @@ describe("Update map", () => {
     expect(build()?.check_report).toMatchObject({
       chaptersWithoutKcs: ["Sums"],
       exercisesWithoutKcs: [],
+    });
+  });
+
+  test("makes the Topic tree call once, then keeps the tree and its ids without a call", async () => {
+    seedMaterial(db, {
+      language: "German",
+      chapters: [
+        {
+          title: "Vector spaces",
+          children: [{ title: "Subspaces" }, { title: "Bases" }],
+        },
+      ],
+    });
+    // Vector spaces holds its opening's KC beside its sections' Topics.
+    const nested = (course: SentCourse) =>
+      flatTree(course).map((topic, index) => ({
+        ...topic,
+        level: index === 0 ? 1 : 2,
+      }));
+    const { trees, reasoning } = useBuildModels({
+      ...kcPerChunk,
+      treeOf: nested,
+    });
+
+    await update();
+
+    expect(trees).toHaveLength(1);
+    expect(trees[0]).toMatchObject({ language: "German", storedTopics: [] });
+    expect(trees[0]!.materials[0]!.outline).toEqual([
+      { id: "c1", title: "Material 0", depth: 0 },
+      {
+        id: "c2",
+        title: "Vector spaces",
+        depth: 1,
+        kcs: ["About Vector spaces."],
+      },
+      { id: "c3", title: "Subspaces", depth: 2, kcs: ["About Subspaces."] },
+      { id: "c4", title: "Bases", depth: 2, kcs: ["About Bases."] },
+    ]);
+    expect(reasoning.every((setting) => setting === "high")).toBe(true);
+    expect(topicTree(db)).toEqual([
+      "Vector spaces: About Vector spaces.",
+      "Subspaces > Vector spaces: About Subspaces.",
+      "Bases > Vector spaces: About Bases.",
+    ]);
+    const ids = db.tables.topics.map((topic) => topic.id);
+
+    const again = useBuildModels(kcPerChunk);
+    await update();
+
+    expect(again.trees).toEqual([]);
+    expect(db.tables.topics.map((topic) => topic.id)).toEqual(ids);
+    expect(topicTree(db)).toHaveLength(3);
+  });
+
+  test("calls again when a Chapter's KCs change, and keeps the Topics it continues", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+    useBuildModels(kcPerChunk);
+    await update();
+    const [vectors] = db.tables.topics;
+
+    seedMaterial(db, { chapters: [{ title: "Sums" }] });
+    const { trees } = useBuildModels(kcPerChunk);
+    await update();
+
+    expect(trees).toHaveLength(1);
+    expect(trees[0]!.storedTopics).toEqual([
+      { id: "t1", name: "Vectors", level: 1, chapters: ["c2"] },
+    ]);
+    expect(topicTree(db)).toEqual([
+      "Vectors: About Vectors.",
+      "Sums: About Sums.",
+    ]);
+    expect(db.tables.topics[0]!.id).toBe(vectors!.id);
+  });
+
+  test("gives a Chapter the call leaves out a top-level Topic of its own", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }, { title: "Sums" }] });
+    useBuildModels({
+      ...kcPerChunk,
+      treeOf: (course) => flatTree(course).slice(0, 1),
+    });
+
+    await update();
+
+    expect(topicTree(db)).toEqual([
+      "Vectors: About Vectors.",
+      "Sums: About Sums.",
+    ]);
+    expect(db.tables.topics[1]).toMatchObject({
+      central_question: "Sums",
+      parent_id: null,
     });
   });
 

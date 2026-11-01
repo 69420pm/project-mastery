@@ -10,18 +10,18 @@
 /** A KC as Priority reads it. */
 type PriorityKc = {
   id: string;
-  /** Null when no Big idea holds it. */
-  bigIdeaId: string | null;
-  /** Null when no Topic holds it. */
-  topicId: string | null;
+  /**
+   * The Topic that holds it, then that Topic's ancestors up to the top;
+   * empty when no Topic holds it.
+   */
+  topics: string[];
   /** The chunks that teach it. */
   sources: string[];
 };
 
-/** A Student-confirmed statement about one Big idea or Topic. */
+/** A Student-confirmed statement about one Topic and its subtree. */
 export type ExamScope = {
-  bigIdeaId: string | null;
-  topicId: string | null;
+  topicId: string;
   scope: "excluded" | "emphasized";
   words: string;
 };
@@ -72,7 +72,8 @@ function exerciseCounts(input: PriorityInput) {
 
 /**
  * A KC's scope factor and its reason: 0 when all its sources are in
- * excluded Materials, else its Topic's exam scope, else its Big idea's.
+ * excluded Materials, else its Topic's exam scope, else the nearest one up
+ * its Topic's ancestors.
  */
 function scopeOf(
   kc: PriorityKc,
@@ -86,13 +87,9 @@ function scopeOf(
       .toSorted();
     return { factor: 0, reason: `Excluded: you skip ${names.join(", ")}` };
   }
-  const scope =
-    input.examScopes.find(
-      (s) => kc.topicId !== null && s.topicId === kc.topicId,
-    ) ??
-    input.examScopes.find(
-      (s) => kc.bigIdeaId !== null && s.bigIdeaId === kc.bigIdeaId,
-    );
+  const scope = kc.topics
+    .map((topicId) => input.examScopes.find((s) => s.topicId === topicId))
+    .find((found) => found !== undefined);
   if (!scope) return { factor: 1, reason: null };
   return scope.scope === "excluded"
     ? { factor: 0, reason: `Excluded in the Brief: ${scope.words}` }

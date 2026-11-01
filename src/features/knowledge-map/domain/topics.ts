@@ -1,15 +1,19 @@
 import type { KnowledgeMap } from "@/features/knowledge-map/schemas";
 
 /**
- * Topics (#175): teachable units of a Big idea's KCs with a central
- * question. The KCs of each Topic come in teaching order and the Topics in
- * Course order, both with Prerequisites first.
+ * Topics (#175, #229): teachable units of KCs with a central question,
+ * nested in the Topic tree. The KCs of each Topic come in teaching order,
+ * with Prerequisites first.
  */
 
-/** A Topic, its KCs in teaching order; a new one has a null id. */
+/**
+ * A Topic with KCs of its own, which the study plan and sessions use, its
+ * KCs in teaching order; a new one has a null id.
+ */
 export type Topic = {
   id: string | null;
-  bigIdea: string;
+  /** The Topic it sits in; null at the top. */
+  parentId: string | null;
   name: string;
   centralQuestion: string;
   kcs: string[];
