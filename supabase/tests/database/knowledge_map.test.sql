@@ -1,6 +1,6 @@
 -- The Knowledge map tables (#69): a Student starts one build at a time and
--- writes no map, a KC sits in a Big idea with one of the four KC types,
--- and owners read their own rows. Run with `pnpm db:test`.
+-- writes no map, a KC comes from the content or an exercise, and owners
+-- read their own rows. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
@@ -63,34 +63,30 @@ reset role;
 insert into public.big_ideas (id, owner, course_id, name, description, position)
 values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'Momentum makes thrust.', 0);
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position)
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
 values
   ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
-    'Thrust', 'Net forward force.', 'fact', 'content', 0),
+    'Thrust', 'Net forward force.', 'content', 0),
   ('dddddddd-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
-    'Thrust equation', 'F = ...', 'procedure', 'exercise', 1);
+    'Thrust equation', 'F = ...', 'exercise', 1);
 insert into public.prerequisite_links (owner, course_id, from_kc, to_kc)
 values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
   'dddddddd-0000-0000-0000-000000000001', 'dddddddd-0000-0000-0000-000000000002');
 update public.knowledge_map_builds set status = 'built', finished_at = now()
 where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 
-select throws_ok(
-  $$insert into public.kcs (owner, course_id, name, description, type, origin, position)
+select lives_ok(
+  $$insert into public.kcs (owner, course_id, name, description, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
-      'Loose', '.', 'fact', 'content', 5)$$,
-  '23514', null, 'a live KC sits in a Big idea');
+      'Loose', '.', 'content', 5)$$,
+  'a live KC needs no Big idea (#229)');
+select hasnt_column('public', 'kcs', 'type', 'a KC has no type (#229)');
 select throws_ok(
-  $$insert into public.kcs (owner, course_id, big_idea_id, name, description, type, origin, position)
+  $$insert into public.kcs (owner, course_id, big_idea_id, name, description, origin, position)
     values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
-      'bbbbbbbb-0000-0000-0000-000000000001', 'Old', '.', 'prior', 'content', 5)$$,
-  '23514', null, 'a KC has one of the four types');
-select throws_ok(
-  $$insert into public.kcs (owner, course_id, big_idea_id, name, description, type, origin, position)
-    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001',
-      'bbbbbbbb-0000-0000-0000-000000000001', 'Old', '.', 'fact', 'prior', 5)$$,
+      'bbbbbbbb-0000-0000-0000-000000000001', 'Old', '.', 'prior', 6)$$,
   '23514', null, 'a KC comes from the content or an exercise');
 
 -- Owners only.
@@ -110,7 +106,7 @@ select is(public.record_knowledge_map_build_start_failure('aaaaaaaa-0000-0000-00
 select results_eq(
   $$select b.status, b.failure_reason is not null, (select count(*)::int from public.kcs)
     from public.knowledge_map_builds b$$,
-  $$values ('failed', true, 2)$$,
+  $$values ('failed', true, 3)$$,
   'the build failed and the owner still reads the previous map');
 reset role;
 

@@ -134,7 +134,7 @@ function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   const sections = next.readingSections ?? [];
   return [
     `Next Topic: ${next.name} (id ${next.id}). Central question: ${next.centralQuestion}`,
-    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
+    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
     anchors,
     sections.length === 0
       ? "Reading sections: none."
@@ -147,14 +147,14 @@ function describeReviews({ kcs, more }: DueReviews): string {
   // Contexts stored before FSRS (#174), which the Context sheet re-renders,
   // have no recall.
   const lines = kcs.map((kc) => {
-    const { id, name, type, topicId } = kc;
+    const { id, name, topicId } = kc;
     const { retrievability } = kc as { retrievability?: number };
     const topic = topicId ? `, Topic id ${topicId}` : "";
     const recall =
       retrievability === undefined
         ? ""
         : `; recall today ${Math.round(retrievability * 100)}%`;
-    return `- ${name} (id ${id}, ${type}${topic}${recall})`;
+    return `- ${name} (id ${id}${topic}${recall})`;
   });
   const rest = more > 0 ? [`… and ${more} more due.`] : [];
   return [
@@ -178,7 +178,7 @@ function describeReviewQueue(queue: ReviewGroup[], mapPath: string): string {
   const groups = queue.map((group, i) => {
     const kcs = group.kcs.map(
       (kc) =>
-        `  - ${kc.name} (id ${kc.id}, ${kc.type}${kc.topicId ? `, Topic id ${kc.topicId}` : ""})`,
+        `  - ${kc.name} (id ${kc.id}${kc.topicId ? `, Topic id ${kc.topicId}` : ""})`,
     );
     const retry =
       group.status === "retry"
@@ -254,9 +254,7 @@ function describePracticeKcs(kcs: PracticeKc[], mapPath: string): string {
   }
   return [
     "Practice KCs, most urgent first:",
-    ...kcs.map(
-      (kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}, Topic id ${kc.topicId})`,
-    ),
+    ...kcs.map((kc) => `- ${kc.name} (id ${kc.id}, Topic id ${kc.topicId})`),
   ].join("\n");
 }
 

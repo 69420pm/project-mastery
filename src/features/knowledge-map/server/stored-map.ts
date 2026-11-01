@@ -33,7 +33,7 @@ export async function loadStoredMap(
       allRows("Loading the KCs", (from, to) =>
         supabase
           .from("kcs")
-          .select("id, big_idea_id, name, description, type, origin")
+          .select("id, big_idea_id, name, description, origin")
           .eq("course_id", courseId)
           .is("retired_at", null)
           .order("position")
@@ -84,7 +84,6 @@ export async function loadStoredMap(
       id: kc.id,
       name: kc.name,
       description: kc.description,
-      type: kc.type,
       bigIdea: kc.big_idea_id,
       origin: kc.origin,
       sources: sources

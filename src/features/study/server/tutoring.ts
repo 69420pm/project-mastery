@@ -441,7 +441,6 @@ function tutorToolActions(
         kcs: kcs.map((kc) => ({
           id: kc.id,
           name: kc.name,
-          type: kc.type,
           description: kc.description,
           state: stateOf(kc.id),
           sources: wanted.has(kc.id)

@@ -101,7 +101,7 @@ describe("getKnowledgeMap", () => {
       [C1, "p. 1"],
       [C2, "pp. 2–3"],
     ]);
-    expect(thrust).toMatchObject({ id: K2, type: "procedure" });
+    expect(thrust).toMatchObject({ id: K2 });
     expect(thrust?.sources).toEqual([
       {
         chunkId: C2,
@@ -123,9 +123,7 @@ describe("getKnowledgeMap", () => {
         solution: null,
       },
     ]);
-    expect(view.checkReport?.kcsPerPart).toEqual([
-      { part: "Thrust", kcs: 2, budget: 3 },
-    ]);
+    expect(view.checkReport?.chaptersWithoutKcs).toEqual(["Thrust"]);
   });
 
   test.each([

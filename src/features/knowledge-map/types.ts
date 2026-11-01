@@ -1,4 +1,4 @@
-import type { CheckReport, KcType } from "@/features/knowledge-map/schemas";
+import type { CheckReport } from "@/features/knowledge-map/schemas";
 
 /** A chunk of the Course as a build reads it. */
 export type MapChunk = {
@@ -34,7 +34,6 @@ export type KcView = {
   id: string;
   name: string;
   description: string;
-  type: KcType;
   /**
    * From the content, or from an exercise that needs it while the content
    * does not teach it.

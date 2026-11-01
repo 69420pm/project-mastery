@@ -451,13 +451,12 @@ export const MAP = {
 /** Stores a small built Knowledge map with Priorities in the Student's Course. */
 export function seedMap() {
   const owned = { owner: STUDENT, course_id: COURSE };
-  const kc = (id: string, position: number, name: string, type: string) => ({
+  const kc = (id: string, position: number, name: string) => ({
     ...owned,
     id,
     position,
     name,
     description: `${name}, as the lecture states it.`,
-    type,
     big_idea_id: MAP.bigIdea,
     origin: "content",
   });
@@ -469,9 +468,9 @@ export function seedMap() {
     description: "How engines make thrust.",
   });
   db.tables.kcs.push(
-    kc(MAP.newton, 0, "Newton's second law", "fact"),
-    kc(MAP.thrust, 1, "Thrust equation", "procedure"),
-    kc(MAP.efficiency, 2, "Propulsive efficiency", "concept"),
+    kc(MAP.newton, 0, "Newton's second law"),
+    kc(MAP.thrust, 1, "Thrust equation"),
+    kc(MAP.efficiency, 2, "Propulsive efficiency"),
   );
   db.tables.prerequisite_links.push(
     { ...owned, id: 1, from_kc: MAP.newton, to_kc: MAP.thrust },

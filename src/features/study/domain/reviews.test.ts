@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { replayKc, retrievability, type KcSchedule } from "./replay";
 import { selectDueReviews } from "./reviews";
 
-const kc = (id: string) => ({ id, name: `KC ${id}`, type: "concept" });
+const kc = (id: string) => ({ id, name: `KC ${id}` });
 const NOW = new Date("2026-10-16T12:00:00Z");
 
 /** A Good card from `reviewed`, due on `due`. */
@@ -47,7 +47,6 @@ describe("selectDueReviews", () => {
     expect(due.kcs[1]).toEqual({
       id: "a",
       name: "KC a",
-      type: "concept",
       topicId: null,
       retrievability: retrievability(schedules.get("a")!.card!, NOW),
     });
@@ -57,7 +56,7 @@ describe("selectDueReviews", () => {
   test("names each KC's Topic when given", () => {
     const schedules = new Map([["a", at("2026-10-16")]]);
     const due = selectDueReviews(
-      [{ id: "a", name: "KC a", type: "concept" }],
+      [{ id: "a", name: "KC a" }],
       schedules,
       {},
       NOW,

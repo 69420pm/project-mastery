@@ -15,7 +15,6 @@ const kc = (id: string): KcView => ({
   id,
   name: id,
   description: id,
-  type: "concept",
   origin: "content",
   sources: [],
 });

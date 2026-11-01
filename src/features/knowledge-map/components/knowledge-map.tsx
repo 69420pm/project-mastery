@@ -12,10 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
 import { legendEntries } from "@/features/knowledge-map/domain/encodings";
-import {
-  STATE_NAMES,
-  TYPE_NAMES,
-} from "@/features/knowledge-map/domain/kc-labels";
+import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
 import type {
   KnowledgeMapView,
@@ -72,12 +69,7 @@ export function KnowledgeMap({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <Legend
-              entries={legendEntries(
-                colorBy,
-                map.bigIdeas,
-                TYPE_NAMES,
-                STATE_NAMES,
-              )}
+              entries={legendEntries(colorBy, map.bigIdeas, STATE_NAMES)}
             />
             <div className="flex shrink-0 flex-wrap gap-2">
               <FocusDepthMenu depth={depth} onChange={setDepth} />

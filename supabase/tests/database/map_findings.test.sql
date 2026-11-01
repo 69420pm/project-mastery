@@ -25,17 +25,17 @@ values
   ('9b9b9b9b-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000002', 'Life', 'What lives.', 0);
 
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position)
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
 values
   ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
-    'Momentum', 'p = mv.', 'fact', 'content', 0),
+    'Momentum', 'p = mv.', 'content', 0),
   ('bbbbbbbb-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', '9b9b9b9b-0000-0000-0000-000000000001',
-    'Thrust', 'F = ṁ Δv.', 'fact', 'content', 1),
+    'Thrust', 'F = ṁ Δv.', 'content', 1),
   ('bbbbbbbb-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000002', '9b9b9b9b-0000-0000-0000-000000000002',
-    'Cells', 'Units of life.', 'fact', 'content', 0);
+    'Cells', 'Units of life.', 'content', 0);
 
 insert into public.materials (id, owner, course_id, name, media_type, size_bytes, storage_path, parse_status)
 values ('aaaaaaaa-1111-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',

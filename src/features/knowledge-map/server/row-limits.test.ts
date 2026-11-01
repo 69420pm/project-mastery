@@ -54,7 +54,6 @@ function createDb() {
           big_idea_id: BIG_IDEA,
           name: `KC ${i}`,
           description: "",
-          type: "concept",
           origin: "content",
           position: i,
         }),

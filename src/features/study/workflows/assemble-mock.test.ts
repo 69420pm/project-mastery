@@ -166,7 +166,6 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       big_idea_id: "b1",
       name: `KC ${id}`,
       description: `${id}.`,
-      type: "concept",
       origin: "content",
       position,
     });

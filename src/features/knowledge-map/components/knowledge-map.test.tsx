@@ -51,7 +51,6 @@ const kc = (id: string, name: string): KcView => ({
   id,
   name,
   description: `About ${name}.`,
-  type: "concept",
   origin: "content",
   sources: [],
 });
@@ -200,8 +199,7 @@ test("the graph has zoom buttons and no library attribution", async () => {
 const withDuplicate = {
   ...map,
   checkReport: {
-    kcsPerPart: [],
-    partsWithoutKcs: [],
+    chaptersWithoutKcs: [],
     exercisesWithoutKcs: [],
     duplicates: [{ a: "Nozzles", b: "Jet nozzles", similarity: 0.9 }],
   },

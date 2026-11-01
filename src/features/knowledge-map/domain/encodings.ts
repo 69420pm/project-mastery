@@ -1,4 +1,3 @@
-import { KC_TYPES, type KcType } from "@/features/knowledge-map/schemas";
 import type {
   MapKcLearning,
   MapPriorities,
@@ -10,14 +9,13 @@ import { DEFAULT_LAYERS, type MapLayers } from "./map-graph";
  * by one attribute, size by Priority, and the saved settings. Pure code.
  */
 
-export const COLOR_BYS = ["state", "priority", "bigIdea", "type"] as const;
+export const COLOR_BYS = ["state", "priority", "bigIdea"] as const;
 export type ColorBy = (typeof COLOR_BYS)[number];
 
 export const COLOR_BY_NAMES: Record<ColorBy, string> = {
   state: "KC state",
   priority: "Priority",
   bigIdea: "Big idea",
-  type: "KC type",
 };
 
 /** What the Student can change in the graph and the page remembers. */
@@ -52,13 +50,6 @@ const PRIORITY_RAMP = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
-
-const TYPE_COLORS: Record<KcType, string> = {
-  fact: "oklch(0.65 0.14 250)",
-  concept: "oklch(0.68 0.15 150)",
-  procedure: "oklch(0.7 0.15 60)",
-  decision: "oklch(0.64 0.17 330)",
-};
 
 /** Categorical colours for Big ideas, handed out in order and reused. */
 const BIG_IDEA_COLORS = [
@@ -114,7 +105,6 @@ function rampColor(fraction: number): string {
 /** What `kcColor` needs to colour one KC. */
 export type ColorContext = {
   state: KcState;
-  type: KcType;
   /** The id of its Big idea. */
   bigIdeaId: string;
   /** From `priorityFractions`; undefined without a Priority. */
@@ -141,8 +131,6 @@ export function kcColor(
       return STATE_COLORS[kc.state];
     case "priority":
       return kc.fraction === undefined ? NEUTRAL : rampColor(kc.fraction);
-    case "type":
-      return TYPE_COLORS[kc.type];
     case "bigIdea":
       return bigIdeas.get(kc.bigIdeaId) ?? NEUTRAL;
   }
@@ -154,7 +142,6 @@ export type LegendEntry = { label: string; color: string };
 export function legendEntries(
   colorBy: ColorBy,
   bigIdeas: Array<{ id: string; name: string }>,
-  typeNames: Record<KcType, string>,
   stateNames: Record<KcState, string>,
 ): LegendEntry[] {
   switch (colorBy) {
@@ -170,11 +157,6 @@ export function legendEntries(
         { label: "Highest", color: PRIORITY_RAMP[4]! },
         { label: "Excluded or none", color: NEUTRAL },
       ];
-    case "type":
-      return KC_TYPES.map((type) => ({
-        label: typeNames[type],
-        color: TYPE_COLORS[type],
-      }));
     case "bigIdea": {
       const colors = bigIdeaColors(bigIdeas.map((b) => b.id));
       return bigIdeas.map((b) => ({ label: b.name, color: colors.get(b.id)! }));

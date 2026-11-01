@@ -352,6 +352,71 @@ export type Database = {
           },
         ];
       };
+      chapter_extractions: {
+        Row: {
+          assumes_matched: boolean;
+          chapter_id: string;
+          content_hash: string;
+          course_id: string;
+          created_at: string;
+          id: string;
+          kc_ids: string[] | null;
+          kind: string;
+          output: NonNullable<Json>;
+          owner: string;
+          unit: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          assumes_matched?: boolean;
+          chapter_id: string;
+          content_hash: string;
+          course_id: string;
+          created_at?: string;
+          id?: string;
+          kc_ids?: string[] | null;
+          kind: string;
+          output: NonNullable<Json>;
+          owner: string;
+          unit: number;
+        };
+        Update: {
+          assumes_matched?: boolean;
+          chapter_id?: string;
+          content_hash?: string;
+          course_id?: string;
+          created_at?: string;
+          id?: string;
+          kc_ids?: string[] | null;
+          kind?: string;
+          output?: NonNullable<Json>;
+          owner?: string;
+          unit?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chapter_extractions_chapter_id_fkey";
+            columns: ["chapter_id"];
+            isOneToOne: false;
+            referencedRelation: "chapters";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chapter_extractions_course_id_fkey";
+            columns: ["course_id"];
+            isOneToOne: false;
+            referencedRelation: "courses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chapter_extractions_owner_fkey";
+            columns: ["owner"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       chapters: {
         Row: {
           course_id: string;
@@ -979,7 +1044,6 @@ export type Database = {
           owner: string;
           position: number;
           retired_at: string | null;
-          type: string;
         };
         ComputedFields: never;
         Insert: {
@@ -994,7 +1058,6 @@ export type Database = {
           owner: string;
           position: number;
           retired_at?: string | null;
-          type: string;
         };
         Update: {
           big_idea_id?: string | null;
@@ -1008,7 +1071,6 @@ export type Database = {
           owner?: string;
           position?: number;
           retired_at?: string | null;
-          type?: string;
         };
         Relationships: [
           {
@@ -1536,55 +1598,6 @@ export type Database = {
             columns: ["topic_id"];
             isOneToOne: false;
             referencedRelation: "topics";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      part_extractions: {
-        Row: {
-          assumes_matched: boolean;
-          content_hash: string;
-          course_id: string;
-          created_at: string;
-          kc_ids: string[] | null;
-          output: NonNullable<Json>;
-          owner: string;
-          part_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          assumes_matched?: boolean;
-          content_hash: string;
-          course_id: string;
-          created_at?: string;
-          kc_ids?: string[] | null;
-          output: NonNullable<Json>;
-          owner: string;
-          part_id: string;
-        };
-        Update: {
-          assumes_matched?: boolean;
-          content_hash?: string;
-          course_id?: string;
-          created_at?: string;
-          kc_ids?: string[] | null;
-          output?: NonNullable<Json>;
-          owner?: string;
-          part_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "part_extractions_course_id_fkey";
-            columns: ["course_id"];
-            isOneToOne: false;
-            referencedRelation: "courses";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "part_extractions_owner_fkey";
-            columns: ["owner"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -2258,12 +2271,10 @@ export type Database = {
       };
       arrange_knowledge_map: {
         Args: {
-          p_big_ideas: Json;
           p_check_report?: Json;
           p_course_id: string;
           p_dropped_prerequisites?: Json;
           p_kcs: Json;
-          p_topics?: Json;
         };
         Returns: boolean;
       };
@@ -2370,13 +2381,18 @@ export type Database = {
       store_assumed_prerequisites: {
         Args: {
           p_course_id: string;
-          p_part_ids: string[];
+          p_extraction_ids: string[];
           p_prerequisites: Json;
         };
         Returns: boolean;
       };
-      store_named_topics: {
-        Args: { p_course_id: string; p_topics: Json };
+      store_chapter_kcs: {
+        Args: {
+          p_course_id: string;
+          p_kcs: Json;
+          p_prerequisites: Json;
+          p_units: Json;
+        };
         Returns: boolean;
       };
       store_session_close: {

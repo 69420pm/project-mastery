@@ -6,7 +6,6 @@ const kc = (id: string): KcView => ({
   id,
   name: id,
   description: "",
-  type: "concept",
   origin: "content",
   sources: [],
 });

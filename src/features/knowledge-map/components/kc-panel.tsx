@@ -14,7 +14,6 @@ import {
   HELP_NAMES,
   ORIGIN_NAMES,
   RESULT_NAMES,
-  TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import { attemptedExercises } from "@/features/knowledge-map/domain/map-details";
 import type {
@@ -77,7 +76,6 @@ export function KcPanel({
           <Markdown>{kc.description}</Markdown>
         </div>
         <dl className="flex flex-col gap-1">
-          <Fact label="Type">{TYPE_NAMES[kc.type]}</Fact>
           <Fact label="Origin">{ORIGIN_NAMES[kc.origin]}</Fact>
           {bigIdea && (
             <Fact label="Big idea">

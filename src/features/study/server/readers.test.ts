@@ -20,15 +20,10 @@ const [PRIOR, THRUST, EFFICIENCY, NOZZLE] = [1, 2, 3, 4].map(
 const MAP = {
   bigIdeas: [{ id: "big", name: "Thrust generation" }],
   kcs: [
-    { id: PRIOR, name: "Newton's second law", type: "fact", bigIdea: "big" },
-    { id: THRUST, name: "Thrust equation", type: "procedure", bigIdea: "big" },
-    {
-      id: EFFICIENCY,
-      name: "Propulsive efficiency",
-      type: "concept",
-      bigIdea: "big",
-    },
-    { id: NOZZLE, name: "Nozzle flow", type: "concept", bigIdea: "big" },
+    { id: PRIOR, name: "Newton's second law", bigIdea: "big" },
+    { id: THRUST, name: "Thrust equation", bigIdea: "big" },
+    { id: EFFICIENCY, name: "Propulsive efficiency", bigIdea: "big" },
+    { id: NOZZLE, name: "Nozzle flow", bigIdea: "big" },
   ],
   prerequisites: [
     { from: PRIOR, to: THRUST },

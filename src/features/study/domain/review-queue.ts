@@ -29,7 +29,6 @@ export type ReviewGroupStatus = "open" | "done" | "retry";
 type ReviewKc = {
   id: string;
   name: string;
-  type: string;
   /** Its first Topic; null without one. */
   topicId: string | null;
 };
@@ -78,7 +77,7 @@ export function planReviewQueue({
   questions,
   attempts,
 }: {
-  kcs: Array<{ id: string; name: string; type: string }>;
+  kcs: Array<{ id: string; name: string }>;
   schedules: ReadonlyMap<string, KcSchedule>;
   priorities: Record<string, number>;
   startedAt: Date;
@@ -99,10 +98,9 @@ export function planReviewQueue({
       return [{ kc, position, urgency }];
     })
     .toSorted((a, b) => b.urgency - a.urgency || a.position - b.position)
-    .map(({ kc: { id, name, type } }) => ({
+    .map(({ kc: { id, name } }) => ({
       id,
       name,
-      type,
       topicId: topicOf.get(id) ?? null,
     }));
   const fits =

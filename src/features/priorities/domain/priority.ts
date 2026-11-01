@@ -10,7 +10,8 @@
 /** A KC as Priority reads it. */
 type PriorityKc = {
   id: string;
-  bigIdeaId: string;
+  /** Null when no Big idea holds it. */
+  bigIdeaId: string | null;
   /** Null when no Topic holds it. */
   topicId: string | null;
   /** The chunks that teach it. */
@@ -88,7 +89,10 @@ function scopeOf(
   const scope =
     input.examScopes.find(
       (s) => kc.topicId !== null && s.topicId === kc.topicId,
-    ) ?? input.examScopes.find((s) => s.bigIdeaId === kc.bigIdeaId);
+    ) ??
+    input.examScopes.find(
+      (s) => kc.bigIdeaId !== null && s.bigIdeaId === kc.bigIdeaId,
+    );
   if (!scope) return { factor: 1, reason: null };
   return scope.scope === "excluded"
     ? { factor: 0, reason: `Excluded in the Brief: ${scope.words}` }

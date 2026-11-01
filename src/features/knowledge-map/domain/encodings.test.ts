@@ -7,7 +7,7 @@ import {
   priorityFractions,
   sizeScale,
 } from "./encodings";
-import { STATE_NAMES, TYPE_NAMES } from "./kc-labels";
+import { STATE_NAMES } from "./kc-labels";
 
 const priority = (level: "high" | "excluded", value: number) => ({
   level,
@@ -36,7 +36,6 @@ test("size scale shrinks a KC to 70% at the lowest Priority and none at all", ()
 test("colours follow the chosen attribute", () => {
   const kc = {
     state: "due" as const,
-    type: "fact" as const,
     bigIdeaId: "b2",
     fraction: 1,
   };
@@ -62,11 +61,10 @@ test("the legend lists one entry per Big idea", () => {
       { id: "1", name: "Forces" },
       { id: "2", name: "Energy" },
     ],
-    TYPE_NAMES,
     STATE_NAMES,
   );
   expect(entries.map((e) => e.label)).toEqual(["Forces", "Energy"]);
-  expect(legendEntries("state", [], TYPE_NAMES, STATE_NAMES)).toHaveLength(4);
+  expect(legendEntries("state", [], STATE_NAMES)).toHaveLength(4);
 });
 
 test("saved settings fall back to the defaults when missing or invalid", () => {

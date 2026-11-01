@@ -51,7 +51,6 @@ const kc = (
   id,
   name,
   description: "",
-  type: "concept" as const,
   origin,
   sources: [],
 });

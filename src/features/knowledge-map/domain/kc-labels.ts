@@ -1,4 +1,3 @@
-import type { KcType } from "@/features/knowledge-map/schemas";
 import type {
   CheckReportView,
   KcView,
@@ -7,13 +6,6 @@ import type {
 } from "@/features/knowledge-map/types";
 
 /** How the map page names a KC's facts. */
-
-export const TYPE_NAMES: Record<KcType, string> = {
-  fact: "Fact",
-  concept: "Concept",
-  procedure: "Procedure",
-  decision: "Decision",
-};
 
 export const ORIGIN_NAMES: Record<KcView["origin"], string> = {
   content: "Taught by the materials",

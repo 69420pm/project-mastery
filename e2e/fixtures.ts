@@ -293,7 +293,6 @@ export async function seedKc(
       big_idea_id: bigIdea.data.id,
       name,
       description: "Thrust is mass flow times the change in velocity.",
-      type: "procedure",
       origin: "content",
       position: 0,
     })

@@ -154,7 +154,7 @@ export type TutorToday = {
     name: string;
     centralQuestion: string;
     /** In teaching order; `taught` when it has an FSRS schedule. */
-    kcs: Array<{ id: string; name: string; type: string; taught: boolean }>;
+    kcs: Array<{ id: string; name: string; taught: boolean }>;
     /** Prerequisites from outside the Topic. */
     anchors: Array<{ id: string; name: string }>;
     /**
@@ -328,7 +328,6 @@ export type TopicView = {
   kcs: Array<{
     id: string;
     name: string;
-    type: string;
     description: string;
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */

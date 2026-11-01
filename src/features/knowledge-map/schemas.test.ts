@@ -14,7 +14,6 @@ describe("knowledgeMapSchema", () => {
         id: ids.kc,
         name: "Thrust",
         description: "Net forward force.",
-        type: "fact",
         bigIdea: ids.bigIdea,
         origin: "content",
         sources: [],

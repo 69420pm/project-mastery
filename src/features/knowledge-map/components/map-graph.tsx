@@ -11,19 +11,10 @@ import {
   Position,
   ReactFlow,
 } from "@xyflow/react";
-import {
-  BookmarkIcon,
-  CopyIcon,
-  GitForkIcon,
-  LightbulbIcon,
-  ListOrderedIcon,
-  type LucideIcon,
-  PencilLineIcon,
-} from "lucide-react";
+import { CopyIcon, type LucideIcon, PencilLineIcon } from "lucide-react";
 import { useMemo } from "react";
 import { Markdown } from "@/components/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { KcType } from "@/features/knowledge-map/schemas";
 import {
   bigIdeaColors,
   type ColorBy,
@@ -35,7 +26,6 @@ import {
   type CheckBadgeKind,
   checkBadges,
   DIFFICULTY_NAMES,
-  TYPE_NAMES,
 } from "@/features/knowledge-map/domain/kc-labels";
 import {
   type Focus,
@@ -61,13 +51,6 @@ import type {
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
 import { ZoomControls } from "./zoom-controls";
-
-const TYPE_ICONS: Record<KcType, LucideIcon> = {
-  fact: BookmarkIcon,
-  concept: LightbulbIcon,
-  procedure: ListOrderedIcon,
-  decision: GitForkIcon,
-};
 
 const BADGE_ICONS: Record<CheckBadgeKind, LucideIcon> = {
   duplicate: CopyIcon,
@@ -131,10 +114,9 @@ function Handles({ source = true }: { source?: boolean }) {
   );
 }
 
-/** A KC: its type icon, name and state marker. */
+/** A KC: its name and state marker. */
 function KcNodeView({ data }: NodeProps<KcNode>) {
   const { kc, state, selected, related, color, scale, badges } = data;
-  const Icon = TYPE_ICONS[kc.type];
   const marker = STATE_MARKERS[state];
   return (
     <>
@@ -172,10 +154,6 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
             })}
           </span>
         )}
-        <Icon
-          aria-label={TYPE_NAMES[kc.type]}
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-        />
         <span className="line-clamp-3 min-w-0 flex-1 font-medium">
           <Markdown>{kc.name}</Markdown>
         </span>
@@ -417,7 +395,6 @@ export function MapGraph({
               colorBy,
               {
                 state,
-                type: kc.type,
                 bigIdeaId: kcBigIdea.get(node.id) ?? "",
                 fraction,
               },

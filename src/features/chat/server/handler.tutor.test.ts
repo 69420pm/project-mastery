@@ -93,7 +93,7 @@ describe("the instructions", () => {
       `Next Topic: Thrust (id ${MAP.topic}). Central question: How does an engine make thrust?`,
     );
     expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}, procedure; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
+      `- Thrust equation (id ${MAP.thrust}; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}; not taught yet)`,
     );
     expect(prompt).toContain(`- Newton's second law (id ${MAP.newton})`);
   });
@@ -132,11 +132,11 @@ describe("the instructions", () => {
     const prompt = promptOf(model, 0);
     expect(prompt).toMatch(
       new RegExp(
-        `- Thrust equation \\(id ${MAP.thrust}, procedure, Topic id ${MAP.topic}; recall today \\d+%\\)`,
+        `- Thrust equation \\(id ${MAP.thrust}, Topic id ${MAP.topic}; recall today \\d+%\\)`,
       ),
     );
     expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}, procedure; taught)\\n- Propulsive efficiency (id ${MAP.efficiency}, concept; not taught yet)`,
+      `- Thrust equation (id ${MAP.thrust}; taught)\\n- Propulsive efficiency (id ${MAP.efficiency}; not taught yet)`,
     );
   });
 

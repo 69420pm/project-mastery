@@ -36,7 +36,6 @@ async function seedReading(owner: string, courseId: string): Promise<void> {
     big_idea_id: bigIdea,
     name: "Thrust equation",
     description: "Thrust is mass flow times the change in velocity.",
-    type: "procedure",
     origin: "content",
     position: 0,
   });

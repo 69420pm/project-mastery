@@ -17,10 +17,10 @@ insert into public.big_ideas (id, owner, course_id, name, description, position)
 values ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'Thrust', 'Momentum makes thrust.', 0);
 
-insert into public.kcs (id, owner, course_id, big_idea_id, name, description, type, origin, position)
+insert into public.kcs (id, owner, course_id, big_idea_id, name, description, origin, position)
 select ('cccccccc-0000-0000-0000-00000000000' || n)::uuid, '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000001',
-  'KC ' || n, '.', 'concept', 'content', n
+  'KC ' || n, '.', 'content', n
 from generate_series(1, 3) as n;
 
 insert into public.topics (id, owner, course_id, big_idea_id, name, central_question, position)

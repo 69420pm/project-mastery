@@ -31,9 +31,7 @@ export function tutorToday(
       centralQuestion: next.centralQuestion,
       kcs: next.kcs.flatMap((id) => {
         const kc = kcById.get(id);
-        return kc
-          ? [{ id, name: kc.name, type: kc.type, taught: schedules.has(id) }]
-          : [];
+        return kc ? [{ id, name: kc.name, taught: schedules.has(id) }] : [];
       }),
       anchors: topicAnchors(next.kcs, map),
       readingSections: (readings.get(next.id) ?? []).map((section) => ({

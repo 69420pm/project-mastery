@@ -7,7 +7,7 @@ import {
   withBuildLease,
 } from "@/features/knowledge-map/domain/build-state";
 import { exerciseLabel } from "@/features/knowledge-map/domain/exercise-label";
-import { checkReportSchema, KC_TYPES } from "@/features/knowledge-map/schemas";
+import { checkReportSchema } from "@/features/knowledge-map/schemas";
 import type {
   KcSourceView,
   KcView,
@@ -66,7 +66,7 @@ export async function getKnowledgeMap(
     allRows("Loading the KCs", (from, to) =>
       supabase
         .from("kcs")
-        .select("id, big_idea_id, name, description, type, origin")
+        .select("id, big_idea_id, name, description, origin")
         .eq("course_id", courseId)
         .is("retired_at", null)
         .order("position")
@@ -150,7 +150,6 @@ export async function getKnowledgeMap(
     id: kc.id,
     name: kc.name,
     description: kc.description,
-    type: z.enum(KC_TYPES).parse(kc.type),
     origin: z.enum(["content", "exercise"]).parse(kc.origin),
     sources: sourcesOf(kc.id),
   });

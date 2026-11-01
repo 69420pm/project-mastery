@@ -15,7 +15,6 @@ import {
 type DueReview = {
   id: string;
   name: string;
-  type: string;
   /**
    * The id of the first Topic with the KC, to read it with `getTopic`. Null
    * without one; contexts stored before #180 have none.
@@ -38,7 +37,7 @@ const MAX_DUE_REVIEWS = 8;
  * come before the rest, ranked the same way. `topicOf` gives each KC's Topic.
  */
 export function selectDueReviews(
-  kcs: Array<{ id: string; name: string; type: string }>,
+  kcs: Array<{ id: string; name: string }>,
   schedules: ReadonlyMap<string, KcSchedule>,
   priorities: Record<string, number>,
   now: Date,
@@ -64,7 +63,6 @@ export function selectDueReviews(
     kcs: ranked.slice(0, MAX_DUE_REVIEWS).map(({ kc, recall }) => ({
       id: kc.id,
       name: kc.name,
-      type: kc.type,
       topicId: topicOf.get(kc.id) ?? null,
       retrievability: recall,
     })),

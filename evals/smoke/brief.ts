@@ -145,7 +145,6 @@ async function seedCourse(
     big_idea_id: bigIdea,
     name,
     description: `${name}.`,
-    type: "concept",
     origin: "content",
     position,
   });

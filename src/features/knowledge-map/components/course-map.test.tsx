@@ -44,7 +44,6 @@ const kc = (id: string) => ({
   id,
   name: id,
   description: "",
-  type: "concept" as const,
   origin: "content" as const,
   sources: [],
 });

@@ -231,7 +231,6 @@ test.describe("signed in", () => {
                 {
                   id: "kc-1",
                   name: "Limits",
-                  type: "concept",
                   description: "What a function approaches.",
                   state: "new",
                   sources: [],
@@ -260,7 +259,6 @@ test.describe("signed in", () => {
                 {
                   id: "kc-2",
                   name: "Continuity",
-                  type: "concept",
                   taught: false,
                 },
               ],
