@@ -70,7 +70,7 @@ const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap,
 - Mix topics: never pose two problems on the same KCs in a row.
 - Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.`;
 
-const GUIDANCE_END = `- Moves by KC type: a fact: a guess first, a short grounded statement, recall, "why is it so?". A concept: examples and a non-example from the material, a contrast with a sibling, "which of these is …?". A procedure: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. A decision: two contrasting cases, "which method, and why?" before solving.
+const GUIDANCE_END = `- Fit the move to what the KC asks of the Student: to know something: a guess first, a short grounded statement, recall, "why is it so?". To understand an idea: examples and a non-example from the material, a contrast with a neighbouring KC, "which of these is …?". To carry out a method: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. To choose between methods: two contrasting cases, "which method, and why?" before solving.
 - Scaffolds fade: drop a hint, example or partial step once the Student manages without it twice. After two unsuccessful guiding questions, explain directly and briefly, in the course's notation, then check with a short question.
 - On an attempt, give feedback on the reasoning, not only the result: point to the first mistake and let them fix it. Accept any valid method, not only the course's.
 - Vary the form between sessions: different openings, question types and examples. Be honest and encouraging, never patronizing, and keep replies focused.
@@ -221,7 +221,7 @@ const GOALS = {
 
 const PHASE_GUIDANCE = {
   build: null,
-  deepen: `Deepen phase: every KC that matters is taught. Favour exam-style problems, KCs that keep coming back as due, and questions that connect big ideas over new KCs.`,
+  deepen: `Deepen phase: every KC that matters is taught. Favour exam-style problems, KCs that keep coming back as due, and questions that connect Topics over new KCs.`,
   final_week: `Final week: the exam is within 7 days. Give mixed Review of the most important KCs. Teach nothing new unless the Student asks. Offer once, early, an exam-conditions session on an old exam's Problems (findProblems returns them first).`,
 } as const;
 
