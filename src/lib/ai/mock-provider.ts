@@ -131,33 +131,6 @@ function mockText(prompt: Prompt, responseFormat: ResponseFormat): string {
   return mockReply(prompt);
 }
 
-/**
- * In a Brief that is asking a Finding, the mock takes the Student's message
- * as its answer: when the instructions name the question being asked, it
- * first calls `answerFinding` with the message, then replies.
- */
-function mockAnswerFinding(
-  prompt: Prompt,
-  tools: ReadonlyArray<{ name: string }> | undefined,
-) {
-  if (!tools?.some(({ name }) => name === "answerFinding")) return null;
-  if (prompt.at(-1)?.role !== "user") return null;
-  const system = prompt.find(({ role }) => role === "system")?.content;
-  const findingId =
-    typeof system === "string"
-      ? /asking now \(id ([0-9a-f-]{36})\)/.exec(system)?.[1]
-      : undefined;
-  if (!findingId) return null;
-  const answer = lastUserParts(prompt)
-    .filter((part) => part.type === "text")
-    .map((part) => part.text ?? "")
-    .join(" ");
-  return toolCallStream("mock-answer-finding", "answerFinding", {
-    findingId,
-    answer,
-  });
-}
-
 /** A Student's message that starts with this makes the tutor mock ask. */
 export const MOCK_QUIZ_REQUEST = "Quiz me";
 
@@ -282,8 +255,8 @@ function mockTutorQuestions(
   if (!rebuild && !text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId =
     typeof system === "string"
-      ? // A KC's id is followed by its type; a Topic's by a parenthesis.
-        new RegExp(`\\(id (${UUID}),`).exec(system)?.[1]
+      ? // A KC's id is followed by its state or Topic; a Topic's by a parenthesis.
+        new RegExp(`\\(id (${UUID})[;,]`).exec(system)?.[1]
       : undefined;
   if (!kcId) return null;
   return toolCallStream("mock-ask", "ask", {
@@ -328,20 +301,23 @@ function languageModel(modelId: string) {
     doStream: async ({
       prompt,
       tools,
+      responseFormat,
     }: {
       prompt: Prompt;
       tools?: ReadonlyArray<{ name: string }>;
+      responseFormat?: ResponseFormat;
     }) => ({
       stream:
-        mockAnswerFinding(prompt, tools) ??
         mockTutorQuestions(prompt, tools) ??
         simulateReadableStream({
           initialDelayInMs: null,
-          chunkDelayInMs: WORD_DELAY_MS,
+          // Structured output streams at once: no Student watches it.
+          chunkDelayInMs:
+            responseFormat?.type === "json" ? null : WORD_DELAY_MS,
           chunks: [
             { type: "stream-start" as const, warnings: [] },
             { type: "text-start" as const, id: "text-1" },
-            ...mockReply(prompt)
+            ...mockText(prompt, responseFormat)
               .split(/(?<= )/)
               .map((delta) => ({
                 type: "text-delta" as const,

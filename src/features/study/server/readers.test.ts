@@ -18,17 +18,11 @@ const [PRIOR, THRUST, EFFICIENCY, NOZZLE] = [1, 2, 3, 4].map(
 ) as [string, string, string, string];
 
 const MAP = {
-  bigIdeas: [{ id: "big", name: "Thrust generation" }],
   kcs: [
-    { id: PRIOR, name: "Newton's second law", type: "prior", bigIdea: null },
-    { id: THRUST, name: "Thrust equation", type: "procedure", bigIdea: "big" },
-    {
-      id: EFFICIENCY,
-      name: "Propulsive efficiency",
-      type: "concept",
-      bigIdea: "big",
-    },
-    { id: NOZZLE, name: "Nozzle flow", type: "concept", bigIdea: "big" },
+    { id: PRIOR, name: "Newton's second law" },
+    { id: THRUST, name: "Thrust equation" },
+    { id: EFFICIENCY, name: "Propulsive efficiency" },
+    { id: NOZZLE, name: "Nozzle flow" },
   ],
   prerequisites: [
     { from: PRIOR, to: THRUST },
@@ -40,7 +34,7 @@ const SESSION = "aaaaaaaa-5000-4000-8000-000000000001";
 const OPEN_SESSION = "aaaaaaaa-5000-4000-8000-000000000002";
 const CHAT = "aaaaaaaa-c400-4000-8000-000000000001";
 const QUESTION = "aaaaaaaa-9000-4000-8000-000000000001";
-const EMPTY_MAP = { bigIdeas: [], kcs: [], prerequisites: [], exercises: [] };
+const EMPTY_MAP = { kcs: [], prerequisites: [], exercises: [] };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const at = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -54,10 +48,6 @@ function createDb() {
   return fakeSupabase({
     tables: {
       briefs: [] as FakeRow[],
-      kc_priorities: [
-        { course_id: COURSE, kc_id: THRUST, priority: "0.8" },
-        { course_id: COURSE, kc_id: NOZZLE, priority: "0.1" },
-      ] as FakeRow[],
       study_sessions: [
         // Ended four days ago; the other one's Chat had a message just now.
         { id: SESSION, course_id: COURSE, chat_id: null, ended_at: at(-4) },
@@ -79,6 +69,10 @@ vi.mock("@/lib/auth/user", () => ({
   getUser: async () => (signedIn ? { id: "student" } : null),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
+vi.mock("@/features/priorities/server", () => ({
+  loadKcPriorities: async (_: unknown, courseId: string) =>
+    courseId === COURSE ? { [THRUST]: 0.8, [NOZZLE]: 0.1 } : {},
+}));
 vi.mock("@/features/knowledge-map/server", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   loadStoredMap: async () => map,

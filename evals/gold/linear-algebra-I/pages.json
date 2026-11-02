@@ -1,0 +1,1024 @@
+{
+  "exercises.pdf": {
+    "pages": [
+      {
+        "page_number": 3,
+        "skipped": null,
+        "units": [
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "solvable? Determine the solution set in each case.\n\n**Exercise 7.** Solve the following system over $\\mathbb{F}_2$ and determine the number of its solutions:\n\n$$x_1 + x_2 + x_4 = 1, \\qquad x_2 + x_3 + x_5 = 0, \\qquad x_1 + x_3 + x_4 + x_5 = 1.$$\n\n*Result for checking:* 8 solutions.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 3,
+            "markdown": "8.3 Vector spaces",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 8 (S).** Decide which of the following sets are subspaces (with proof or counterexample).\n\n(a) $U_1 = \\{ x \\in \\mathbb{R}^3 \\mid x_1 + x_2 = x_3 \\} \\subseteq \\mathbb{R}^3$;\n\n(b) $U_2 = \\{ x \\in \\mathbb{R}^3 \\mid x_1x_2 = 0 \\} \\subseteq \\mathbb{R}^3$;\n\n(c) $U_3 = \\{ f \\in \\mathbb{R}^{\\mathbb{R}} \\mid f(1) = 2f(0) \\} \\subseteq \\mathbb{R}^{\\mathbb{R}}$;\n\n(d) $U_4 = \\{ f \\in \\mathbb{R}^{\\mathbb{R}} \\mid f(t) \\ge 0 \\text{ for all } t \\in \\mathbb{R} \\} \\subseteq \\mathbb{R}^{\\mathbb{R}}$",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 9 (S).** Show that the functions $\\sin$, $\\cos$ and $\\exp$ are linearly independent in the real vector space $\\mathbb{R}^{\\mathbb{R}}$.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 10 (S).** Let $V = \\mathbb{R}[x]_{\\le 3}$ and $U = \\{ p \\in V \\mid p(1) = 0 \\text{ and } p'(1) = 0 \\}$. Show that $U$ is a subspace and determine a basis and the dimension of $U$.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 11.** In $\\mathbb{R}^4$ let $U = \\operatorname{span} \\big( (1, 2, 0, 1)^\\top, (2, 1, 1, 0)^\\top \\big)$ and $W = \\operatorname{span} \\big( (1, -1, 1, -1)^\\top, (0, 1, 0, 1)^\\top \\big)$. Determine $\\dim(U + W)$ and a basis of $U \\cap W$. Verify the dimension formula (Theorem 4.5.4).",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 12 (\\star).** Let $\\operatorname{char} K \\ne 2$. Show that $K^{n \\times n} = \\operatorname{Sym}_n \\oplus \\operatorname{Skew}_n$, where $\\operatorname{Sym}_n = \\{ A \\mid A^\\top = A \\}$ and $\\operatorname{Skew}_n = \\{ A \\mid A^\\top = -A \\}$, and compute the dimensions of both subspaces. What goes wrong if $\\operatorname{char} K = 2$?",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 13 (\\star).** Let $V$ be a vector space over an *infinite* field $K$ and $U_1, \\dots, U_k \\subsetneq V$ proper subspaces. Show that $V \\ne U_1 \\cup \\cdots \\cup U_k$. Show by an example that the statement is false over $\\mathbb{F}_2$.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 3,
+            "markdown": "8.4 Linear maps and matrices",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 14 (S).** Let $f : \\mathbb{R}^3 \\to \\mathbb{R}^2$, $f(x) = (x_1 - x_2 + 2x_3,\\; 2x_1 + x_2 + x_3)^\\top$.\n\n(a) Determine the matrix of $f$ with respect to the standard bases, as well as bases of $\\ker f$ and $\\operatorname{im} f$.\n\n(b) Determine $M_{\\mathcal{C}}^{\\mathcal{B}}(f)$ for $\\mathcal{B} = \\big( (1, 0, 0)^\\top, (1, 1, 0)^\\top, (1, 1, 1)^\\top \\big)$ and $\\mathcal{C} = \\big( (1, 1)^\\top, (1, -1)^\\top \\big)$.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 15 (S).** Let $V$ be a vector space of dimension $n$ and $f \\in \\operatorname{End}_K(V)$ with $f \\circ f = 0$. Show that $\\operatorname{im} f \\subseteq \\ker f$ and $\\operatorname{rank} f \\le n/2$. Give, for every even $n$, an example with $\\operatorname{rank} f = n/2$.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 3,
+            "markdown": "**Exercise 16.** Show that $\\operatorname{rank}(A + B) \\le \\operatorname{rank} A + \\operatorname{rank} B$ and $\\operatorname{rank}(AB) \\le \\min\\{\\operatorname{rank} A, \\operatorname{rank} B\\}$ for all matrices for which these expressions are defined.",
+            "pageFrom": 3,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 5,
+        "skipped": null,
+        "units": [
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 3.** (a) $3 \\cdot 5 = 15 = 1$ in $\\mathbb{F}_7$, so $3^{-1} = 5$. Then $3x = 1 - 4 = -3 = 4$, hence $x = 5 \\cdot 4 = 20 = 6$. Check: $3 \\cdot 6 + 4 = 22 = 1$ in $\\mathbb{F}_7$. (b) $(a+b)^2 = a^2 + ab + ba + b^2 = a^2 + (1+1)ab + b^2 = a^2 + b^2$, since $1 + 1 = 0$. (c) Let $\\alpha(v_1 + v_2) + \\beta(v_2 + v_3) + \\gamma(v_3 + v_1) = 0$. Then $(\\alpha + \\gamma)v_1 + (\\alpha + \\beta)v_2 + (\\beta + \\gamma)v_3 = 0$, so by independence $\\alpha + \\gamma = \\alpha + \\beta = \\beta + \\gamma = 0$. Adding the three equations gives $2(\\alpha + \\beta + \\gamma) = 0$. If $\\operatorname{char} K \\ne 2$, then $2 \\ne 0$ is invertible, so $\\alpha + \\beta + \\gamma = 0$, and subtracting the equations gives $\\beta = \\gamma = \\alpha = 0$. If $\\operatorname{char} K = 2$, then $\\alpha = \\beta = \\gamma = 1$ is a non-trivial solution: $(v_1 + v_2) + (v_2 + v_3) + (v_3 + v_1) = 2(v_1 + v_2 + v_3) = 0$. $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 6.** Subtracting the first equation from the other two gives the equivalent system\n\n$$x_1 + x_2 + x_3 = 1, \\qquad (a-1)x_2 = 1, \\qquad (a-1)x_3 = 2.$$\n\nFor $a = 1$ the second equation reads $0 = 1$: no solution. For $a \\ne 1$ we obtain the unique solution $x_2 = \\dfrac{1}{a-1}$, $x_3 = \\dfrac{2}{a-1}$, $x_1 = 1 - \\dfrac{3}{a-1} = \\dfrac{a-4}{a-1}$. $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 8.** (a) Yes: $U_1 = L(A, 0)$ for $A = (1\\; 1\\; -1)$, a subspace by Lemma 3.1.2. (b) No: $e_1, e_2 \\in U_2$, but $e_1 + e_2 \\notin U_2$. ($U_2$ is the union of two planes.) (c) Yes: the zero function lies in $U_3$; if $f(1) = 2f(0)$ and $g(1) = 2g(0)$, then $(f + \\lambda g)(1) = 2(f + \\lambda g)(0)$. (d) No: the constant function $1$ lies in $U_4$, but $(-1) \\cdot 1 \\notin U_4$. ($U_4$ is closed under addition and under multiplication by $\\lambda \\ge 0$; it is a so-called cone.) $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 9.** Let $a \\sin + b \\cos + c \\exp = 0$, i.e. $a \\sin t + b \\cos t + c e^t = 0$ for all $t \\in \\mathbb{R}$. Differentiating twice gives $-a \\sin t - b \\cos t + c e^t = 0$ for all $t$. Adding both equations yields $2ce^t = 0$, so $c = 0$. Then $t = 0$ gives $b = 0$, and $t = \\pi/2$ gives $a = 0$. (Alternatively, without differentiation: evaluate at sufficiently many points, or compare growth as $t \\to \\infty$.) $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 10.** The map $\\varphi : V \\to \\mathbb{R}^2$, $p \\mapsto (p(1), p'(1))^\\top$, is linear, and $U = \\ker \\varphi$ is a subspace. $\\varphi$ is surjective because $\\varphi(1) = (1, 0)^\\top$ and $\\varphi(x-1) = (0, 1)^\\top$. By Theorem 5.2.1, $\\dim U = 4 - 2 = 2$. The polynomials $(x-1)^2$ and $x(x-1)^2$ lie in $U$ (both vanish at $1$ together with their derivatives, by the product rule) and are linearly independent, as they have different degrees. Hence $\\big( (x-1)^2,\\; x(x-1)^2 \\big)$ is a basis of $U$ by Theorem 4.4.5(b). $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 14.** (a) $A = \\begin{pmatrix} 1 & -1 & 2 \\\\ 2 & 1 & 1 \\end{pmatrix}$. Gaussian elimination: $\\begin{pmatrix} 1 & -1 & 2 \\\\ 0 & 3 & -3 \\end{pmatrix}$, so $x_2 = x_3$ and $x_1 = x_2 - 2x_3 = -x_3$; thus $\\ker f = \\operatorname{span} \\big( (-1, 1, 1)^\\top \\big)$. By rank–nullity $\\operatorname{rank} f = 2$, so $\\operatorname{im} f = \\mathbb{R}^2$ with basis $(e_1, e_2)$.\n\n(b) $f(b_1) = (1, 2)^\\top$, $f(b_2) = (0, 3)^\\top$, $f(b_3) = (2, 4)^\\top$. A vector $y$ has $\\mathcal{C}$-coordinates $\\left( \\dfrac{y_1 + y_2}{2}, \\dfrac{y_1 - y_2}{2} \\right)$, since $p(1, 1)^\\top + q(1, -1)^\\top = (p + q, p - q)^\\top$. Hence\n\n$$M_{\\mathcal{C}}^{\\mathcal{B}}(f) = \\begin{pmatrix} 3/2 & 3/2 & 3 \\\\ -1/2 & -3/2 & -1 \\end{pmatrix}.$$\n\n$\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 15.** If $w = f(v) \\in \\operatorname{im} f$, then $f(w) = f(f(v)) = 0$, so $w \\in \\ker f$. Hence $\\operatorname{rank} f = \\dim \\operatorname{im} f \\le \\dim \\ker f = n - \\operatorname{rank} f$ by Theorem 5.2.1, i.e. $\\operatorname{rank} f \\le n/2$. For $n = 2m$ and a basis $(v_1, \\dots, v_m, w_1, \\dots, w_m)$ define $f$ by $f(v_i) = w_i$ and $f(w_i) = 0$ (Theorem 5.1.5); then $f \\circ f = 0$ and $\\operatorname{im} f = \\operatorname{span}(w_1, \\dots, w_m)$ has dimension $m$. In matrix form: $\\begin{pmatrix} 0 & 0 \\\\ I_m & 0 \\end{pmatrix}$. $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 18.** (a) $f^k(v) = 0$ implies $f^{k+1}(v) = f(0) = 0$. (b) By induction on $m$ it suffices to show $\\ker f^{k+2} \\subseteq \\ker f^{k+1}$. Let $f^{k+2}(v) = 0$. Then $f^{k+1}(f(v)) = 0$, so $f(v) \\in \\ker f^{k+1} = \\ker f^k$, i.e. $f^{k+1}(v) = f^k(f(v)) = 0$. (c) The dimensions $d_k = \\dim \\ker f^k$ form an increasing sequence $0 = d_0 \\le d_1 \\le \\cdots \\le n$. If $d_0 < d_1 < \\cdots < d_{n+1}$, then $d_{n+1} \\ge n + 1$, which is impossible. So $d_k = d_{k+1}$, i.e. $\\ker f^k = \\ker f^{k+1}$ (Theorem 4.4.6), for some $k \\le n$, and (b) gives $\\ker f^n = \\ker f^{n+1}$. $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "solution",
+            "style": null,
+            "pageTo": 5,
+            "markdown": "**Solution to Exercise 21.** $D_1 = 2$, $D_2 = 4 - 1 = 3$. For $n \\ge 3$, expand along the first row (Theorem 6.4.1): the first term is $2D_{n-1}$; the second is $-(-1)\\det M$, where $M$ is the matrix obtained by deleting row 1 and column 2. The first column of $M$ is $(-1, 0, \\dots, 0)^\\top$, and expanding $M$ along it gives $\\det M = -D_{n-2}$. Hence $D_n = 2D_{n-1} - D_{n-2}$. By induction, $D_n = 2n - (n-1) = n + 1$. $\\square$",
+            "pageFrom": 5,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      }
+    ],
+    "outline": {
+      "language": "English",
+      "notes": "Section headings are printed with numbers of the form 8.x (the two marked headings read \"8.3 Vector spaces\" and \"8.4 Linear maps and matrices\"), while the PDF outline gives the same titles without their numbers; titles below are given exactly as each source supplies them. Exercise numbering runs continuously across sections (e.g. Exercise 7 under \"Linear systems\"), and the solutions are numbered by exercise, not by section.",
+      "chapters": [
+        {
+          "title": "II Exercises",
+          "level": 1,
+          "heading": null,
+          "page": 1,
+          "exam": false
+        },
+        {
+          "title": "Exercise Collection",
+          "level": 2,
+          "heading": null,
+          "page": 2,
+          "exam": false
+        },
+        {
+          "title": "Preliminaries and algebraic structures",
+          "level": 3,
+          "heading": null,
+          "page": 2,
+          "exam": false
+        },
+        {
+          "title": "Linear systems",
+          "level": 3,
+          "heading": null,
+          "page": 2,
+          "exam": false
+        },
+        {
+          "title": "8.3 Vector spaces",
+          "level": 3,
+          "heading": "h1",
+          "page": 3,
+          "exam": false
+        },
+        {
+          "title": "8.4 Linear maps and matrices",
+          "level": 3,
+          "heading": "h2",
+          "page": 3,
+          "exam": false
+        },
+        {
+          "title": "Determinants",
+          "level": 3,
+          "heading": null,
+          "page": 4,
+          "exam": false
+        },
+        {
+          "title": "Eigenvalues",
+          "level": 3,
+          "heading": null,
+          "page": 4,
+          "exam": false
+        },
+        {
+          "title": "Solutions to selected exercises",
+          "level": 3,
+          "heading": null,
+          "page": 4,
+          "exam": false
+        }
+      ]
+    }
+  },
+  "lecture-notes.pdf": {
+    "pages": [
+      {
+        "page_number": 17,
+        "skipped": null,
+        "units": [
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 17,
+            "markdown": "(R2) multiply a row by a scalar $\\lambda \\in K^\\times$;\n\n(R3) add $\\lambda$ times row $k$ to row $i$, where $i \\neq k$ and $\\lambda \\in K$.",
+            "pageFrom": 17,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 17,
+            "markdown": "**Lemma 3.2.2.** *If $(A' \\mid b')$ arises from $(A \\mid b)$ by an elementary row operation, then $L(A', b') = L(A, b)$.\n\n*Proof.* Clearly every solution of the old system solves the new one. Each elementary row operation can be undone by an elementary row operation of the same type (for (R2) multiply by $\\lambda^{-1}$, for (R3) add $-\\lambda$ times row $k$). Hence the converse holds as well. ■",
+            "pageFrom": 17,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 17,
+            "markdown": "**Definition 3.2.3.** A matrix is in *row echelon form* if it has the shape\n\n$$\n\\begin{pmatrix}\n0 \\cdots 0 & \\boxed{*} & * \\cdots & * & * \\cdots & * & * \\cdots \\\\\n0 \\cdots 0 & 0 & 0 \\cdots 0 & \\boxed{*} & * \\cdots & * & * \\cdots \\\\\n & & & \\ddots & & & \\\\\n0 \\cdots 0 & 0 & 0 \\cdots 0 & 0 & 0 \\cdots 0 & \\boxed{*} & * \\cdots \\\\\n0 \\cdots 0 & 0 & 0 \\cdots 0 & 0 & 0 \\cdots 0 & 0 & 0 \\cdots 0\n\\end{pmatrix},\n$$\n\ni.e. there are $r \\geq 0$ and column indices $j_1 < j_2 < \\cdots < j_r$ such that row $i$ ($1 \\leq i \\leq r$) starts with $a_{i j_i} \\neq 0$ (the *pivot*) preceded by zeros, and rows $r+1, \\ldots, m$ are zero. It is in *reduced row echelon form* if moreover all pivots equal 1 and all other entries in pivot columns are 0.\n\n**Theorem 3.2.4** (Gaussian elimination). *Every matrix can be transformed into reduced row echelon form by finitely many elementary row operations.*\n\n*Proof.* Induction on the number $m$ of rows; the case $A = 0$ is trivial. Let $j_1$ be the first column containing a non-zero entry. By (R1) we bring a row with non-zero entry in column $j_1$ to the top; by (R2) we make this entry 1; by (R3) we subtract suitable multiples of row 1 from all other rows so that column $j_1$ becomes $e_1$. Applying the induction hypothesis to the matrix formed by rows $2, \\ldots, m$ (row operations on these rows do not affect the zeros in columns $\\leq j_1$) yields a row echelon form with pivots equal to 1; finally, using (R3) once more, we clear the entries above every pivot, working from the last pivot to the first. ■\n\nOne can show that the *reduced* row echelon form of $A$ is uniquely determined by $A$; in particular the number $r$ of non-zero rows depends only on $A$. We shall see in Section 5.5 that $r$ is the *rank* of $A$.",
+            "pageFrom": 17,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 17,
+            "markdown": "3.3 Reading off the solution",
+            "pageFrom": 17,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 18,
+            "markdown": "Suppose $(A \\mid b)$ has been transformed to $(\\tilde{A} \\mid \\tilde{b})$ with $\\tilde{A}$ in reduced row echelon form, pivots in columns $j_1 < \\cdots < j_r$. The variables $x_{j_1}, \\ldots, x_{j_r}$ are called *pivot variables*, the remaining $n-r$ variables are *free*.\n\n**Theorem 3.3.1.** *In the situation above:*\n\n*(a) $Ax = b$ is solvable if and only if $\\tilde{b}_{r+1} = \\cdots = \\tilde{b}_m = 0$.*\n\n*(b) In this case, the free variables may be chosen arbitrarily, and each choice determines the pivot variables uniquely via $x_{j_i} = \\tilde{b}_i - \\sum_{k \\text{ free}} \\tilde{a}_{ik} x_k$. In particular, the solution is unique if and only if $r = n$.*\n\n*(c) If $m < n$, the homogeneous system $Ax = 0$ has a non-zero solution.*\n\n*Proof.* (a) and (b) are clear from the shape of $(\\tilde{A} \\mid \\tilde{b})$ and Lemma 3.2.2. For (c) note that $r \\leq m < n$, so there is at least one free variable; choosing it to be 1 gives a non-zero solution. ■\n\nStatement (c) – *more unknowns than equations forces non-trivial homogeneous solutions* – is the technical heart of the theory of dimension (Theorem 4.4.1).",
+            "pageFrom": 17,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 18,
+        "skipped": null,
+        "units": [
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 18,
+            "markdown": "**Example 3.3.2.** Over $K = \\mathbb{R}$ consider\n\n$$\n\\begin{aligned}\nx_1 + 2x_2 &+ 3x_4 = 1 \\\\\n2x_1 + 4x_2 + x_3 + 8x_4 &= 4 \\\\\n-x_1 - 2x_2 + x_3 - x_4 &= 1.\n\\end{aligned}\n$$\n\nWe transform the augmented matrix (II $- 2 \\cdot$ I, III $+$ I, then III $-$ II):\n\n$$\n\\begin{pmatrix} 1 & 2 & 0 & 3 & 1 \\\\ 2 & 4 & 1 & 8 & 4 \\\\ -1 & -2 & 1 & -1 & 1 \\end{pmatrix} \\rightsquigarrow \\begin{pmatrix} 1 & 2 & 0 & 3 & 1 \\\\ 0 & 0 & 1 & 2 & 2 \\\\ 0 & 0 & 1 & 2 & 2 \\end{pmatrix} \\rightsquigarrow \\begin{pmatrix} 1 & 2 & 0 & 3 & 1 \\\\ 0 & 0 & 1 & 2 & 2 \\\\ 0 & 0 & 0 & 0 & 0 \\end{pmatrix}.\n$$\n\nThis is in reduced row echelon form with $r = 2$, pivot columns $1, 3$ and free variables $x_2 = s$, $x_4 = t$. Hence\n\n$$\nL(A, b) = \\left\\{ \\begin{pmatrix} 1 \\\\ 0 \\\\ 2 \\\\ 0 \\end{pmatrix} + s \\begin{pmatrix} -2 \\\\ 1 \\\\ 0 \\\\ 0 \\end{pmatrix} + t \\begin{pmatrix} -3 \\\\ 0 \\\\ -2 \\\\ 1 \\end{pmatrix} \\;\\middle|\\; s, t \\in \\mathbb{R} \\right\\}.\n$$\n\nHad the right-hand side of the third equation been 2 instead of 1, the last row would have read $(0\\ 0\\ 0\\ 0 \\mid 1)$, and the system would be unsolvable.",
+            "pageFrom": 18,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 18,
+            "markdown": "*Remark 3.3.3.* Gaussian elimination works verbatim over every field, e.g. $\\mathbb{F}_2$ or $\\mathbb{F}_5$. Note however that the solution set then is a finite set: if there are $n-r$ free variables over $\\mathbb{F}_p$, a solvable system has exactly $p^{n-r}$ solutions. Numerically, over $\\mathbb{R}$, Gaussian elimination is sensitive to rounding errors; strategies such as *pivoting* are discussed in the course on Numerical Mathematics.\n\n*Remark 3.3.4 (Cost).* Bringing an $n \\times n$ matrix into row echelon form needs about $\\frac{2}{3}n^3$ arithmetic operations. In contrast, the formula of Leibniz for determinants (Chapter 6) involves $n!$ summands – for $n = 25$ this is already more than $10^{25}$.",
+            "pageFrom": 18,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 19,
+        "skipped": null,
+        "units": [
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 19,
+            "markdown": "Chapter 4",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 19,
+            "markdown": "Vector Spaces",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 19,
+            "markdown": "4.1 Definition and examples",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 19,
+            "markdown": "**Definition 4.1.1.** A *vector space over $K$* (or *$K$-vector space*) is a set $V$ together with two maps\n\n$$\n+: V \\times V \\to V,\\ (v,w) \\mapsto v+w, \\qquad \\cdot: K \\times V \\to V,\\ (\\lambda, v) \\mapsto \\lambda v,\n$$\n\ncalled *addition* and *scalar multiplication*, such that $(V, +)$ is an abelian group and for all $\\lambda, \\mu \\in K$, $v, w \\in V$:\n\n(V1) $(\\lambda\\mu)v = \\lambda(\\mu v)$;\n\n(V2) $(\\lambda + \\mu)v = \\lambda v + \\mu v$ and $\\lambda(v + w) = \\lambda v + \\lambda w$;\n\n(V3) $1v = v$.\n\nElements of $V$ are called *vectors*, elements of $K$ *scalars*. The neutral element of $(V, +)$ is the *zero vector* $0$ (or $0_V$).\n\n**Lemma 4.1.2.** *In every $K$-vector space, $0_K v = 0_V$, $\\lambda 0_V = 0_V$, $(-1)v = -v$, and $\\lambda v = 0$ implies $\\lambda = 0$ or $v = 0$.*\n\n*Proof.* $0v = (0+0)v = 0v + 0v$ gives $0v = 0$; similarly $\\lambda 0 = \\lambda(0+0)$. Then $v + (-1)v = (1-1)v = 0v = 0$. If $\\lambda v = 0$ and $\\lambda \\neq 0$, then $v = 1v = (\\lambda^{-1}\\lambda)v = \\lambda^{-1}(\\lambda v) = \\lambda^{-1}0 = 0$. ■\n\n**Examples 4.1.3.** (1) $K^n$ with componentwise addition and scalar multiplication. More generally $K^{m \\times n}$.\n\n(2) For any set $X$, the set $K^X = \\operatorname{Map}(X, K)$ with $(f+g)(x) := f(x) + g(x)$ and $(\\lambda f)(x) := \\lambda f(x)$. For $X = [n]$ this is (essentially) $K^n$, for $X = \\mathbb{N}$ the space of sequences in $K$.\n\n(3) The polynomial ring $K[x]$ is a $K$-vector space; so is $K[x]_{\\leq d}$, the set of polynomials of degree at most $d$.\n\n(4) $\\mathbb{C}$ is a vector space over $\\mathbb{R}$, and $\\mathbb{R}$ is a vector space over $\\mathbb{Q}$. More generally, if $K \\subseteq L$ is a subfield, then $L$ is a $K$-vector space.\n\n(5) $C(\\mathbb{R}) = \\{ f: \\mathbb{R} \\to \\mathbb{R} \\mid f \\text{ continuous} \\}$ and $C^\\infty(\\mathbb{R})$ are real vector spaces (Analysis I).\n\n(6) The *zero space* $\\{0\\}$.",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 19,
+            "markdown": "4.2 Subspaces",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 19,
+            "markdown": "**Definition 4.2.1.** A subset $U$ of a $K$-vector space $V$ is a *(linear) subspace* if\n\n(U1) $0 \\in U$;\n\n(U2) $u, u' \\in U \\Rightarrow u + u' \\in U$;\n\n(U3) $\\lambda \\in K, u \\in U \\Rightarrow \\lambda u \\in U$.\n\nA subspace is itself a vector space with the restricted operations (note that $-u = (-1)u \\in U$). By Lemma 3.1.2, the solution set $L(A, 0)$ of a homogeneous system is a subspace of $K^n$, whereas $L(A, b)$ is not if $b \\neq 0$ (since $0 \\notin L(A, b)$).",
+            "pageFrom": 19,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 20,
+        "skipped": null,
+        "units": [
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 20,
+            "markdown": "**Examples 4.2.2.** (1) The subspaces of $\\mathbb{R}^2$ are $\\{0\\}$, the lines through the origin and $\\mathbb{R}^2$ itself (this follows from Theorem 4.4.6). (2) $C^\\infty(\\mathbb{R}) \\subseteq C(\\mathbb{R}) \\subseteq \\mathbb{R}^{\\mathbb{R}}$ is a chain of subspaces. (3) The set of all *symmetric* matrices $A^\\top = A$ is a subspace of $K^{n \\times n}$. (4) $\\{ f \\in \\mathbb{R}^{\\mathbb{R}} \\mid f(0) = 1 \\}$ is not a subspace.\n\n**Lemma 4.2.3.** *The intersection $\\bigcap_{i \\in I} U_i$ of any family of subspaces of $V$ is a subspace. The union $U_1 \\cup U_2$ of two subspaces is a subspace if and only if $U_1 \\subseteq U_2$ or $U_2 \\subseteq U_1$.*\n\n*Proof.* The first claim is immediate from the definition. For the second, suppose $U_1 \\nsubseteq U_2$ and $U_2 \\nsubseteq U_1$; choose $u_1 \\in U_1 \\setminus U_2$ and $u_2 \\in U_2 \\setminus U_1$. If $u_1 + u_2 \\in U_1$, then $u_2 = (u_1 + u_2) - u_1 \\in U_1$, a contradiction; likewise $u_1 + u_2 \\notin U_2$. So $U_1 \\cup U_2$ is not closed under addition. ■\n\n**Definition 4.2.4.** Let $v_1, \\ldots, v_n \\in V$. A vector of the form $\\lambda_1 v_1 + \\cdots + \\lambda_n v_n$ with $\\lambda_i \\in K$ is a *linear combination* of $v_1, \\ldots, v_n$. For a subset $S \\subseteq V$, the *span* (or linear hull) of $S$ is\n\n$$\n\\operatorname{span}(S) := \\{ \\lambda_1 v_1 + \\cdots + \\lambda_n v_n \\mid n \\in \\mathbb{N},\\ v_i \\in S,\\ \\lambda_i \\in K \\},\n$$\n\nthe set of all *finite* linear combinations of elements of $S$; by convention $\\operatorname{span}(\\emptyset) = \\{0\\}$. If $\\operatorname{span}(S) = V$, then $S$ *generates* $V$.\n\n**Proposition 4.2.5.** *$\\operatorname{span}(S)$ is the smallest subspace of $V$ containing $S$, i.e. it is a subspace, contains $S$, and is contained in every subspace $U$ with $S \\subseteq U$. Equivalently, $\\operatorname{span}(S) = \\bigcap_{U \\supseteq S} U$.*\n\n*Proof.* The sum of two linear combinations and a scalar multiple of a linear combination are again linear combinations, and $0$ is the empty linear combination; so $\\operatorname{span}(S)$ is a subspace, obviously containing $S$. Conversely, a subspace $U \\supseteq S$ contains all linear combinations of elements of $S$ by (U2) and (U3) and induction on the number of summands. ■",
+            "pageFrom": 20,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 20,
+            "markdown": "4.3 Linear independence and bases",
+            "pageFrom": 20,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 20,
+            "markdown": "**Definition 4.3.1.** A family $(v_1, \\ldots, v_n)$ of vectors in $V$ is *linearly independent* if\n\n$$\n\\lambda_1 v_1 + \\cdots + \\lambda_n v_n = 0 \\implies \\lambda_1 = \\cdots = \\lambda_n = 0,\n$$\n\ni.e. if the zero vector can only be written as the *trivial* linear combination. Otherwise it is *linearly dependent*. An arbitrary family $(v_i)_{i \\in I}$ is linearly independent if every finite subfamily is.\n\n*Remark 4.3.2.* We speak of *families* rather than sets because repetitions matter: $(v, v)$ is linearly dependent ($1 \\cdot v - 1 \\cdot v = 0$), whereas the set $\\{v, v\\} = \\{v\\}$ is independent if $v \\neq 0$. Any family containing $0$ is dependent. A single vector $v$ is independent iff $v \\neq 0$ (Lemma 4.1.2).\n\n**Lemma 4.3.3.** *$(v_1, \\ldots, v_n)$ is linearly dependent if and only if some $v_k$ is a linear combination of the others, i.e. $v_k \\in \\operatorname{span}(v_i : i \\neq k)$. If $(v_1, \\ldots, v_{n-1})$ is independent but $(v_1, \\ldots, v_n)$ is dependent, then $v_n \\in \\operatorname{span}(v_1, \\ldots, v_{n-1})$.*\n\n*Proof.* If $\\sum_i \\lambda_i v_i = 0$ with $\\lambda_k \\neq 0$, then $v_k = -\\sum_{i \\neq k} \\lambda_k^{-1} \\lambda_i v_i$. Conversely, $v_k = \\sum_{i \\neq k} \\mu_i v_i$ gives the non-trivial relation $v_k - \\sum_{i \\neq k} \\mu_i v_i = 0$. For the second statement take a non-trivial relation $\\sum_{i=1}^n \\lambda_i v_i = 0$; then $\\lambda_n \\neq 0$, since otherwise $(v_1, \\ldots, v_{n-1})$ would be dependent, and we may solve for $v_n$. ■\n\n**Example 4.3.4.** Vectors $v_1, \\ldots, v_n \\in K^m$ are linearly independent iff the homogeneous system $Ax = 0$ with $A = (v_1 \\mid \\cdots \\mid v_n) \\in K^{m \\times n}$ has only the trivial solution, since $Ax = \\sum_j x_j v_j$. By Theorem 3.3.1(c), *more than $m$ vectors in $K^m$ are always linearly dependent*. For instance, in $\\mathbb{R}^3$, $v_1 = (1,2,3)^\\top$, $v_2 = (4,5,6)^\\top$, $v_3 = (7,8,9)^\\top$ are dependent, because $v_1 - 2v_2 + v_3 = 0$.",
+            "pageFrom": 20,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 21,
+        "skipped": null,
+        "units": [
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 21,
+            "markdown": "**Definition 4.3.5.** A family $\\mathcal{B} = (v_i)_{i \\in I}$ in $V$ is a *basis* of $V$ if it is linearly independent and generates $V$.\n\n**Examples 4.3.6.** (1) The *standard basis* $(e_1, \\ldots, e_n)$ of $K^n$. (2) The *monomials* $(1, x, x^2, \\ldots)$ form a basis of $K[x]$, and $(1, x, \\ldots, x^d)$ is a basis of $K[x]_{\\leq d}$. (3) $(1, i)$ is a basis of $\\mathbb{C}$ over $\\mathbb{R}$. (4) The matrices $E_{kl}$ with entry 1 at position $(k, l)$ and 0 elsewhere form a basis of $K^{m \\times n}$. (5) The empty family is a basis of $\\{0\\}$.\n\n**Theorem 4.3.7** (Characterisation of bases). *For a family $\\mathcal{B} = (v_1, \\ldots, v_n)$ in $V$ the following are equivalent:*\n\n*(i) $\\mathcal{B}$ is a basis of $V$;*\n\n*(ii) $\\mathcal{B}$ is a minimal generating family: it generates $V$, but no proper subfamily does;*\n\n*(iii) $\\mathcal{B}$ is a maximal linearly independent family: it is linearly independent, but $(v_1, \\ldots, v_n, v)$ is dependent for every $v \\in V$;*\n\n*(iv) every $v \\in V$ can be written in a unique way as $v = \\lambda_1 v_1 + \\cdots + \\lambda_n v_n$.*\n\n*Proof.* (i)$\\Rightarrow$(iv): Existence holds as $\\mathcal{B}$ generates $V$. If $\\sum \\lambda_i v_i = \\sum \\mu_i v_i$, then $\\sum (\\lambda_i - \\mu_i) v_i = 0$, so $\\lambda_i = \\mu_i$ for all $i$ by independence.\n\n(iv)$\\Rightarrow$(i): $\\mathcal{B}$ generates, and $0 = \\sum 0 \\cdot v_i$ is the unique representation of $0$.\n\n(i)$\\Rightarrow$(ii): If, say, $(v_1, \\ldots, v_{n-1})$ generated $V$, then $v_n$ would be a linear combination of $v_1, \\ldots, v_{n-1}$, contradicting independence by Lemma 4.3.3.\n\n(ii)$\\Rightarrow$(i): If $\\mathcal{B}$ were dependent, some $v_k$ would lie in the span of the others by Lemma 4.3.3; then the others would already generate $V$, contradicting minimality.\n\n(i)$\\Rightarrow$(iii): Every $v$ is a linear combination of $\\mathcal{B}$, so $(v_1, \\ldots, v_n, v)$ is dependent.\n\n(iii)$\\Rightarrow$(i): For $v \\in V$, the family $(v_1, \\ldots, v_n, v)$ is dependent while $(v_1, \\ldots, v_n)$ is not, so $v \\in \\operatorname{span}(\\mathcal{B})$ by Lemma 4.3.3. ■\n\nThe scalars $\\lambda_1, \\ldots, \\lambda_n$ in (iv) are the *coordinates* of $v$ with respect to $\\mathcal{B}$. Note that a basis is an *ordered* family: the coordinate vector $(\\lambda_1, \\ldots, \\lambda_n)^\\top \\in K^n$ depends on the order.\n\n**Corollary 4.3.8.** *Every finitely generated vector space has a finite basis. More precisely, every finite generating family contains a basis.*\n\n*Proof.* Remove vectors from a finite generating family as long as the remaining family still generates $V$. This terminates after finitely many steps with a minimal generating family, which is a basis by Theorem 4.3.7. ■\n\n*Remark 4.3.9 ($*$).* Using Zorn's lemma one shows that *every* vector space has a basis. For instance, $\\mathbb{R}$ has a basis over $\\mathbb{Q}$ (a so-called Hamel basis), but nobody can write one down explicitly.",
+            "pageFrom": 21,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "title",
+            "pageTo": 21,
+            "markdown": "4.4 Dimension",
+            "pageFrom": 21,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 21,
+            "markdown": "The following result is the key to the notion of dimension.\n\n**Theorem 4.4.1** (Steinitz exchange lemma). *Let $(v_1, \\ldots, v_n)$ generate $V$ and let $(w_1, \\ldots, w_m)$ be linearly independent in $V$. Then $m \\leq n$, and after renumbering the $v_i$, the family $(w_1, \\ldots, w_m, v_{m+1}, \\ldots, v_n)$ generates $V$.*",
+            "pageFrom": 21,
+            "continuesOnNextBatch": true,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 22,
+        "skipped": null,
+        "units": [
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 22,
+            "markdown": "*continues from before these pages*\n\n**Proof.** Induction on $m$; the case $m = 0$ is trivial. Let $m \\geq 1$. By induction hypothesis applied to $(w_1,\\dots,w_{m-1})$ we have $m - 1 \\leq n$ and, after renumbering, $(w_1,\\dots,w_{m-1},v_m,\\dots,v_n)$ generates $V$. Write\n\n$$w_m = \\mu_1 w_1 + \\dots + \\mu_{m-1} w_{m-1} + \\lambda_m v_m + \\dots + \\lambda_n v_n.$$\n\nIf $m - 1 = n$ or $\\lambda_m = \\dots = \\lambda_n = 0$, then $w_m \\in \\operatorname{span}(w_1,\\dots,w_{m-1})$, contradicting the independence of $(w_1,\\dots,w_m)$. Hence $m \\leq n$, and after renumbering $v_m,\\dots,v_n$ we may assume $\\lambda_m \\neq 0$. Then\n\n$$v_m = \\lambda_m^{-1} (w_m - \\mu_1 w_1 - \\dots - \\mu_{m-1} w_{m-1} - \\lambda_{m+1} v_{m+1} - \\dots - \\lambda_n v_n)$$\n\nlies in $\\operatorname{span}(w_1,\\dots,w_m, v_{m+1},\\dots,v_n)$. This span therefore contains all of $w_1,\\dots,w_{m-1}, v_m,\\dots,v_n$, and thus equals $V$. $\\blacksquare$",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": true
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 22,
+            "markdown": "**Corollary 4.4.2.** *If $V$ has a finite basis, then all bases of $V$ are finite and have the same number of elements.*",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 22,
+            "markdown": "**Proof.** Let $(v_1,\\dots,v_n)$ be a basis. By Theorem 4.4.1, any linearly independent family has at most $n$ elements; in particular every basis $(w_1,\\dots,w_m)$ is finite with $m \\leq n$. By symmetry, $n \\leq m$. $\\blacksquare$",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 22,
+            "markdown": "**Definition 4.4.3.** If $V$ has a finite basis, its number of elements is the *dimension* $\\dim V = \\dim_K V$, and $V$ is *finite-dimensional*. Otherwise we write $\\dim V = \\infty$.",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 22,
+            "markdown": "**Examples 4.4.4.** $\\dim K^n = n$, $\\dim K^{m \\times n} = mn$, $\\dim K[x]_{\\leq d} = d + 1$, $\\dim\\{0\\} = 0$, $\\dim_{\\mathbb{R}} \\mathbb{C} = 2$ but $\\dim_{\\mathbb{C}} \\mathbb{C} = 1$, and $\\dim K[x] = \\infty$. Also $\\dim_{\\mathbb{Q}} \\mathbb{R} = \\infty$, since $\\mathbb{Q}$ is countable but $\\mathbb{R}$ is not.",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 22,
+            "markdown": "**Theorem 4.4.5 (Basis extension theorem).** *Let $\\dim V = n < \\infty$.*\n\n*(a) Every linearly independent family in $V$ has at most $n$ elements and can be extended to a basis of $V$.*\n\n*(b) Every generating family has at least $n$ elements, and a family of exactly $n$ vectors is a basis if it is linearly independent or if it generates $V$.*",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 22,
+            "markdown": "**Proof.** (a) The bound holds by Theorem 4.4.1. Given an independent family $(w_1,\\dots,w_m)$, apply Theorem 4.4.1 with a basis $(v_1,\\dots,v_n)$: the family $(w_1,\\dots,w_m, v_{m+1},\\dots,v_n)$ generates $V$ and has $n$ elements. By Corollary 4.3.8 it contains a basis, which must have $n$ elements, so it is itself a basis. (b) A generating family contains a basis, so it has at least $n$ elements, and if it has exactly $n$, it is a basis. An independent family with $n$ elements extends to a basis with $n$ elements by (a), so no vector is added. $\\blacksquare$",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 22,
+            "markdown": "**Theorem 4.4.6.** *Let $U$ be a subspace of a finite-dimensional space $V$. Then $U$ is finite-dimensional, $\\dim U \\leq \\dim V$, and $\\dim U = \\dim V$ holds if and only if $U = V$.*",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 22,
+            "markdown": "**Proof.** By Theorem 4.4.1, independent families in $U$ have at most $\\dim V$ elements. Choose an independent family $(u_1,\\dots,u_m)$ in $U$ with $m$ maximal; by Theorem 4.3.7(iii) it is a basis of $U$, so $\\dim U = m \\leq \\dim V$. If $m = \\dim V$, then $(u_1,\\dots,u_m)$ is a basis of $V$ by Theorem 4.4.5(b), hence $U = V$. $\\blacksquare$",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 22,
+            "markdown": "*Caution 4.4.7.* In infinite dimension the last statement fails: $\\{p \\in K[x] : p(0) = 0\\} = \\operatorname{span}(x, x^2, \\dots)$ is a proper subspace of $K[x]$, but both are infinite-dimensional. Similarly, $V \\cong U$ does not imply $U = V$ (shift maps).",
+            "pageFrom": 22,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 23,
+        "skipped": null,
+        "units": [
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "# 4.5 Sums and direct sums",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "**Definition 4.5.1.** For subspaces $U_1, \\dots, U_k$ of $V$, the *sum* is $U_1 + \\dots + U_k := \\{u_1 + \\dots + u_k \\mid u_i \\in U_i\\} = \\operatorname{span}(U_1 \\cup \\dots \\cup U_k)$. The sum is *direct*, written $U_1 \\oplus \\dots \\oplus U_k$, if every element of it has a *unique* representation $u_1 + \\dots + u_k$ with $u_i \\in U_i$.",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "**Lemma 4.5.2.** *The sum $U_1 + \\dots + U_k$ is direct if and only if $u_1 + \\dots + u_k = 0$ with $u_i \\in U_i$ implies $u_1 = \\dots = u_k = 0$. For $k = 2$ this is equivalent to $U_1 \\cap U_2 = \\{0\\}$.*",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "**Proof.** The first statement follows as in the proof of Theorem 4.3.7 (uniqueness of the representation of $0$ suffices, by taking differences). For $k = 2$: if $0 \\neq u \\in U_1 \\cap U_2$, then $u + (-u) = 0$ is a non-trivial representation. Conversely, if $u_1 + u_2 = 0$, then $u_1 = -u_2 \\in U_1 \\cap U_2 = \\{0\\}$. $\\blacksquare$",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "*Caution 4.5.3.* For $k \\geq 3$ it is *not* sufficient that $U_i \\cap U_j = \\{0\\}$ for all $i \\neq j$: three distinct lines through $0$ in $\\mathbb{R}^2$ intersect pairwise trivially, but their sum is not direct.",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "**Theorem 4.5.4 (Dimension formula for sums).** *Let $U, W$ be finite-dimensional subspaces of $V$. Then*\n\n$$\\dim(U + W) + \\dim(U \\cap W) = \\dim U + \\dim W.$$",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "**Proof.** Let $(v_1,\\dots,v_r)$ be a basis of $U \\cap W$. Extend it to a basis $(v_1,\\dots,v_r, u_1,\\dots,u_s)$ of $U$ and to a basis $(v_1,\\dots,v_r, w_1,\\dots,w_t)$ of $W$ (Theorem 4.4.5). We claim that $\\mathcal{B} = (v_1,\\dots,v_r, u_1,\\dots,u_s, w_1,\\dots,w_t)$ is a basis of $U + W$; then $\\dim(U + W) = r + s + t = (r + s) + (r + t) - r$, as claimed.\n\nClearly $\\mathcal{B}$ generates $U + W$. Suppose $\\sum_i \\alpha_i v_i + \\sum_j \\beta_j u_j + \\sum_k \\gamma_k w_k = 0$. Then\n\n$$w := \\sum_k \\gamma_k w_k = -\\sum_i \\alpha_i v_i - \\sum_j \\beta_j u_j \\in U \\cap W,$$\n\nso $w = \\sum_i \\delta_i v_i$ for some $\\delta_i \\in K$. Then $\\sum_k \\gamma_k w_k - \\sum_i \\delta_i v_i = 0$, and independence of the basis of $W$ yields $\\gamma_k = 0$ for all $k$. Now $\\sum_i \\alpha_i v_i + \\sum_j \\beta_j u_j = 0$ implies $\\alpha_i = \\beta_j = 0$ by independence of the basis of $U$. $\\blacksquare$",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "**Example 4.5.5.** Two distinct planes $U \\neq W$ through the origin in $\\mathbb{R}^3$ satisfy $U + W = \\mathbb{R}^3$ (as $U \\subsetneq U + W$, so $\\dim(U + W) = 3$), hence $\\dim(U \\cap W) = 2 + 2 - 3 = 1$: they intersect in a line.",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "**Corollary 4.5.6.** *If $V$ is finite-dimensional and $U \\subseteq V$ is a subspace, then there exists a complement $W$, i.e. a subspace with $V = U \\oplus W$. For any such $W$, $\\dim W = \\dim V - \\dim U$.*",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "**Proof.** Extend a basis $(u_1,\\dots,u_m)$ of $U$ to a basis $(u_1,\\dots,u_m, w_1,\\dots,w_k)$ of $V$ and put $W := \\operatorname{span}(w_1,\\dots,w_k)$. Then $U + W = V$ and $U \\cap W = \\{0\\}$ by uniqueness of coordinates. The dimension statement follows from Theorem 4.5.4. $\\blacksquare$",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "Complements are not unique: every line in $\\mathbb{R}^2$ other than $U$ itself is a complement of a given line $U$ through $0$.",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "heading",
+            "style": "bold",
+            "pageTo": 23,
+            "markdown": "# 4.6 Computing with subspaces of $K^n$",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 23,
+            "markdown": "In practice, subspaces of $K^n$ are given in one of two ways: *explicitly*, as the span of finitely many vectors, or *implicitly*, as the solution set of a homogeneous system $Ax = 0$. Gaussian elimination converts between the two descriptions and solves the standard tasks.",
+            "pageFrom": 23,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      },
+      {
+        "page_number": 24,
+        "skipped": null,
+        "units": [
+          {
+            "label": "exercise",
+            "style": null,
+            "pageTo": 24,
+            "markdown": "**Task 1: a basis of $U = \\operatorname{span}(u_1, \\dots, u_k)$.** Write $u_1^\\top, \\dots, u_k^\\top$ as the *rows* of a matrix and bring it to row echelon form. Row operations do not change the span of the rows (each new row is a linear combination of the old ones and vice versa), and the non-zero rows of an echelon form are linearly independent. Hence they form a basis of $U$, and $\\dim U$ is the number of non-zero rows.\n\n**Task 2: a basis of $L(A, 0)$.** Bring $A$ to reduced row echelon form; for each free variable $x_k$ the solution with $x_k = 1$ and all other free variables $0$ yields a basis vector (cf. Example 3.3.2). There are exactly $n - r$ of them, and they are independent since each has a $1$ in a position where all others have a $0$.\n\n**Task 3: from explicit to implicit.** Given $U = \\operatorname{span}(u_1, \\dots, u_k)$, a vector $y$ lies in $U$ iff the system $\\sum_j \\lambda_j u_j = y$ in the unknowns $\\lambda_j$ is solvable. Eliminating with a *symbolic* right-hand side $y$ produces the solvability conditions $\\tilde{b}_{r+1}(y) = \\dots = \\tilde{b}_m(y) = 0$ of Theorem 3.3.1, which are linear equations in $y$ describing $U$.\n\n**Task 4: intersections and sums.** $U + W$ is spanned by the union of spanning sets (Task 1). For $U \\cap W$, describe both implicitly (Task 3) and solve the combined system (Task 2); alternatively, solve $\\sum_i \\lambda_i u_i = \\sum_j \\mu_j w_j$ for $(\\lambda, \\mu)$.",
+            "pageFrom": 24,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          },
+          {
+            "label": "content",
+            "style": null,
+            "pageTo": 24,
+            "markdown": "**Example 4.6.1.** In $\\mathbb{R}^4$ let $U = \\operatorname{span}(u_1, u_2, u_3)$ with $u_1 = (1, 1, 0, 2)^\\top$, $u_2 = (2, 1, 1, 3)^\\top$, $u_3 = (0, 1, -1, 1)^\\top$, and let $W = \\{x \\in \\mathbb{R}^4 \\mid x_1 - x_2 + x_4 = 0\\}$.\n\n*Basis of U.* Row reduction\n\n$$\\begin{pmatrix} 1 & 1 & 0 & 2 \\\\ 2 & 1 & 1 & 3 \\\\ 0 & 1 & -1 & 1 \\end{pmatrix} \\rightsquigarrow \\begin{pmatrix} 1 & 1 & 0 & 2 \\\\ 0 & -1 & 1 & -1 \\\\ 0 & 1 & -1 & 1 \\end{pmatrix} \\rightsquigarrow \\begin{pmatrix} 1 & 1 & 0 & 2 \\\\ 0 & -1 & 1 & -1 \\\\ 0 & 0 & 0 & 0 \\end{pmatrix}$$\n\nshows $\\dim U = 2$ with basis $((1, 1, 0, 2)^\\top, (0, -1, 1, -1)^\\top)$. (Indeed $u_3 = 2u_1 - u_2$.)\n\n*Implicit description of U.* $y = \\alpha(1, 1, 0, 2)^\\top + \\beta(0, -1, 1, -1)^\\top$ means $y_1 = \\alpha$, $y_3 = \\beta$, $y_2 = \\alpha - \\beta$, $y_4 = 2\\alpha - \\beta$. Eliminating $\\alpha, \\beta$ gives the two equations\n\n$$y_2 = y_1 - y_3, \\qquad y_4 = 2y_1 - y_3.$$\n\nHence $U = \\{y \\mid y_1 - y_2 - y_3 = 0, \\; 2y_1 - y_3 - y_4 = 0\\}$, as expected from $\\dim U = 4 - 2$.\n\n*Intersection.* $U \\cap W$ is the solution set of the three equations $y_1 - y_2 - y_3 = 0$, $2y_1 - y_3 - y_4 = 0$, $y_1 - y_2 + y_4 = 0$. Subtracting the first from the third gives $y_3 + y_4 = 0$, then the second gives $2y_1 = y_3 + y_4 = 0$. So $y_1 = 0$, $y_4 = -y_3$, $y_2 = -y_3$, and $U \\cap W = \\operatorname{span}((0, -1, 1, -1)^\\top)$. By Theorem 4.5.4, $\\dim(U + W) = 2 + 3 - 1 = 4$, i.e. $U + W = \\mathbb{R}^4$.",
+            "pageFrom": 24,
+            "continuesOnNextBatch": false,
+            "continuesFromPreviousBatch": false
+          }
+        ]
+      }
+    ],
+    "outline": {
+      "language": "English",
+      "notes": "Vector spaces are treated over a general field $K$ rather than $ℝ$: $K^n$, $K^{m\\times n}$, $K[x]_{\\le d}$ (polynomials of degree $\\le d$), $K^\\times$ = nonzero scalars; $\\operatorname{span}(S)$ denotes the generated subspace; $\\dim_K V$ is written $\\dim V$ when the field is clear; elementary row operations are labelled (R1)–(R3).",
+      "chapters": [
+        {
+          "title": "Course Information",
+          "level": 1,
+          "heading": null,
+          "page": 3,
+          "exam": false
+        },
+        {
+          "title": "I Lecture Notes",
+          "level": 1,
+          "heading": null,
+          "page": 9,
+          "exam": false
+        },
+        {
+          "title": "Preliminaries: Logic, Sets and Maps",
+          "level": 2,
+          "heading": null,
+          "page": 10,
+          "exam": false
+        },
+        {
+          "title": "Statements and proofs",
+          "level": 3,
+          "heading": null,
+          "page": 10,
+          "exam": false
+        },
+        {
+          "title": "Sets",
+          "level": 3,
+          "heading": null,
+          "page": 10,
+          "exam": false
+        },
+        {
+          "title": "Maps",
+          "level": 3,
+          "heading": null,
+          "page": 11,
+          "exam": false
+        },
+        {
+          "title": "Relations and induction",
+          "level": 3,
+          "heading": null,
+          "page": 12,
+          "exam": false
+        },
+        {
+          "title": "Algebraic Structures: Groups, Rings, Fields",
+          "level": 2,
+          "heading": null,
+          "page": 13,
+          "exam": false
+        },
+        {
+          "title": "Groups",
+          "level": 3,
+          "heading": null,
+          "page": 13,
+          "exam": false
+        },
+        {
+          "title": "Rings and fields",
+          "level": 3,
+          "heading": null,
+          "page": 14,
+          "exam": false
+        },
+        {
+          "title": "Complex numbers",
+          "level": 3,
+          "heading": null,
+          "page": 15,
+          "exam": false
+        },
+        {
+          "title": "Systems of Linear Equations",
+          "level": 2,
+          "heading": null,
+          "page": 16,
+          "exam": false
+        },
+        {
+          "title": "Matrices and linear systems",
+          "level": 3,
+          "heading": null,
+          "page": 16,
+          "exam": false
+        },
+        {
+          "title": "Elementary row operations and row echelon form",
+          "level": 3,
+          "heading": null,
+          "page": 16,
+          "exam": false
+        },
+        {
+          "title": "3.3 Reading off the solution",
+          "level": 3,
+          "heading": "h1",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "Chapter 4: Vector Spaces",
+          "level": 2,
+          "heading": "h2",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.1 Definition and examples",
+          "level": 3,
+          "heading": "h4",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.2 Subspaces",
+          "level": 3,
+          "heading": "h5",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.3 Linear independence and bases",
+          "level": 3,
+          "heading": "h6",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.4 Dimension",
+          "level": 3,
+          "heading": "h7",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.5 Sums and direct sums",
+          "level": 3,
+          "heading": "h13",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "4.6 Computing with subspaces of $K^n$",
+          "level": 3,
+          "heading": "h19",
+          "page": null,
+          "exam": false
+        },
+        {
+          "title": "Linear Maps and Matrices",
+          "level": 2,
+          "heading": null,
+          "page": 25,
+          "exam": false
+        },
+        {
+          "title": "Linear maps",
+          "level": 3,
+          "heading": null,
+          "page": 25,
+          "exam": false
+        },
+        {
+          "title": "The rank–nullity theorem",
+          "level": 3,
+          "heading": null,
+          "page": 26,
+          "exam": false
+        },
+        {
+          "title": "The matrix of a linear map",
+          "level": 3,
+          "heading": null,
+          "page": 26,
+          "exam": false
+        },
+        {
+          "title": "Change of basis",
+          "level": 3,
+          "heading": null,
+          "page": 28,
+          "exam": false
+        },
+        {
+          "title": "The rank of a matrix",
+          "level": 3,
+          "heading": null,
+          "page": 28,
+          "exam": false
+        },
+        {
+          "title": "Quotient spaces",
+          "level": 3,
+          "heading": null,
+          "page": 29,
+          "exam": false
+        },
+        {
+          "title": "Elementary matrices",
+          "level": 3,
+          "heading": null,
+          "page": 29,
+          "exam": false
+        },
+        {
+          "title": "The dual space",
+          "level": 3,
+          "heading": null,
+          "page": 30,
+          "exam": false
+        },
+        {
+          "title": "Determinants",
+          "level": 2,
+          "heading": null,
+          "page": 31,
+          "exam": false
+        },
+        {
+          "title": "Permutations",
+          "level": 3,
+          "heading": null,
+          "page": 31,
+          "exam": false
+        },
+        {
+          "title": "Multilinear alternating forms and the determinant",
+          "level": 3,
+          "heading": null,
+          "page": 32,
+          "exam": false
+        },
+        {
+          "title": "Properties of the determinant",
+          "level": 3,
+          "heading": null,
+          "page": 33,
+          "exam": false
+        },
+        {
+          "title": "Laplace expansion and Cramer's rule",
+          "level": 3,
+          "heading": null,
+          "page": 34,
+          "exam": false
+        },
+        {
+          "title": "Eigenvalues and Diagonalisation",
+          "level": 2,
+          "heading": null,
+          "page": 35,
+          "exam": false
+        },
+        {
+          "title": "Eigenvalues and eigenvectors",
+          "level": 3,
+          "heading": null,
+          "page": 35,
+          "exam": false
+        },
+        {
+          "title": "The characteristic polynomial",
+          "level": 3,
+          "heading": null,
+          "page": 35,
+          "exam": false
+        },
+        {
+          "title": "Diagonalisability",
+          "level": 3,
+          "heading": null,
+          "page": 36,
+          "exam": false
+        },
+        {
+          "title": "An application: linear recursions",
+          "level": 3,
+          "heading": null,
+          "page": 37,
+          "exam": false
+        },
+        {
+          "title": "Outlook",
+          "level": 3,
+          "heading": null,
+          "page": 37,
+          "exam": false
+        }
+      ]
+    }
+  }
+}

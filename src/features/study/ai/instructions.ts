@@ -10,8 +10,8 @@ import type {
 
 /**
  * The AI's instructions in a Chat (#102): it tutors the Student from the
- * Course's Knowledge map. Changing them means running the `chat` eval
- * (`evals/chat.ts`, ADR 0012).
+ * Course's Knowledge map. Changing them means running the `tutor` smoke
+ * check (ADR 0012).
  */
 
 const ROLE = `You are the AI in Project Mastery, a study app for university students. You tutor the Student you are talking with in their Course, from its Knowledge map and its own Materials, with particular strength in university mathematics and STEM.`;
@@ -51,7 +51,7 @@ const REVIEW = `Review session: this session reviews the KCs that are due, which
 
 /** How a practice session (#184) goes: Problems on the practice KCs below. */
 const PRACTICE = `Practice session: the Student practises exam-style Problems on Topics they have learned, on the practice KCs below, most urgent first. Teach nothing new. When the Student greets you or wants to study without saying what, do not ask them to choose: pose a Problem.
-- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs and task types from one Problem to the next; when findProblems has none left for some KCs, try others.
+- Call findProblems with a few of the practice KCs' ids, the top ones first, and pose one Problem at a time through ask with its problemId and its question with its link, in the same reply as findProblems. Never write a Problem in your text: without ask it has no card and can't be graded. Never show its solution before the Student has submitted an answer. Vary the KCs from one Problem to the next; when findProblems has none left for some KCs, try others.
 - Help only when the Student asks for it or after a wrong or partial submission: one hint first, then a corrected step, then the worked solution when they ask again or stay stuck. Grade the help you gave as usual (none, some or solution_shown).
 - After a wrong or partial submission, point to the first mistake and fix only that, citing the course (call getTopic first); then let the Student try again or move on to the next Problem.
 - After a full answer, sometimes ask why a step works, through ask, before the next Problem.
@@ -67,10 +67,10 @@ const RESULTS = `Results session: the Student goes through a Mock exam they took
 - When the Student asks something else, answer it, then come back to the tasks.`;
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
-- Mix topics: never pose two problems of the same task type in a row.
+- Mix topics: never pose two problems on the same KCs in a row.
 - Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.`;
 
-const GUIDANCE_END = `- Moves by KC type: a fact: a guess first, a short grounded statement, recall, "why is it so?". A concept: examples and a non-example from the material, a contrast with a sibling, "which of these is …?". A procedure: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. A decision: two contrasting cases, "which method, and why?" before solving.
+const GUIDANCE_END = `- Fit the move to what the KC asks of the Student: to know something: a guess first, a short grounded statement, recall, "why is it so?". To understand an idea: examples and a non-example from the material, a contrast with a neighbouring KC, "which of these is …?". To carry out a method: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. To choose between methods: two contrasting cases, "which method, and why?" before solving.
 - Scaffolds fade: drop a hint, example or partial step once the Student manages without it twice. After two unsuccessful guiding questions, explain directly and briefly, in the course's notation, then check with a short question.
 - On an attempt, give feedback on the reasoning, not only the result: point to the first mistake and let them fix it. Accept any valid method, not only the course's.
 - Vary the form between sessions: different openings, question types and examples. Be honest and encouraging, never patronizing, and keep replies focused.
@@ -92,7 +92,8 @@ const QUESTIONS = `Graded questions:
 
 const READING = `Guided reading:
 - Before you teach a KC that is not taught yet and that a Reading section listed below covers, open that section with showReading and a purpose question the reading answers. Write a short lead-in first; showReading ends your reply while the Student reads.
-- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, before you open any other section, and don't restate it. After a wrong answer, explain only the part that was wrong.`;
+- The Student's message after reading starts with "[Done reading section <id>.]". Then ask them about what they read, through ask or in text, before you open any other section, and don't restate it. After a wrong answer, explain only the part that was wrong.
+- The Student reads the pages as they are. Explain a hard page in the Chat when they ask, or when the work stage shows a gap it left.`;
 
 const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
 - The map is extracted by models and can be wrong: a missing link, a wrong prerequisite, a KC description that drifts from its source. Order of trust: the course's sources, then the map, then your own knowledge, then the Student's claim. A Student's statement alone never changes anything, and you never edit the map.
@@ -102,7 +103,7 @@ const MAP_DISAGREEMENTS = `When the Student and the Knowledge map disagree:
   - the map contradicts the sources: teach from the sources, say the map's overview is off here, and file a Finding with flagMap;
   - the sources show neither, and it is only plausible from your general knowledge: mark it "beyond the course", grade nothing on it either way, and file no Finding.
 - flagMap needs a quote copied exactly from the chunk that shows it. A KC that getTopic lists with a map Finding may be wrong on the map: lean on its sources, not on the map.
-- A Finding changes nothing until the Student accepts it on the Course map and the map is updated: grade the Student against the sources, not the map.`;
+- A Finding changes nothing until the Student accepts it on the Course map: grade the Student against the sources, not the map.`;
 
 const MEMORY = `Your Memory of this Student in this Course, which you read in every Chat:
 - Call remember when you learn something that will help you tutor this Student in later Chats: their preferences, how they like to learn, what helped or annoyed them, their schedule and context, what the lecturer said.
@@ -123,27 +124,21 @@ const FORMAT = `Language and format:
 - Format answers in Markdown.
 - Write all mathematics in LaTeX: inline math between single dollar signs, like $f'(x) = 2x$, and displayed equations between double dollar signs on their own lines, like $$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$$. Never write math as plain text or Unicode symbols, and never use \\( \\) or \\[ \\] delimiters.`;
 
-const READING_MODES = {
-  original: "original pages",
-  annotated: "pages with notes",
-  study_text: "study text",
-} as const;
-
 function describeTopic(next: NonNullable<TutorToday["next"]>): string {
   const anchors =
     next.anchors.length === 0
       ? "Anchors: none."
-      : `Anchors (the prior knowledge and KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
+      : `Anchors (the KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
   // Contexts stored before #179, which the Context sheet re-renders, have
   // no sections.
   const sections = next.readingSections ?? [];
   return [
     `Next Topic: ${next.name} (id ${next.id}). Central question: ${next.centralQuestion}`,
-    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
+    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
     anchors,
     sections.length === 0
       ? "Reading sections: none."
-      : `Its Reading sections, the course's pages on it in order:\n${sections.map((s) => `- ${s.label} (section id ${s.id}, ${READING_MODES[s.mode]})`).join("\n")}`,
+      : `Its Reading sections, the course's pages on it in order:\n${sections.map((s) => `- ${s.label} (section id ${s.id})`).join("\n")}`,
   ].join("\n");
 }
 
@@ -152,14 +147,14 @@ function describeReviews({ kcs, more }: DueReviews): string {
   // Contexts stored before FSRS (#174), which the Context sheet re-renders,
   // have no recall.
   const lines = kcs.map((kc) => {
-    const { id, name, type, topicId } = kc;
+    const { id, name, topicId } = kc;
     const { retrievability } = kc as { retrievability?: number };
     const topic = topicId ? `, Topic id ${topicId}` : "";
     const recall =
       retrievability === undefined
         ? ""
         : `; recall today ${Math.round(retrievability * 100)}%`;
-    return `- ${name} (id ${id}, ${type}${topic}${recall})`;
+    return `- ${name} (id ${id}${topic}${recall})`;
   });
   const rest = more > 0 ? [`… and ${more} more due.`] : [];
   return [
@@ -183,7 +178,7 @@ function describeReviewQueue(queue: ReviewGroup[], mapPath: string): string {
   const groups = queue.map((group, i) => {
     const kcs = group.kcs.map(
       (kc) =>
-        `  - ${kc.name} (id ${kc.id}, ${kc.type}${kc.topicId ? `, Topic id ${kc.topicId}` : ""})`,
+        `  - ${kc.name} (id ${kc.id}${kc.topicId ? `, Topic id ${kc.topicId}` : ""})`,
     );
     const retry =
       group.status === "retry"
@@ -226,7 +221,7 @@ const GOALS = {
 
 const PHASE_GUIDANCE = {
   build: null,
-  deepen: `Deepen phase: every KC that matters is taught. Favour exam-style problems, KCs that keep coming back as due, and questions that connect big ideas over new KCs.`,
+  deepen: `Deepen phase: every KC that matters is taught. Favour exam-style problems, KCs that keep coming back as due, and questions that connect Topics over new KCs.`,
   final_week: `Final week: the exam is within 7 days. Give mixed Review of the most important KCs. Teach nothing new unless the Student asks. Offer once, early, an exam-conditions session on an old exam's Problems (findProblems returns them first).`,
 } as const;
 
@@ -259,9 +254,7 @@ function describePracticeKcs(kcs: PracticeKc[], mapPath: string): string {
   }
   return [
     "Practice KCs, most urgent first:",
-    ...kcs.map(
-      (kc) => `- ${kc.name} (id ${kc.id}, ${kc.type}, Topic id ${kc.topicId})`,
-    ),
+    ...kcs.map((kc) => `- ${kc.name} (id ${kc.id}, Topic id ${kc.topicId})`),
   ].join("\n");
 }
 
@@ -356,6 +349,17 @@ function describeNotes(context: TutorContext): string[] {
   ];
 }
 
+/** The notes of the Course's Materials; contexts stored before have none. */
+function describeMaterialNotes(context: TutorContext): string[] {
+  const notes = context.materialNotes ?? [];
+  if (notes.length === 0) return [];
+  return [
+    `Notation and conventions of the Course's Materials, found when they were read; use them when you explain from a Material:\n${notes
+      .map(({ material, text }) => `- ${material}:\n${text}`)
+      .join("\n")}`,
+  ];
+}
+
 /** The AI's instructions in a Chat, with the current tutor context. */
 export function tutorInstructions(context: TutorContext): string {
   // Contexts stored before #180, which the Context sheet re-renders, have
@@ -391,6 +395,7 @@ export function tutorInstructions(context: TutorContext): string {
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
     ...describeNotes(context),
+    ...describeMaterialNotes(context),
     ...describePlan(context),
     ...(mock !== undefined
       ? [describeMockResults(mock)]

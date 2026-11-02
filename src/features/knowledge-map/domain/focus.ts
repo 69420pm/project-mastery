@@ -1,7 +1,4 @@
-import type {
-  MapGraphEdge,
-  MapGraphNode,
-} from "@/features/knowledge-map/domain/map-graph";
+import type { MapGraphEdge } from "@/features/knowledge-map/domain/map-graph";
 
 /**
  * What focusing a node highlights on the map graph (#118), over the edges
@@ -32,22 +29,15 @@ const ORDERED: ReadonlySet<MapGraphEdge["kind"]> = new Set([
 
 /**
  * The nodes and edges focusing `id` highlights, `id` included, given the
- * edges the graph shows. A Big idea focuses from all its KCs (`nodes` gives
- * their `parentId`). Hidden Prerequisites must be left out of `edges`:
+ * edges the graph shows. Hidden Prerequisites must be left out of `edges`:
  * focus never crosses an edge the Student can't see.
  */
 export function focusOn(
   id: string,
   depth: FocusDepth,
-  nodes: MapGraphNode[],
   edges: MapGraphEdge[],
 ): Focus {
-  const seeds = [
-    id,
-    ...nodes
-      .filter((node) => node.kind === "kc" && node.parentId === id)
-      .map((node) => node.id),
-  ];
+  const seeds = [id];
   const focus: Focus = { nodes: new Set(seeds), edges: new Set() };
   if (depth === "neighbours") {
     for (const edge of edges) {

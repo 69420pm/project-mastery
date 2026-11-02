@@ -34,8 +34,8 @@ guard ALLOW_DB_RESET \
   "Parallel agents share the local Supabase database, so a reset wipes their data too. Apply new migrations with 'pnpm exec supabase migration up --local --include-all'."
 
 guard ALLOW_LIVE_AI \
-  'pnpm\s+(-s\s+)?(run\s+)?(evals(\s|$)|smoke(:\S+)?\b)|(pnpm\s+exec\s+)?tsx\s+.*(evals/run|evals/smoke\S*)\.ts|curl\s+.*(generativelanguage\.googleapis\.com|ai-gateway\.vercel\.sh)' \
-  "Evals, smoke checks and direct model calls spend the user's AI Gateway credit. Test with AI_PROVIDER=mock; what live calls are allowed is in docs/agents/live-ai.md."
+  'pnpm\s+(-s\s+)?(run\s+)?smoke(:\S+)?\b|(pnpm\s+exec\s+)?tsx\s+.*evals/smoke\S*\.ts|curl\s+.*(generativelanguage\.googleapis\.com|ai-gateway\.vercel\.sh)' \
+  "Smoke checks and direct model calls spend the user's AI Gateway credit. Test with AI_PROVIDER=mock; what live calls are allowed is in docs/agents/live-ai.md."
 
 # Agent worktrees only: files written from the shell skip the lint hook, and
 # patch scripts get around Claude Code's worktree guard. An -i option counts

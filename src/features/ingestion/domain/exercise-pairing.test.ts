@@ -1,98 +1,103 @@
 import { describe, expect, test } from "vitest";
 import {
-  exerciseSubtasks,
-  normalizeExerciseNumber,
-  pairByNumber,
+  chapterPath,
+  checkedPairs,
+  offeredIds,
+  pairingCalls,
+  type PairingChunk,
 } from "./exercise-pairing";
 
-describe("normalizeExerciseNumber", () => {
-  test("reads a subtask the same however it is printed", () => {
-    expect(normalizeExerciseNumber("7.2b")).toBe("7.2.b");
-    expect(normalizeExerciseNumber("Aufgabe 7.2 b)")).toBe("7.2.b");
-    expect(normalizeExerciseNumber("Lösung zu 7.2(b)")).toBe("7.2.b");
-    expect(normalizeExerciseNumber("Exercise 7.2 B")).toBe("7.2.b");
-  });
+/** Chunks from specs such as "e1" (an exercise) and "s1" (a solution). */
+const chunks = (...specs: string[]): PairingChunk[] =>
+  specs.map((id) => ({
+    id,
+    label: id.startsWith("e") ? "exercise" : "solution",
+  }));
 
-  test("drops leading zeros", () => {
-    expect(normalizeExerciseNumber("Task 03")).toBe("3");
-  });
+const ids = (runs: PairingChunk[][]) =>
+  runs.map((run) => run.map((chunk) => chunk.id));
 
-  test("is null without a number", () => {
-    expect(normalizeExerciseNumber("Teil b")).toBeNull();
-    expect(normalizeExerciseNumber(null)).toBeNull();
-  });
-});
-
-const chunk = (
-  id: string,
-  exerciseNumber: string | null,
-  materialId = "m1",
-) => ({
-  id,
-  materialId,
-  exerciseNumber,
-});
-
-describe("pairByNumber", () => {
-  test("pairs exercises with solutions in another Material by number", () => {
-    const result = pairByNumber(
-      [chunk("e1", "7.2a"), chunk("e2", "Aufgabe 7.2 b)")],
-      [chunk("s2", "7.2b", "m2"), chunk("s1", "Lösung 7.2 a)", "m2")],
-    );
-    expect(result).toEqual({
-      pairs: [
-        { exerciseId: "e1", solutionId: "s1" },
-        { exerciseId: "e2", solutionId: "s2" },
-      ],
-      unpairedExercises: [],
-      unpairedSolutions: [],
-    });
-  });
-
-  test("leaves exercises and solutions without a matching number", () => {
-    const result = pairByNumber(
-      [chunk("e1", "1"), chunk("e2", null)],
-      [chunk("s1", "2", "m2")],
-    );
-    expect(result).toEqual({
-      pairs: [],
-      unpairedExercises: [chunk("e1", "1"), chunk("e2", null)],
-      unpairedSolutions: [chunk("s1", "2", "m2")],
-    });
-  });
-
-  test("leaves a number that two sheets share for the content call", () => {
-    const result = pairByNumber(
-      [chunk("e1", "1a", "sheet1"), chunk("e2", "1a", "sheet2")],
-      [chunk("s1", "1a", "solutions1")],
-    );
-    expect(result.pairs).toEqual([]);
-    expect(result.unpairedExercises.map((e) => e.id)).toEqual(["e1", "e2"]);
-    expect(result.unpairedSolutions.map((s) => s.id)).toEqual(["s1"]);
-  });
-
-  test("pairs subtasks with the solution of their whole exercise", () => {
-    const result = pairByNumber(
-      [chunk("e1", "3a"), chunk("e2", "3b")],
-      [chunk("s1", "Aufgabe 3", "m2")],
-    );
-    expect(result.pairs).toEqual([
-      { exerciseId: "e1", solutionId: "s1" },
-      { exerciseId: "e2", solutionId: "s1" },
+describe("pairingCalls", () => {
+  test("puts the Course in runs of at most the size, in order", () => {
+    expect(ids(pairingCalls(chunks("e1", "s1", "e2", "s2", "e3"), 2))).toEqual([
+      ["e1", "s1"],
+      ["e2", "s2"],
     ]);
-    expect(result.unpairedSolutions).toEqual([]);
+  });
+
+  test("makes no call without an exercise or without a solution", () => {
+    expect(pairingCalls(chunks("e1", "e2"))).toEqual([]);
+    expect(pairingCalls(chunks("s1"))).toEqual([]);
+    expect(pairingCalls([])).toEqual([]);
   });
 });
 
-describe("exerciseSubtasks", () => {
-  test("leaves out a statement its Material splits into subtasks", () => {
-    const subtasks = exerciseSubtasks([
-      chunk("stem", "7.2"),
-      chunk("e1", "7.2a"),
-      chunk("e2", "7.2b"),
-      chunk("e3", "7.3"),
-      chunk("other", "7.2", "m2"),
+describe("checkedPairs", () => {
+  const offered = offeredIds(
+    chunks("ex-a", "sol-a", "ex-b", "sol-b").map((chunk, index) => ({
+      ...chunk,
+      label: index % 2 === 0 ? "exercise" : "solution",
+    })),
+  );
+
+  test("numbers exercises and solutions apart", () => {
+    expect([...offered].map(([id, chunk]) => [id, chunk.id])).toEqual([
+      ["e1", "ex-a"],
+      ["s1", "sol-a"],
+      ["e2", "ex-b"],
+      ["s2", "sol-b"],
     ]);
-    expect(subtasks.map((e) => e.id)).toEqual(["e1", "e2", "e3", "other"]);
+  });
+
+  test("keeps the first solution per exercise, and one solution may solve several", () => {
+    expect(
+      checkedPairs(
+        [
+          { exerciseId: "e1", solutionId: "s2" },
+          { exerciseId: "e1", solutionId: "s1" },
+          { exerciseId: "e2", solutionId: "s2" },
+        ],
+        offered,
+      ),
+    ).toEqual(
+      new Map([
+        ["ex-a", "sol-b"],
+        ["ex-b", "sol-b"],
+      ]),
+    );
+  });
+
+  test("drops unknown ids and ids of the wrong kind", () => {
+    expect(
+      checkedPairs(
+        [
+          { exerciseId: "e9", solutionId: "s1" },
+          { exerciseId: "e1", solutionId: "s7" },
+          { exerciseId: "s1", solutionId: "e1" },
+          { exerciseId: "e2", solutionId: "e1" },
+        ],
+        offered,
+      ),
+    ).toEqual(new Map());
+  });
+});
+
+describe("chapterPath", () => {
+  const chapters = new Map([
+    ["root", { parentId: null, depth: 0, title: "Notes.pdf" }],
+    ["c4", { parentId: "root", depth: 1, title: "4 Vector Spaces" }],
+    ["c42", { parentId: "c4", depth: 2, title: "4.2 Subspaces" }],
+  ]);
+
+  test("reads the titles below the root, top first", () => {
+    expect(chapterPath("c42", chapters)).toEqual([
+      "4 Vector Spaces",
+      "4.2 Subspaces",
+    ]);
+  });
+
+  test("is empty for the root or no Chapter", () => {
+    expect(chapterPath("root", chapters)).toEqual([]);
+    expect(chapterPath(null, chapters)).toEqual([]);
   });
 });

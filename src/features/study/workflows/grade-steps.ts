@@ -85,7 +85,7 @@ export async function gradeMockItem(itemId: string): Promise<void> {
       finalValue: null,
     };
   } else {
-    const source = await loadItemSource(supabase, mock.course_id, item);
+    const source = await loadItemSource(supabase, item);
     const { call, grading: read } = gradeExamCall({
       prompt: item.prompt,
       points: item.points,

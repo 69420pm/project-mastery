@@ -44,6 +44,25 @@ function createDb() {
     name,
     created_at: createdAt,
   });
+  const chapter = (
+    id: string,
+    materialId: string,
+    parentId: string | null,
+    position: number,
+    title: string,
+  ) => ({
+    id,
+    owner: STUDENT,
+    course_id: COURSE,
+    material_id: materialId,
+    parent_id: parentId,
+    position,
+    depth: position,
+    title,
+    exam_proposed: false,
+    is_exam: null,
+    exam_asked: false,
+  });
   return fakeSupabase({
     tables: {
       courses: [
@@ -54,11 +73,26 @@ function createDb() {
         material(LATER, "Lecture 2", "2026-10-02T00:00:00Z"),
         material(EARLIER, "Lecture 1", "2026-10-01T00:00:00Z"),
       ] as FakeRow[],
+      // Lecture 2 holds an old exam, Klausur 2023, with a problem inside.
+      chapters: [
+        chapter("l2", LATER, null, 0, "Lecture 2"),
+        chapter("klausur", LATER, "l2", 1, "Klausur 2023"),
+        chapter("problem", LATER, "klausur", 2, "Aufgabe 1"),
+      ] as FakeRow[],
       briefs: [] as FakeRow[],
       brief_excluded_materials: [] as FakeRow[],
       brief_messages: [] as FakeRow[],
-      findings: [] as FakeRow[],
-      finding_sources: [] as FakeRow[],
+      topics: [
+        {
+          id: "integrals",
+          owner: STUDENT,
+          course_id: COURSE,
+          parent_id: null,
+          name: "Integrals",
+          position: 0,
+        },
+      ] as FakeRow[],
+      exam_scopes: [] as FakeRow[],
     },
     primaryKeys: { briefs: ["course_id"] },
     defaults: {
@@ -148,8 +182,24 @@ describe("getBrief", () => {
     expect(db.tables.brief_messages).toEqual([]);
   });
 
-  test("returns the messages, the fields, the notes and the excluded Materials oldest first", async () => {
-    db.tables.briefs.push(brief({ done: true }));
+  test("returns the messages, the fields, the notes, the excluded Materials oldest first, the old exams, the reserved exam and the exam scopes", async () => {
+    db.tables.briefs.push({
+      ...brief({ done: true }),
+      reserved_exam_answered: true,
+      reserved_exam_chapter_id: "klausur",
+    });
+    // The problem inside the confirmed exam is no old exam of its own.
+    for (const id of ["klausur", "problem"]) {
+      db.tables.chapters.find((chapter) => chapter.id === id)!.is_exam = true;
+    }
+    db.tables.exam_scopes.push({
+      owner: STUDENT,
+      course_id: COURSE,
+      topic_id: "integrals",
+      scope: "emphasized",
+      words: "Integrals matter most",
+      created_at: "2026-10-05T12:00:00Z",
+    });
     for (const id of [LATER, EARLIER]) {
       db.tables.brief_excluded_materials.push({
         course_id: COURSE,
@@ -183,6 +233,24 @@ describe("getBrief", () => {
           id: LATER,
           name: "Lecture 2",
           href: materialChunksPath(COURSE, LATER),
+        },
+      ],
+      oldExams: [
+        {
+          id: "klausur",
+          name: "Lecture 2 › Klausur 2023",
+          href: materialChunksPath(COURSE, LATER),
+        },
+      ],
+      reservedExam: {
+        name: "Lecture 2 › Klausur 2023",
+        href: materialChunksPath(COURSE, LATER),
+      },
+      examScopes: [
+        {
+          name: "Integrals",
+          scope: "emphasized",
+          words: "Integrals matter most",
         },
       ],
     });

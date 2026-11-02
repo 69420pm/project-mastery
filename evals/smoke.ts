@@ -5,7 +5,8 @@
  *
  * A smoke check runs one real feature path once, on a small input, against
  * the local Supabase and a real model, and checks the feature's invariants.
- * The runner pins every generating task to SMOKE_MODEL (see below), gives the
+ * The runner pins every generating task to the check's model or
+ * DEFAULT_SMOKE_MODEL (see below), gives the
  * check a throwaway Student, holds the Student's recorded AI calls to the
  * check's cap (30 by default), stops it after MAX_MINUTES and deletes the
  * Student with all its data afterwards. Smoke checks never run in
@@ -24,22 +25,18 @@ import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapSmoke } from "./smoke/map";
 import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
+import { pairSmoke } from "./smoke/pair";
 import { parseSmoke } from "./smoke/parse";
-import { prioritySmoke } from "./smoke/priority";
-import { readingSmoke } from "./smoke/reading";
 import { reviewSmoke } from "./smoke/review";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
-import { topicsSmoke } from "./smoke/topics";
 import { tutorSmoke } from "./smoke/tutor";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
 const CHECKS: SmokeCheck[] = [
   parseSmoke,
+  pairSmoke,
   mapSmoke,
   briefSmoke,
-  prioritySmoke,
-  topicsSmoke,
-  readingSmoke,
   tutorSmoke,
   mapFindingsSmoke,
   generateSmoke,
@@ -50,13 +47,13 @@ const CHECKS: SmokeCheck[] = [
 ];
 
 /**
- * The model every generating task is pinned to (docs/agents/live-ai.md). With
- * a Google key, as in local development, that is the Gemini model, which
- * answers in seconds where MiMo through DeepInfra can take minutes (ADR 0016).
- * `AI_SMOKE_MODEL` pins another model, such as xiaomi/mimo-v2.6-flash, the
- * model that ships.
+ * The model every generating task is pinned to unless the check names its
+ * own (docs/agents/live-ai.md). With a Google key, as in local development,
+ * that is the Gemini model, which answers in seconds where MiMo through
+ * DeepInfra can take minutes (ADR 0016). `AI_SMOKE_MODEL` pins another
+ * model, such as xiaomi/mimo-v2.6-flash, the model that ships.
  */
-const SMOKE_MODEL =
+const DEFAULT_SMOKE_MODEL =
   process.env.AI_SMOKE_MODEL ??
   (process.env.GOOGLE_GENERATIVE_AI_API_KEY
     ? "google/gemini-3.5-flash-lite"
@@ -135,8 +132,6 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_MAP",
   "AI_MODEL_EXERCISE",
   "AI_MODEL_TOPIC",
-  "AI_MODEL_READING",
-  "AI_MODEL_PRIORITY",
   "AI_MODEL_GENERATE",
   "AI_MODEL_GRADE_EXAM",
   "AI_MODEL_CLOSE",
@@ -176,6 +171,7 @@ async function checkCalls(
   supabase: AdminSupabase,
   studentId: string,
   maxCalls: number,
+  model: string,
 ): Promise<SmokeResult[]> {
   const { data, error } = await supabase
     .from("ai_usage")
@@ -187,7 +183,7 @@ async function checkCalls(
   ).map(([key, rows]) => `${key} ×${rows?.length}`);
   const cost = data.reduce((sum, row) => sum + Number(row.cost_usd), 0);
   const offModel = data.filter(
-    (row) => row.task !== "embed" && row.model_id !== SMOKE_MODEL,
+    (row) => row.task !== "embed" && row.model_id !== model,
   );
   return [
     {
@@ -196,7 +192,7 @@ async function checkCalls(
       detail: `${data.length}: ${byTask.join(", ") || "none"}; $${cost.toFixed(5)}`,
     },
     {
-      name: `generating calls answered by ${SMOKE_MODEL}`,
+      name: `generating calls answered by ${model}`,
       ok: offModel.length === 0,
       ...(offModel.length > 0
         ? { detail: offModel.map((row) => row.model_id).join(", ") }
@@ -221,8 +217,9 @@ async function main() {
   if ((process.env.AI_PROVIDER ?? "gateway") === "mock") {
     throw new Error("Smoke checks need a real model: unset AI_PROVIDER=mock.");
   }
+  const model = check.model ?? DEFAULT_SMOKE_MODEL;
   for (const override of GENERATING_TASK_OVERRIDES) {
-    process.env[override] = SMOKE_MODEL;
+    process.env[override] = model;
   }
   paceGeminiRequests();
 
@@ -250,6 +247,7 @@ async function main() {
         supabase,
         studentId,
         check.maxCalls ?? DEFAULT_MAX_CALLS,
+        model,
       )),
     );
   } finally {

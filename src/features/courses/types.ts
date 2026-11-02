@@ -16,8 +16,6 @@ export type MaterialListItem = {
   createdAt: string;
   /** How far its parse is. */
   parse: ParseState;
-  /** Its year and total points when its parse found an old exam; else null. */
-  exam: { year: number | null; totalPoints: number | null } | null;
 };
 
 /** A Material with where its file is, for reading the file on the server. */

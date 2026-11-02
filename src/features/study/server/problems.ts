@@ -16,7 +16,6 @@ export type ReadyProblem = {
   source: "variant" | "new";
   /** The KCs it tests. */
   kcs: string[];
-  taskType: string | null;
   difficulty: number;
   statement: string;
   solution: string;
@@ -37,7 +36,7 @@ export async function loadReadyProblems(
     supabase
       .from("problems")
       .select(
-        "id, source, task_type, difficulty, statement, solution, program, original_exercise_id, problem_kcs(kc_id)",
+        "id, source, difficulty, statement, solution, program, original_exercise_id, problem_kcs(kc_id)",
       )
       .eq("course_id", courseId)
       .eq("status", "ready")
@@ -50,7 +49,6 @@ export async function loadReadyProblems(
     id: row.id,
     source: row.source as ReadyProblem["source"],
     kcs: row.problem_kcs.map(({ kc_id }) => kc_id),
-    taskType: row.task_type,
     difficulty: row.difficulty,
     // A ready Problem has both (a check of the table).
     statement: row.statement ?? "",

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getExamFacts, getReservedExam } from "@/features/brief/server";
 import {
   loadChunkSources,
-  loadMaterialChunkIds,
+  loadChapterChunkIds,
 } from "@/features/ingestion/server";
 import {
   loadStoredMap,
@@ -14,7 +14,6 @@ import { itemMinutes } from "@/features/study/domain/exam-profile";
 import {
   fillMock,
   mockTotals,
-  planFinalMock,
   planGaps,
   planMock,
   predictedSuccess,
@@ -89,7 +88,7 @@ export async function planMockExam(
       getReservedExam(supabase, courseId),
     ]);
   const reserved = new Set(
-    reservedId === null ? [] : await loadMaterialChunkIds(supabase, reservedId),
+    reservedId === null ? [] : await loadChapterChunkIds(supabase, reservedId),
   );
   const schedules = await loadSchedules(
     supabase,
@@ -138,13 +137,13 @@ export async function planMockExam(
   });
   const exercises = map.exercises.map((exercise) => ({
     ...exercise,
-    disputed: exercise.solutionStatus === "disputed",
     reserved: reserved.has(exercise.questionChunk),
     seen: asked.has(exercise.id),
   }));
 
   if (plan.phase === "final_week" && reservedId !== null) {
-    const final = planFinalMock(exercises.filter((e) => e.reserved));
+    // The final mock is the reserved exam's Exercises, in order.
+    const final = exercises.filter((e) => e.reserved);
     const chunks = await questionChunks(supabase, final);
     await setFinal(supabase, mockId, reservedId);
     return {
@@ -174,7 +173,7 @@ export async function planMockExam(
   if (slots.length === 0) {
     return { items: [], emptyReason: "Your study plan has no Topics yet." };
   }
-  const usable = exercises.filter((e) => !e.seen && !e.disputed && !e.reserved);
+  const usable = exercises.filter((e) => !e.seen && !e.reserved);
   const chunks = await questionChunks(supabase, usable);
   const candidates: Array<MockCandidate & { prompt: string }> = [
     ...usable.flatMap((exercise) => {
@@ -227,7 +226,6 @@ export async function planMockExam(
         source: problem.source,
         topic_id: slots[slot]!.topicId,
         original_exercise_id: original?.id ?? null,
-        task_type: original?.taskType ?? null,
         difficulty: problem.difficulty,
       },
       kcs: problem.kcs,
@@ -295,11 +293,11 @@ async function questionChunks(
 async function setFinal(
   supabase: Supabase,
   mockId: string,
-  materialId: string,
+  chapterId: string,
 ): Promise<void> {
   const { error } = await supabase
     .from("mock_exams")
-    .update({ reserved_material_id: materialId })
+    .update({ reserved_chapter_id: chapterId })
     .eq("id", mockId)
     .eq("status", "assembling");
   if (error) failed("Marking the final mock exam", error);

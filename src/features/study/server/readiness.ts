@@ -48,10 +48,7 @@ export async function getReadiness(courseId: string): Promise<CourseReadiness> {
     now,
   );
   const options = { now, examDate: exam.examDate };
-  const kcs = map.kcs.map((kc) => ({
-    id: kc.id,
-    prior: kc.origin === "prior",
-  }));
+  const kcs = map.kcs.map((kc) => ({ id: kc.id }));
   const byId = new Map(kcs.map((kc) => [kc.id, kc]));
   const topicValues = topics.flatMap((topic) => {
     const value = readiness(

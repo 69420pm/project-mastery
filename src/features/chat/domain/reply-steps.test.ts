@@ -21,7 +21,6 @@ const live = { inProgress: true };
 const kc = (id: string, name: string) => ({
   id,
   name,
-  type: "concept",
   description: `About ${name}`,
   sources: [],
 });

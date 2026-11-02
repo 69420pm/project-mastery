@@ -61,8 +61,8 @@ export function useMessageAttachments({
             pagesTotal: null,
             failure: null,
             startFailed: false,
+            unreadablePages: [],
           },
-          exam: null,
         },
         ...current,
       ]);

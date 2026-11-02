@@ -5,13 +5,11 @@ import { MODEL_PRICES } from "./prices";
 
 vi.mock("server-only", () => ({}));
 
-// Every model a call can reach: defaults, gateway fallbacks and calibration
-// candidates.
+// Every model a call can reach: defaults and gateway fallbacks.
 const configuredModels = new Set(
   Object.values<TaskConfig>(AI_TASKS).flatMap((config) => [
     config.model,
     ...config.fallbacks,
-    ...(config.candidates ?? []),
   ]),
 );
 

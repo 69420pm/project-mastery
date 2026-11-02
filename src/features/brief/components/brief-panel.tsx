@@ -1,10 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Markdown } from "@/components/markdown";
-import { Badge } from "@/components/ui/badge";
 import type { BriefFields } from "@/features/brief/domain/intake";
 import type { BriefWithMessages } from "@/features/brief/types";
-import type { FindingView } from "@/features/knowledge-map";
 
 const timeFormat = new Intl.DateTimeFormat("en", {
   dateStyle: "medium",
@@ -51,23 +49,46 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 const None = () => <p className="text-sm text-muted-foreground">None</p>;
 
+function MaterialLinks({
+  materials,
+}: {
+  materials: Array<{ id: string; name: string; href: string }>;
+}) {
+  if (materials.length === 0) return <None />;
+  return (
+    <ul className="flex flex-col gap-1 text-sm">
+      {materials.map((material) => (
+        <li key={material.id}>
+          <Link href={material.href} className="underline underline-offset-4">
+            {material.name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * Everything the Brief holds and what follows from it, beside its
- * conversation: the exam facts, the excluded Materials, the notes, the
- * Findings (open first), the study plan and the Memory (slots, since the
+ * conversation: the exam facts, the excluded Materials, the old exams, the
+ * exam scope, the notes, the study plan and the Memory (slots, since the
  * study feature that owns them depends on this one).
  */
 export function BriefPanel({
   brief,
-  findings,
   plan,
   memory,
 }: {
   brief: Pick<
     BriefWithMessages,
-    "fields" | "notes" | "notesUpdatedAt" | "excludedMaterials" | "reservedExam"
+    | "fields"
+    | "notes"
+    | "notesUpdatedAt"
+    | "excludedMaterials"
+    | "oldExams"
+    | "examScopes"
+    | "reservedExam"
   >;
-  findings: FindingView[];
   plan: ReactNode;
   memory: ReactNode;
 }) {
@@ -93,18 +114,26 @@ export function BriefPanel({
         )}
       </Section>
       <Section title="Excluded Materials">
-        {brief.excludedMaterials.length === 0 ? (
+        <MaterialLinks materials={brief.excludedMaterials} />
+      </Section>
+      <Section title="Old exams">
+        <MaterialLinks materials={brief.oldExams} />
+      </Section>
+      <Section title="Exam scope">
+        {brief.examScopes.length === 0 ? (
           <None />
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
-            {brief.excludedMaterials.map((material) => (
-              <li key={material.id}>
-                <Link
-                  href={material.href}
-                  className="underline underline-offset-4"
-                >
-                  {material.name}
-                </Link>
+            {brief.examScopes.map((scope) => (
+              <li key={scope.name}>
+                <span className="font-medium">
+                  {scope.scope === "excluded" ? "Excluded" : "Emphasized"}:
+                </span>{" "}
+                {scope.name}
+                <span className="text-muted-foreground">
+                  {" "}
+                  · “{scope.words}”
+                </span>
               </li>
             ))}
           </ul>
@@ -122,17 +151,6 @@ export function BriefPanel({
           </div>
         ) : (
           <None />
-        )}
-      </Section>
-      <Section title="Findings">
-        {findings.length === 0 ? (
-          <None />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {findings.map((finding) => (
-              <FindingItem key={finding.id} finding={finding} />
-            ))}
-          </ul>
         )}
       </Section>
       <Section title="Study plan">{plan}</Section>
@@ -179,47 +197,5 @@ function ExamFacts({ fields }: { fields: BriefFields }) {
         </div>
       ))}
     </dl>
-  );
-}
-
-function FindingItem({ finding }: { finding: FindingView }) {
-  const open = finding.status === "open";
-  return (
-    <li className="flex flex-col gap-1 rounded-xl border px-3 py-2 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <Markdown>{finding.text}</Markdown>
-        <Badge variant={open ? "outline" : "secondary"} className="shrink-0">
-          {open ? "Open" : "Answered"}
-        </Badge>
-      </div>
-      {finding.askedAt && (
-        <p className="text-xs text-muted-foreground">
-          Asked <Time iso={finding.askedAt} />
-        </p>
-      )}
-      {finding.answeredAt && (
-        <p className="text-xs text-muted-foreground">
-          Answered <Time iso={finding.answeredAt} />
-        </p>
-      )}
-      {finding.answer !== null && (
-        <p>
-          <span className="font-medium">Your answer:</span> {finding.answer}
-        </p>
-      )}
-      {finding.sources.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Sources:{" "}
-          {finding.sources.map((source, index) => (
-            <span key={source.href}>
-              {index > 0 && ", "}
-              <Link href={source.href} className="underline underline-offset-4">
-                {source.label}
-              </Link>
-            </span>
-          ))}
-        </p>
-      )}
-    </li>
   );
 }

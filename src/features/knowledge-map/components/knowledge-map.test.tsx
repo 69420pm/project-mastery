@@ -51,8 +51,6 @@ const kc = (id: string, name: string): KcView => ({
   id,
   name,
   description: `About ${name}.`,
-  type: "concept",
-  bloom: "apply",
   origin: "content",
   sources: [],
 });
@@ -60,26 +58,13 @@ const kc = (id: string, name: string): KcView => ({
 const map: KnowledgeMapView = {
   courseId: "c1",
   build: { status: "built", failureReason: null, finishedAt: null },
-  bigIdeas: [
-    {
-      id: "b1",
-      name: "Thrust",
-      description: "Thrust.",
-      kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles")],
-    },
-  ],
-  priorKnowledge: [],
-  prerequisites: [{ from: "k1", to: "k2", confidence: 0.9 }],
-  semanticLinks: [
-    { from: "k1", to: "k2", coreType: "causes", label: "speeds up" },
-  ],
+  kcs: [kc("k1", "Momentum"), kc("k2", "Nozzles")],
+  prerequisites: [{ from: "k1", to: "k2" }],
   exercises: [
     {
       id: "e1",
       name: "Ex. 7.2b",
-      taskType: "calculate",
       kcs: ["k2"],
-      solutionStatus: "disputed",
       difficulty: 3,
       question: "Find the exit speed.",
       solution: "About 2 km/s.",
@@ -94,10 +79,8 @@ const renderMap = (learning: MapKcLearning = {}) =>
     <KnowledgeMap
       map={map}
       priorities={{
-        running: false,
-        failureReason: null,
         kcs: {
-          k2: { level: "high", value: 0.8, multiplier: 1, reasons: ["Exam"] },
+          k2: { level: "high", value: 0.8, reasons: ["Exam"] },
         },
       }}
       learning={learning}
@@ -136,10 +119,10 @@ test("clicking a KC node opens its panel", async () => {
   );
   expect(section("Overview")).toHaveTextContent("About Momentum.");
   expect(section("Priority")).toHaveTextContent("No Priority yet.");
-  expect(section("Links")).toHaveTextContent("speeds up");
+  expect(section("Links")).toHaveTextContent("Nozzles");
 });
 
-test("an Exercise node shows its solution status and opens its panel", async () => {
+test("an Exercise node shows its difficulty and opens its panel", async () => {
   renderMap({
     k2: {
       state: "learning",
@@ -156,13 +139,13 @@ test("an Exercise node shows its solution status and opens its panel", async () 
     },
   });
   const node = await screen.findByRole("button", { name: "Ex. 7.2b" });
-  expect(node).toHaveTextContent("HardDisputed");
+  expect(node).toHaveTextContent("Hard");
   fireEvent.click(node);
 
   const panel = screen.getByRole("complementary", { name: "Exercise details" });
   const section = (name: string) => within(panel).getByRole("region", { name });
   expect(section("Question")).toHaveTextContent("Find the exit speed.");
-  expect(section("Solution")).toHaveTextContent("an AI solution disagrees");
+  expect(section("Solution")).toHaveTextContent("Show the solution");
   expect(section("Attempts")).toHaveTextContent("Wrongno helpNozzles");
 
   // A KC it tests selects that KC.
@@ -193,47 +176,38 @@ test("a selected node focuses its neighbours until Esc", async () => {
 });
 
 test("the check report has no box of its own", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   await screen.findByRole("button", { name: "Nozzles" });
   expect(screen.queryByText(/KCs without links/)).toBeNull();
 });
 
 test("the graph has zoom buttons and no library attribution", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   await screen.findByRole("button", { name: "Nozzles" });
   expect(screen.getByRole("button", { name: "Zoom in" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Zoom out" })).toBeVisible();
   expect(screen.queryByRole("link", { name: /React Flow/ })).toBeNull();
 });
 
-const withOrphan = {
+const withDuplicate = {
   ...map,
   checkReport: {
-    uncoveredChunks: [],
-    ungroundedKcs: [],
-    orphanKcs: ["Nozzles"],
-    droppedCycleEdges: [],
-    unmappedExercises: [],
-    untestedKcs: [],
-    duplicates: [],
+    chaptersWithoutKcs: [],
+    exercisesWithoutKcs: [],
+    duplicates: [{ a: "Nozzles", b: "Jet nozzles", similarity: 0.9 }],
   },
 };
 
 const renderWith = (view: KnowledgeMapView) =>
-  render(
-    <KnowledgeMap
-      map={view}
-      priorities={{ running: false, failureReason: null, kcs: {} }}
-      learning={{}}
-    />,
-  );
+  render(<KnowledgeMap map={view} priorities={{ kcs: {} }} learning={{}} />);
 
 test("a KC node shows its check-report badges", async () => {
-  renderWith(withOrphan);
+  renderWith(withDuplicate);
   const node = await screen.findByRole("button", { name: "Nozzles" });
-  expect(within(node).getByRole("img", { name: "No links" })).toBeVisible();
+  const badge = "Possible duplicate of Jet nozzles";
+  expect(within(node).getByRole("img", { name: badge })).toBeVisible();
   const other = screen.getByRole("button", { name: "Momentum" });
-  expect(within(other).queryByRole("img", { name: "No links" })).toBeNull();
+  expect(within(other).queryByRole("img", { name: badge })).toBeNull();
 });
 
 describe("saved settings", () => {
@@ -241,36 +215,27 @@ describe("saved settings", () => {
 
   test("a legend for the default colouring, then the saved one", async () => {
     localStorage.clear();
-    const first = renderWith(withOrphan);
+    const first = renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
     expect(legend()).toHaveTextContent("Known");
     first.unmount();
 
     localStorage.setItem(
       "knowledge-map-settings",
-      JSON.stringify({ colorBy: "bigIdea", layers: { exercises: false } }),
+      JSON.stringify({ colorBy: "priority", layers: { exercises: false } }),
     );
-    renderWith(withOrphan);
+    renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Thrust");
+    expect(legend()).toHaveTextContent("Highest");
     expect(screen.queryByRole("button", { name: "Ex. 7.2b" })).toBeNull();
   });
 
   test("an invalid saved value falls back to the defaults", async () => {
     localStorage.setItem("knowledge-map-settings", "{broken");
-    renderWith(withOrphan);
+    renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
     expect(legend()).toHaveTextContent("Known");
     expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();
     localStorage.clear();
   });
-});
-
-test("a Big idea opens its KC count per state", async () => {
-  renderMap();
-  fireEvent.click(await screen.findByRole("button", { name: "Thrust" }));
-  const panel = screen.getByRole("complementary", { name: "Big idea details" });
-  expect(within(panel).getByRole("region", { name: "KCs" })).toHaveTextContent(
-    "All2New2Learning0",
-  );
 });

@@ -4,9 +4,9 @@ import {
   endsReply,
   tutorTools,
   type QuestionToGrade,
-  type ReadingToShow,
   type TutorToolActions,
 } from "@/features/study/ai/tools";
+import type { ReadingView } from "@/features/study/types";
 
 /** The input limits the model meets, read off the tools themselves. */
 
@@ -160,20 +160,38 @@ describe("flagMap", () => {
         kind: "missing_link",
         kcId: "kc-1",
         linkedKcId: "kc-2",
+        proposedDescription: null,
         chunkId: "ch-1",
         quote: "FOLLOWS from THE  **change**",
         reason: "Thrust builds on momentum.",
       },
     ]);
-    const description = file({ kind: "wrong_description", linkedKcId: null });
+    const description = file({
+      kind: "wrong_description",
+      linkedKcId: null,
+      proposedDescription: "Thrust is the change in momentum per second.",
+    });
     await expect(description.run).resolves.toEqual({ findingId: "f-1" });
-    expect(description.saved).toMatchObject([{ linkedKcId: null }]);
+    expect(description.saved).toMatchObject([
+      {
+        linkedKcId: null,
+        proposedDescription: "Thrust is the change in momentum per second.",
+      },
+    ]);
   });
 
   test.each([
-    [{ linkedKcId: null }, "give the prerequisite or semantic neighbour"],
+    [{ linkedKcId: null }, "give the prerequisite of kcId"],
     [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
-    [{ kind: "wrong_description" }, "omit linkedKcId"],
+    [
+      { kind: "wrong_description", linkedKcId: null },
+      "needs proposedDescription",
+    ],
+    [{ proposedDescription: "New." }, "has no proposedDescription"],
+    [
+      { kind: "wrong_description", proposedDescription: "New." },
+      "omit linkedKcId",
+    ],
     [{ linkedKcId: "kc-1" }, "two different KCs"],
     [{ kcId: "x-1" }, "no KC ids of this Course: x-1"],
     [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],
@@ -351,9 +369,8 @@ describe("showReading", () => {
   const section = {
     label: "Lecture 3, pp. 12–14",
     chunks: ["Thrust is $F = \\dot m \\Delta v$."],
-    studyText: "In short: thrust is $F$.",
   };
-  const show = (found: ReadingToShow | null) =>
+  const show = (found: ReadingView | null) =>
     tutorTools({ ...noActions, findReading: async () => found }).showReading
       .execute!({ sectionId: "s-1", purpose: "What makes thrust?" }, {
       toolCallId: "1",
@@ -366,18 +383,8 @@ describe("showReading", () => {
     );
   });
 
-  test("returns the label, mode and chunks, and the study text only in study_text mode", async () => {
-    expect(await show({ ...section, mode: "original" })).toEqual({
-      label: "Lecture 3, pp. 12–14",
-      mode: "original",
-      chunks: section.chunks,
-    });
-    expect(await show({ ...section, mode: "study_text" })).toEqual({
-      label: "Lecture 3, pp. 12–14",
-      mode: "study_text",
-      chunks: section.chunks,
-      studyText: "In short: thrust is $F$.",
-    });
+  test("returns the label and chunks", async () => {
+    expect(await show(section)).toEqual(section);
   });
 
   test("takes a purpose of one line of at most 300 characters", () => {

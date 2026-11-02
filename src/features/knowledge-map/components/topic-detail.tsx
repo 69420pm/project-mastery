@@ -16,13 +16,13 @@ import { KnowledgeMap } from "./knowledge-map";
 import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
 
 /**
- * A Topic's page: its name, Big idea, Topic state and recall today, central
- * question and why it matters,
- * its anchors (each linking to the Topic that holds it; prior knowledge is
- * plain text), its KCs in teaching order, its Reading sections and the
- * Topics before and after it. Below sits the KC graph restricted to the
- * Topic and its anchors. `topics` are all the Course's Topics in Course
- * order; `map`, `priorities` and `learning` are what `KnowledgeMap` takes.
+ * A Topic's page: its name, the Topic it sits in, its Topic state and
+ * recall today, central question, the Topics inside it, its anchors (each
+ * linking to the Topic that holds it, or plain text without one), its own
+ * KCs in teaching order, its Reading sections and the Topics before and
+ * after it. Below sits the KC graph restricted to its own KCs and anchors.
+ * A Topic without KCs of its own shows only its place in the tree and the
+ * Topics inside it. `topics` is the whole Topic tree in tree order; `map`, `priorities` and `learning` are what `KnowledgeMap` takes.
  * `controls` is the pin and skip slot below the badges.
  */
 export function TopicDetail({
@@ -48,7 +48,9 @@ export function TopicDetail({
   learning: MapKcLearning;
   controls?: ReactNode;
 }) {
-  const bigIdea = map.bigIdeas.find(({ id }) => id === topic.bigIdeaId);
+  const parent = topics.find(({ id }) => id === topic.parentId);
+  const children = topics.filter(({ parentId }) => parentId === topic.id);
+  const ownKcs = topic.kcs.length > 0;
   const index = topics.findIndex(({ id }) => id === topic.id);
   const previous = topics[index - 1];
   const next = topics[index + 1];
@@ -59,24 +61,43 @@ export function TopicDetail({
     <div className="flex min-h-0 w-full flex-1 flex-col gap-6 px-4 pt-8 pb-4 sm:px-6">
       <PageHeader
         title={topic.name}
-        description={bigIdea && `Big idea: ${bigIdea.name}`}
+        description={parent && `Part of ${parent.name}`}
       />
-      <div className="flex max-w-sm items-end gap-3">
-        <TopicStateBadge topicState={topicState} />
-        <PlanBadges badges={badges} />
-        <div className="flex-1">
-          <RecallBar topicState={topicState} />
-        </div>
-      </div>
-      {controls}
+      {ownKcs && (
+        <>
+          <div className="flex max-w-sm items-end gap-3">
+            <TopicStateBadge topicState={topicState} />
+            <PlanBadges badges={badges} />
+            <div className="flex-1">
+              <RecallBar topicState={topicState} />
+            </div>
+          </div>
+          {controls}
+        </>
+      )}
 
       <div className="flex max-w-3xl flex-col gap-4 text-sm">
-        <Section title="Central question">
-          <p>{topic.centralQuestion}</p>
-        </Section>
-        <Section title="Why it matters">
-          <p>{topic.whyItMatters}</p>
-        </Section>
+        {topic.centralQuestion !== null && (
+          <Section title="Central question">
+            <p>{topic.centralQuestion}</p>
+          </Section>
+        )}
+        {children.length > 0 && (
+          <Section title="Topics inside">
+            <ul className="list-disc pl-5">
+              {children.map((child) => (
+                <li key={child.id}>
+                  <Link
+                    href={topicPath(courseId, child.id)}
+                    className="underline underline-offset-2"
+                  >
+                    {child.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
         {topic.anchors.length > 0 && (
           <Section title="Anchors">
             <ul className="list-disc pl-5">
@@ -100,13 +121,15 @@ export function TopicDetail({
             </ul>
           </Section>
         )}
-        <Section title="KCs">
-          <ol className="list-decimal pl-5">
-            {topic.kcs.map((kc) => (
-              <li key={kc.id}>{kc.name}</li>
-            ))}
-          </ol>
-        </Section>
+        {ownKcs && (
+          <Section title="KCs">
+            <ol className="list-decimal pl-5">
+              {topic.kcs.map((kc) => (
+                <li key={kc.id}>{kc.name}</li>
+              ))}
+            </ol>
+          </Section>
+        )}
         {topic.readingSections.length > 0 && (
           <Section title="Reading">
             <ul className="list-disc pl-5">
@@ -151,13 +174,15 @@ export function TopicDetail({
         )}
       </nav>
 
-      <div className="flex h-[36rem] flex-col">
-        <KnowledgeMap
-          map={restrictMapToTopic(map, topic)}
-          priorities={priorities}
-          learning={learning}
-        />
-      </div>
+      {ownKcs && (
+        <div className="flex h-[36rem] flex-col">
+          <KnowledgeMap
+            map={restrictMapToTopic(map, topic)}
+            priorities={priorities}
+            learning={learning}
+          />
+        </div>
+      )}
     </div>
   );
 }

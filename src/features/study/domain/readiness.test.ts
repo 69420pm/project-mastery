@@ -15,7 +15,7 @@ const fresh: KcSchedule = {
     last_review: now,
   },
 };
-const kc = (id: string, prior = false) => ({ id, prior });
+const kc = (id: string) => ({ id });
 
 describe("readiness", () => {
   test("weights recall by Priority", () => {
@@ -28,9 +28,8 @@ describe("readiness", () => {
     expect(value).toBeCloseTo(0.75);
   });
 
-  test("an untaught KC counts 0 and a prior-knowledge KC 0.9", () => {
+  test("an untaught KC counts 0", () => {
     expect(readiness([kc("a")], { a: 1 }, new Map(), options)).toBe(0);
-    expect(readiness([kc("p", true)], { p: 1 }, new Map(), options)).toBe(0.9);
   });
 
   test("a KC with a card in its first session counts 0", () => {

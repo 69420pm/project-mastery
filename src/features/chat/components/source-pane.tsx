@@ -2,11 +2,9 @@
 
 import { CheckIcon, XIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { pagesLabel } from "@/features/chat/domain/sources";
 import { SourcePaneContext } from "@/features/chat/hooks/use-source-pane";
 import { openSource } from "@/features/chat/server/actions";
@@ -23,14 +21,6 @@ type Loaded =
   | { status: "loading" }
   | { status: "open"; source: ChatSource }
   | { status: "failed"; message: string };
-
-type ReadingMode = NonNullable<ChatSource["reading"]>["mode"];
-
-const MODE_NAMES: Record<ReadingMode, string> = {
-  original: "Original",
-  annotated: "Annotated",
-  study_text: "Study text",
-};
 
 /** Done on the reading cards, which the pane shows for the card it opened from. */
 export type ReadingDone = {
@@ -80,8 +70,8 @@ export function WithSourcePane({
 
 /**
  * The Chat's source pane: one thing at a time, a Material's own pages from
- * the source's first page, a Reading section in its reading mode, or a
- * Topic's KC graph. From `lg` up it sits beside the Chat; below, it opens in
+ * the source's first page, which a Reading section or a citation opens, or
+ * a Topic's KC graph. From `lg` up it sits beside the Chat; below, it opens in
  * a Sheet. Null `request` closes it.
  */
 export function SourcePane({
@@ -190,8 +180,6 @@ function SourceView({
   onClose: () => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
-  // Null until the Student switches: the section's stored mode.
-  const [chosenMode, setChosenMode] = useState<ReadingMode | null>(null);
   const { kind, id, cardId } = request;
 
   useEffect(() => {
@@ -218,8 +206,6 @@ function SourceView({
   }, [courseId, kind, id]);
 
   const source = loaded.status === "open" ? loaded.source : null;
-  const modes = source?.reading ? readingModes(source.reading) : [];
-  const mode = chosenMode ?? source?.reading?.mode ?? "original";
   const isDone = cardId !== undefined && reading?.done.has(cardId);
   return (
     <>
@@ -255,20 +241,6 @@ function SourceView({
             ))}
           <CloseButton onClose={onClose} />
         </div>
-        {modes.length > 0 && (
-          <Tabs
-            value={mode}
-            onValueChange={(value) => setChosenMode(value as ReadingMode)}
-          >
-            <TabsList aria-label="Reading mode">
-              {modes.map((m) => (
-                <TabsTrigger key={m} value={m}>
-                  {MODE_NAMES[m]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {loaded.status === "loading" && (
@@ -279,67 +251,14 @@ function SourceView({
             {loaded.message}
           </p>
         )}
-        {source &&
-          (mode === "study_text" && source.reading?.studyText ? (
-            <Markdown>{source.reading.studyText}</Markdown>
-          ) : mode === "annotated" && source.reading?.annotations ? (
-            <AnnotatedPages
-              source={source}
-              annotations={source.reading.annotations}
-            />
-          ) : (
-            <MaterialFile
-              materialId={source.materialId}
-              name={source.materialName}
-              page={source.pageFrom}
-            />
-          ))}
+        {source && (
+          <MaterialFile
+            materialId={source.materialId}
+            name={source.materialName}
+            page={source.pageFrom}
+          />
+        )}
       </div>
     </>
-  );
-}
-
-/** The modes a Reading section has a view for, Original always. */
-function readingModes(
-  reading: NonNullable<ChatSource["reading"]>,
-): ReadingMode[] {
-  return [
-    "original",
-    ...(reading.annotations ? (["annotated"] as const) : []),
-    ...(reading.studyText !== null ? (["study_text"] as const) : []),
-  ];
-}
-
-/** The PDF page with the notes on that page listed above it. */
-function AnnotatedPages({
-  source,
-  annotations,
-}: {
-  source: ChatSource;
-  annotations: Array<{ page: number; note: string }>;
-}) {
-  const [page, setPage] = useState(source.pageFrom);
-  const notes = annotations.filter((annotation) => annotation.page === page);
-  return (
-    <div className="flex flex-col gap-3">
-      {notes.length > 0 && (
-        <ul
-          aria-label={`Notes on page ${page}`}
-          className="flex flex-col gap-2 rounded-md border bg-muted/50 p-3 text-sm"
-        >
-          {notes.map((annotation, i) => (
-            <li key={i}>
-              <Markdown>{annotation.note}</Markdown>
-            </li>
-          ))}
-        </ul>
-      )}
-      <MaterialFile
-        materialId={source.materialId}
-        name={source.materialName}
-        page={source.pageFrom}
-        onPageChange={setPage}
-      />
-    </div>
   );
 }

@@ -32,7 +32,7 @@ const plan = (
 ) => {
   const ids = Object.keys(topics);
   return planReviewQueue({
-    kcs: ids.map((id) => ({ id, name: `KC ${id}`, type: "concept" })),
+    kcs: ids.map((id) => ({ id, name: `KC ${id}` })),
     schedules: new Map(ids.map((id) => [id, card()])),
     // Falling Priorities keep the KCs in the order given.
     priorities: Object.fromEntries(ids.map((id, i) => [id, 1 - i / 100])),

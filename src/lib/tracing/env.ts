@@ -20,7 +20,7 @@ const schema = z
   );
 
 /**
- * Whether Langfuse keys are set. Without them, tracing and eval uploads are
+ * Whether Langfuse keys are set. Without them, tracing and Langfuse scores are
  * skipped (local development without keys, tests, CI).
  */
 export function isLangfuseConfigured(): boolean {

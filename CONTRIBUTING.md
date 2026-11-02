@@ -49,7 +49,7 @@ Every new table needs Row Level Security policies and pgTAP tests for them ([ADR
 - **Mock AI:** `AI_PROVIDER=mock` answers every AI call with a deterministic reply, streamed slowly enough to be stopped, without any key or network access. The Playwright suite runs the production build in this mode; it is refused on Vercel.
 - **Background jobs:** `pnpm dev` runs workflows locally with no setup (the local world stores runs in `.next/workflow-data`). Inspect runs with `pnpm exec workflow web` or `pnpm exec workflow inspect runs`.
 - **Tracing (optional):** create a project in [Langfuse EU cloud](https://cloud.langfuse.com) and set `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` to trace every real AI call (not the mock provider's). Without keys, tracing is off.
-- **Evals:** `pnpm evals` runs the eval datasets in `evals/` against real models, as the AI keys above route them. With Langfuse keys, results are recorded as dataset runs. Run them before changing a prompt or model; they never run in CI. Judge criteria are rubrics in `evals/judges/`: `pnpm evals draft <criterion> [--limit N]` judges recent Chat replies in Langfuse, writes the verdicts as `<criterion>_draft` scores and adds the traces to the `tutor-criteria` annotation queue for labelling; `pnpm evals calibrate <criterion>` runs each judge candidate on the labelled traces and prints its agreement and the winner.
+- **AI quality:** there are no evals for now ([ADR 0012](docs/adr/0012-ai-observability-and-evals.md)). `pnpm smoke <name>` runs one feature path on a real model, and quality is checked by hand on the gold materials in `evals/gold/`.
 
 ### Agent CLI
 
@@ -78,7 +78,6 @@ pnpm -s agent check           # compile issues, runtime and server errors
 | `pnpm test:coverage`           | Unit tests with coverage report                                                    |
 | `pnpm test:e2e`                | Playwright E2E tests (run `pnpm db:start` first; rebuilds when the build is stale) |
 | `pnpm check`                   | Lint + typecheck + format check + unit tests                                       |
-| `pnpm evals`                   | AI evals against real models (not in CI)                                           |
 | `pnpm smoke <name>`            | Run one feature path once against a real model and check it (not in CI)            |
 | `pnpm langfuse:models`         | Push the model prices in `src/lib/ai/prices.ts` to Langfuse                        |
 | `pnpm -s agent`                | Drive the running app from the terminal                                            |

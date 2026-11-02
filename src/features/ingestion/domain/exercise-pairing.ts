@@ -1,131 +1,101 @@
 /**
- * Pairing exercises with their solutions across a Course (step 5 of a
- * parse), the part done in code: by normalized number first. What is left
- * goes to the content call, and what that leaves has no solution.
+ * Pairing exercises with their solutions across a Course, the part done in
+ * code (#228): which chunks each pairing call sees, the short ids it sees
+ * them by, and the checks on its answer.
  */
-
-/**
- * An exercise number as a comparable key: what comes before its first digit
- * ("Aufgabe", "Lösung zu") is dropped, and the rest is read as its numbers
- * and letters, so "7.2b" and "Aufgabe 7.2 b)" are both "7.2.b". Null
- * without a number.
- */
-export function normalizeExerciseNumber(number: string | null): string | null {
-  if (number === null) return null;
-  const text = number.normalize("NFKC").toLowerCase();
-  const firstDigit = text.search(/\d/);
-  if (firstDigit === -1) return null;
-  const parts = text.slice(firstDigit).match(/\d+|\p{L}+/gu) ?? [];
-  return parts
-    .map((part) => (/^\d+$/.test(part) ? String(Number(part)) : part))
-    .join(".");
-}
 
 /** An exercise or solution chunk of a Course, as pairing sees it. */
-export type PairingChunk = {
-  id: string;
-  materialId: string;
-  /** As printed, such as "7.2a". */
-  exerciseNumber: string | null;
-};
+export type PairingChunk = { id: string; label: "exercise" | "solution" };
 
-export type ExercisePair = { exerciseId: string; solutionId: string };
+/** The most exercise and solution chunks one pairing call sees. */
+export const MAX_PAIRING_CHUNKS = 400;
 
-export type NumberPairing = {
-  pairs: ExercisePair[];
-  /** For the content call, in the given order. */
-  unpairedExercises: PairingChunk[];
-  unpairedSolutions: PairingChunk[];
-};
-
-/** Whether `key` is a strict ancestor of `other`, such as 7.2 of 7.2.b. */
-function isAncestor(key: string, other: string): boolean {
-  return other.startsWith(`${key}.`);
+/**
+ * The chunks of each pairing call: the Course's exercise and solution
+ * chunks, in Course order, in runs of at most `size`. A run without an
+ * exercise or without a solution needs no call and is left out.
+ */
+export function pairingCalls<Chunk extends PairingChunk>(
+  chunks: Chunk[],
+  size = MAX_PAIRING_CHUNKS,
+): Chunk[][] {
+  const runs: Chunk[][] = [];
+  for (let start = 0; start < chunks.length; start += size) {
+    runs.push(chunks.slice(start, start + size));
+  }
+  return runs.filter(
+    (run) =>
+      run.some((chunk) => chunk.label === "exercise") &&
+      run.some((chunk) => chunk.label === "solution"),
+  );
 }
 
 /**
- * The exercise subtasks, which pairing gives a solution or "no solution":
- * an exercise's statement shared by its subtasks (7.2, split into 7.2a and
- * 7.2b in the same Material) is left out.
+ * The ids a call sees its chunks by: e1, e2, … for the exercises and s1,
+ * s2, … for the solutions, in order. Maps each to its chunk.
  */
-export function exerciseSubtasks(exercises: PairingChunk[]): PairingChunk[] {
-  return exercises.filter((exercise) => {
-    const key = normalizeExerciseNumber(exercise.exerciseNumber);
-    if (key === null) return true;
-    return !exercises.some((other) => {
-      const otherKey = normalizeExerciseNumber(other.exerciseNumber);
-      return (
-        other.materialId === exercise.materialId &&
-        otherKey !== null &&
-        isAncestor(key, otherKey)
-      );
-    });
-  });
-}
-
-/** The chunks by normalized number; chunks without one are left out. */
-function byNumber(chunks: PairingChunk[]): Map<string, PairingChunk[]> {
-  const groups = new Map<string, PairingChunk[]>();
+export function offeredIds<Chunk extends PairingChunk>(
+  chunks: Chunk[],
+): Map<string, Chunk> {
+  const offered = new Map<string, Chunk>();
+  let exercises = 0;
+  let solutions = 0;
   for (const chunk of chunks) {
-    const key = normalizeExerciseNumber(chunk.exerciseNumber);
-    if (key === null) continue;
-    groups.set(key, [...(groups.get(key) ?? []), chunk]);
+    const id =
+      chunk.label === "exercise" ? `e${++exercises}` : `s${++solutions}`;
+    offered.set(id, chunk);
   }
-  return groups;
+  return offered;
 }
+
+/** A pair as the call answers it, by offered ids. */
+export type AnsweredPair = { exerciseId: string; solutionId: string };
 
 /**
- * Pairs each exercise whose normalized number is unique among the
- * exercises with the one solution of that number, or else of its nearest
- * whole exercise (3a with the solution to 3). A number that several
- * exercises or solutions share, such as "1" on every sheet, is left
- * ambiguous for the content call, like numbers without a match.
+ * The solution chunk of each exercise chunk the answer pairs: an id that
+ * names no offered exercise, or no offered solution, is dropped, and an
+ * exercise keeps the first solution the answer gives it.
  */
-export function pairByNumber(
-  exercises: PairingChunk[],
-  solutions: PairingChunk[],
-): NumberPairing {
-  const exerciseGroups = byNumber(exercises);
-  const solutionGroups = byNumber(solutions);
-  const onlySolution = (key: string) => {
-    const group = solutionGroups.get(key);
-    return group?.length === 1 ? group[0] : undefined;
-  };
-
-  const pairs: ExercisePair[] = [];
-  const usedSolutions = new Set<string>();
-  const unpairedExercises: PairingChunk[] = [];
-  for (const exercise of exercises) {
-    const key = normalizeExerciseNumber(exercise.exerciseNumber);
-    const solution =
-      key !== null && exerciseGroups.get(key)?.length === 1
-        ? solutionFor(key, onlySolution)
-        : undefined;
-    if (solution) {
-      pairs.push({ exerciseId: exercise.id, solutionId: solution.id });
-      usedSolutions.add(solution.id);
-    } else {
-      unpairedExercises.push(exercise);
+export function checkedPairs(
+  pairs: AnsweredPair[],
+  offered: Map<string, PairingChunk>,
+): Map<string, string> {
+  const solutionOf = new Map<string, string>();
+  for (const pair of pairs) {
+    const exercise = offered.get(pair.exerciseId.trim());
+    const solution = offered.get(pair.solutionId.trim());
+    if (exercise?.label !== "exercise" || solution?.label !== "solution") {
+      continue;
     }
+    if (!solutionOf.has(exercise.id)) solutionOf.set(exercise.id, solution.id);
   }
-  return {
-    pairs,
-    unpairedExercises,
-    unpairedSolutions: solutions.filter(
-      (solution) => !usedSolutions.has(solution.id),
-    ),
-  };
+  return solutionOf;
 }
 
-/** The only solution of `key`, or else of its nearest ancestor. */
-function solutionFor(
-  key: string,
-  onlySolution: (key: string) => PairingChunk | undefined,
-): PairingChunk | undefined {
-  const parts = key.split(".");
-  for (let length = parts.length; length > 0; length--) {
-    const solution = onlySolution(parts.slice(0, length).join("."));
-    if (solution) return solution;
+/** A Chapter of a Material's Outline, as a Chapter path reads it. */
+export type PathChapter = {
+  parentId: string | null;
+  depth: number;
+  title: string;
+};
+
+/**
+ * The titles from the top Chapter below the root down to this one, such as
+ * ["4 Vector Spaces", "4.2 Subspaces"]; empty for the root or no Chapter.
+ */
+export function chapterPath(
+  chapterId: string | null,
+  chapters: Map<string, PathChapter>,
+): string[] {
+  const titles: string[] = [];
+  const seen = new Set<string>();
+  let id = chapterId;
+  while (id !== null && !seen.has(id)) {
+    seen.add(id);
+    const chapter = chapters.get(id);
+    if (!chapter || chapter.depth === 0) break;
+    titles.unshift(chapter.title);
+    id = chapter.parentId;
   }
-  return undefined;
+  return titles;
 }

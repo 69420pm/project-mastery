@@ -2,7 +2,7 @@ import { ReceiptIcon } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import {
-  EVAL_SHARE,
+  DEVELOPMENT_SHARE,
   MONTHLY_CREDIT_USD,
   type BucketSpend,
   type MonthlyUsage,
@@ -70,8 +70,8 @@ export function MonthlyUsageView({
       )}
 
       <p className="text-sm text-muted-foreground">
-        Eval spend ({percent(EVAL_SHARE)} of the credit) is in{" "}
-        <code>pnpm evals:report</code>.
+        The other {percent(DEVELOPMENT_SHARE)} of the credit is left for
+        development: smoke checks and local runs.
       </p>
     </div>
   );

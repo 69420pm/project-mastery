@@ -1,6 +1,6 @@
 import "server-only";
 import { getReservedExam } from "@/features/brief/server";
-import { loadMaterialChunkIds } from "@/features/ingestion/server";
+import { loadChapterChunkIds } from "@/features/ingestion/server";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
@@ -13,9 +13,9 @@ export async function loadReservedChunks(
   supabase: Supabase,
   courseId: string,
 ): Promise<Set<string>> {
-  const materialId = await getReservedExam(supabase, courseId);
+  const chapterId = await getReservedExam(supabase, courseId);
   return new Set(
-    materialId === null ? [] : await loadMaterialChunkIds(supabase, materialId),
+    chapterId === null ? [] : await loadChapterChunkIds(supabase, chapterId),
   );
 }
 

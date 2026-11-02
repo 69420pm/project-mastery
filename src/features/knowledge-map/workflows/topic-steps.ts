@@ -1,205 +1,200 @@
 import "server-only";
-import { loadCourseChunks } from "@/features/ingestion/server";
+import { createHash } from "node:crypto";
 import {
-  topicCall,
-  topicSchema,
-  type TopicCallInput,
-} from "@/features/knowledge-map/ai/topic-calls";
+  topicTreeMessages,
+  topicTreeSchema,
+  topicTreeSettings,
+  type OfferedCourse,
+} from "@/features/knowledge-map/ai/topic-tree";
+import { dailyLimitReason } from "@/features/knowledge-map/domain/build-failure";
 import {
-  checkTopicProposals,
-  withTopicProposals,
-  type Topic,
-} from "@/features/knowledge-map/domain/topics";
-import { aliases } from "@/features/knowledge-map/domain/update";
+  kcChapters,
+  storedAsProposed,
+  type ProposedTopic,
+  type StoredTreeTopic,
+  type TreeKc,
+} from "@/features/knowledge-map/domain/topic-tree";
 import {
-  knowledgeMapSchema,
-  type KnowledgeMap,
-} from "@/features/knowledge-map/schemas";
-import { loadStoredMap } from "@/features/knowledge-map/server/stored-map";
-import { loadStoredTopics } from "@/features/knowledge-map/server/stored-topics";
-import type { MapChunk } from "@/features/knowledge-map/types";
-import {
-  limitReached,
-  mapCall,
-  type StepOutcome,
+  buildCall,
+  loadCourseLanguage,
+  touchBuild,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  firstSourcePlaces,
+  loadMapInput,
+  type MapInput,
+} from "@/features/knowledge-map/workflows/map-input";
+import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
+import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
+import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
- * The steps of the Topics stage of a Knowledge map build (#175), which runs
- * on the stored map after `storeMap`, on the admin client like the other
- * steps (`build-steps.ts`).
+ * The Topic tree step of a build (#229): one `topic` call per build that
+ * groups the Course's Chapters with KCs into nested Topics, made only when
+ * what the tree is built from changed since the stored tree.
  */
 
-/** What the Topics stage reads once, after the map is stored. */
-export type TopicsInput = {
-  studentId: string;
-  /** The stored map, with stored row ids. */
-  map: KnowledgeMap;
-  topics: Topic[];
-  /** The Course's chunks in Material order. */
-  chunks: Array<Pick<MapChunk, "id" | "materialName" | "pageFrom">>;
+/** What the tree step gives the last step. */
+export type TreeProposal = {
+  /** The hash of what the tree is built from. */
+  hash: string;
+  /** The call's Topics; null to keep the stored tree. */
+  topics: ProposedTopic[] | null;
 };
 
-/**
- * The owner, stored map, stored Topics and chunks of the Course whose build
- * runs. Null when no build runs any more.
- */
-export async function loadTopicsInput(
+export type TreeOutcome =
+  { ok: true; tree: TreeProposal | null } | { ok: false; reason: string };
+
+/** The live KCs as the tree places them, in Course order. */
+export function treeKcs(input: MapInput): TreeKc[] {
+  const places = firstSourcePlaces(input);
+  return input.kcs
+    .filter((kc) => places.has(kc.id))
+    .toSorted((a, b) => places.get(a.id)! - places.get(b.id)!)
+    .map((kc) => {
+      const chapterId = input.chunks[places.get(kc.id)!]!.chapterId;
+      if (kc.origin !== "exercise") return { id: kc.id, chapterId };
+      return {
+        id: kc.id,
+        chapterId,
+        tests: input.exercises
+          .filter((kcs) => kcs.includes(kc.id))
+          .flatMap((kcs) => kcs.filter((id) => id !== kc.id)),
+      };
+    });
+}
+
+/** The Course's stored Topics in tree order. */
+export async function loadStoredTree(
+  supabase: AdminSupabase,
   courseId: string,
-): Promise<TopicsInput | null> {
+): Promise<StoredTreeTopic[]> {
+  const rows = await allRows("Loading the Topics", (from, to) =>
+    supabase
+      .from("topics")
+      .select("id, parent_id, name, central_question, chapter_ids")
+      .eq("course_id", courseId)
+      .order("position")
+      .range(from, to),
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    parentId: row.parent_id,
+    name: row.name,
+    centralQuestion: row.central_question,
+    chapterIds: row.chapter_ids,
+  }));
+}
+
+/**
+ * What the tree call gets, with short ids for the Chapters (`c1…`) and the
+ * stored Topics (`t1…`), and the hash of its Outlines and KCs, which leaves
+ * out the stored tree so a build after a call makes none.
+ */
+function offeredCourse(
+  input: MapInput,
+  stored: StoredTreeTopic[],
+  language: string,
+) {
+  const kcName = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
+  const namesOf = Map.groupBy(
+    [...kcChapters(treeKcs(input))],
+    ([, chapterId]) => chapterId,
+  );
+  const chapterIds = new Map(
+    input.chapters.map((chapter, index) => [chapter.id, `c${index + 1}`]),
+  );
+  const materials = input.materials.map((material) => ({
+    name: material.name,
+    outline: input.chapters
+      .filter((chapter) => chapter.materialId === material.id)
+      .map((chapter) => {
+        const kcs = namesOf.get(chapter.id)?.map(([id]) => kcName.get(id)!);
+        return {
+          id: chapterIds.get(chapter.id)!,
+          title: chapter.title,
+          depth: chapter.depth,
+          ...(kcs && { kcs }),
+        };
+      }),
+  }));
+  const hash = createHash("sha256")
+    .update(JSON.stringify({ language, materials }))
+    .digest("hex");
+  const topicIds = new Map(
+    stored.map((topic, index) => [topic.id, `t${index + 1}`]),
+  );
+  const levels = storedAsProposed(stored);
+  const course: OfferedCourse = {
+    language,
+    materials,
+    storedTopics: stored.map((topic, index) => ({
+      id: topicIds.get(topic.id)!,
+      name: topic.name,
+      level: levels[index]!.level,
+      chapters: topic.chapterIds.flatMap((id) => chapterIds.get(id) ?? []),
+    })),
+  };
+  return { course, hash, chapterIds, topicIds };
+}
+
+/**
+ * Proposes the Topic tree: no call when the Course has no KCs, or when its
+ * Outlines and KCs are what the stored tree was built from; else one call,
+ * its short ids turned back into stored ones (unknown ones are dropped). A
+ * reached Daily limit stops the build.
+ */
+export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
   "use step";
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("knowledge_map_builds")
-    .select("owner")
-    .eq("course_id", courseId)
-    .eq("status", "building")
-    .maybeSingle();
-  if (error) failed("Loading the build", error);
-  if (!data) return null;
-  const [chunks, stored, topics] = await Promise.all([
-    // Every chunk, for the order of Materials and pages.
-    loadCourseChunks(supabase, courseId),
-    loadStoredMap(supabase, courseId),
-    loadStoredTopics(supabase, courseId),
-  ]);
-  return {
-    studentId: data.owner,
-    // Without what Priorities reads besides the map.
-    map: knowledgeMapSchema.parse(stored),
-    topics,
-    chunks: chunks.map(({ id, materialName, pageFrom }) => ({
-      id,
-      materialName,
-      pageFrom,
-    })),
-  };
-}
+  const owner = await touchBuild(supabase, courseId);
+  if (!owner) return { ok: true, tree: null };
 
-/**
- * One Big idea (task `topic`): the model places its new KCs (`newKcIds`)
- * into its stored Topics or new ones, and code checks that every new KC is
- * placed once and keeps what is stored. Returns all Topics with this Big
- * idea's taken in. A failed check throws, so the step retries.
- */
-export async function groupTopics(
-  studentId: string,
-  input: Omit<TopicsInput, "studentId">,
-  bigIdeaId: string,
-  newKcIds: string[],
-): Promise<StepOutcome<Topic[]>> {
-  "use step";
-  const { map, topics } = input;
-  const kcs = map.kcs.filter((kc) => kc.bigIdea === bigIdeaId);
-  const stored = topics.filter(
-    (topic): topic is Topic & { id: string } =>
-      topic.bigIdea === bigIdeaId && topic.id !== null,
+  const [input, stored, build, language] = await Promise.all([
+    loadMapInput(supabase, courseId),
+    loadStoredTree(supabase, courseId),
+    supabase
+      .from("knowledge_map_builds")
+      .select("topic_tree_hash")
+      .eq("course_id", courseId)
+      .single(),
+    loadCourseLanguage(supabase, courseId),
+  ]);
+  if (build.error) failed("Loading the build", build.error);
+  const { course, hash, chapterIds, topicIds } = offeredCourse(
+    input,
+    stored,
+    language,
   );
-  const kcIds = aliases(
-    kcs.map((kc) => kc.id),
-    "k",
+  if (input.kcs.length === 0) return { ok: true, tree: { hash, topics: [] } };
+  if (hash === build.data.topic_tree_hash) {
+    return { ok: true, tree: { hash, topics: null } };
+  }
+
+  const answer = await buildCall(
+    supabase,
+    { studentId: owner, task: "topic", traceName: "topic-tree" },
+    { ...topicTreeSettings(course), messages: topicTreeMessages(course) },
+    topicTreeSchema(),
   );
-  const topicIds = aliases(
-    stored.map((topic) => topic.id),
-    "t",
-  );
-  const callInput = topicCallInput(input, bigIdeaId, newKcIds, {
-    kc: kcIds.local,
-    topic: topicIds.local,
-  });
-  const output = await mapCall(
-    studentId,
-    "map-topic",
-    topicCall(callInput),
-    "topic",
-  );
-  if (output === null) return limitReached;
-  const proposals = topicSchema(callInput.kcs.map((kc) => kc.id))
-    .parse(output)
-    .topics.map((proposal) => ({
-      ...proposal,
-      id: topicIds.real(proposal.id),
-      kcs: proposal.kcs.map(kcIds.real),
-    }));
-  checkTopicProposals(
-    proposals,
-    newKcIds,
-    kcs.map((kc) => kc.id),
-  );
+  if (answer === "limit") return { ok: false, reason: dailyLimitReason };
+  const chapterOf = new Map([...chapterIds].map(([id, short]) => [short, id]));
+  const topicOf = new Map([...topicIds].map(([id, short]) => [short, id]));
   return {
     ok: true,
-    value: withTopicProposals(topics, bigIdeaId, proposals, newKcIds),
-  };
-}
-
-/**
- * What the `topic` call is sent for a Big idea: its KCs, each with its first
- * source and whether it is new, the links among them and its stored Topics,
- * all by the `local` ids.
- */
-function topicCallInput(
-  { map, topics, chunks }: Omit<TopicsInput, "studentId">,
-  bigIdeaId: string,
-  newKcIds: string[],
-  local: { kc: (id: string) => string; topic: (id: string) => string },
-): TopicCallInput {
-  const bigIdea = map.bigIdeas.find((item) => item.id === bigIdeaId);
-  if (!bigIdea) throw new Error(`Unknown big idea ${bigIdeaId}.`);
-  const kcs = map.kcs.filter((kc) => kc.bigIdea === bigIdeaId);
-  const inBigIdea = new Set(kcs.map((kc) => kc.id));
-  const among = (link: { from: string; to: string }) =>
-    inBigIdea.has(link.from) && inBigIdea.has(link.to);
-  // Chunks are in Material order, so the first one a KC cites is its first.
-  const firstSource = (sources: string[]) => {
-    const first = chunks.find((chunk) => sources.includes(chunk.id));
-    return first ? `${first.materialName} p. ${first.pageFrom}` : null;
-  };
-  const isNew = new Set(newKcIds);
-  return {
-    bigIdeaToGroup: { name: bigIdea.name, description: bigIdea.description },
-    kcs: kcs.map((kc) => ({
-      id: local.kc(kc.id),
-      name: kc.name,
-      type: kc.type,
-      description: kc.description,
-      firstSource: firstSource(kc.sources),
-      status: isNew.has(kc.id) ? "new" : "placed",
-    })),
-    prerequisites: map.prerequisites.filter(among).map((link) => ({
-      from: local.kc(link.from),
-      to: local.kc(link.to),
-    })),
-    semanticLinks: map.semanticLinks.filter(among).map((link) => ({
-      from: local.kc(link.from),
-      to: local.kc(link.to),
-      label: link.label,
-    })),
-    storedTopics: topics
-      .filter((topic) => topic.bigIdea === bigIdeaId && topic.id !== null)
-      .map((topic) => ({
-        id: local.topic(topic.id ?? ""),
+    tree: {
+      hash,
+      topics: answer.topics.map((topic) => ({
+        level: topic.level,
         name: topic.name,
+        chapterIds: topic.chapterIds.flatMap((id) => chapterOf.get(id) ?? []),
         centralQuestion: topic.centralQuestion,
-        kcs: topic.kcs.map(local.kc),
+        continues: topicOf.get(topic.continues) ?? null,
       })),
+    },
   };
 }
 
-/**
- * Makes the stored Topics these, in order, and marks the build built, in one
- * transaction. Stored Topics keep their ids. Does nothing when no build runs
- * any more.
- */
-export async function storeTopics(
-  courseId: string,
-  topics: Topic[],
-): Promise<void> {
-  "use step";
-  const { error } = await createAdminClient().rpc("replace_topics", {
-    p_course_id: courseId,
-    p_topics: topics,
-  });
-  if (error) failed("Storing the topics", error);
-}
+proposeTopicTree.maxRetries = RATE_LIMITED_STEP_RETRIES;

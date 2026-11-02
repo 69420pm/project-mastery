@@ -22,6 +22,11 @@ export type SmokeCheck = {
   usage: string;
   /** The most model calls the check may record; the runner's default if unset. */
   maxCalls?: number;
+  /**
+   * The model every generating task is pinned to, such as MiMo for a check
+   * of what ships; the runner's default if unset.
+   */
+  model?: string;
   run: (context: SmokeContext) => Promise<SmokeResult[]>;
 };
 

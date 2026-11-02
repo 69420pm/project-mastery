@@ -5,9 +5,9 @@ import {
   COURSE,
   createParseDb,
   deleteMaterialRows,
+  NO_OUTLINE,
   pageModel,
   seedMaterial,
-  sentPairing,
   storedPairs,
   STUDENT,
   unit,
@@ -56,190 +56,138 @@ beforeEach(async () => {
 const upload = (id: string, name: string) =>
   seedMaterial(db, "image/png", pageImage, { id, name });
 
-const exercise = (exerciseNumber: string | null, markdown: string) =>
-  unit({ label: "exercise", exerciseNumber, markdown });
-const solution = (exerciseNumber: string | null, markdown: string) =>
-  unit({ label: "solution", exerciseNumber, markdown });
+const exercise = (markdown: string) => unit({ label: "exercise", markdown });
+const solution = (markdown: string) => unit({ label: "solution", markdown });
 
-/** Pairs the offered exercise and solution with these markdowns. */
-const pairByMarkdown =
+/** Pairs the sent exercise and solution whose texts hold these. */
+const pairByText =
   (pairs: Array<[string, string]>) =>
   (sent: SentPairing): CannedPairing => ({
-    pairs: pairs.map(([exerciseMarkdown, solutionMarkdown]) => ({
-      exerciseId: sent.exercises.find((e) => e.markdown === exerciseMarkdown)!
-        .id,
-      solutionId: sent.solutions.find((s) => s.markdown === solutionMarkdown)!
-        .id,
+    pairs: pairs.map(([exerciseText, solutionText]) => ({
+      exerciseId: sent.exercises.find((e) => e.text.includes(exerciseText))!.id,
+      solutionId: sent.solutions.find((s) => s.text.includes(solutionText))!.id,
     })),
   });
 
 describe("pairing exercises with solutions", () => {
-  test("pairs exercises with solutions in a separate Material by number", async () => {
+  test("a solution sheet parsed later pairs the earlier exercises in one call", async () => {
     upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
-    const { model, pairingPrompts } = pageModel([
-      {
-        units: [
-          exercise("7.2a", "Show that a_n converges."),
-          exercise("Aufgabe 7.2 b)", "Find its limit."),
-        ],
-      },
-      {
-        units: [
-          solution("7.2 b)", "The limit is 0."),
-          solution("7.2a", "By monotonicity ..."),
-        ],
-      },
-    ]);
-    useMockModels({ ingest: model });
-
-    await parseMaterial(SHEET);
-    await parseMaterial(SOLUTIONS);
-
-    expect(storedPairs(db)).toEqual([
-      {
-        exercise: "Find its limit.",
-        solution: "The limit is 0.",
-        status: "paired",
-      },
-      {
-        exercise: "Show that a_n converges.",
-        solution: "By monotonicity ...",
-        status: "paired",
-      },
-    ]);
-    // Every number matched, so no content call was needed.
-    expect(pairingPrompts).toHaveLength(0);
-  });
-
-  test("a Material shows parsed only once its exercises are paired", async () => {
-    upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
     const statusDuringPairing: unknown[] = [];
-    const { model } = pageModel(
+    const { model, pairingPrompts } = pageModel(
       [
-        { units: [exercise(null, "Bonus task.")] },
-        { units: [solution(null, "Bonus answer.")] },
+        {
+          units: [
+            unit({ label: "heading", markdown: "8.3 Vector spaces" }),
+            exercise("Exercise 8. Decide which sets are subspaces."),
+            exercise("Exercise 9. Show that sin and cos are independent."),
+          ],
+        },
+        {
+          units: [solution(`Solution to Exercise 8. ${"Yes. ".repeat(100)}`)],
+        },
       ],
-      undefined,
       (sent) => {
         statusDuringPairing.push(
           db.tables.materials.find((m) => m.id === SOLUTIONS)?.parse_status,
         );
-        return pairByMarkdown([["Bonus task.", "Bonus answer."]])(sent);
+        return pairByText([["Exercise 8.", "Solution to Exercise 8"]])(sent);
       },
+      (sent) => ({
+        ...NO_OUTLINE,
+        chapters: sent.headings.map((heading) => ({
+          title: heading.text,
+          level: 1,
+          heading: heading.id,
+          page: null,
+          exam: false,
+        })),
+      }),
     );
     useMockModels({ ingest: model });
 
     await parseMaterial(SHEET);
+    // Exercises without any solution in the Course need no call.
+    expect(pairingPrompts).toHaveLength(0);
+    expect(storedPairs(db).map((pair) => pair.status)).toEqual([
+      "no_solution",
+      "no_solution",
+    ]);
+
+    upload(SOLUTIONS, "Solutions 7");
     await parseMaterial(SOLUTIONS);
+
+    expect(pairingPrompts).toHaveLength(1);
+    const [sent] = pairingPrompts;
+    expect(sent!.exercises).toEqual([
+      {
+        id: "e1",
+        material: "Sheet 7",
+        chapter: "8.3 Vector spaces",
+        text: expect.stringContaining("Exercise 8. Decide"),
+      },
+      expect.objectContaining({ id: "e2", chapter: "8.3 Vector spaces" }),
+    ]);
+    expect(sent!.solutions).toEqual([
+      expect.objectContaining({ id: "s1", material: "Solutions 7" }),
+    ]);
+    expect(sent!.solutions[0]!.text).toHaveLength(300);
 
     expect(statusDuringPairing).toEqual(["parsing"]);
     expect(
       db.tables.materials.find((m) => m.id === SOLUTIONS)?.parse_status,
     ).toBe("parsed");
     expect(storedPairs(db)).toEqual([
-      { exercise: "Bonus task.", solution: "Bonus answer.", status: "paired" },
-    ]);
-  });
-
-  test("a solution sheet parsed later re-pairs the earlier exercises", async () => {
-    upload(SHEET, "Sheet 7");
-    const { model } = pageModel([
-      { units: [exercise("7.1", "Compute the sum.")] },
-      { units: [solution("7.1", "The sum is 3.")] },
-    ]);
-    useMockModels({ ingest: model });
-
-    await parseMaterial(SHEET);
-    expect(storedPairs(db)).toEqual([
-      { exercise: "Compute the sum.", solution: null, status: "no_solution" },
-    ]);
-
-    upload(SOLUTIONS, "Solutions 7");
-    await parseMaterial(SOLUTIONS);
-    expect(storedPairs(db)).toEqual([
       {
-        exercise: "Compute the sum.",
-        solution: "The sum is 3.",
+        exercise: expect.stringContaining("Exercise 8."),
+        solution: expect.stringMatching(/^Solution to Exercise 8\./),
         status: "paired",
+      },
+      {
+        exercise: expect.stringContaining("Exercise 9."),
+        solution: null,
+        status: "no_solution",
       },
     ]);
   });
 
-  test("pairs what numbers leave by content, and the rest has no solution", async () => {
+  test("a large Course goes in calls of at most 400 chunks", async () => {
     upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
+    const { model, pairingPrompts } = pageModel([
+      {
+        units: [
+          ...Array.from({ length: 399 }, (_, i) => exercise(`Task ${i}.`)),
+          solution("Answer A."),
+          exercise("Task 399."),
+          solution("Answer B."),
+        ],
+      },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(SHEET);
+
+    expect(
+      pairingPrompts.map((sent) => [
+        sent.exercises.length,
+        sent.solutions.length,
+      ]),
+    ).toEqual([
+      [399, 1],
+      [1, 1],
+    ]);
+    expect(storedPairs(db)).toHaveLength(400);
+  });
+
+  test("with the Daily limit reached, the Course's pass stores no solution, without a call", async () => {
+    upload(SHEET, "Sheet 7");
     const { model, pairingPrompts } = pageModel(
-      [
-        {
-          units: [
-            exercise("1", "Prove the triangle inequality."),
-            exercise(null, "Bonus: compute pi to 3 digits."),
-            exercise("2", "Integrate x^2."),
-          ],
-        },
-        {
-          units: [
-            solution("1", "Square both sides ..."),
-            solution(null, "pi is about 3.14."),
-          ],
-        },
-      ],
-      undefined,
-      pairByMarkdown([["Bonus: compute pi to 3 digits.", "pi is about 3.14."]]),
+      [{ units: [exercise("Bonus task."), solution("Bonus answer.")] }],
+      pairByText([["Bonus task.", "Bonus answer."]]),
     );
     useMockModels({ ingest: model });
-
     await parseMaterial(SHEET);
-    const usageBefore = db.tables.ai_usage.length;
-    await parseMaterial(SOLUTIONS);
-
-    expect(storedPairs(db)).toEqual([
-      {
-        exercise: "Bonus: compute pi to 3 digits.",
-        solution: "pi is about 3.14.",
-        status: "paired",
-      },
-      { exercise: "Integrate x^2.", solution: null, status: "no_solution" },
-      {
-        exercise: "Prove the triangle inequality.",
-        solution: "Square both sides ...",
-        status: "paired",
-      },
-    ]);
-    // One content call, offered only what the numbers left.
-    expect(pairingPrompts).toHaveLength(1);
-    const offered = sentPairing(pairingPrompts[0]);
-    expect(offered.exercises.map((e) => e.markdown)).toEqual([
-      "Bonus: compute pi to 3 digits.",
-      "Integrate x^2.",
-    ]);
-    expect(offered.solutions.map((s) => s.markdown)).toEqual([
-      "pi is about 3.14.",
-    ]);
-    // Page call, file call, embedding and content call, each recorded for
-    // the Student.
-    expect(db.tables.ai_usage.slice(usageBefore)).toHaveLength(4);
-    expect(db.tables.ai_usage.at(-1)).toMatchObject({
-      owner: STUDENT,
-      task: "ingest",
-    });
-  });
-
-  test("with the Daily limit reached, what numbers leave has no solution, without a call", async () => {
-    upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
-    const { model, pairingPrompts } = pageModel([
-      { units: [exercise(null, "Bonus task.")] },
-      { units: [solution(null, "Bonus answer.")] },
-    ]);
-    useMockModels({ ingest: model });
-    await parseMaterial(SHEET);
-    await parseMaterial(SOLUTIONS);
     expect(pairingPrompts).toHaveLength(1);
 
-    // Spend the Daily limit, then pair again.
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
     db.tables.ai_usage.push({
       owner: STUDENT,
@@ -257,45 +205,43 @@ describe("pairing exercises with solutions", () => {
 
   test("a parse that reaches the Daily limit while pairing fails with that reason", async () => {
     upload(SHEET, "Sheet 7");
-    upload(SOLUTIONS, "Solutions 7");
     const { model, pairingPrompts } = pageModel([
-      { units: [exercise(null, "Bonus task.")] },
-      { units: [solution(null, "Bonus answer.")] },
+      { units: [exercise("Bonus task."), solution("Bonus answer.")] },
     ]);
-    // The solution sheet's embeds use up the rest of the Daily limit.
+    // The embeds use up the rest of the Daily limit.
     const embed = mockEmbeddingModel();
     const doEmbed = embed.doEmbed;
-    let embeds = 0;
     embed.doEmbed = async (options) => {
-      if (++embeds === 2) {
-        vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
-        db.tables.ai_usage.push({
-          owner: STUDENT,
-          task: "chat",
-          cost_usd: 1000,
-          created_at: new Date().toISOString(),
-        });
-      }
+      vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+      db.tables.ai_usage.push({
+        owner: STUDENT,
+        task: "chat",
+        cost_usd: 1000,
+        created_at: new Date().toISOString(),
+      });
       return doEmbed.call(embed, options);
     };
     useMockModels({ ingest: model, embed });
 
     await parseMaterial(SHEET);
-    await parseMaterial(SOLUTIONS);
 
-    const solutions = db.tables.materials.find((m) => m.id === SOLUTIONS);
-    expect(solutions?.parse_status).toBe("failed");
-    expect(solutions?.parse_failure).toBe(dailyLimitReason);
+    expect(db.tables.materials[0]).toMatchObject({
+      parse_status: "failed",
+      parse_failure: dailyLimitReason,
+    });
     expect(pairingPrompts).toHaveLength(0);
   });
 
   test("deleting the solution Material un-pairs its exercises when pairing runs again", async () => {
     upload(SHEET, "Sheet 7");
     upload(SOLUTIONS, "Solutions 7");
-    const { model } = pageModel([
-      { units: [exercise("3a", "Draw the graph.")] },
-      { units: [solution("3", "See the plot.")] },
-    ]);
+    const { model } = pageModel(
+      [
+        { units: [exercise("Draw the graph.")] },
+        { units: [solution("See the plot.")] },
+      ],
+      pairByText([["Draw the graph.", "See the plot."]]),
+    );
     useMockModels({ ingest: model });
     await parseMaterial(SHEET);
     await parseMaterial(SOLUTIONS);
@@ -319,7 +265,7 @@ describe("pairing exercises with solutions", () => {
   test("a parse whose pass is outdated by one that never writes still ends with every exercise paired", async () => {
     upload(SHEET, "Sheet 7");
     const { model } = pageModel([
-      { units: [exercise("1", "Prove it."), exercise("2", "Compute it.")] },
+      { units: [exercise("Prove it."), exercise("Compute it.")] },
     ]);
     useMockModels({ ingest: model });
     // Right after this parse's first request, another pass is requested
@@ -352,13 +298,12 @@ describe("pairing exercises with solutions", () => {
       releaseFirst = resolve;
     });
     let pairingCalls = 0;
-    const pairs = pairByMarkdown([["Bonus task.", "Bonus answer."]]);
+    const pairs = pairByText([["Bonus task.", "Bonus answer."]]);
     const { model, pairingPrompts } = pageModel(
       [
-        { units: [exercise(null, "Bonus task.")] },
-        { units: [solution(null, "Bonus answer.")] },
+        { units: [exercise("Bonus task.")] },
+        { units: [solution("Bonus answer.")] },
       ],
-      undefined,
       async (sent) => {
         pairingCalls += 1;
         // The first pass is held in its call and pairs; the second does not.

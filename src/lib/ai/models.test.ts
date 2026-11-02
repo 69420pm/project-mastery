@@ -9,13 +9,7 @@ import {
   test,
   vi,
 } from "vitest";
-import {
-  AI_TASKS,
-  aiTask,
-  aiTaskCandidate,
-  answeringModel,
-  modelIdFor,
-} from "./models";
+import { AI_TASKS, aiTask, answeringModel, modelIdFor } from "./models";
 import { mockEmbeddingModel, mockTextModel, useMockModels } from "./testing";
 
 vi.mock("server-only", () => ({}));
@@ -180,24 +174,6 @@ describe("gateway routing", () => {
     });
   });
 
-  test("runs a judge candidate with its own routing, and refuses other models", () => {
-    vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
-    vi.stubEnv("AI_MODEL_JUDGE", "alibaba/qwen3.7-flash");
-
-    const mimo = aiTaskCandidate("judge", "xiaomi/mimo-v2.6-flash");
-    expect(mimo.model).toBe("xiaomi/mimo-v2.6-flash");
-    expect(mimo.providerOptions.gateway).toEqual({
-      tags: ["task:judge"],
-      only: ["deepinfra"],
-    });
-    expect(aiTaskCandidate("judge", "alibaba/qwen3.7-flash").model).toBe(
-      "alibaba/qwen3.7-flash",
-    );
-    expect(() => aiTaskCandidate("judge", "openai/gpt-5-nano")).toThrow(
-      /no candidate/,
-    );
-  });
-
   test("tasks that share a model reach their own mock", async () => {
     useMockModels({
       chat: mockTextModel("Chat reply."),
@@ -210,8 +186,8 @@ describe("gateway routing", () => {
     expect(chat.text).toBe("Chat reply.");
     expect(title.text).toBe("A title");
     await expect(
-      generateText({ ...aiTask("judge"), prompt: "Hi" }),
-    ).rejects.toThrow(/No mock model for task "judge"/);
+      generateText({ ...aiTask("brief"), prompt: "Hi" }),
+    ).rejects.toThrow(/No mock model for task "brief"/);
   });
 });
 
@@ -240,13 +216,13 @@ describe("AI_PROVIDER=mock", () => {
     stubMockProvider();
     vi.stubEnv("VERCEL", "1");
 
-    expect(() => modelIdFor("judge")).toThrow(/AI_PROVIDER/);
+    expect(() => modelIdFor("brief")).toThrow(/AI_PROVIDER/);
   });
 
   test("streams a deterministic reply without any key", async () => {
     stubMockProvider();
 
-    const result = streamText({ ...aiTask("judge"), prompt: "What is 2+2?" });
+    const result = streamText({ ...aiTask("brief"), prompt: "What is 2+2?" });
     const deltas: string[] = [];
     for await (const delta of result.textStream) deltas.push(delta);
 
@@ -260,7 +236,7 @@ describe("AI_PROVIDER=mock", () => {
     stubMockProvider();
 
     const { text } = await generateText({
-      ...aiTask("judge"),
+      ...aiTask("brief"),
       messages: [
         { role: "user", content: "First question" },
         { role: "assistant", content: "First answer" },
@@ -294,12 +270,12 @@ describe("aiTask", () => {
   // The pattern for testing feature code that calls a model.
   test("runs AI SDK calls against mock models", async () => {
     useMockModels({
-      judge: mockTextModel("PASS"),
+      brief: mockTextModel("PASS"),
       embed: mockEmbeddingModel(4),
     });
 
     const { text } = await generateText({
-      ...aiTask("judge"),
+      ...aiTask("brief"),
       prompt: "Grade this.",
     });
     const { embedding } = await embed({ ...aiTask("embed"), value: "chunk" });

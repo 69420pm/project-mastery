@@ -9,7 +9,6 @@ const STUDENT = "11111111-1111-1111-1111-111111111111";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
 const MATERIAL = "aaaaaaaa-0000-4000-8000-000000000001";
 const FILE = `${STUDENT}/${COURSE}/${MATERIAL}`;
-const BOX = { x: 0.1, y: 0.2, width: 0.5, height: 0.3 };
 
 let db = fakeSupabase({ tables: {}, userId: STUDENT });
 vi.mock("@/lib/auth/user", () => ({ getUser: async () => ({ id: STUDENT }) }));
@@ -30,11 +29,9 @@ beforeEach(() => {
           media_type: "application/pdf",
           storage_path: FILE,
           parse_status: "parsed",
-          is_exam: false,
-          exam_year: null,
-          exam_total_points: null,
         },
       ] as FakeRow[],
+      chapters: [] as FakeRow[],
       chunks: [
         {
           id: "c1",
@@ -42,11 +39,8 @@ beforeEach(() => {
           position: 0,
           page_from: 1,
           page_to: 1,
-          label: "figure",
+          label: "content",
           markdown: "Plot",
-          figure: { description: "A parabola.", page: 2, box: BOX },
-          exercise_number: null,
-          points: null,
         },
         {
           id: "c2",
@@ -56,9 +50,6 @@ beforeEach(() => {
           page_to: 2,
           label: "content",
           markdown: "Text",
-          figure: null,
-          exercise_number: null,
-          points: null,
         },
       ] as FakeRow[],
       exercise_solutions: [] as FakeRow[],
@@ -71,14 +62,6 @@ beforeEach(() => {
   });
 });
 
-test("a figure chunk carries only its description", async () => {
-  const material = await getMaterialChunks(MATERIAL);
-
-  const [figure, text] = material?.chunks ?? [];
-  expect(figure?.figure).toEqual({ description: "A parabola." });
-  expect(text?.figure).toBeNull();
-});
-
 test("an exercise carries its paired solution in another Material, or no solution", async () => {
   const SOLUTIONS = "aaaaaaaa-0000-4000-8000-000000000051";
   const exercise = (id: string, position: number, number: string) => ({
@@ -89,9 +72,6 @@ test("an exercise carries its paired solution in another Material, or no solutio
     page_to: 3,
     label: "exercise",
     markdown: `Exercise ${number}`,
-    figure: null,
-    exercise_number: number,
-    points: 2,
   });
   const tables = db.tables as Record<string, FakeRow[]>;
   tables.materials!.push({
@@ -108,9 +88,6 @@ test("an exercise carries its paired solution in another Material, or no solutio
     page_to: 1,
     label: "solution",
     markdown: "Since ...",
-    figure: null,
-    exercise_number: "7.2 a)",
-    points: null,
   });
   tables.exercise_solutions!.push(
     { exercise_chunk_id: "e1", solution_chunk_id: "s1", status: "paired" },
@@ -119,16 +96,15 @@ test("an exercise carries its paired solution in another Material, or no solutio
 
   const material = await getMaterialChunks(MATERIAL);
 
-  const [figure, , first, second] = material?.chunks ?? [];
+  const [text, , first, second] = material?.chunks ?? [];
   expect(first?.solution).toEqual({
     status: "paired",
     chunkId: "s1",
     materialId: SOLUTIONS,
     materialName: "Solutions 7",
-    exerciseNumber: "7.2 a)",
   });
   expect(second?.solution).toEqual({ status: "no_solution" });
-  expect(figure?.solution).toBeNull();
+  expect(text?.solution).toBeNull();
 });
 
 test("a Material past the row limit comes back whole, each exercise with its solution", async () => {
@@ -140,9 +116,6 @@ test("a Material past the row limit comes back whole, each exercise with its sol
     page_to: 3,
     label: "exercise",
     markdown: `Exercise ${i}`,
-    figure: null,
-    exercise_number: String(i),
-    points: 1,
   }));
   const tables = db.tables as Record<string, FakeRow[]>;
   db = fakeSupabase({

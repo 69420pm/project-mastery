@@ -81,9 +81,7 @@ function StepDetails({ detail }: { detail: StepDetail }) {
             <li key={kc.id} className="flex flex-col gap-1">
               <p>
                 <span className="font-medium">{kc.name}</span>{" "}
-                <span className="text-muted-foreground">
-                  · {kc.type} · {kc.state}
-                </span>
+                <span className="text-muted-foreground">· {kc.state}</span>
               </p>
               <p className="text-muted-foreground">{kc.description}</p>
               {kc.sources.map((source, i) => (
@@ -110,8 +108,7 @@ function StepDetails({ detail }: { detail: StepDetail }) {
               <p>
                 <span className="font-medium">{exercise.name}</span>{" "}
                 <span className="text-muted-foreground">
-                  · {SOURCE_LABELS[exercise.source]} ·{" "}
-                  {exercise.taskType && `${exercise.taskType} · `}difficulty{" "}
+                  · {SOURCE_LABELS[exercise.source]} · difficulty{" "}
                   {exercise.difficulty}/3
                 </span>
               </p>

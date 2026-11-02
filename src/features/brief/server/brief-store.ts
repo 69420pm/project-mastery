@@ -1,27 +1,38 @@
 import "server-only";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { allRows } from "@/lib/supabase/all-rows";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
-import { getMaterialList } from "@/features/courses/server";
-import { findingQuestion } from "@/features/brief/domain/findings";
 import {
-  findingMessageId,
+  loadAdminChunks,
+  loadCourseLanguage,
+} from "@/features/ingestion/server";
+import { distinctAdminTexts } from "@/features/brief/domain/admin-texts";
+import {
+  briefChapters,
+  confirmedExams,
+  oldExamQuestion,
+  oldExamsPart,
+  unaskedExams,
+  type StoredChapter,
+} from "@/features/brief/domain/old-exams";
+import {
   OPENING_MESSAGE,
+  oldExamsMessageId,
   openingMessageId,
 } from "@/features/brief/domain/opening";
 import { STATIC_MODEL_ID } from "@/features/brief/domain/static-messages";
 import {
-  asksFindings,
+  isIntakeDone,
+  type BriefTopic,
   type BriefContext,
   type BriefFields,
-  type ExamMaterial,
+  type BriefMaterial,
+  type ExamChapter,
   type ReservedExam,
 } from "@/features/brief/domain/intake";
+import { loadExamScopes } from "@/features/brief/server/exam-scopes";
 import type { BriefUIMessage } from "@/features/brief/types";
-import {
-  getOpenFindings,
-  markFindingAsked,
-} from "@/features/knowledge-map/server";
 
 /**
  * Reads and writes Briefs and their messages as the signed-in Student, so Row
@@ -61,49 +72,50 @@ export async function ensureBrief(
 }
 
 /**
- * Opens the Course's Brief as its page does: creates it if needed, posts the
- * next open Finding (`askNextFinding`) and returns the messages. Null when
- * the Course is not the Student's.
+ * Opens the Course's Brief as its page does: creates it if needed, asks
+ * about Materials parsed after intake (`askOldExams`) and returns the
+ * messages. Null when the Course is not the Student's.
  */
 export async function openBrief(
   supabase: Supabase,
   courseId: string,
 ): Promise<BriefUIMessage[] | null> {
   if (!(await ensureBrief(supabase, courseId))) return null;
-  await askNextFinding(supabase, courseId);
+  await askOldExams(supabase, courseId);
   return loadMessages(supabase, courseId);
 }
 
 /**
- * Posts the next open Finding of the Course as a static AI message, with no
- * model call, and marks it asked: once intake is done, while no asked Finding
- * waits for an answer. Safe to call concurrently: the message's id derives
- * from the Finding's, so it is stored once.
+ * Once intake is done, posts one static message, with no model call, that
+ * asks whether the Chapters that look like old exams and were not asked
+ * about yet are ones (`unaskedExams`). Safe to call concurrently: the
+ * message's id derives from the Chapters', so it is stored once. It
+ * carries their ids in a data part, which the model does not see, so the
+ * answer marks only them asked (`askedChapterIds`).
  */
-async function askNextFinding(
+async function askOldExams(
   supabase: Supabase,
   courseId: string,
 ): Promise<void> {
-  const [brief, exams] = await Promise.all([
+  const [brief, materials] = await Promise.all([
     loadBrief(supabase, courseId),
-    loadExams(supabase, courseId),
+    loadMaterials(supabase, courseId),
   ]);
-  if (!brief || !asksFindings(brief.fields, exams, brief.reservedExam)) {
-    return;
-  }
-  const findings = await getOpenFindings(supabase, courseId);
-  const next = findings[0];
-  if (!next || findings.some(({ asked }) => asked)) return;
+  if (!brief || !isIntakeDone(brief.fields)) return;
+  const unasked = unaskedExams(materials);
+  if (unasked.length === 0) return;
 
   const { error } = await supabase.from("brief_messages").insert({
-    id: findingMessageId(next.id),
+    id: oldExamsMessageId(unasked.map(({ id }) => id)),
     course_id: courseId,
     role: "assistant",
-    parts: [{ type: "text", text: findingQuestion(next) }],
+    parts: [
+      { type: "text", text: oldExamQuestion(unasked) },
+      oldExamsPart(unasked.map(({ id }) => id)),
+    ],
     model_id: STATIC_MODEL_ID,
   });
-  if (error && error.code !== "23505") failed("Asking the Finding", error);
-  await markFindingAsked(supabase, courseId, next.id);
+  if (error && error.code !== "23505") failed("Asking about old exams", error);
 }
 
 function toUIMessage(row: MessageRow): BriefUIMessage {
@@ -169,7 +181,7 @@ async function loadBrief(supabase: Supabase, courseId: string) {
   const { data, error } = await supabase
     .from("briefs")
     .select(
-      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, reserved_exam_material_id, reserved_exam_answered",
+      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, reserved_exam_chapter_id, reserved_exam_answered",
     )
     .eq("course_id", courseId)
     .maybeSingle();
@@ -187,60 +199,137 @@ async function loadBrief(supabase: Supabase, courseId: string) {
   };
   const reservedExam: ReservedExam = {
     answered: data.reserved_exam_answered === true,
-    materialId: data.reserved_exam_material_id ?? null,
+    chapterId: data.reserved_exam_chapter_id ?? null,
   };
   return { fields, notes: data.notes, reservedExam };
 }
 
-/** The Course's old exams, oldest upload first. */
-async function loadExams(
-  supabase: Supabase,
-  courseId: string,
-): Promise<ExamMaterial[]> {
-  return examsOf(await getMaterialList(courseId, supabase));
+/**
+ * The Course's Materials, oldest upload first, each with its Chapters in
+ * reading order and their old-exam state.
+ */
+async function loadMaterials(supabase: Supabase, courseId: string) {
+  const [materials, chapters] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, name, parse_status")
+      .eq("course_id", courseId)
+      .order("created_at"),
+    allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select(
+          "id, material_id, parent_id, position, title, depth, exam_proposed, is_exam, exam_asked",
+        )
+        .eq("course_id", courseId)
+        .order("material_id")
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  if (materials.error) failed("Loading the Materials", materials.error);
+  return materials.data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    parsed: row.parse_status === "parsed",
+    chapters: chapters
+      .filter((chapter) => chapter.material_id === row.id)
+      .map((chapter): StoredChapter => ({
+        id: chapter.id,
+        parentId: chapter.parent_id,
+        title: chapter.title,
+        depth: chapter.depth,
+        examProposed: chapter.exam_proposed,
+        exam: chapter.is_exam,
+        examAsked: chapter.exam_asked,
+      })),
+  }));
 }
 
-function examsOf(
-  materials: Awaited<ReturnType<typeof getMaterialList>>,
-): ExamMaterial[] {
-  return materials
-    .toReversed()
-    .flatMap(({ id, name, exam }) =>
-      exam
-        ? [{ id, name, year: exam.year, totalPoints: exam.totalPoints }]
-        : [],
-    );
+/** The Course's Topic tree in tree order, each Topic with its depth. */
+export async function loadTopics(
+  supabase: Supabase,
+  courseId: string,
+): Promise<BriefTopic[]> {
+  const topics = await allRows("Loading the topics", (from, to) =>
+    supabase
+      .from("topics")
+      .select("id, name, parent_id")
+      .eq("course_id", courseId)
+      .order("position")
+      .range(from, to),
+  );
+  const depth = new Map<string, number>();
+  return topics.map(({ id, name, parent_id }) => {
+    const own = parent_id ? (depth.get(parent_id) ?? 0) + 1 : 0;
+    depth.set(id, own);
+    return { id, name, depth: own };
+  });
 }
 
 /**
- * What the AI is told about the Course's Brief: its fields and notes, and the
- * Course's Materials, oldest first, each marked when the exam excludes it.
- * Null when the Course has no Brief.
+ * What the AI is told about the Course's Brief: its fields and notes, the
+ * Course's Materials, oldest first, each marked when the exam excludes it
+ * and with its Chapters and their old-exam state, the old exams, the
+ * Course language, its Topic tree, the exam scopes and the distinct admin
+ * texts. Null when the Course has no Brief.
  */
 export async function loadContext(
   supabase: Supabase,
   courseId: string,
 ): Promise<BriefContext | null> {
-  const [brief, materials, excluded] = await Promise.all([
+  const [
+    brief,
+    materials,
+    excluded,
+    topics,
+    examScopes,
+    adminChunks,
+    language,
+  ] = await Promise.all([
     loadBrief(supabase, courseId),
-    getMaterialList(courseId, supabase),
+    loadMaterials(supabase, courseId),
     loadExcludedIds(supabase, courseId),
+    loadTopics(supabase, courseId),
+    loadExamScopes(supabase, courseId),
+    loadAdminChunks(supabase, courseId),
+    loadCourseLanguage(supabase, courseId),
   ]);
   if (!brief) return null;
-  const exams = examsOf(materials);
-  return {
-    ...brief,
-    exams,
-    findings: asksFindings(brief.fields, exams, brief.reservedExam)
-      ? await getOpenFindings(supabase, courseId)
-      : [],
-    // Oldest first, as the Student uploaded them.
-    materials: materials.toReversed().map(({ id, name }) => ({
+  const briefMaterials: BriefMaterial[] = materials.map(
+    ({ id, name, chapters }) => ({
       id,
       name,
       excluded: excluded.has(id),
-    })),
+      chapters: briefChapters(chapters),
+    }),
+  );
+  return {
+    ...brief,
+    materials: briefMaterials,
+    exams: confirmedExams(materials),
+    language,
+    topics,
+    examScopes,
+    adminTexts: distinctAdminTexts(adminChunks),
   };
+}
+
+/**
+ * The Course's old exams (`confirmedExams`), read with `supabase`, a
+ * Student's session client.
+ */
+export async function loadOldExams(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Array<ExamChapter & { materialId: string }>> {
+  const materials = await loadMaterials(supabase, courseId);
+  return materials.flatMap((material) =>
+    confirmedExams([material]).map((exam) => ({
+      ...exam,
+      materialId: material.id,
+    })),
+  );
 }
 
 async function loadExcludedIds(supabase: Supabase, courseId: string) {
@@ -263,25 +352,44 @@ export type BriefFieldsUpdate = Pick<
   | "formula_sheet"
   | "calculator"
   | "scope_confirmed"
-  | "reserved_exam_material_id"
+  | "reserved_exam_chapter_id"
   | "reserved_exam_answered"
 >;
 
 /**
  * Changes the given fields of the Course's Brief and, unless null, makes
- * `excludedMaterialIds` (Materials of the Course) the ones the exam excludes.
- * All or nothing, in one transaction (`save_brief`); throws when it fails.
+ * `excludedMaterialIds` the Materials the exam excludes,
+ * `examChapterIds` the Course's old-exam Chapters (others that were one,
+ * or that are among `askedChapterIds`, become none) and `language` the
+ * Course language, marking the Chapters of parsed Materials among
+ * `askedChapterIds` asked. All or nothing, in one transaction
+ * (`save_brief`); throws when it fails.
  */
 export async function saveBrief(
   supabase: Supabase,
   courseId: string,
   fields: BriefFieldsUpdate,
-  excludedMaterialIds: string[] | null,
+  {
+    excludedMaterialIds,
+    examChapterIds,
+    askedChapterIds = [],
+    language = null,
+  }: {
+    excludedMaterialIds: string[] | null;
+    examChapterIds: string[] | null;
+    askedChapterIds?: string[];
+    language?: string | null;
+  },
 ): Promise<void> {
   const { data, error } = await supabase.rpc("save_brief", {
     course_id: courseId,
     fields,
     ...(excludedMaterialIds && { excluded_material_ids: excludedMaterialIds }),
+    ...(examChapterIds && {
+      exam_chapter_ids: examChapterIds,
+      asked_chapter_ids: askedChapterIds,
+    }),
+    ...(language && { course_language: language }),
   });
   if (error) failed("Saving the Brief", error);
   if (!data) throw new Error("Saving the Brief failed: it does not exist");

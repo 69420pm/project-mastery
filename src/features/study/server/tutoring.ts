@@ -3,9 +3,8 @@ import { getExamFacts } from "@/features/brief/server";
 import { loadChunkSources } from "@/features/ingestion/server";
 import {
   courseMapPath,
-  findReadingSection,
+  loadReadingSections,
   loadStoredMap,
-  loadStoredReadingSections,
   loadStoredTopics,
   topicAnchors,
 } from "@/features/knowledge-map/server";
@@ -28,7 +27,10 @@ import {
   loadSessionId,
   saveAttempts,
 } from "@/features/study/server/questions";
-import { loadTutorNotes } from "@/features/study/server/notes";
+import {
+  loadMaterialNotes,
+  loadTutorNotes,
+} from "@/features/study/server/notes";
 import { loadMockReview } from "@/features/study/server/mock-results";
 import { loadReviewQueue } from "@/features/study/server/review-queue";
 import { getSessionEnd } from "@/features/study/server/sessions";
@@ -59,8 +61,6 @@ import { readingLabel, sourceView } from "@/features/study/server/source-view";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The most source chunks `getTopic` gives per KC. */
 const SOURCES_PER_KC = 3;
@@ -95,7 +95,7 @@ export async function startTutoring(
     loadKcPriorities(supabase, courseId),
     loadMemory(supabase, courseId),
     getExamFacts(supabase, courseId),
-    loadStoredReadingSections(supabase, courseId),
+    loadReadingSections(supabase, courseId),
     loadStoredTopics(supabase, courseId),
     loadStageSession(supabase, chatId),
     loadReservedChunks(supabase, courseId),
@@ -190,6 +190,7 @@ export async function startTutoring(
     topics,
     map,
   });
+  const materialNotes = await loadMaterialNotes(supabase, courseId);
   return {
     context: {
       today: utcDay(now),
@@ -216,6 +217,7 @@ export async function startTutoring(
       ...(practiceKcs && { practiceKcs }),
       ...(mockResults && { mockResults }),
       ...notes,
+      ...(materialNotes.length > 0 && { materialNotes }),
     },
     tools: tutorTools(
       tutorToolActions(supabase, {
@@ -256,7 +258,7 @@ function tutorToolActions(
     facts: Parameters<typeof loadSchedules>[2];
     map: KnowledgeMap;
     topics: Awaited<ReturnType<typeof loadStoredTopics>>;
-    readings: Awaited<ReturnType<typeof loadStoredReadingSections>>;
+    readings: Awaited<ReturnType<typeof loadReadingSections>>;
     /** The reserved exam's chunks, which no tool gives the AI. */
     reserved: Set<string>;
     /** Whether the session is a review session, which sets `findProblems`' purpose. */
@@ -378,18 +380,15 @@ function tutorToolActions(
     },
     compute: (program) => mathRunner.run(program),
     async findReading(sectionId) {
-      // Ids the model made up are no uuids, which the query would refuse.
-      if (!UUID.test(sectionId)) return null;
-      const section = await findReadingSection(supabase, courseId, sectionId);
-      if (!section || section.chunkIds.some((id) => reserved.has(id))) {
-        return null;
-      }
+      // `readings` leaves out the reserved exam's sections.
+      const section = [...readings.values()]
+        .flat()
+        .find(({ id }) => id === sectionId);
+      if (!section) return null;
       const chunks = await loadChunkSources(supabase, section.chunkIds);
       return {
         label: readingLabel(section),
-        mode: section.mode,
         chunks: chunks.map((chunk) => chunk.markdown),
-        studyText: section.studyText,
       };
     },
     async remember(text) {
@@ -442,7 +441,6 @@ function tutorToolActions(
         kcs: kcs.map((kc) => ({
           id: kc.id,
           name: kc.name,
-          type: kc.type,
           description: kc.description,
           state: stateOf(kc.id),
           sources: wanted.has(kc.id)
@@ -464,7 +462,6 @@ function tutorToolActions(
           sectionList.map((section) => ({
             id: section.id,
             label: readingLabel(section),
-            mode: section.mode,
             done: done.has(section.id),
           })),
       };

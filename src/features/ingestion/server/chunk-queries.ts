@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { examChapterIds } from "@/features/ingestion/domain/old-exam-chapters";
 import {
   CHUNK_LABELS,
   type ExerciseSolution,
@@ -11,8 +12,6 @@ import { allRows } from "@/lib/supabase/all-rows";
 import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
-
-const figureSchema = z.object({ description: z.string() }).nullable();
 
 /**
  * The signed-in Student's Material with its chunks in reading order, or null
@@ -28,9 +27,7 @@ export async function getMaterialChunks(
 
   const material = await supabase
     .from("materials")
-    .select(
-      "id, course_id, name, parse_status, is_exam, exam_year, exam_total_points",
-    )
+    .select("id, course_id, name, parse_status")
     .eq("id", materialId)
     .maybeSingle();
   if (material.error) {
@@ -41,20 +38,32 @@ export async function getMaterialChunks(
   const chunks = await allRows("Loading the chunks", (from, to) =>
     supabase
       .from("chunks")
-      .select(
-        "id, position, page_from, page_to, label, markdown, figure, exercise_number, points",
-      )
+      .select("id, position, page_from, page_to, label, markdown")
       .eq("material_id", materialId)
       .order("position")
       .range(from, to),
   );
 
-  const figures = chunks.map((chunk) =>
-    figureSchema.parse(chunk.figure ?? null),
-  );
-  const solutions = await exerciseSolutions(
-    supabase,
-    chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
+  const [solutions, chapters] = await Promise.all([
+    exerciseSolutions(
+      supabase,
+      chunks.filter((chunk) => chunk.label === "exercise").map((c) => c.id),
+    ),
+    allRows("Loading the Chapters", (from, to) =>
+      supabase
+        .from("chapters")
+        .select("id, parent_id, title, is_exam")
+        .eq("material_id", materialId)
+        .order("position")
+        .range(from, to),
+    ),
+  ]);
+  const examIds = examChapterIds(
+    chapters.map((c) => ({
+      id: c.id,
+      parentId: c.parent_id,
+      isExam: c.is_exam === true,
+    })),
   );
 
   const row = material.data;
@@ -63,25 +72,17 @@ export async function getMaterialChunks(
     courseId: row.course_id,
     name: row.name,
     parseStatus: row.parse_status as ParseStatus,
-    exam: row.is_exam
-      ? {
-          year: row.exam_year,
-          totalPoints:
-            row.exam_total_points === null
-              ? null
-              : Number(row.exam_total_points),
-        }
-      : null,
-    chunks: chunks.map((chunk, index) => ({
+    // A confirmed Chapter whose parent is in no old exam.
+    examChapters: chapters
+      .filter((c) => examIds.has(c.id) && !examIds.has(c.parent_id ?? ""))
+      .map((c) => c.title),
+    chunks: chunks.map((chunk) => ({
       id: chunk.id,
       position: chunk.position,
       pageFrom: chunk.page_from,
       pageTo: chunk.page_to,
       label: z.enum(CHUNK_LABELS).parse(chunk.label),
       markdown: chunk.markdown,
-      figure: figures[index] ?? null,
-      exerciseNumber: chunk.exercise_number,
-      points: chunk.points === null ? null : Number(chunk.points),
       solution: solutions.get(chunk.id) ?? null,
     })),
   };
@@ -134,11 +135,7 @@ async function exerciseSolutions(
   const solutionChunks = await inSlices(
     "Loading the solution chunks",
     pairs.flatMap((pair) => pair.solution_chunk_id ?? []),
-    (ids) =>
-      supabase
-        .from("chunks")
-        .select("id, material_id, exercise_number")
-        .in("id", ids),
+    (ids) => supabase.from("chunks").select("id, material_id").in("id", ids),
   );
   const materials = await inSlices(
     "Loading the solutions' Materials",
@@ -157,7 +154,6 @@ async function exerciseSolutions(
         chunkId: solution.id,
         materialId: material.id,
         materialName: material.name,
-        exerciseNumber: solution.exercise_number,
       });
     } else if (pair.status === "no_solution") {
       result.set(pair.exercise_chunk_id, { status: "no_solution" });

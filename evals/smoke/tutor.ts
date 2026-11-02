@@ -2,40 +2,16 @@ import { randomUUID } from "node:crypto";
 import { respondInChat } from "@/features/chat/server";
 import { startTutoring, type GradedKc } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
-import type { Supabase } from "@/lib/supabase/types";
-import { insertGoldMap, insertGoldTopics } from "./gold-map";
+import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
+import {
+  answerText,
+  insertRows,
+  numericExercise,
+  seedGoldCourse,
+} from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
 const GREETING = "Let's start studying.";
-
-/**
- * A plausible answer to a review question on the two due KCs: the five
- * turbojet sections and thermal efficiency, the gold map's content KCs
- * without Prerequisites.
- */
-const ANSWER =
-  "I think the air goes through the intake, the compressor, the combustion chamber, the turbine and then the nozzle. Thermal efficiency is the useful power you get out, the gain in the jet's kinetic energy, divided by the heat the fuel puts in.";
-
-/** The gold Exercise the Student asks for, with real data and a key. */
-export const THRUST_EXERCISE = {
-  name: "Ex. 7.2a",
-  markdown:
-    "Ex. 7.2a: A turbojet flies at 250 m/s and takes in 50 kg/s of air, which leaves the fully expanded nozzle at 600 m/s. Neglect the fuel's mass flow. Compute the thrust.",
-  finalAnswers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
-  /**
-   * Every KC of the gold map's thrust big idea, not only its two, so
-   * `findProblems` finds it whichever of them the AI looks up: the AI knows
-   * only the ids of the due reviews, the next Topic's KCs and their anchors,
-   * which may leave out the Exercise's own KCs.
-   */
-  kcs: ["KC01", "KC02", "KC03", "KC04", "KC05", "KC06", "KC07", "KC08"],
-};
-
-const EXERCISE_REQUEST = `Can you give me ${THRUST_EXERCISE.name} from the exercise sheet? I want to practise computing net thrust.`;
-
-/** The right answer to `THRUST_EXERCISE`, in another unit than its key. */
-const EXERCISE_ANSWER =
-  "F = mdot (v_e - v_0) = 50 kg/s × (600 - 250) m/s = 17500 N.";
 
 /** How long ago the due KCs were taught. */
 const TAUGHT_DAYS_AGO = 3;
@@ -54,16 +30,12 @@ const TOOL_NAMES = [
 const READING_REQUEST =
   "I'd like to read the course's pages on this before we start.";
 
-/** The study text of the gold Topics' study-text Reading sections. */
-const STUDY_TEXT =
-  "A jet engine pushes air backwards; by Newton's third law the air pushes the engine forwards. The thrust is the mass flow times how much faster the air leaves than it came in: $F = \\dot m (v_e - v_0)$ [p. 1].";
-
 /** A preference worth keeping in the Memory (#107). */
 const PREFERENCE = "I learn best with examples before formulas.";
 
 /** The Memory of the Course, read as the admin. */
 async function readMemory(
-  supabase: Parameters<typeof insertGoldMap>[0],
+  supabase: AdminSupabase,
   courseId: string,
 ): Promise<string> {
   const { data, error } = await supabase
@@ -76,16 +48,6 @@ async function readMemory(
 }
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-
-/** Rows of `table` for the Student's Course, inserted as given. */
-export async function insertRows(
-  supabase: Parameters<typeof insertGoldMap>[0],
-  table: string,
-  rows: object[],
-) {
-  const { error } = await supabase.from(table as "kcs").insert(rows as never);
-  if (error) throw new Error(`${table}: ${error.message}`);
-}
 
 /**
  * A tool call the AI made, with the KC ids it passed and whether it came
@@ -247,152 +209,30 @@ export async function sendMessage(
 }
 
 /**
- * Stores a Course with the jet-engines gold map with one Topic per Big idea,
- * each with an original and a study-text Reading section, a stand-in source
- * chunk for every KC and the gold Exercises with stand-in question chunks
- * (Ex. 7.2a with real data and a numeric key).
- */
-export async function insertGoldCourse(
-  supabase: Parameters<typeof insertGoldMap>[0],
-  studentId: string,
-) {
-  const { data: course, error } = await supabase
-    .from("courses")
-    .insert({ owner: studentId, name: "Smoke check" })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  const owned = { owner: studentId, course_id: course.id };
-  const { gold, id } = await insertGoldMap(supabase, studentId, course.id);
-
-  const materialId = randomUUID();
-  await insertRows(supabase, "materials", [
-    {
-      ...owned,
-      id: materialId,
-      name: "Jet engines",
-      media_type: "application/pdf",
-      size_bytes: 1,
-      storage_path: `${studentId}/${course.id}/${materialId}`,
-    },
-  ]);
-  const chunk = (position: number, label: string, markdown: string) => ({
-    ...owned,
-    id: randomUUID(),
-    material_id: materialId,
-    position,
-    page_from: position + 1,
-    page_to: position + 1,
-    label,
-    markdown,
-  });
-  const source = chunk(
-    0,
-    "content",
-    "A jet engine accelerates air rearward, and the reaction pushes the engine forward (Newton's third law). Thrust is the mass flow times the change in velocity.",
-  );
-  const questions = gold.exercises.map((exercise, index) =>
-    chunk(
-      index + 1,
-      "exercise",
-      exercise.name === THRUST_EXERCISE.name
-        ? THRUST_EXERCISE.markdown
-        : `${exercise.name}: ${exercise.taskType}. Use the data given in the lecture.`,
-    ),
-  );
-  await insertRows(supabase, "chunks", [source, ...questions]);
-  await insertRows(
-    supabase,
-    "knowledge_map_chunks",
-    [source, ...questions].map(({ id: chunkId }) => ({
-      ...owned,
-      chunk_id: chunkId,
-    })),
-  );
-  await insertRows(
-    supabase,
-    "kc_sources",
-    gold.kcs
-      .filter((kc) => kc.bigIdea !== null)
-      .map((kc) => ({ ...owned, kc_id: id(kc.id), chunk_id: source.id })),
-  );
-  const exerciseIds = gold.exercises.map(() => randomUUID());
-  await insertRows(
-    supabase,
-    "exercises",
-    gold.exercises.map((exercise, position) => ({
-      ...owned,
-      id: exerciseIds[position],
-      name: exercise.name,
-      task_type: exercise.taskType,
-      difficulty: exercise.difficulty,
-      solution_status: exercise.solutionStatus,
-      solution: null,
-      question_chunk_id: questions[position]!.id,
-      final_answers:
-        exercise.name === THRUST_EXERCISE.name
-          ? THRUST_EXERCISE.finalAnswers
-          : null,
-      position,
-    })),
-  );
-  const thrustExerciseId =
-    exerciseIds[
-      gold.exercises.findIndex(({ name }) => name === THRUST_EXERCISE.name)
-    ];
-  await insertRows(
-    supabase,
-    "exercise_kcs",
-    gold.exercises.flatMap((exercise, position) =>
-      (exercise.name === THRUST_EXERCISE.name
-        ? THRUST_EXERCISE.kcs
-        : exercise.kcs
-      ).map((kc) => ({
-        ...owned,
-        exercise_id: exerciseIds[position],
-        kc_id: id(kc),
-      })),
-    ),
-  );
-
-  await insertGoldTopics(
-    supabase,
-    studentId,
-    course.id,
-    { gold, id },
-    { materialId, chunkIds: [source.id], studyText: STUDY_TEXT },
-  );
-  return { courseId: course.id, gold, id, exerciseIds, thrustExerciseId };
-}
-
-/**
- * Sets up the gold Course (`insertGoldCourse`). Sends "Let's start
- * studying." in a first Chat, where the AI must read the
- * next Topic's KCs before any text. Then teaches two KCs a few days ago, so
- * both are due, and sends "Let's start studying.", a plausible answer and a
- * learning preference in a new Chat, and a request for Ex. 7.2a and its
- * right answer in a third one, and in a fourth the wish to read the
- * course's pages first and then "Done reading." for the section the AI
- * opened, all through the real Chat handler. Every Topic has an original
- * and a study-text Reading section. Checks what the AI did, said,
- * remembered, graded and opened, numeric check included, and that every KC
- * id it used belongs to its context.
+ * Seeds the gold course (`seedGoldCourse`). Sends "Let's start studying."
+ * in a first Chat, where the AI must read the next Topic's KCs before any
+ * text. Then teaches two KCs without Prerequisites a few days ago, so both
+ * are due, and sends "Let's start studying.", their descriptions as the
+ * answer and a learning preference in a new Chat; in a third one, a request
+ * for an Exercise with a numeric key on the KCs the AI knows, and its key as
+ * the answer; in a fourth, the wish to read the course's pages first and
+ * then "Done reading." for the section the AI opened, all through the real
+ * Chat handler. Checks what the AI did, said, remembered, graded and
+ * opened, numeric check included, and that every KC id it used belongs to
+ * its context.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold map with Topics, stand-in sources and Exercises; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for Ex. 7.2a and its answer in a third Chat; a wish to read first and Done in a fourth)",
+    "pnpm smoke tutor (the gold course; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for a numeric Exercise and its answer in a third Chat; a wish to read first and Done in a fourth)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with a title per Chat the only
   // others.
   maxCalls: 15,
   async run({ supabase, studentId }) {
-    const { courseId, gold, id, thrustExerciseId } = await insertGoldCourse(
-      supabase,
-      studentId,
-    );
-    const course = { id: courseId };
-    const owned = { owner: studentId, course_id: courseId };
+    const gold = await seedGoldCourse(supabase, studentId);
+    const course = { id: gold.courseId };
+    const owned = { owner: studentId, course_id: gold.courseId };
 
     // The Chat runs as the Student, with Row Level Security as in the app.
     // Before anything is taught, a greeting starts on the next Topic.
@@ -407,14 +247,15 @@ export const tutorSmoke: SmokeCheck = {
     if (nextKcs.size === 0) throw new Error("The context has no next Topic.");
     const opening = await sendMessage(client, studentId, freshChat, GREETING);
 
-    // Two content KCs without Prerequisites, taught a few days ago by a
-    // question graded full in an earlier session. Only the admin client can
-    // backdate an attempt.
+    // Two KCs without Prerequisites, taught a few days ago by a question
+    // graded full in an earlier session. Only the admin client can backdate
+    // an attempt.
     const hasPrerequisite = new Set(gold.prerequisites.map((link) => link.to));
-    const taught = gold.kcs
-      .filter((kc) => kc.bigIdea !== null && !hasPrerequisite.has(kc.id))
-      .slice(0, 2)
-      .map((kc) => id(kc.id));
+    const taughtKcs = gold.kcs
+      .filter((kc) => !hasPrerequisite.has(kc.id))
+      .slice(0, 2);
+    const taught = taughtKcs.map((kc) => kc.id);
+    const answer = taughtKcs.map((kc) => kc.description).join(" ");
     const taughtAt = new Date(
       Date.now() - TAUGHT_DAYS_AGO * 24 * 60 * 60 * 1000,
     ).toISOString();
@@ -434,10 +275,9 @@ export const tutorSmoke: SmokeCheck = {
         ...question,
         session_id: session.id,
         kind: "question",
-        prompt:
-          "Name the sections of a turbojet and define thermal efficiency.",
+        prompt: `Explain ${taughtKcs.map((kc) => kc.name).join(" and ")}.`,
         asked_at: taughtAt,
-        answer_text: ANSWER,
+        answer_text: answer,
         answered_at: taughtAt,
         graded_at: taughtAt,
       },
@@ -482,7 +322,7 @@ export const tutorSmoke: SmokeCheck = {
     const first = await sendMessage(client, studentId, chat, GREETING);
     // The Student answers the question the first reply asked, on its card.
     const asked = first.questionIds.at(-1);
-    const second = await sendMessage(client, studentId, chat, ANSWER, {
+    const second = await sendMessage(client, studentId, chat, answer, {
       questionId: asked,
     });
     const memoryBefore = await readMemory(supabase, course.id);
@@ -496,21 +336,28 @@ export const tutorSmoke: SmokeCheck = {
       .split("\n")
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
-    // In a second Chat, without open cards, the Student asks for the numeric
-    // Exercise and answers it on its card.
+    // In another Chat, without open cards, the Student asks for an Exercise
+    // with a numeric key on the KCs the AI knows, and answers it on its card.
     const exerciseChat = { chatId: randomUUID(), courseId: course.id };
+    const known = (await startTutoring(client, course.id, exerciseChat.chatId))
+      .context;
+    const target = numericExercise(gold, [
+      ...known.dueReviews.kcs.map((kc) => kc.id),
+      ...(known.todayPlan.next?.kcs ?? []).map((kc) => kc.id),
+      ...(known.todayPlan.next?.anchors ?? []).map((kc) => kc.id),
+    ]);
     const fourth = await sendMessage(
       client,
       studentId,
       exerciseChat,
-      EXERCISE_REQUEST,
+      `Can you give me the exercise from ${target.label}? It starts: "${target.markdown.slice(0, 120)}". I want to practise it.`,
     );
     const exerciseAsked = fourth.questionIds.at(-1);
     const fifth = await sendMessage(
       client,
       studentId,
       exerciseChat,
-      EXERCISE_ANSWER,
+      `My result: ${answerText(target.finalAnswers)}.`,
       { questionId: exerciseAsked },
     );
 
@@ -601,12 +448,12 @@ export const tutorSmoke: SmokeCheck = {
       for (const kc of graded) earlier.add(kc.id);
       return checked;
     });
-    const known = new Set([
+    const knownIds = new Set([
       ...offered,
       ...replies.flatMap((reply) => reply.returned),
     ]);
     const unknown = replies.flatMap(({ calls }) =>
-      calls.flatMap(({ kcIds }) => kcIds.filter((kc) => !known.has(kc))),
+      calls.flatMap(({ kcIds }) => kcIds.filter((kc) => !knownIds.has(kc))),
     );
     return [
       result(
@@ -631,7 +478,7 @@ export const tutorSmoke: SmokeCheck = {
       ),
       result(
         "the answer was stored on the question",
-        graded?.answer_text === ANSWER,
+        graded?.answer_text === answer,
         asked ? "" : "no question asked",
       ),
       result(
@@ -659,9 +506,9 @@ export const tutorSmoke: SmokeCheck = {
         `${describe(third.calls)}; new: ${JSON.stringify(newLines)}`,
       ),
       result(
-        `the request found ${THRUST_EXERCISE.name} with findProblems and asked it by its problemId`,
+        `the request found ${target.label} with findProblems and asked it by its problemId`,
         fourth.calls.some(({ toolName }) => toolName === "findProblems") &&
-          exercise?.exercise_id === thrustExerciseId,
+          exercise?.exercise_id === target.id,
         `${describe(fourth.calls)}; exercise ${exercise?.exercise_id ?? "none"}`,
       ),
       result(

@@ -8,9 +8,9 @@ import { failed } from "@/lib/supabase/failed";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * The signed-in Student's open and accepted map Findings of a Course for the
- * Map findings card, oldest first, with their KCs' names and the quoted
- * chunk's page. Empty for an unknown or another Student's Course.
+ * The signed-in Student's open map Findings of a Course for the Map findings
+ * card, oldest first, with their KCs' names and the quoted chunk's page.
+ * Empty for an unknown or another Student's Course.
  */
 export async function getMapFindings(
   courseId: string,
@@ -20,10 +20,10 @@ export async function getMapFindings(
   const { data, error } = await supabase
     .from("map_findings")
     .select(
-      "id, kind, status, reason, quote, chunk_id, kc:kcs!map_findings_kc_id_fkey(name), linked:kcs!map_findings_linked_kc_id_fkey(name)",
+      "id, kind, proposed_description, reason, quote, chunk_id, kc:kcs!map_findings_kc_id_fkey(name), linked:kcs!map_findings_linked_kc_id_fkey(name)",
     )
     .eq("course_id", courseId)
-    .in("status", ["open", "accepted"])
+    .eq("status", "open")
     .order("created_at");
   if (error) failed("Loading the map Findings", error);
   if (data.length === 0) return [];
@@ -40,9 +40,9 @@ export async function getMapFindings(
     return {
       id: row.id,
       kind: row.kind as MapFindingKind,
-      status: row.status as MapFindingItem["status"],
       kc: row.kc.name,
       linkedKc: row.linked?.name ?? null,
+      proposedDescription: row.proposed_description,
       reason: row.reason,
       quote: row.quote,
       source: chunk
