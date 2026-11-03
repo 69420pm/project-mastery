@@ -1,9 +1,61 @@
+import type { Link } from "@/features/knowledge-map/domain/prerequisite-cycles";
+
 /**
  * The Topic tree (#229): the rules that turn the tree call's answer, or the
  * stored tree, into the Topics a build stores. A Topic covers whole
  * Chapters; each Chapter with KCs sits in exactly one Topic, and each KC in
- * the Topic of its Chapter. Pure code.
+ * the Topic of its Chapter. A KC without sources sits with the KC it is
+ * placed by (#236). Pure code.
  */
+
+/**
+ * The KC each KC without sources is placed by: the first of `placed` (KCs
+ * in Course order) that builds on it, directly or through other KCs
+ * without sources. A KC that none of them builds on is left out.
+ */
+export function unsourcedAnchors(
+  placed: readonly string[],
+  unsourced: readonly string[],
+  prerequisites: readonly Link[],
+): Map<string, string> {
+  const rank = new Map(placed.map((id, index) => [id, index]));
+  const without = new Set(unsourced);
+  const next = Map.groupBy(prerequisites, (link) => link.from);
+  const anchors = new Map<string, string>();
+  for (const id of unsourced) {
+    let best: string | undefined;
+    const seen = new Set([id]);
+    const stack = [id];
+    while (stack.length > 0) {
+      for (const { to } of next.get(stack.pop()!) ?? []) {
+        if (seen.has(to)) continue;
+        seen.add(to);
+        if (without.has(to)) stack.push(to);
+        else if (
+          rank.has(to) &&
+          (best === undefined || rank.get(to)! < rank.get(best)!)
+        ) {
+          best = to;
+        }
+      }
+    }
+    if (best !== undefined) anchors.set(id, best);
+  }
+  return anchors;
+}
+
+/**
+ * `ids` with each KC without sources of `anchors` directly before the KC
+ * it is placed by, in the order of `anchors`; one whose KC is not in `ids`
+ * is left out.
+ */
+export function withUnsourced(
+  ids: readonly string[],
+  anchors: ReadonlyMap<string, string>,
+): string[] {
+  const before = Map.groupBy(anchors.keys(), (id) => anchors.get(id)!);
+  return ids.flatMap((id) => [...(before.get(id) ?? []), id]);
+}
 
 /** The most characters of a Topic name. */
 export const MAX_TOPIC_NAME = 80;
@@ -108,19 +160,23 @@ type Node = {
  * and a KC from the exercise call the Topic holding most of the KCs it is
  * tested with (the earlier on a tie). A Topic left with no KCs and no
  * children is dropped. A Topic keeps the stored id it continues when that
- * is one of `storedIds` and no earlier Topic took it.
+ * is one of `storedIds` and no earlier Topic took it. A KC without sources
+ * joins the Topic of the KC `unsourced` places it by, directly before it.
  */
 export function planTopicTree({
   proposed,
   chapters,
   kcs,
   storedIds,
+  unsourced = new Map(),
 }: {
   proposed: ProposedTopic[];
   /** The Course's Chapters in Course order. */
   chapters: Array<{ id: string; title: string }>;
   kcs: TreeKc[];
   storedIds: ReadonlySet<string>;
+  /** The KCs without sources, each with the KC it is placed by (`unsourcedAnchors`). */
+  unsourced?: ReadonlyMap<string, string>;
 }): PlannedTopic[] {
   const byChapter = kcChapters(kcs);
   const withKcs = new Set(byChapter.values());
@@ -186,6 +242,7 @@ export function planTopicTree({
     if (best) topicOfKc.set(kc.id, best);
   }
   for (const kc of kcs) topicOfKc.get(kc.id)?.kcs.push(kc.id);
+  for (const node of order) node.kcs = withUnsourced(node.kcs, unsourced);
 
   // Empty Topics go, from the leaves up; then the plan in tree order.
   const prune = (nodes: Node[]): Node[] =>

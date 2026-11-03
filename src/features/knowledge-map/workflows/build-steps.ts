@@ -62,15 +62,17 @@ export async function touchBuild(
 /**
  * Runs `call` on each item, at most AI_CONCURRENCY at a time, and starts
  * none after CALL_WINDOW_MS, nor once a call returned "stop". The first
- * always starts.
+ * always starts, unless `since` (a time from `Date.now()`) starts the
+ * window earlier, for the second round of calls of one step.
  */
 export async function runCalls<Item>(
   items: readonly Item[],
   call: (item: Item) => Promise<"stop" | void>,
+  since?: number,
 ): Promise<void> {
-  const startedAt = Date.now();
+  const startedAt = since ?? Date.now();
   const queue = [...items];
-  let started = 0;
+  let started = since === undefined ? 0 : 1;
   let stopped = false;
   const worker = async () => {
     while (!stopped) {

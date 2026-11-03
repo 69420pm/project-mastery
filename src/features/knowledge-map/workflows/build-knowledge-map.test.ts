@@ -205,31 +205,61 @@ describe("Update map", () => {
     expect(liveKcs(db)).toHaveLength(2);
   });
 
-  test("makes what a KC assumes a Prerequisite on an earlier KC, once", async () => {
-    for (const title of ["Vectors", "Sums", "Bases"]) {
+  test("links what a KC assumes to an earlier KC, not to a later one, and makes a KC without sources of what no KC means, once", async () => {
+    for (const title of ["Vectors", "Bases", "Sums"]) {
       seedMaterial(db, { chapters: [{ title }] });
     }
-    const kcOf = (unit: { material: string }) =>
-      ({ "Material 0": "Vectors", "Material 1": "Sums" })[unit.material] ??
-      "Bases";
+    // The check picks the KC of the name's own name, or null without one.
     const { checks } = useBuildModels({
-      kcsOf: (unit) => [kcOf(unit)],
-      assumesOf: (kc) => (kc === "Bases" ? ["Vectors", "Sums"] : []),
-      meaningOf: (name) => (name.name === "Vectors" ? "Vectors" : null),
+      kcsOf: (unit) => [unit.chunks[0]!.markdown.slice("About ".length, -1)],
+      assumesOf: (kc) => (kc === "Bases" ? ["Vectors", "Sums", "Limits"] : []),
     });
     await update();
 
     expect(checks).toHaveLength(1);
-    expect(checks[0]!.map((name) => name.candidates.length)).toEqual([2, 2]);
+    expect(
+      checks[0]!.map((name) => [name.name, name.candidates.length]),
+    ).toEqual([
+      ["Vectors", 2],
+      ["Sums", 2],
+      ["Limits", 2],
+    ]);
     const kcId = (name: string) =>
       db.tables.kcs.find((kc) => kc.name === name)!.id;
-    expect(db.tables.prerequisite_links).toMatchObject([
-      { from_kc: kcId("Vectors"), to_kc: kcId("Bases") },
+    expect(
+      db.tables.prerequisite_links.map((link) => [link.from_kc, link.to_kc]),
+    ).toEqual([
+      [kcId("Vectors"), kcId("Bases")],
+      [kcId("Limits"), kcId("Bases")],
+    ]);
+    expect(liveKcs(db)).toEqual(["Vectors", "Limits", "Bases", "Sums"]);
+    expect(db.tables.kc_sources.map((source) => source.kc_id)).not.toContain(
+      kcId("Limits"),
+    );
+    expect(topicTree(db)).toEqual([
+      "Vectors: Vectors",
+      "Bases: Limits, Bases",
+      "Sums: Sums",
     ]);
 
     const again = useBuildModels();
     await update();
-    expect(again.checks).toEqual([]);
+    expect([again.checks, again.trees]).toEqual([[], []]);
+    expect(liveKcs(db)).toEqual(["Vectors", "Limits", "Bases", "Sums"]);
+    expect(db.tables.kcs).toHaveLength(4);
+  });
+
+  test("makes one KC without sources of a name that has no candidates, without a call", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+    const { checks } = useBuildModels({
+      assumesOf: () => ["Fields", " fields"],
+    });
+    await update();
+
+    expect(checks).toEqual([]);
+    expect(liveKcs(db)).toEqual(["Fields", "Material 0"]);
+    expect(db.tables.prerequisite_links).toHaveLength(1);
+    expect(topicTree(db)).toEqual(["Vectors: Fields, Material 0"]);
   });
 
   test("resumes a build the Daily limit stopped without repeating stored extractions", async () => {

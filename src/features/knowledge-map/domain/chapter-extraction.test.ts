@@ -6,7 +6,10 @@ describe("checkExtraction", () => {
     name,
     description: `About ${name}.`,
     chunkIds,
-    assumes: [" Limits ", "", "Sums", "Series", "Products"],
+    assumes: [" Limits ", "", "Sums", "Series", "Products"].map((name) => ({
+      name,
+      description: `About ${name.trim()}.`,
+    })),
   });
 
   test("keeps known chunk ids and drops KCs without one, and links with an unknown end", () => {
@@ -33,7 +36,11 @@ describe("checkExtraction", () => {
       ["Vector", ["chunk-1"]],
       ["Basis", ["chunk-2"]],
     ]);
-    expect(checked.kcs[0]!.assumes).toEqual(["Limits", "Sums", "Series"]);
+    expect(checked.kcs[0]!.assumes).toEqual([
+      { name: "Limits", description: "About Limits." },
+      { name: "Sums", description: "About Sums." },
+      { name: "Series", description: "About Series." },
+    ]);
     expect(checked.prerequisites).toEqual([{ from: 0, to: 1 }]);
   });
 });

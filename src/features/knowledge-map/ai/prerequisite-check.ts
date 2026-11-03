@@ -12,11 +12,12 @@ export type OfferedKc = {
   description: string;
 };
 
-/** A name a KC assumes, with the earlier KCs it may mean. */
+/** A name a KC assumes, with the course's KCs it may mean. */
 export type OfferedName = {
   /** Short and only for the call, such as n1. */
   id: string;
   name: string;
+  description: string;
   /** The KC that assumes it, as "name: description". */
   usedBy: string;
   candidates: readonly [OfferedKc, ...OfferedKc[]];
@@ -40,10 +41,10 @@ export function prerequisiteCheckSchema(names: readonly OfferedName[]) {
   });
 }
 
-const CHECK_INSTRUCTIONS = `You get names of things that knowledge components (KCs) of a university course assume, as JSON: each name with the KC that uses it and up to 5 candidate KCs taught earlier in the course. For each name, say which candidate it means.
+const CHECK_INSTRUCTIONS = `You get things that knowledge components (KCs) of a university course assume, as JSON: each with a name, a one-line description, the KC that uses it and up to 5 candidate KCs of the course. For each, say which candidate it means.
 
-- Pick a candidate only when the name means the same thing as that KC, so a student must know the KC to understand the one that uses it.
-- Answer null when no candidate is meant, or when you are not sure. Do not guess.`;
+- Pick a candidate only when it means the same thing as that KC, so a student must know the KC to understand the one that uses it.
+- Answer null when no candidate is meant, or when you are not sure. Do not guess: a null answer makes it a KC of its own.`;
 
 /**
  * Call settings for one Prerequisite check of a build (task `map`), over up

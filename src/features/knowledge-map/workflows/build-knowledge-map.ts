@@ -21,7 +21,7 @@ import { proposeTopicTree } from "@/features/knowledge-map/workflows/topic-steps
  * extracts the teaching units without a current extraction, stores their
  * KCs merged with alike ones, then extracts and stores the exercise units'
  * Exercises the same way. It matches what the KCs assume to earlier KCs as
- * Prerequisites, groups the Chapters into a Topic tree (one call, only
+ * Prerequisites, or stores it as KCs without sources, groups the Chapters into a Topic tree (one call, only
  * when the Outlines or KCs changed) and puts the map in Course order. A
  * step that fails for
  * good, or a reached Daily limit, fails the build with a reason and loses

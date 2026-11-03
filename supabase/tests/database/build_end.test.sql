@@ -44,7 +44,7 @@ select results_eq(
   'alike_kcs lists each pair of alike live KCs once');
 
 select is(
-  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001',
+  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001', '[]',
     '[{"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000002", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',

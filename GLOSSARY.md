@@ -37,7 +37,7 @@ A Student-confirmed statement that the exam leaves out (`excluded`) or stresses 
 _Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
 
 **Knowledge map**:
-What a Course's Materials teach, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates.
+What a Course's Materials teach and what they assume without explaining, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and assume and drops what deleted ones taught, unless a KC still builds on it; its KCs and Exercises keep their identity across updates.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -45,7 +45,7 @@ The Course's home: its Topics drawn as nested boxes, with the arrows between Top
 _Avoid_: Dashboard, overview, home page
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, with the chunks of the Materials that teach it. Every KC sits in one Topic; a KC whose chunks are all gone is retired and keeps its Attempts.
+One thing a Student can learn and be tested on, with the chunks of the Materials that teach it, if any. A KC without chunks is one the Materials assume but never explain; the AI teaches it in the Chat, and it counts like any other KC. Every KC sits in one Topic, a KC without chunks in the Topic of the first KC that builds on it; a KC whose chunks are all gone, and that no live KC builds on, is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
