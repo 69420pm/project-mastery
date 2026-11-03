@@ -77,7 +77,7 @@ What the tutor files in a Study session when the Course's sources show the Knowl
 _Avoid_: Issue, error, erratum
 
 **Priority**:
-How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. A KC is at least as high as any KC that builds on it, directly or not, unless the Student excluded it; a KC without sources has no value of its own and takes exactly that highest Priority. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
