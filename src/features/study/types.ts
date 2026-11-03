@@ -153,10 +153,19 @@ export type TutorToday = {
     id: string;
     name: string;
     centralQuestion: string;
-    /** In teaching order; `taught` when it has an FSRS schedule. */
-    kcs: Array<{ id: string; name: string; taught: boolean }>;
+    /**
+     * In teaching order; `taught` when it has an FSRS schedule,
+     * `withoutSources` when no chunk teaches it. Contexts stored before
+     * #236 have no `withoutSources`.
+     */
+    kcs: Array<{
+      id: string;
+      name: string;
+      taught: boolean;
+      withoutSources?: boolean;
+    }>;
     /** Prerequisites from outside the Topic. */
-    anchors: Array<{ id: string; name: string }>;
+    anchors: Array<{ id: string; name: string; withoutSources?: boolean }>;
     /**
      * The Topic's Reading sections in order. Contexts stored before #179
      * have none.

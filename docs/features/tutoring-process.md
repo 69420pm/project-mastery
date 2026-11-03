@@ -21,7 +21,7 @@ FSRS scheduling is not a part of its own: code replays each KC's card from the a
 2. Today's date, the exam date, and the Memory in full when there is one.
 3. The plan: the Phase, the goal, the guidance for the Phase, the Today card's hint and the fit line.
 4. The due reviews, when the Course has a map.
-5. The Today card's next Topic: its name and central question, its KCs in teaching order, each marked taught or not, and its anchors with their ids. Without a map, a note says so and points to the map page.
+5. The Today card's next Topic: its name and central question, its KCs in teaching order, each marked taught or not, and its anchors with their ids; KCs and anchors without sources are marked so. Without a map, a note says so and points to the map page.
 
 ### Plan over Topics (#177)
 
@@ -53,7 +53,7 @@ An Exercise's solution is the one printed in the Materials, labelled `from the M
 
 `showReading` opens a Reading section, which `loadCourseTopics` cuts on each read (ADR 0020), and returns its label and its chunks' Markdown. The Student reads the pages as they are in the Source pane, and the AI explains a hard page in the Chat when the Student asks or the work stage shows a gap.
 
-The guidance is prompt text, not code. In a session with a Topic, one block per Stage gives its purpose, when to skip it and how to teach in it (see below). In a session without a Topic, the AI starts with due reviews, then teaches what comes next: it docks, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems on the same KCs in a row, and it keeps an Exercise's solution back until the Student has tried.
+The guidance is prompt text, not code. In a session with a Topic, one block per Stage gives its purpose, when to skip it and how to teach in it (see below). In a session without a Topic, the AI starts with due reviews, then teaches what comes next: it docks on the anchors and the KCs without sources, frames, builds, applies and connects. It fades its scaffolds, gives feedback on the reasoning, varies its openings, and never shows the Student ids or tool names. It never poses two problems on the same KCs in a row, and it keeps an Exercise's solution back until the Student has tried.
 
 ## Learn session Stages (#180)
 
@@ -61,6 +61,8 @@ A learn session teaches one Topic in Stages: review, orient, prime, read, work, 
 
 - **Session Topic.** The session's first reply sets `study_sessions.topic_id` to the plan's next Topic, through `start_study_session_topic`, and it stays fixed. A Course without Topics, or a plan with no next Topic, gives a session without a Topic or stage.
 - **Start stage** (`startStage` in `src/features/study/domain/stages.ts`): `review` when reviews are due, else the stage the Topic's most recent earlier session stopped at when that is before `close` (a stop at `review` restarts at `orient`), else `orient`. At `review` the context names the stage to go to after the reviews, lists the Topic's anchors first among the due reviews and gives the minutes since the session started; the review opening lasts at most 10 minutes.
+- **Orient.** One wide `ask` over the Topic's anchors and its KCs without sources, up to 12 KC ids, graded as usual: a KC answered in full is taught with no teaching. Orient is skipped only when no anchor is taught and no KC without sources is among the Topic's KCs and anchors, so it runs in the first session too, before prime.
+- **KCs without sources** (#236): the context marks them `without sources`. The AI asks first, assuming nothing; when the Student doesn't show the KC, it calls `searchMaterials` for how the Course uses it, states it in the Course's notation, marked as beyond the materials, and checks with a question. They have no Reading section and no stored text. On a large gap the AI says so plainly and lets the Student choose whether to spend the session on it.
 - **Moving on.** `setStage` (`stageMoveRefusal`) writes through `set_study_session_stage`, which changes only the caller's running session with a Topic, never past `close`.
 - **Rebuild.** One `ask` of kind `rebuild` over all the Topic's KCs (`ask` takes up to 12 KC ids). Its grade is followed by a Knowledge map card that opens the Topic's part of the Knowledge map, with KC states, in the source pane (`getTopicKnowledgeMap`); while the reply streams it opens on its own. The pane shows one thing at a time.
 - **Stage bar** (`src/features/study/components/stage-bar.tsx`): above the messages, the eight stages with the current one marked and the earlier ones done; below `lg` only the current one. The Chat reads the stage from the stored tutor context and the `setStage` results.
