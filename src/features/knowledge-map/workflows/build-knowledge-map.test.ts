@@ -262,6 +262,34 @@ describe("Update map", () => {
     expect(topicTree(db)).toEqual(["Vectors: Fields, Material 0"]);
   });
 
+  test("leaves a retired KC retired when the cycle check drops the link that would revive it", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+    const sums = seedMaterial(db, { chapters: [{ title: "Sums" }] });
+    // "More Vectors" gives a KC named "Vectors" too.
+    const kcsOf = (unit: { chunks: Array<{ markdown: string }> }) => [
+      unit.chunks[0]!.markdown.slice("About ".length, -1).replace("More ", ""),
+    ];
+    useBuildModels({
+      kcsOf,
+      assumesOf: (kc) => (kc === "Sums" ? ["Vectors"] : []),
+    });
+    await update();
+    deleteMaterial(db, sums);
+    await update();
+
+    // Vectors builds on the retired Sums, so the link from Sums is a cycle.
+    seedMaterial(db, { chapters: [{ title: "More Vectors" }] });
+    useBuildModels({
+      kcsOf,
+      assumesOf: (kc) => (kc === "Vectors" ? ["Sums"] : []),
+    });
+    await update();
+
+    expect(build()?.status).toBe("built");
+    expect(liveKcs(db)).toEqual(["Vectors"]);
+    expect(db.tables.prerequisite_links).toHaveLength(1);
+  });
+
   test("resumes a build the Daily limit stopped without repeating stored extractions", async () => {
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
     for (const title of ["Vectors", "Sums", "Bases"]) {
