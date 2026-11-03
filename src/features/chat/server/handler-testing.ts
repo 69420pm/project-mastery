@@ -498,4 +498,9 @@ export function seedMap() {
     });
     db.tables.kc_sources.push({ ...owned, kc_id: MAP.thrust, chunk_id: id });
   });
+  // Every KC is taught in the Lecture: none is without sources.
+  db.tables.kc_sources.push(
+    { ...owned, kc_id: MAP.newton, chunk_id: MAP.chunks[0] },
+    { ...owned, kc_id: MAP.efficiency, chunk_id: MAP.chunks[1] },
+  );
 }

@@ -169,6 +169,12 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
       origin: "content",
       position,
     });
+    t.kc_sources.push({
+      kc_id: id,
+      chunk_id: `cccccccc-0000-4000-8000-00000000000${position + 1}`,
+      course_id: COURSE,
+      owner: STUDENT,
+    });
     t.topics.push({
       id: `t${position + 1}`,
       ...owned,

@@ -135,6 +135,7 @@ export function flatTree(course: SentCourse): TreeTopicAnswer[] {
 export type SentName = {
   id: string;
   name: string;
+  description: string;
   usedBy: string;
   candidates: Array<{ id: string; name: string }>;
 };
@@ -143,8 +144,9 @@ export type SentName = {
  * Routes the `map`, `exercise` and `embed` tasks to mocks, one call at a
  * time. The extraction gives each unit the KCs `kcsOf` names (by default
  * one named after the unit's Chapter), citing its first chunk (or the id
- * `chunkIdOf` gives) and assuming what `assumesOf` says (by default
- * nothing); its first `blankCalls` calls answer nothing. The merge call
+ * `chunkIdOf` gives) and assuming the names `assumesOf` says (by default
+ * nothing), each described "About <name>." as a KC of that name is; its
+ * first `blankCalls` calls answer nothing. The merge call
  * calls KCs of one cluster with the same name the same. The Prerequisite
  * check picks the candidate named `meaningOf` the name (by default the name
  * itself). Every KC text gets a one-hot vector of its own, so equal texts
@@ -216,7 +218,10 @@ export function useBuildModels({
           name,
           description: `About ${name}.`,
           chunkIds: [chunkIdOf(name, unit)],
-          assumes: assumesOf(name),
+          assumes: assumesOf(name).map((assumed) => ({
+            name: assumed,
+            description: `About ${assumed}.`,
+          })),
         })),
         prerequisites: [],
       });

@@ -31,9 +31,21 @@ export function tutorToday(
       centralQuestion: next.centralQuestion,
       kcs: next.kcs.flatMap((id) => {
         const kc = kcById.get(id);
-        return kc ? [{ id, name: kc.name, taught: schedules.has(id) }] : [];
+        return kc
+          ? [
+              {
+                id,
+                name: kc.name,
+                taught: schedules.has(id),
+                withoutSources: kc.sources.length === 0,
+              },
+            ]
+          : [];
       }),
-      anchors: topicAnchors(next.kcs, map),
+      anchors: topicAnchors(next.kcs, map).map((anchor) => ({
+        ...anchor,
+        withoutSources: kcById.get(anchor.id)?.sources.length === 0,
+      })),
       readingSections: (readings.get(next.id) ?? []).map((section) => ({
         id: section.id,
         label: readingLabel(section),

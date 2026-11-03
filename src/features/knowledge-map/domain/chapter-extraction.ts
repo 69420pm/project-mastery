@@ -4,6 +4,9 @@
  * was offered.
  */
 
+/** Something a KC uses that its unit does not explain. */
+export type Assumption = { name: string; description: string };
+
 /**
  * A KC of an extraction: with the call's chunk ids in its answer, with
  * stored chunk ids once checked.
@@ -12,7 +15,7 @@ export type ExtractedKc = {
   name: string;
   description: string;
   chunkIds: string[];
-  assumes: string[];
+  assumes: Assumption[];
 };
 
 /** What the extraction call answers; Prerequisites name KCs. */
@@ -56,8 +59,13 @@ export function checkExtraction(
       description,
       chunkIds,
       assumes: kc.assumes
-        .map((assumed) => assumed.trim())
-        .filter(Boolean)
+        .flatMap((assumed) => {
+          const name = assumed.name.trim().slice(0, MAX_NAME);
+          const description = assumed.description
+            .trim()
+            .slice(0, MAX_DESCRIPTION);
+          return name && description ? [{ name, description }] : [];
+        })
         .slice(0, MAX_ASSUMES),
     });
   }

@@ -1,5 +1,6 @@
 import "server-only";
 import type { Link } from "@/features/knowledge-map/domain/prerequisite-cycles";
+import { unsourcedAnchors } from "@/features/knowledge-map/domain/topic-tree";
 import { allRows } from "@/lib/supabase/all-rows";
 import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
@@ -149,4 +150,36 @@ export function firstSourcePlaces(map: MapInput): Map<string, number> {
       return places.length === 0 ? [] : [[kc.id, Math.min(...places)]];
     }),
   );
+}
+
+/**
+ * The live KCs with a first source, in Course order, and the KC each live
+ * KC without one is placed by (`unsourcedAnchors`).
+ */
+export function courseOrder(map: MapInput): {
+  places: Map<string, number>;
+  sourced: string[];
+  anchors: Map<string, string>;
+} {
+  const places = firstSourcePlaces(map);
+  const sourced = map.kcs
+    .map((kc) => kc.id)
+    .filter((id) => places.has(id))
+    .toSorted((a, b) => places.get(a)! - places.get(b)!);
+  const anchors = unsourcedAnchors(
+    sourced,
+    map.kcs.flatMap((kc) => (places.has(kc.id) ? [] : [kc.id])),
+    map.prerequisites,
+  );
+  return { places, sourced, anchors };
+}
+
+/**
+ * Each live KC's place in Course order: its first source's, or for a KC
+ * without sources the place of the KC it is placed by.
+ */
+export function kcPlaces(map: MapInput): Map<string, number> {
+  const { places, anchors } = courseOrder(map);
+  for (const [id, anchor] of anchors) places.set(id, places.get(anchor)!);
+  return places;
 }

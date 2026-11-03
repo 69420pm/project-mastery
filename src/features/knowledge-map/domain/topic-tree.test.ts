@@ -3,6 +3,7 @@ import {
   planTopicTree,
   storedAsProposed,
   topicLineage,
+  unsourcedAnchors,
   type ProposedTopic,
   type TreeKc,
 } from "./topic-tree";
@@ -163,6 +164,41 @@ describe("planTopicTree", () => {
     expect(tree.map((t) => [t.id, t.parent, t.centralQuestion])).toEqual([
       ["t1", null, null],
       ["t2", 0, "Why?"],
+    ]);
+  });
+
+  test("puts a KC without sources directly before the first KC that builds on it, through others without sources", () => {
+    // u1 → u2 → k3 and u2 → k1; u3 → k2; nothing builds on u4.
+    const links = [
+      { from: "u1", to: "u2" },
+      { from: "u2", to: "k3" },
+      { from: "u2", to: "k1" },
+      { from: "u3", to: "k2" },
+    ];
+    const unsourced = unsourcedAnchors(
+      ["k1", "k2", "k3"],
+      ["u1", "u2", "u3", "u4"],
+      links,
+    );
+    expect([...unsourced]).toEqual([
+      ["u1", "k1"],
+      ["u2", "k1"],
+      ["u3", "k2"],
+    ]);
+
+    const tree = planTopicTree({
+      proposed: [
+        proposed(1, "Spaces", ["spaces"]),
+        proposed(1, "Bases", ["bases"]),
+      ],
+      chapters,
+      kcs: [kc("k1", "spaces"), kc("k2", "bases"), kc("k3", "bases")],
+      storedIds: new Set(),
+      unsourced,
+    });
+    expect(tree.map((t) => [t.name, t.kcs])).toEqual([
+      ["Spaces", ["u1", "u2", "k1"]],
+      ["Bases", ["u3", "k2", "k3"]],
     ]);
   });
 });

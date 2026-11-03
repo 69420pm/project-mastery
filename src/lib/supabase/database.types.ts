@@ -2324,6 +2324,7 @@ export type Database = {
         Args: {
           p_course_id: string;
           p_extraction_ids: string[];
+          p_kcs: Json;
           p_prerequisites: Json;
         };
         Returns: boolean;

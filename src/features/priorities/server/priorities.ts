@@ -40,11 +40,17 @@ async function computePriorities(
     topics.flatMap((topic) => topic.kcs.map((kc) => [kc, topic.id] as const)),
   );
   const parentOf = new Map(topics.map((topic) => [topic.id, topic.parentId]));
+  const prerequisitesOf = new Map<string, string[]>();
+  for (const { from, to } of map.prerequisites) {
+    prerequisitesOf.set(to, [...(prerequisitesOf.get(to) ?? []), from]);
+  }
   return kcPriorities({
     kcs: map.kcs.map((kc) => {
       const topicId = topicOf.get(kc.id);
       return {
         id: kc.id,
+        name: kc.name,
+        prerequisites: prerequisitesOf.get(kc.id) ?? [],
         topics: topicId ? topicLineage(topicId, parentOf) : [],
         sources: kc.sources,
       };
