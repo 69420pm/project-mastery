@@ -10,3 +10,4 @@ CHANGELOG.md
 supabase/.temp/
 .sweep/
 .stryker-tmp/
+.release-please-manifest.json
