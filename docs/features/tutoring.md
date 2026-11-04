@@ -119,7 +119,7 @@ Three exam rules bend the schedule:
 - **Phase:** `final_week` on the exam day and the 7 days before it, `deepen` once every in-plan Topic is taught, otherwise `build`. None without a future exam date.
 - **Order of untaught work:** pinned first, then in progress, then Priority per estimated minute, never before a Topic it builds on.
 - **Fit:** the weekly hours left after forecast reviews. Topics that don't fit are _won't fit_.
-- **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own sessions.
+- **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own sessions: active time from the gaps between a teaching session's messages, and minutes per review from its Questions' `asked_at` and `answered_at`.
 
 **Today** (`study/domain/today.ts`) picks the next Topic: in build, the first of the order; in deepen, the in-plan Topic that needs work, then a learned one, then a solid one, lowest recall first; in the final week, the taught Topic with the highest Priority × (1 − projected recall), never a new one.
 
@@ -243,7 +243,7 @@ A Material the Student attached in the Chat is sent as its file, up to 20 MB per
 | Tool              | What it does                                                                                                                                                     | Code enforces                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `getTopic`        | A Topic's central question, KCs with states, anchors, Reading sections with done marks and open Findings, with up to 3 source chunks per KC. Or KCs alone, by id | KCs must be of the Topic, or of the Course; no reserved chunks                                                        |
-| `searchMaterials` | Up to 4 chunks of the whole Course nearest to a one-line query (`match_chunks`, metered embedding)                                                               | No reserved chunks; refused at the Daily limit                                                                        |
+| `searchMaterials` | Up to 4 chunks of the whole Course nearest to a one-line query (`match_chunks`, which scans the Course's vectors without an index; metered embedding)            | No reserved chunks; refused at the Daily limit                                                                        |
 | `findProblems`    | Up to 3 Problems for up to 8 KCs, with their solutions                                                                                                           | Unseen ones, in a review session also ones asked over 14 days ago; [ranking](#problems) is code                       |
 | `ask`             | Stores a Question and shows its card. **Ends the reply**                                                                                                         | KCs must be of the Course; `problemId` must be an Exercise or a ready Problem                                         |
 | `grade`           | Stores one Attempt per KC and returns each KC's new state                                                                                                        | One result per KC of an answered, ungraded Question of a running session; the [numeric check](#questions-and-grading) |
@@ -338,7 +338,7 @@ A **Problem** is an Exercise from the Materials, or a generated variant or new P
 | A learn session's first reply | Each Topic KC with fewer than 2 unseen Problems gets up to 2, at most 4 per Topic |
 | Any Study session's end       | Each KC due within 3 days with no unseen Problem gets one, at most 6              |
 
-A queued Problem is a variant of an Exercise that tests the KC and has no variant yet, or else a new Problem. The model never does the arithmetic: it writes every number as a `{{variable}}` of a mathjs program, code runs the program and fills in the values. A failing draft goes back once with its error.
+A queued Problem is a variant of an Exercise that tests the KC and has no variant yet, or else a new Problem. The model never does the arithmetic: it writes every number as a `{{variable}}` of a mathjs program, code runs the program and fills in the values at 4 significant figures. A failing draft goes back once with its error. A second failure or a model error marks the Problem `failed`, and a reached Daily limit leaves the rest `queued` for the next run. A trigger during a run is dropped.
 
 ## Mock exams
 
@@ -346,8 +346,8 @@ A Mock exam is a timed session without the AI: the Student answers on the mock p
 
 1. **Assemble** (`assembleMock`). A 90-minute blueprint shares its time among in-plan Topics by Priority, split 30/50/20 by difficulty. Unseen Exercises and Problems fill the slots, and at most 6 empty ones are generated. The final mock is the Reserved exam itself.
 2. **Submit.** `submit_mock_exam`, then the `gradeMock` workflow.
-3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final value goes through the numeric check. Each item stores its points and steps, and a `mock` Attempt per KC, which does schedule. An item that still fails after retries is left out of the score.
-4. **Finish.** The mock stores its score and its Brier score, and the result page offers a `results` session.
+3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final value goes through the numeric check: a mismatch also caps the points one below full. Each item stores its points and steps, and a `mock` Attempt per KC, which does schedule. An item that still fails after retries is left out of the score.
+4. **Finish.** The mock stores its score and its Brier score (the mean squared gap between each item's predicted success and its share of points), and the result page offers a `results` session.
 
 ## When a session ends
 
@@ -363,7 +363,7 @@ A session ends through End session, a Session rating, or when it has been idle f
 | Memory lines          | 0 to 3, preferences and context only                                                                                                                  |
 | Condensed Memory      | Once the Memory passes 3,000 characters. Dropped unless code finds every pinned line in it word for word and the Memory hasn't changed since the read |
 
-A session without a Student message gets no call. Notes never set a KC's state: the instructions call them hints, and the Student's answers win.
+A session without a Student message gets no call and stays claimed with no note. Notes never set a KC's state: the instructions call them hints, and the Student's answers win.
 
 ## All the prompts
 
@@ -388,7 +388,23 @@ The AI's order of trust is: the Course's sources, then the map, then its own kno
 | The map contradicts them               | Teaches from the sources, says the map is off here, and files a Finding |
 | Neither                                | Marks it "beyond the course", grades nothing on it, and files nothing   |
 
-`flagMap` files a `missing_link`, `wrong_link` or `wrong_description` as `open`, with a quote that code checks is in the chunk. Nothing changes until the Student accepts it in the Map findings card on the Course map. `accept_map_finding` then applies it in one transaction, and refuses a link that would close a cycle. `getTopic` lists a KC's open Findings, so the AI leans on the sources there. The Brief and Priority never read Findings.
+`flagMap` files a `missing_link`, `wrong_link` or `wrong_description` as `open`, with a quote that code checks is in the chunk. Nothing changes until the Student accepts it in the Map findings card on the Course map. `accept_map_finding` then applies it in one transaction and sets `applied` with an `outcome`. A link that would close a cycle is refused, and the Finding stays open. A Student's own write can only move a Finding from `open` to `dismissed`. `getTopic` lists a KC's open Findings, so the AI leans on the sources there. The Brief and Priority never read Findings.
+
+## What the Student sees
+
+| Where                  | What                                                                                                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Readiness in the map header and Topic cards                                                              |
+| Above the messages     | The stage bar in a learn session, read from the stored context and `setStage` results. The session bar: a review's groups done or a practice's Problems answered                       |
+| In a reply             | Each tool call as a collapsed step card with a one-line summary written by code. A call that never returned shows as stopped once the reply is done                                    |
+| Question card          | The answer and confidence. A generated Problem's card lets the Student flag it once, which takes it out of the pool                                                                    |
+| After a graded rebuild | A Knowledge map card that opens the Topic's part of the map with its KC states (`getTopicKnowledgeMap`)                                                                                |
+| Close card             | At `close` or once the session has ended: `getSessionSummary` gives the Topic's state and each KC's state and next review, and `rateStudySession` saves the Session rating             |
+| Context sheet          | A reply's stored tutor context, with its instructions re-rendered by today's code, plus its model, tokens and cost (`ai_usage.reply_id`, no foreign key since usage is recorded first) |
+| Mock exam result page  | Score per Topic, calibration on sure answers and each task's points ordered by points lost, without the reference solution                                                             |
+| After the exam date    | The map asks "How did the exam go?", and `exam_results` stores the grade once per exam date                                                                                            |
+
+The Student edits the whole Memory on the Brief page, whose own AI doesn't read it. A Topic page's pin or skip goes through `setTopicChoice`, and a skip's reason goes into the Memory.
 
 ## Where the code is
 

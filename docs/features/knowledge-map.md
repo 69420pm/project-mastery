@@ -152,13 +152,13 @@ The call answers KCs (name, description, the chunks that teach it, up to 3 thing
 
 `extractExercises` makes one call per exercise unit that has no current extraction, or whose paired solutions changed. The call sees each exercise chunk's statement and paired solution, and the 30 live KCs nearest to the unit's statements. That's why it runs after step 2.
 
-It answers, per subtask: the listed KCs it tests, new KCs only when none fits, numeric final answers copied as printed, and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
+It answers, per exercise chunk (the call's prompt says "subtask"): the listed KCs it tests, new KCs only when none fits, numeric final answers copied as printed, and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
 
-**One exercise chunk gives one Exercise**, and the page read keeps an exercise with all its subtasks in one unit. A new KC's source is the exercise chunk that needed it, with `origin` `exercise`.
+**One exercise chunk gives one Exercise**, and the page read keeps an exercise with all its printed subtasks in one unit, so "Ex. 7.2" with parts a to c is one Exercise. A new KC's source is the exercise chunk that needed it, with `origin` `exercise`.
 
 ### 4. Consolidate again
 
-The same step as 2 over the exercise extractions, which also stores their Exercises, keyed by question chunk so each keeps its id. A subtask marked as no exercise is dropped.
+The same step as 2 over the exercise extractions, which also stores their Exercises, keyed by question chunk so each keeps its id. A chunk marked as no exercise is dropped.
 
 ### 5. Match what KCs assume
 
@@ -280,6 +280,12 @@ A parse never changes a Material's chunks once it has stored them, so a unit's h
 | A step would run too long  | A step takes at most 8 units and starts no call after 150 seconds, so it fits a Vercel function's limit. What it leaves goes to the next step          |
 | A model call answers badly | Code drops unknown ids and unusable items. The check report shows what ended up uncovered                                                              |
 | The parse fails            | The Material is `failed`, and Retry resumes at the first page without a result. Chunks already stored are kept with their vectors                      |
+
+## The Course map
+
+The Course map (`/courses/[courseId]/map`, where the Course's home redirects) polls while a build is `building`. It draws the Topics as nested boxes of Topic cards with arrows between Topics ([ADR 0017](../adr/0017-react-flow-and-elk-for-the-knowledge-map-graph.md)): `domain/` computes the graph, and ELK lays it out in a web worker only when it changes.
+
+A card opens the Topic page (`map/[topicId]`): its detail, anchors, KCs, Reading sections and neighbours in Course order, above a KC graph of the Topic's KCs, its anchors and the Exercises that test them. Clicking a KC opens a panel with every stat about it.
 
 ## How the two connect
 

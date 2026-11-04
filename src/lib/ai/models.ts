@@ -65,7 +65,7 @@ export const AI_TASKS = {
     fallbacks: [],
     override: "AI_MODEL_EXERCISE",
   },
-  /** Names the Topics of a Knowledge map build, with structured output. */
+  /** Proposes a Knowledge map build's Topic tree, with structured output. */
   topic: {
     model: "xiaomi/mimo-v2.6-flash",
     fallbacks: [],
