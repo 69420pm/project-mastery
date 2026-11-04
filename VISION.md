@@ -50,10 +50,10 @@ The MVP is built so it can expand in these directions, but none of this is built
 
 ## Built to be sustainable
 
-Project Mastery is a showcase built to the standard of a real product: it must be able to serve real users and earn money without a redesign.
+Project Mastery should be cheap to run and light enough to use every day. A student who studies daily for weeks must not become a cost problem, and the app should never have to ration learning to stay affordable.
 
-- AI usage is the main cost driver, so every feature is designed with its cost per student in mind. For example, each upload is processed once and reused, and each task uses the smallest model that does it well.
-- No design decision closes the door on monetization. Accounts, usage metering and limits are first-class from the start.
+- LLM API calls are the main cost, so every feature is designed with its cost per student in mind. For example, each upload is processed once and reused, and each task uses the smallest model that does it well.
+- Usage is metered and limited per account from the start, so costs stay visible and predictable, and heavy use cannot run away unnoticed.
 
 ## What success looks like
 
@@ -63,10 +63,3 @@ Project Mastery is a showcase built to the standard of a real product: it must b
 - Students still remember the content weeks after the exam.
 - Almost all time in the app is spent learning, not organizing.
 - Students come back for their next exam because understanding felt good.
-
-## Open questions
-
-- Pricing model: what is free and what is paid.
-- How students submit math work: typed, LaTeX, handwriting photo, step-by-step input.
-- How readiness is measured, and how real exam results are collected to check it.
-- Handling of uploaded course materials and student data: copyright, privacy, retention.
