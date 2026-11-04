@@ -275,7 +275,7 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their type, description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
         if (!topicId && !kcIds) {

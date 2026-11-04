@@ -22,6 +22,10 @@ Name domain concepts in code, issues and UI with the terms in [GLOSSARY.md](GLOS
 
 Where code goes is defined in [Project structure](docs/ARCHITECTURE.md#project-structure) and enforced by ESLint. Read that section before creating files or folders. When a lint error reports a boundary or structure violation, move the code to where the message says; do not disable the rule or add exceptions.
 
+## Knowledge map and tutoring
+
+[docs/features/knowledge-map.md](docs/features/knowledge-map.md) and [docs/features/tutoring.md](docs/features/tutoring.md) describe how both systems work: data flow, model calls, how prompts get built. Read them before changing parsing, the map build, the AI's prompt, context or tools, or scheduling, and update them in the same PR.
+
 ## Library docs
 
 Like Next.js, these packages ship documentation that matches the installed version. Read it before writing code against them instead of relying on memory:
