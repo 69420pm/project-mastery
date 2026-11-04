@@ -47,7 +47,13 @@ const BATCH_INSTRUCTIONS = `You transcribe consecutive pages of a Student's cour
 - A unit is the longest run of one label under one heading. Definitions, theorems, proofs, examples and remarks stay inside their content unit; they are not headings.
 - Every line that looks like a heading (a title, a numbered section, a slide title, a bold line on its own) is its own heading unit, copied verbatim with its number. Give its style.
 - An exercise with all its subtasks is one exercise unit; its solution is one solution unit.
-- Label each unit: heading, exercise (a task for the Student), solution (only the answer to an exercise or exam problem, never a proof in teaching text), admin (organisational content only: dates, format, admission, allowed aids, what is examined) or content (everything else). A result printed for checking, such as "Result for checking: 8 solutions", stays in its exercise's unit.
+- Label each unit:
+  - heading: a title or section heading.
+  - exercise: a task for the Student. A result printed for checking, such as "Result for checking: 8 solutions", stays in its exercise's unit.
+  - solution: only the answer to an exercise or exam problem, never a proof in teaching text.
+  - admin: everything about the course or the exam rather than the subject: organisation, schedule and dates, lecturers and contacts, grading, requirements for admission or credit, the exam's format, duration, allowed aids and what it covers, literature recommendations, motivation for the course, and an overview of what the course will cover.
+  - content: what the Student has to learn to understand the subject and solve its exercises: definitions, theorems, proofs, examples, explanations, methods and remarks.
+- Decide admin or content by asking: could an exam question be asked about this text's subject matter? If yes, it is content. If it only describes the course, its organisation or the exam, it is admin, even when it sits on a slide next to subject matter or uses subject terms, such as an agenda listing the chapters. When a slide or section mixes both, make a separate unit for each.
 - Write each unit as Markdown in the page's own language. Do not translate, summarize or solve anything.
 - Write every formula in LaTeX: $...$ inline, $$...$$ for display.
 - Describe a plot, chart or technical drawing inside its unit as a blockquote that starts with **Figure:**, saying what it shows. Leave out decorative images such as logos.
