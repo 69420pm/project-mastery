@@ -181,7 +181,7 @@ async function loadBrief(supabase: Supabase, courseId: string) {
   const { data, error } = await supabase
     .from("briefs")
     .select(
-      "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, reserved_exam_chapter_id, reserved_exam_answered",
+      "exam_date, goal, open_book, formula_sheet, calculator, scope_confirmed, notes, reserved_exam_chapter_id, reserved_exam_answered",
     )
     .eq("course_id", courseId)
     .maybeSingle();
@@ -190,8 +190,6 @@ async function loadBrief(supabase: Supabase, courseId: string) {
   const fields: BriefFields = {
     examDate: data.exam_date,
     goal: data.goal as BriefFields["goal"],
-    hoursPerWeek: data.hours_per_week,
-    questionStyle: data.question_style as BriefFields["questionStyle"],
     openBook: data.open_book,
     formulaSheet: data.formula_sheet,
     calculator: data.calculator,
@@ -346,8 +344,6 @@ export type BriefFieldsUpdate = Pick<
   BriefUpdate,
   | "exam_date"
   | "goal"
-  | "hours_per_week"
-  | "question_style"
   | "open_book"
   | "formula_sheet"
   | "calculator"

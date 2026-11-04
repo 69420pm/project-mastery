@@ -234,12 +234,10 @@ export type Database = {
           exam_date: string | null;
           formula_sheet: boolean | null;
           goal: string | null;
-          hours_per_week: number | null;
           notes: string | null;
           notes_updated_at: string | null;
           open_book: boolean | null;
           owner: string;
-          question_style: string | null;
           reserved_exam_answered: boolean;
           reserved_exam_chapter_id: string | null;
           scope_confirmed: boolean;
@@ -253,12 +251,10 @@ export type Database = {
           exam_date?: string | null;
           formula_sheet?: boolean | null;
           goal?: string | null;
-          hours_per_week?: number | null;
           notes?: string | null;
           notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
-          question_style?: string | null;
           reserved_exam_answered?: boolean;
           reserved_exam_chapter_id?: string | null;
           scope_confirmed?: boolean;
@@ -271,12 +267,10 @@ export type Database = {
           exam_date?: string | null;
           formula_sheet?: boolean | null;
           goal?: string | null;
-          hours_per_week?: number | null;
           notes?: string | null;
           notes_updated_at?: string | null;
           open_book?: boolean | null;
           owner?: string;
-          question_style?: string | null;
           reserved_exam_answered?: boolean;
           reserved_exam_chapter_id?: string | null;
           scope_confirmed?: boolean;

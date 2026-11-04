@@ -55,7 +55,8 @@ export function CourseMap({
   topicStates: MapTopicStates;
   topicReadiness?: MapTopicReadiness;
   topicBadges: MapTopicBadges;
-  planLine: ReactNode;
+  /** The study feature's line on the plan, shown in the header. */
+  planLine?: ReactNode;
   /** The study feature's Readiness line, shown in the header. */
   readinessLine?: ReactNode;
   /** The study feature's Today card, shown above the graph. */

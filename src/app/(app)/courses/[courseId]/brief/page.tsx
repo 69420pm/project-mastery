@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Brief, BriefLayout, BriefPanel, briefPath } from "@/features/brief";
 import { getBrief } from "@/features/brief/server";
-import { MemoryCard, StudyPlanFacts } from "@/features/study";
-import { getMemory, getPlan } from "@/features/study/server";
+import { MemoryCard } from "@/features/study";
+import { getMemory } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
 
@@ -20,11 +20,10 @@ export default async function BriefPage({
 }: PageProps<"/courses/[courseId]/brief">) {
   const { courseId } = await params;
   await requireUser(briefPath(courseId));
-  const [brief, dailyLimit, memory, plan] = await Promise.all([
+  const [brief, dailyLimit, memory] = await Promise.all([
     getBrief(courseId),
     getDailyLimitStatus(),
     getMemory(courseId),
-    getPlan(courseId),
   ]);
   if (!brief) notFound();
 
@@ -34,7 +33,6 @@ export default async function BriefPage({
       panel={
         <BriefPanel
           brief={brief}
-          plan={<StudyPlanFacts plan={plan} />}
           memory={<MemoryCard courseId={courseId} text={memory} />}
         />
       }

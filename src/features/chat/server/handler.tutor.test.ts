@@ -140,7 +140,7 @@ describe("the instructions", () => {
     );
   });
 
-  test("give the goal, the Phase and the fit line when the plan has a fit", async () => {
+  test("give the goal and the Phase, and no fit line", async () => {
     const model = mockTextModel("Let's go.");
     useMockModels({ chat: model });
     seedMap();
@@ -148,7 +148,6 @@ describe("the instructions", () => {
       owner: STUDENT,
       course_id: COURSE,
       exam_date: examIn(14),
-      hours_per_week: 0.5,
       goal: "good_grade",
     });
 
@@ -157,10 +156,7 @@ describe("the instructions", () => {
     const prompt = promptOf(model, 0);
     expect(prompt).toContain("Study phase: build.");
     expect(prompt).toContain("goal is a good grade");
-    // Half an hour fits neither of the Topic's two KCs.
-    expect(prompt).toContain(
-      "The study plan: Build phase. At your pace, 0 of 1 Topic fit, covering 0% of exam weight.",
-    );
+    expect(prompt).not.toContain("The study plan:");
   });
 
   test("guide the final week to review, and add no plan without an exam date", async () => {

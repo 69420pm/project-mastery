@@ -9,8 +9,6 @@ import {
 const complete: BriefFields = {
   examDate: "2026-12-03",
   goal: "good_grade",
-  hoursPerWeek: 6,
-  questionStyle: "written",
   openBook: false,
   formulaSheet: false,
   calculator: true,
@@ -30,15 +28,12 @@ describe("isIntakeDone", () => {
     expect(isIntakeDone(null)).toBe(false);
   });
 
-  test.each([
-    "examDate",
-    "goal",
-    "hoursPerWeek",
-    "questionStyle",
-    "calculator",
-  ])("is not done while %s is unanswered", (field) => {
-    expect(isIntakeDone({ ...complete, [field]: null })).toBe(false);
-  });
+  test.each(["examDate", "goal", "calculator"])(
+    "is not done while %s is unanswered",
+    (field) => {
+      expect(isIntakeDone({ ...complete, [field]: null })).toBe(false);
+    },
+  );
 
   test("is not done until the scope is confirmed", () => {
     expect(isIntakeDone({ ...complete, scopeConfirmed: false })).toBe(false);

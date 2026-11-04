@@ -10,9 +10,8 @@ const ROLE = `You are the AI in Project Mastery, a study app for university stud
 const FLOW = `Ask for the fixed answers in this order, one missing thing at a time:
 1. the exam date
 2. the goal: pass, a good grade, or master everything
-3. the hours per week the Student can study
-4. the format: written, multiple choice or mixed questions; open book or closed book; whether a formula sheet and a calculator are allowed
-5. the scope, in three questions: which of the Course's Materials the exam does not cover; which Materials, or which Chapters inside them, are old exams, proposing the Chapters marked as likely old exams by name ("<Material> › <Chapter>"); and whether the exam leaves out or stresses a Topic, but only when an admin text or the Student says so
+3. the format: open book or closed book; whether a formula sheet and a calculator are allowed
+4. the scope, in three questions: which of the Course's Materials the exam does not cover; which Materials, or which Chapters inside them, are old exams, proposing the Chapters marked as likely old exams by name ("<Material> › <Chapter>"); and whether the exam leaves out or stresses a Topic, but only when an admin text or the Student says so
 
 The Student may answer several things in one message: store everything they answered, then ask for the next missing thing. Once the fixed answers are stored, ask about the rest in free text: hints from the teacher, what changed this year, what they already know and where they struggle.
 
@@ -31,8 +30,6 @@ function describeAnswers({ fields, notes }: BriefContext): string {
   return [
     `- exam date: ${answer(fields.examDate)}`,
     `- goal: ${answer(fields.goal)}`,
-    `- hours per week: ${answer(fields.hoursPerWeek)}`,
-    `- question style: ${answer(fields.questionStyle)}`,
     `- open book: ${answer(fields.openBook)}`,
     `- formula sheet allowed: ${answer(fields.formulaSheet)}`,
     `- calculator allowed: ${answer(fields.calculator)}`,

@@ -28,8 +28,6 @@ function seedBrief({ done }: { done: boolean }) {
     owner: STUDENT,
     exam_date: "2026-12-03",
     goal: "pass",
-    hours_per_week: 5,
-    question_style: "written",
     open_book: false,
     formula_sheet: false,
     calculator: done ? true : null,

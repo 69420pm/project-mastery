@@ -12,16 +12,6 @@ export const saveBriefInputSchema = z.object({
     .enum(["pass", "good_grade", "master_everything"])
     .nullish()
     .describe("What the Student wants from the exam."),
-  hoursPerWeek: z
-    .number()
-    .positive()
-    .max(80)
-    .nullish()
-    .describe("Hours per week the Student can study for it."),
-  questionStyle: z
-    .enum(["written", "multiple_choice", "mixed"])
-    .nullish()
-    .describe("The format of the exam's questions."),
   openBook: z.boolean().nullish().describe("Whether the exam is open book."),
   formulaSheet: z
     .boolean()

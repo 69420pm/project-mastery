@@ -174,17 +174,14 @@ export type TutorToday = {
   } | null;
   /** Such as "Practice exam-style problems"; null in build. */
   hint: string | null;
-  /** The fit line (`fitText`); null without a fit. */
-  fitLine: string | null;
 };
 
 /**
  * A Course's study plan over its Topics as the map and the Brief show it
- * (`planStudy`), with the Brief's weekly hours, the measured pace it used,
- * whether the Course has a map and today's work (`planToday`).
+ * (`planStudy`), with the measured pace it used, whether the Course has a
+ * map and today's work (`planToday`).
  */
 export type StudyPlan = Plan & {
-  hoursPerWeek: number | null;
   pace: Pace;
   hasMap: boolean;
   today: TodayPlan;

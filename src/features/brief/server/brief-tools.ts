@@ -53,8 +53,6 @@ export function briefToolActions(
         Object.entries({
           exam_date: given(input.examDate),
           goal: given(input.goal),
-          hours_per_week: given(input.hoursPerWeek),
-          question_style: given(input.questionStyle),
           open_book: given(input.openBook),
           formula_sheet: given(input.formulaSheet),
           calculator: given(input.calculator),

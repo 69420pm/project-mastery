@@ -245,11 +245,6 @@ function describePlan(context: TutorContext): string[] {
   if (guidance !== null) lines.push(guidance);
   if (today?.hint)
     lines.push(`Today's suggestion for the Student: ${today.hint}.`);
-  if (today?.fitLine) {
-    lines.push(
-      `The study plan: ${today.fitLine} Mention it only when the Student asks about time.`,
-    );
-  }
   return [lines.join("\n")];
 }
 

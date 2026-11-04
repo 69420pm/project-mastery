@@ -27,8 +27,6 @@ const NO_PLAN: StudyPlan = {
   phase: null,
   topics: [],
   order: [],
-  fit: null,
-  hoursPerWeek: null,
   pace: DEFAULT_PACE,
   hasMap: false,
   today: { reviews: null, next: null, hint: null },
@@ -116,7 +114,6 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
   );
   return {
     ...plan,
-    hoursPerWeek: exam.hoursPerWeek,
     hasMap: map.kcs.length > 0,
   };
 }

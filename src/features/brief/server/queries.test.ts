@@ -24,9 +24,6 @@ function brief({ done }: { done: boolean }): FakeRow {
     owner: STUDENT,
     exam_date: done ? "2026-12-03" : null,
     goal: done ? "good_grade" : null,
-    // Postgres returns a numeric as text.
-    hours_per_week: done ? "5.5" : null,
-    question_style: done ? "written" : null,
     open_book: done ? false : null,
     formula_sheet: done ? true : null,
     calculator: done ? false : null,
@@ -157,17 +154,15 @@ describe("getExamFacts", () => {
   test("without a Brief, every fact is null", async () => {
     expect(await getExamFacts(client(), COURSE)).toEqual({
       examDate: null,
-      hoursPerWeek: null,
       goal: null,
     });
   });
 
-  test("passes the date and goal through and reads the hours as a number", async () => {
+  test("passes the date and goal through", async () => {
     db.tables.briefs.push(brief({ done: true }));
 
     expect(await getExamFacts(client(), COURSE)).toEqual({
       examDate: "2026-12-03",
-      hoursPerWeek: 5.5,
       goal: "good_grade",
     });
   });
@@ -215,7 +210,6 @@ describe("getBrief", () => {
       fields: {
         examDate: "2026-12-03",
         goal: "good_grade",
-        questionStyle: "written",
         openBook: false,
         formulaSheet: true,
         calculator: false,

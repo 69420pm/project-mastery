@@ -29,7 +29,7 @@ A Chapter the Student confirmed in the Brief as a past exam, together with the C
 _Avoid_: Past paper, Altklausur, exam Material
 
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
+What a Student told the AI about a Course's exam: its date, their goal, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
 **Exam scope**:
@@ -103,10 +103,6 @@ _Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
 **If time allows**:
 A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
 _Avoid_: Optional, left out, out of scope
-
-**Won't fit**:
-An untaught Topic of the study plan that the Student's weekly hours, at their measured pace and after the review load, leave no time for before the final week, with every Topic after it in the plan order.
-_Avoid_: Left out, cut, overflow
 
 **Topic choice**:
 A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Memory.

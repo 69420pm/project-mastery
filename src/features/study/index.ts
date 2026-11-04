@@ -13,7 +13,6 @@ export { MockExamStatus } from "./components/mock-exam-status";
 export { MockTaskSheet } from "./components/mock-task-sheet";
 export { mockExamPath } from "./domain/mock-paths";
 export { ProblemFlagControl } from "./components/problem-flag-control";
-export { FitLine, StudyPlanFacts } from "./components/study-plan";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
 export { getTopicKnowledgeMap } from "./server/actions";

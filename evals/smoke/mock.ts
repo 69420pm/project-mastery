@@ -30,8 +30,6 @@ export const mockSmoke: SmokeCheck = {
       .from("briefs")
       .update({
         goal: "good_grade",
-        hours_per_week: 6,
-        question_style: "written",
         open_book: false,
         formula_sheet: false,
         calculator: true,

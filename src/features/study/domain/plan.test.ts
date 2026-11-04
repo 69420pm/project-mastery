@@ -7,18 +7,11 @@ import {
   type PlanInput,
   type TopicChoice,
 } from "./plan";
-import {
-  forecastReviews,
-  replayKc,
-  utcDay,
-  type KcSchedule,
-  type ReplayAttempt,
-} from "./replay";
+import { type KcSchedule } from "./replay";
 
 const NOW = new Date("2026-10-01T12:00:00Z");
 // 21 days left: the final week starts on 2026-10-15, 14 days from now.
 const EXAM = "2026-10-22";
-const UNTIL = "2026-10-15";
 
 /** A taught KC whose card is strong and not due, so its Topic is learned. */
 const learned: KcSchedule = {
@@ -30,19 +23,6 @@ const learned: KcSchedule = {
     last_review: NOW,
   },
 };
-
-/** A Good `learn` attempt in its own session at `at`, as in the replay. */
-const good = (at: string): ReplayAttempt => ({
-  kcId: "k",
-  sessionId: at,
-  createdAt: at,
-  kind: "learn",
-  result: "full",
-  help: "none",
-  questionId: at,
-  confidence: null,
-  seconds: null,
-});
 
 const topic = (id: string, kcs: string[]) => ({ id, name: `T ${id}`, kcs });
 
@@ -60,7 +40,7 @@ const plan = (
     pace: DEFAULT_PACE,
     now: NOW,
     ...overrides,
-    exam: { examDate: EXAM, hoursPerWeek: 10, goal: null, ...overrides.exam },
+    exam: { examDate: EXAM, goal: null, ...overrides.exam },
   });
 
 const statuses = (result: ReturnType<typeof plan>) =>
@@ -153,18 +133,10 @@ describe("the Phase", () => {
     expect(plan({ schedules: new Map([["a", learned]]) }).phase).toBe("build");
   });
 
-  test("has no Phase and no fit without an exam date or once it has passed", () => {
+  test("has no Phase without an exam date or once it has passed", () => {
     for (const examDate of [null, "2026-09-30"]) {
-      expect(plan({ exam: { examDate } })).toMatchObject({
-        phase: null,
-        fit: null,
-      });
+      expect(plan({ exam: { examDate } }).phase).toBeNull();
     }
-  });
-
-  test("has no fit in the final week or without weekly hours", () => {
-    expect(plan({ exam: { examDate: "2026-10-05" } }).fit).toBeNull();
-    expect(plan({ exam: { hoursPerWeek: null } }).fit).toBeNull();
   });
 });
 
@@ -218,79 +190,5 @@ describe("the plan order", () => {
         ],
       }),
     ).toEqual(["t2", "t3", "t1"]);
-  });
-});
-
-describe("the fit", () => {
-  const forecast = { now: NOW, until: UNTIL, examDate: EXAM, retention: 0.9 };
-  const fresh = forecastReviews(null, forecast);
-  /** Weekly hours for a budget of `kcs` KCs at the default pace. */
-  const hoursFor = (kcs: number) => (kcs * (30 + fresh * 2) * 7) / (14 * 60);
-
-  test("fits Topics in plan order until the first that doesn't", () => {
-    // Order t1 (2 KCs), t2, t3; 2.5 KCs fit t1 only, and stop at t2.
-    const result = plan({ exam: { hoursPerWeek: hoursFor(2.5) } });
-    expect(result.topics.map((t) => t.fits)).toEqual([true, false, false]);
-    expect(result.fit).toEqual({ fitting: 1, inPlan: 3, examWeight: 70 });
-  });
-
-  test("a taught Topic counts toward the fit and its exam weight", () => {
-    const schedules = new Map([["c", learned]]);
-    const result = plan({ schedules, exam: { hoursPerWeek: hoursFor(2.5) } });
-    expect(result.topics.map((t) => t.fits)).toEqual([true, null, false]);
-    expect(result.fit).toEqual({ fitting: 2, inPlan: 3, examWeight: 90 });
-  });
-
-  test("a faster pace fits more", () => {
-    const result = plan({
-      exam: { hoursPerWeek: hoursFor(2.5) },
-      pace: { minutesPerKc: 10, minutesPerReview: 1 },
-    });
-    expect(result.fit).toEqual({ fitting: 3, inPlan: 3, examWeight: 100 });
-  });
-
-  test("the existing cards' reviews come out of the budget", () => {
-    // A card taught yesterday, which comes back several times.
-    const due = replayKc([good("2026-09-30T10:00:00Z")], {
-      ended: () => true,
-      examDate: EXAM,
-      retention: 0.9,
-    })!;
-    const result = plan({
-      topics: [topic("t1", ["a"])],
-      schedules: new Map([["z", due]]),
-      exam: { hoursPerWeek: hoursFor(1) },
-    });
-    expect(result.topics[0]!.fits).toBe(false);
-  });
-});
-
-describe("forecastReviews", () => {
-  const options = { ended: () => true, examDate: EXAM, retention: 0.9 };
-
-  test("counts the Good reviews the replay would schedule before the final week", () => {
-    const history = [
-      good("2026-09-20T10:00:00Z"),
-      good("2026-09-24T10:00:00Z"),
-    ];
-    const card = replayKc(history, options)!.card!;
-    // Extend the history with a Good review on every due day.
-    let replayed = card;
-    let expected = 0;
-    while (utcDay(replayed.due < NOW ? NOW : replayed.due) < UNTIL) {
-      const at = replayed.due < NOW ? NOW : replayed.due;
-      history.push(good(at.toISOString()));
-      replayed = replayKc(history, options)!.card!;
-      expected++;
-    }
-    expect(expected).toBeGreaterThan(0);
-    expect(
-      forecastReviews(card, {
-        now: NOW,
-        until: UNTIL,
-        examDate: EXAM,
-        retention: 0.9,
-      }),
-    ).toBe(expected);
   });
 });

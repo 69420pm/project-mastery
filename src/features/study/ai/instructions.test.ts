@@ -11,10 +11,10 @@ const context: TutorContext = {
   memory: "",
   mapPath: "/courses/c/map",
   dueReviews: { kcs: [], more: 0 },
-  todayPlan: { next: null, hint: null, fitLine: null },
+  todayPlan: { next: null, hint: null },
 };
 
-test("hold the next Topic's KCs in teaching order with its anchors, the hint and the fit line", () => {
+test("hold the next Topic's KCs in teaching order with its anchors and the hint, and ignore a stored fit line", () => {
   const instructions = tutorInstructions({
     ...context,
     hasMap: true,
@@ -31,7 +31,8 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
         anchors: [{ id: "p1", name: "Momentum" }],
       },
       hint: "Practice exam-style problems",
-      fitLine: "Deepen phase. At your pace, 3 of 3 Topics fit.",
+      // A context stored before the estimate went away still holds the line.
+      ...{ fitLine: "Deepen phase. At your pace, 3 of 3 Topics fit." },
     },
   });
 
@@ -48,9 +49,7 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
   expect(instructions).toContain(
     "Today's suggestion for the Student: Practice exam-style problems.",
   );
-  expect(instructions).toContain(
-    "The study plan: Deepen phase. At your pace, 3 of 3 Topics fit.",
-  );
+  expect(instructions).not.toContain("At your pace");
 });
 
 test("render a context stored before #177 without a Today plan", () => {
@@ -158,7 +157,6 @@ test("mark the Topic's KCs and anchors without sources, and orient skips only wi
         anchors: [{ id: "p1", name: "Sets", withoutSources: true }],
       },
       hint: null,
-      fitLine: null,
     },
   });
 

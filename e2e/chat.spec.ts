@@ -265,7 +265,6 @@ test.describe("signed in", () => {
               anchors: [{ id: "kc-1", name: "Limits" }],
             },
             hint: null,
-            fitLine: null,
           },
         },
       });

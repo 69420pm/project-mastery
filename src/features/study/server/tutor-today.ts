@@ -4,7 +4,6 @@ import {
   type loadStoredMap,
   type loadReadingSections,
 } from "@/features/knowledge-map/server";
-import { fitText } from "@/features/study/domain/plan";
 import type { TodayTopic } from "@/features/study/domain/today";
 import type { loadPlan } from "@/features/study/server/plan";
 import { readingLabel } from "@/features/study/server/source-view";
@@ -13,7 +12,7 @@ import type { TutorToday } from "@/features/study/types";
 /**
  * Today's work as the AI is told of it: the Topic `next` (the session's, or
  * the plan's next) with its KCs and anchors from the map and its Reading
- * sections, the hint and the fit line.
+ * sections and the hint.
  */
 export function tutorToday(
   plan: Awaited<ReturnType<typeof loadPlan>>,
@@ -52,9 +51,5 @@ export function tutorToday(
       })),
     },
     hint,
-    fitLine:
-      plan.phase === null || plan.fit === null
-        ? null
-        : fitText(plan.phase, plan.fit),
   };
 }

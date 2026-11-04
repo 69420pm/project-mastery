@@ -147,7 +147,7 @@ export type MapTopicStates = Record<string, MapTopicState>;
 export type MapTopicReadiness = Record<string, number>;
 
 /**
- * The study plan's badges of each Topic, such as "won't fit", which the
+ * The study plan's badges of each Topic, such as "pinned", which the
  * page passes in, by Topic id. A Topic missing here has none.
  */
 export type MapTopicBadges = Record<string, string[]>;

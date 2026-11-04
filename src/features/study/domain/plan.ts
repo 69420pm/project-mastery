@@ -1,15 +1,12 @@
 /**
  * The study plan of a Course over its Topics (#177), derived on every read:
  * which Topics the goal puts in it, its Phase before the exam, the order of
- * the untaught work and what fits the weekly hours with the FSRS review
- * load. Pure code on UTC days, like the FSRS replay; nothing about it is
+ * the untaught work. Pure code on UTC days, like the FSRS replay; nothing about it is
  * stored.
  */
 import {
-  addDays,
   daysBetween,
   desiredRetention,
-  forecastReviews,
   type Goal,
   type KcSchedule,
   utcDay,
@@ -66,23 +63,6 @@ export type TopicPlan = {
   pinned: boolean;
   /** Its KCs without a schedule, in teaching order. */
   untaught: string[];
-  /**
-   * For in-plan untaught work with a fit: whether it fits before the final
-   * week. Null otherwise.
-   */
-  fits: boolean | null;
-};
-
-/** What fits the weekly hours before the final week. */
-export type Fit = {
-  /** In-plan Topics already taught or fitting. */
-  fitting: number;
-  inPlan: number;
-  /**
-   * The priority of taught and fitting Topics over all Topics', as a whole
-   * percent rounded down; null when no Topic has priority.
-   */
-  examWeight: number | null;
 };
 
 export type Plan = {
@@ -92,8 +72,6 @@ export type Plan = {
   topics: TopicPlan[];
   /** The in-plan Topics with untaught work (new or in progress), by id. */
   order: string[];
-  /** Null without a Phase or weekly hours, and in the final week. */
-  fit: Fit | null;
 };
 
 export type PlanInput = {
@@ -106,7 +84,6 @@ export type PlanInput = {
   schedules: Map<string, KcSchedule>;
   exam: {
     examDate: string | null;
-    hoursPerWeek: number | null;
     goal: Goal;
   };
   choices: TopicChoice[];
@@ -119,8 +96,7 @@ export type PlanInput = {
  * (`goalTopics`); a pin always adds one and a skip always removes one.
  * The Phase is the final week on the exam day and the 7 days before it,
  * deepen once every in-plan Topic is learned, solid or needs work, build
- * otherwise. The untaught work is ordered by `orderTopics` and fitted, in
- * that order, into the weekly hours left after the existing cards' reviews.
+ * otherwise. The untaught work is ordered by `orderTopics`.
  */
 export function planStudy(input: PlanInput): Plan {
   const { topics, priorities, schedules, exam, choices, pace, now } = input;
@@ -153,7 +129,6 @@ export function planStudy(input: PlanInput): Plan {
             : "if_time_allows",
       pinned: chosen === "pinned",
       untaught: topic.kcs.filter((id) => !schedules.has(id)),
-      fits: null,
     };
   });
   const inPlan = planned.filter((t) => t.status === "in_plan");
@@ -169,7 +144,7 @@ export function planStudy(input: PlanInput): Plan {
   const daysLeft =
     exam.examDate === null ? -1 : daysBetween(today, exam.examDate);
   if (exam.examDate === null || daysLeft < 0) {
-    return { phase: null, topics: planned, order, fit: null };
+    return { phase: null, topics: planned, order };
   }
   const phase: Phase =
     daysLeft <= FINAL_WEEK_DAYS
@@ -177,67 +152,7 @@ export function planStudy(input: PlanInput): Plan {
       : inPlan.length > 0 && inPlan.every((t) => !isUntaught(t))
         ? "deepen"
         : "build";
-  if (phase === "final_week" || exam.hoursPerWeek === null) {
-    return { phase, topics: planned, order, fit: null };
-  }
-
-  // Reviews before the final week, which starts on `until`.
-  const forecast = {
-    now,
-    until: addDays(exam.examDate, -FINAL_WEEK_DAYS),
-    examDate: exam.examDate,
-    retention,
-  };
-  const existingReviews = [...schedules.values()].reduce(
-    (sum, { card }) => sum + forecastReviews(card, forecast),
-    0,
-  );
-  const freshReviews = forecastReviews(null, forecast);
-  let budget =
-    (exam.hoursPerWeek * (daysLeft - FINAL_WEEK_DAYS) * 60) / 7 -
-    existingReviews * pace.minutesPerReview;
-  const byId = new Map(planned.map((t) => [t.id, t]));
-  let fitsSoFar = true;
-  for (const id of order) {
-    const topic = byId.get(id)!;
-    const cost =
-      topic.untaught.length *
-      (pace.minutesPerKc + freshReviews * pace.minutesPerReview);
-    fitsSoFar &&= cost <= budget;
-    if (fitsSoFar) budget -= cost;
-    topic.fits = fitsSoFar;
-  }
-
-  const covered = planned.filter((t) => !isUntaught(t) || t.fits === true);
-  const total = planned.reduce((sum, t) => sum + t.priority, 0);
-  const weight = covered.reduce((sum, t) => sum + t.priority, 0);
-  return {
-    phase,
-    topics: planned,
-    order,
-    fit: {
-      fitting: covered.filter((t) => t.status === "in_plan").length,
-      inPlan: inPlan.length,
-      examWeight: total > 0 ? Math.floor((weight * 100) / total) : null,
-    },
-  };
-}
-
-/** A Phase as a heading: "Build phase", "Deepen phase" or "Final week". */
-export const phaseHeading = (phase: Phase) =>
-  phase === "final_week" ? PHASE_NAMES[phase] : `${PHASE_NAMES[phase]} phase`;
-
-/**
- * The fit line, such as "Build phase. At your pace, 9 of 12 Topics fit,
- * covering 84% of exam weight."; without exam weight it ends after "fit".
- */
-export function fitText(phase: Phase, fit: Fit): string {
-  const topics = fit.inPlan === 1 ? "Topic" : "Topics";
-  const weight =
-    fit.examWeight === null
-      ? ""
-      : `, covering ${fit.examWeight}% of exam weight`;
-  return `${phaseHeading(phase)}. At your pace, ${fit.fitting} of ${fit.inPlan} ${topics} fit${weight}.`;
+  return { phase, topics: planned, order };
 }
 
 /** A Topic's badges in the plan, which the map and its Topic page show. */
@@ -245,7 +160,6 @@ export function topicBadges(topic: TopicPlan): string[] {
   return [
     ...(topic.pinned ? ["pinned"] : []),
     ...(topic.status === "skipped" ? ["skipped"] : []),
-    ...(topic.fits === false ? ["won't fit"] : []),
     ...(topic.status === "if_time_allows" ? ["if time allows"] : []),
   ];
 }

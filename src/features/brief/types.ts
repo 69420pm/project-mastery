@@ -11,7 +11,7 @@ type BriefMessageMetadata = {
 export type BriefUIMessage = UIMessage<BriefMessageMetadata>;
 
 /** What the study plan reads of a Brief; each null until answered. */
-export type ExamFacts = Pick<BriefFields, "examDate" | "hoursPerWeek" | "goal">;
+export type ExamFacts = Pick<BriefFields, "examDate" | "goal">;
 
 /** A Course's Brief conversation and data for its page. */
 export type BriefWithMessages = {

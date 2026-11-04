@@ -1,10 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, test, vi } from "vitest";
+import { beforeAll, expect, test, vi } from "vitest";
 import type {
   KnowledgeMapView,
   MapTopic,
 } from "@/features/knowledge-map/types";
-import { FitLine, type StudyPlan } from "@/features/study";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -79,22 +78,7 @@ const topics: MapTopic[] = [
   },
 ];
 
-const plan: StudyPlan = {
-  phase: "build",
-  topics: [],
-  order: [],
-  fit: { fitting: 9, inPlan: 12, examWeight: 84 },
-  hoursPerWeek: 5,
-  pace: { minutesPerKc: 30, minutesPerReview: 2 },
-  hasMap: true,
-  today: { reviews: null, next: null, hint: null },
-};
-
-const renderMap = (
-  view: KnowledgeMapView,
-  mapTopics: MapTopic[],
-  studyPlan: StudyPlan = plan,
-) =>
+const renderMap = (view: KnowledgeMapView, mapTopics: MapTopic[]) =>
   render(
     <CourseMap
       map={view}
@@ -102,8 +86,7 @@ const renderMap = (
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
-      topicBadges={{ t2: ["won't fit"] }}
-      planLine={<FitLine plan={studyPlan} briefHref="/brief" />}
+      topicBadges={{ t2: ["pinned"] }}
       readinessLine={<p>Readiness line</p>}
     />,
   );
@@ -111,7 +94,7 @@ const renderMap = (
 test("a card shows its plan badges", async () => {
   renderMap(map, topics);
   const card = await screen.findByRole("link", { name: "Nozzles" });
-  expect(within(card).getByLabelText("Plan")).toHaveTextContent("won't fit");
+  expect(within(card).getByLabelText("Plan")).toHaveTextContent("pinned");
   const other = screen.getByRole("link", { name: "Momentum" });
   expect(within(other).queryByLabelText("Plan")).toBeNull();
 });
@@ -169,46 +152,7 @@ test("without a map, the page says so", () => {
   ).toBeVisible();
 });
 
-describe("the plan line", () => {
-  const planLine = () => screen.getByLabelText("Study plan");
-
-  test.each<[string, Partial<StudyPlan>, string]>([
-    [
-      "the fit",
-      {},
-      "Build phase. At your pace, 9 of 12 Topics fit, covering 84% of exam weight.",
-    ],
-    [
-      "the fit without exam weight",
-      { phase: "deepen", fit: { fitting: 1, inPlan: 1, examWeight: null } },
-      "Deepen phase. At your pace, 1 of 1 Topic fit.",
-    ],
-    [
-      "the final week",
-      { phase: "final_week", fit: null },
-      "Final week: review what you've learned.",
-    ],
-    [
-      "no hours",
-      { fit: null, hoursPerWeek: null },
-      "Build phase. Add your weekly hours in the Brief to see your pace.",
-    ],
-  ])("shows %s", (_, overrides, text) => {
-    renderMap(map, topics, { ...plan, ...overrides });
-    expect(planLine()).toHaveTextContent(text);
-  });
-
-  test("links to the Brief without a Phase", () => {
-    renderMap(map, topics, {
-      ...plan,
-      phase: null,
-      fit: null,
-      hoursPerWeek: null,
-    });
-    expect(
-      within(planLine()).getByRole("link", {
-        name: "Add your exam date and weekly hours in the Brief to see your pace.",
-      }),
-    ).toHaveAttribute("href", "/brief");
-  });
+test("shows no line about the plan's fit", () => {
+  renderMap(map, topics);
+  expect(screen.queryByLabelText("Study plan")).toBeNull();
 });

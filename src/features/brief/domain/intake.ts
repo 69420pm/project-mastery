@@ -3,8 +3,6 @@ export type BriefFields = {
   /** The exam's date, as `YYYY-MM-DD`. */
   examDate: string | null;
   goal: "pass" | "good_grade" | "master_everything" | null;
-  hoursPerWeek: number | null;
-  questionStyle: "written" | "multiple_choice" | "mixed" | null;
   openBook: boolean | null;
   formulaSheet: boolean | null;
   calculator: boolean | null;
