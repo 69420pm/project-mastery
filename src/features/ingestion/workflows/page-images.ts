@@ -1,10 +1,6 @@
 import "server-only";
 import path from "node:path";
-import {
-  createIsomorphicCanvasFactory,
-  definePDFJSModule,
-  getDocumentProxy,
-} from "unpdf";
+import { definePDFJSModule, getDocumentProxy } from "unpdf";
 import { isBlankRender } from "@/features/ingestion/domain/pages";
 import {
   fileUnreadableReason,
@@ -34,9 +30,7 @@ const CMAPS_PATH = path.join(PDFJS_DIR, "cmaps/");
  * files, and falls back to system fonts. A deployed function has none, so text
  * vanished from the page images. The installed pdfjs-dist reads them from disk.
  */
-const pdfjsReady = definePDFJSModule(
-  () => import("pdfjs-dist/legacy/build/pdf.mjs"),
-);
+definePDFJSModule(() => import("pdfjs-dist/legacy/build/pdf.mjs"));
 
 /** The app's own canvas package, which `next.config.ts` ships to the function. */
 const canvasImport = () => import("@napi-rs/canvas");
@@ -60,12 +54,29 @@ export type RenderedPage = {
 
 /** An opened PDF, to count, read and render its pages. */
 export async function openPdf(bytes: Uint8Array) {
-  await pdfjsReady;
   // pdf.js would otherwise create canvases (masks, patterns) with its own
   // `require("@napi-rs/canvas")` from the pnpm store, which the deployed
   // function lacks (docs/agents/notes/pdf-page-rendering.md).
-  const CanvasFactory = await createIsomorphicCanvasFactory(canvasImport);
   const { createCanvas } = await canvasImport();
+  class CanvasFactory {
+    create(width: number, height: number) {
+      if (width <= 0 || height <= 0) throw new Error("Invalid canvas size");
+      const canvas = createCanvas(width, height);
+      return { canvas, context: canvas.getContext("2d") };
+    }
+    reset(
+      target: { canvas: { width: number; height: number } },
+      width: number,
+      height: number,
+    ) {
+      target.canvas.width = width;
+      target.canvas.height = height;
+    }
+    destroy(target: { canvas: unknown; context: unknown }) {
+      target.canvas = null;
+      target.context = null;
+    }
+  }
   // pdf.js takes ownership of the buffer, so give it a copy.
   const pdf = await getDocumentProxy(new Uint8Array(bytes), {
     // Draw glyphs from the bundled fonts, the same on every machine.
