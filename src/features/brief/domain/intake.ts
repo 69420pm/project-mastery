@@ -108,14 +108,12 @@ export type BriefContext = {
 };
 
 /**
- * Whether the Student has finished telling the AI about the exam: every fixed
- * field is answered and the scope is confirmed. The notes are free text and
- * never required.
+ * Whether the Student has finished telling the AI about the exam: the scope
+ * step was asked. The other fields may stay null, since a "don't know" is
+ * not asked again.
  */
 export function isIntakeDone(fields: BriefFields | null): boolean {
-  if (!fields) return false;
-  const { scopeConfirmed, ...answers } = fields;
-  return scopeConfirmed && Object.values(answers).every((v) => v !== null);
+  return fields?.scopeConfirmed ?? false;
 }
 
 /**

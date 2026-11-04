@@ -20,20 +20,22 @@ describe("isIntakeDone", () => {
     expect(isIntakeDone(complete)).toBe(true);
   });
 
-  test("counts false answers as answered", () => {
-    expect(isIntakeDone({ ...complete, openBook: false })).toBe(true);
-  });
-
   test("is not done without a Brief", () => {
     expect(isIntakeDone(null)).toBe(false);
   });
 
-  test.each(["examDate", "goal", "calculator"])(
-    "is not done while %s is unanswered",
-    (field) => {
-      expect(isIntakeDone({ ...complete, [field]: null })).toBe(false);
-    },
-  );
+  test("is done on a confirmed scope with fields left unanswered", () => {
+    expect(
+      isIntakeDone({
+        examDate: null,
+        goal: null,
+        openBook: null,
+        formulaSheet: null,
+        calculator: null,
+        scopeConfirmed: true,
+      }),
+    ).toBe(true);
+  });
 
   test("is not done until the scope is confirmed", () => {
     expect(isIntakeDone({ ...complete, scopeConfirmed: false })).toBe(false);

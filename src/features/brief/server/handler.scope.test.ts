@@ -21,7 +21,7 @@ import {
 
 vi.mock("server-only", () => ({}));
 
-/** A Brief whose intake is done, or lacks one answer. */
+/** A Brief whose intake is done, or whose scope is not confirmed yet. */
 function seedBrief({ done }: { done: boolean }) {
   db.tables.briefs.push({
     course_id: COURSE,
@@ -30,8 +30,8 @@ function seedBrief({ done }: { done: boolean }) {
     goal: "pass",
     open_book: false,
     formula_sheet: false,
-    calculator: done ? true : null,
-    scope_confirmed: true,
+    calculator: true,
+    scope_confirmed: done,
     notes: null,
   });
 }

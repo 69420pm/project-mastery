@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 /** The first message of every Brief: static, so opening a Brief costs no model call. */
 export const OPENING_MESSAGE =
-  "Let's get you set up for your exam. When is it? Tell me the date, and anything else you already know about it.";
+  "Let's get you set up for your exam. When is it? And what's your goal: to pass, a good grade, or to master everything?";
 
 /** A stable message id for `key`, so a static message is stored once. */
 function staticMessageId(key: string): string {

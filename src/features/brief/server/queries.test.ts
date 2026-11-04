@@ -264,7 +264,7 @@ describe("getIntakeDone", () => {
   test.each([
     [true, brief({ done: true })],
     [false, brief({ done: false })],
-    [false, { ...brief({ done: true }), calculator: null }],
+    [true, { ...brief({ done: true }), calculator: null }],
     [false, { ...brief({ done: true }), scope_confirmed: false }],
   ])("is %s for the Brief's answers", async (done, row) => {
     db.tables.briefs.push(row);
