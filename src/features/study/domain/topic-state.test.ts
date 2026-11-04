@@ -1,4 +1,4 @@
-import { createEmptyCard, State, type Card } from "ts-fsrs";
+import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import { retrievability, type KcSchedule } from "./replay";
 import { topicState } from "./topic-state";
@@ -13,7 +13,7 @@ const options = {
 /** A card last reviewed `daysAgo` days before now. */
 const card = (stability: number, daysAgo: number, lapses = 0): KcSchedule => ({
   card: {
-    ...createEmptyCard<Card>(now),
+    ...createEmptyCard(now),
     state: State.Review,
     stability,
     lapses,

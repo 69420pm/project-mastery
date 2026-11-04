@@ -1,4 +1,4 @@
-import { createEmptyCard, State, type Card } from "ts-fsrs";
+import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import { DEFAULT_PACE, type Pace, type Plan, type TopicPlan } from "./plan";
 import type { KcSchedule } from "./replay";
@@ -53,7 +53,7 @@ const today = (
 /** A card reviewed today with the given stability in days. */
 const card = (stability: number): KcSchedule => ({
   card: {
-    ...createEmptyCard<Card>(NOW),
+    ...createEmptyCard(NOW),
     state: State.Review,
     stability,
     due: new Date("2026-11-30T12:00:00Z"),

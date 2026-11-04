@@ -1,4 +1,4 @@
-import { createEmptyCard, State, type Card } from "ts-fsrs";
+import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import { readiness } from "./readiness";
 import type { KcSchedule } from "./replay";
@@ -9,7 +9,7 @@ const options = { now, examDate: null as string | null };
 /** A card reviewed just now: recall 1 today. */
 const fresh: KcSchedule = {
   card: {
-    ...createEmptyCard<Card>(now),
+    ...createEmptyCard(now),
     state: State.Review,
     stability: 100,
     last_review: now,
