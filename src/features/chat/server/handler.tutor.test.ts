@@ -149,12 +149,14 @@ describe("the instructions", () => {
       course_id: COURSE,
       exam_date: examIn(14),
       goal: "good_grade",
+      notes: "New to linear algebra; no prior knowledge.",
     });
 
     await send(firstMessage());
 
     const prompt = promptOf(model, 0);
-    expect(prompt).toContain("Study phase: build.");
+    expect(prompt).not.toContain("Study phase");
+    expect(prompt).toContain("New to linear algebra; no prior knowledge.");
     expect(prompt).toContain("goal is a good grade");
     expect(prompt).not.toContain("The study plan:");
   });
@@ -175,7 +177,7 @@ describe("the instructions", () => {
     await send(firstMessage());
 
     const prompt = promptOf(model, 0);
-    expect(prompt).toContain("Study phase: final week.");
+    expect(prompt).toContain("Final week: the exam is within 7 days.");
     expect(prompt).toContain("Teach nothing new unless the Student asks.");
     expect(prompt).toContain("goal is to pass");
     expect(promptOf(model, 1)).not.toContain("Study phase");

@@ -51,6 +51,11 @@ export type TutorContext = {
   goal: "pass" | "good_grade" | "master_everything" | null;
   /** What the AI noted about the Student in this Course; "" without notes. */
   memory: string;
+  /**
+   * The last 4,000 characters of the Brief's notes; null without notes.
+   * Contexts stored before the notes reached the AI have none.
+   */
+  briefNotes?: string | null;
   /** The map page, where the Student builds the map. */
   mapPath: string;
   /** Most urgent first; none without a map. */

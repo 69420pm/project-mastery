@@ -29,7 +29,7 @@ A Chapter the Student confirmed in the Brief as a past exam, together with the C
 _Avoid_: Past paper, Altklausur, exam Material
 
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes. They tell it in a short conversation on the Course's Brief page, which isn't a Chat: the AI asks each question once, accepts "don't know", and ends by sending the Student to the Course map; they can come back with new information any time. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
+What a Student told the AI about a Course's exam: its date, their goal, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes, which the AI writes as short paraphrases and the tutor reads as hints. They tell it in a short conversation on the Course's Brief page, which isn't a Chat: the AI asks each question once, accepts "don't know", and ends by sending the Student to the Course map; they can come back with new information any time. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
 **Exam scope**:

@@ -141,6 +141,20 @@ export async function getExamFacts(
   };
 }
 
+/** The Brief's notes, read with `supabase`; null when empty or without a Brief. */
+export async function getBriefNotes(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("notes")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) failed("Loading the Brief's notes", error);
+  return data?.notes?.trim() ? data.notes : null;
+}
+
 /**
  * The Brief's answers on the exam's aids, read with `supabase`, a Student's
  * session client or the admin client; each null when not answered or

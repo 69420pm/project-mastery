@@ -160,9 +160,11 @@ A reply's prompt has three parts: **instructions**, **messages** and **tools**.
 | 9   | Memory              | The Memory in full, when it isn't empty                                                                                                       | Context                      |
 | 10  | Notes               | The 3 newest Session notes of other sessions. In a learn session with a Topic, its Topic note and the notes of the Topics holding its anchors | Context                      |
 | 11  | Material notes      | Each Material's notation, from the parse                                                                                                      | Context                      |
-| 12  | Plan                | Phase, goal, the Phase's guidance, and today's hint                                                                                           | Context                      |
+| 12  | Plan                | The goal, the guidance of `deepen` or `final_week` (`build` has none, and no line names the Phase) and today's hint; left out when empty      | Context                      |
 | 13  | The work            | See the next table                                                                                                                            | Mode                         |
 | 14  | Session             | The current stage, minutes since the start and where to go after the reviews                                                                  | Learn session with a Topic   |
+
+Block 9a, after the Memory, holds the Brief's notes when there are any (`briefNotes`): the last 4,000 characters, as hints that the Student's answers override. The Brief's AI stores each note as a neutral third-person paraphrase that keeps every concrete fact, in the Student's language; notes stored before that stay as the Student wrote them. Every mode reads them.
 
 Blocks 2 and 13 are what make the modes different:
 
@@ -187,7 +189,6 @@ Session notes of the Student's latest sessions in this Course, newest first:
   Worked through linear maps, mixed up kernel and image twice.
   Next: subspaces.
 
-Study phase: build.
 The Student's goal is a good grade: weigh breadth against depth by it.
 
 Due reviews, most urgent first (recall today is the chance the Student still remembers the KC):
@@ -215,6 +216,7 @@ Session stage: orient. The session started 0 minutes ago.
 | `hasMap`                                      | Whether the stored map has KCs                                                                                |
 | `phase`                                       | `planStudy`                                                                                                   |
 | `memory`                                      | `memories`                                                                                                    |
+| `briefNotes`                                  | `getBriefNotes`: the last 4,000 characters of the Brief's notes, null without notes                           |
 | `dueReviews`                                  | `selectDueReviews`: in a staged session, the Topic's anchors come first                                       |
 | `todayPlan`                                   | `tutorToday`: the session's Topic or the plan's next one, with KCs, anchors and Reading sections and the hint |
 | `session`                                     | `sessionStage`: stage, stage after reviews, minutes. Null without a Topic                                     |

@@ -57,13 +57,15 @@ export const saveBriefInputSchema = z.object({
 
 export type SaveBriefInput = z.infer<typeof saveBriefInputSchema>;
 
-/** What `addNote` takes: one statement of the Student's, verbatim. */
+/** What `addNote` takes: one note, a paraphrase of what the Student said. */
 export const addNoteInputSchema = z.object({
   text: z
     .string()
     .min(1)
     .max(MAX_BRIEF_NOTES_LENGTH)
-    .describe("The Student's statement, word for word as they wrote it."),
+    .describe(
+      'A neutral third-person paraphrase of what the Student said, in their language, keeping every concrete fact (names, chapters, numbers, a teacher\'s hint). Example: "New to linear algebra; no prior knowledge."',
+    ),
 });
 
 /**
@@ -127,7 +129,7 @@ export function briefTools(actions: BriefToolActions) {
     }),
     addNote: tool({
       description:
-        "Store something the Student said about the exam that no saveBrief field holds, such as a teacher's hint, what changed this year, what they know or where they struggle. Pass their words verbatim.",
+        "Store something the Student said about the exam that no saveBrief field holds, such as a teacher's hint, what changed this year, what they know or where they struggle. Pass a neutral third-person paraphrase that keeps every concrete fact, in the Student's language.",
       inputSchema: addNoteInputSchema,
       execute: ({ text }) => run(() => actions.addNote(text)),
     }),

@@ -7,6 +7,7 @@ export { loadExamScopes } from "./server/exam-scopes";
 export { loadExcludedMaterialIds } from "./server/excluded-materials";
 export {
   getBrief,
+  getBriefNotes,
   getExamAids,
   getExamFacts,
   getIntakeDone,

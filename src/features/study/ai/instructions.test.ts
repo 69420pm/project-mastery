@@ -240,3 +240,28 @@ test("hold the Notes rules, and the notes when the context has them", () => {
   );
   expect(withNotes).toContain("- Thrust:\nMixes up mass flow and speed.");
 });
+
+test("render the Brief's notes as hints after the Memory, and nothing without them", () => {
+  const withNotes = tutorInstructions({
+    ...context,
+    memory: "prefers examples",
+    briefNotes: "New to linear algebra; no prior knowledge.",
+  });
+  expect(withNotes).toContain("New to linear algebra; no prior knowledge.");
+  expect(withNotes.indexOf("prefers examples")).toBeLessThan(
+    withNotes.indexOf("New to linear algebra"),
+  );
+  expect(tutorInstructions({ ...context, briefNotes: null })).not.toContain(
+    "in the Brief",
+  );
+  expect(tutorInstructions(context)).not.toContain("in the Brief");
+});
+
+test("name no Study phase and leave out an empty plan block", () => {
+  const build = tutorInstructions({ ...context, phase: "build" });
+  expect(build).not.toContain("Study phase");
+  expect(build).not.toContain("Today's suggestion");
+  const deepen = tutorInstructions({ ...context, phase: "deepen" });
+  expect(deepen).not.toContain("Study phase");
+  expect(deepen).toContain("Deepen phase:");
+});

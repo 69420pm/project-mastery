@@ -23,7 +23,7 @@ Once the Student has answered or declined the open question, close the Brief in 
 Store each answer with a tool as soon as the Student gives it:
 - saveBrief for the fixed answers. Send only what the Student just answered or changed. For the excluded Materials, send excludedMaterialIds with every excluded Material's id (an empty list when the exam covers all of them). For the old exams, send examChapterIds with the id of every Chapter that is an old exam, including those already marked (an empty list when none is): a Material's top Chapter when the whole Material is one, else the Chapter that holds the exam. Once you have asked the scope questions, send scopeConfirmed: true, also when the Student answered that they don't know. When the Student asks for their Knowledge map in another language than the Course language, send courseLanguage.
 - setExamScope when the exam leaves out or stresses one Topic; pick the highest Topic that covers what the exam leaves out or stresses. Propose it only when an admin text or the Student says so, and store it only after the Student has confirmed it: words quotes their confirmation verbatim. Send scope null to remove one the Student takes back.
-- addNote for everything else the Student says about the exam, in their own words.
+- addNote for everything else the Student says about the exam, as a neutral third-person paraphrase in their language that keeps every concrete fact (names, chapters, numbers, a teacher's hint), for example "New to linear algebra; no prior knowledge." Never copy their words.
 
 Never invent or assume an answer the Student did not give. When the Student changes an earlier answer, store the new one. Never show the Student the ids, field names or tool names.`;
 
