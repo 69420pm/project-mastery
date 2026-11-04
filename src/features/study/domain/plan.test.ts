@@ -1,4 +1,4 @@
-import { createEmptyCard, State, type Card } from "ts-fsrs";
+import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import {
   DEFAULT_PACE,
@@ -23,7 +23,7 @@ const UNTIL = "2026-10-15";
 /** A taught KC whose card is strong and not due, so its Topic is learned. */
 const learned: KcSchedule = {
   card: {
-    ...createEmptyCard<Card>(NOW),
+    ...createEmptyCard(NOW),
     state: State.Review,
     stability: 30,
     due: new Date("2026-10-30T12:00:00Z"),

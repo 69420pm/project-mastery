@@ -402,7 +402,7 @@ export const isDue = (card: Card, today: string) => utcDay(card.due) <= today;
 
 /** A card's FSRS recall at `now`, from 0 to 1. */
 export const retrievability = (card: Card, now: Date) =>
-  scheduler(desiredRetention(null)).get_retrievability(card, now, false);
+  scheduler(desiredRetention(null)).retrievability(card, now);
 
 /**
  * A card's projected recall: its recall on the exam date (YYYY-MM-DD) while
