@@ -29,7 +29,7 @@ A Chapter the Student confirmed in the Brief as a past exam, together with the C
 _Avoid_: Past paper, Altklausur, exam Material
 
 **Brief**:
-What a Student told the AI about a Course's exam: its date, their goal, weekly hours, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes. They tell it in a conversation on the Course's Brief page, which isn't a Chat. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
+What a Student told the AI about a Course's exam: its date, their goal, format, excluded Materials, which Chapters are old exams, the exam scope, the Course language and notes, which the AI writes as short paraphrases and the tutor reads as hints. They tell it in a short conversation on the Course's Brief page, which isn't a Chat: the AI asks each question once, accepts "don't know", and ends by sending the Student to the Course map; they can come back with new information any time. The AI proposes the Chapters the parse took for old exams, or whose Material's name looks like one, and asks once about each such Chapter parsed after intake.
 _Avoid_: Preferences, intake form, onboarding
 
 **Exam scope**:
@@ -96,6 +96,10 @@ _Avoid_: Mastered, mastery level, status
 How much of a Course's exam weight a Student is likely to recall on the exam day, from the projected recall of the KCs that matter weighted by Priority, and checked against graded Mock exams. It is never a grade.
 _Avoid_: Score, grade, prediction
 
+**Progress**:
+How many of the KCs in the study plan a Student knows, kept conservative: a KC counts only while it is _known_ and has had a Review after its teaching, so the count can fall when one comes due. Shown as a bar with the days since the first Attempt and the days to the exam, on the Course map and in the Brief's panel.
+_Avoid_: Mastery, completion
+
 **Phase**:
 Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
 _Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
@@ -103,10 +107,6 @@ _Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
 **If time allows**:
 A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
 _Avoid_: Optional, left out, out of scope
-
-**Won't fit**:
-An untaught Topic of the study plan that the Student's weekly hours, at their measured pace and after the review load, leave no time for before the final week, with every Topic after it in the plan order.
-_Avoid_: Left out, cut, overflow
 
 **Topic choice**:
 A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Memory.

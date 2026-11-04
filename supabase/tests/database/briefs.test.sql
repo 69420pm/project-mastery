@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(13);
 
 insert into auth.users (id, email)
 values
@@ -44,15 +44,8 @@ select results_eq(
   'a Student only sees their own Brief'
 );
 
-select throws_ok(
-  $$update public.briefs set hours_per_week = 81 where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
-  '23514',
-  null,
-  'weekly hours are at most 80'
-);
-
 select lives_ok(
-  $$update public.briefs set goal = 'pass', hours_per_week = 6, scope_confirmed = true where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$update public.briefs set goal = 'pass', calculator = true, scope_confirmed = true where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
   'a Student can answer fields of their Brief'
 );
 

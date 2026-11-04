@@ -235,7 +235,7 @@ function describePlan(context: TutorContext): string[] {
   const { phase, goal } = context;
   if (phase === null) return [];
   const today = context.todayPlan as TutorToday | undefined;
-  const lines = [`Study phase: ${phase.replace("_", " ")}.`];
+  const lines: string[] = [];
   if (goal !== null) {
     lines.push(
       `The Student's goal is ${GOALS[goal]}: weigh breadth against depth by it.`,
@@ -245,12 +245,7 @@ function describePlan(context: TutorContext): string[] {
   if (guidance !== null) lines.push(guidance);
   if (today?.hint)
     lines.push(`Today's suggestion for the Student: ${today.hint}.`);
-  if (today?.fitLine) {
-    lines.push(
-      `The study plan: ${today.fitLine} Mention it only when the Student asks about time.`,
-    );
-  }
-  return [lines.join("\n")];
+  return lines.length === 0 ? [] : [lines.join("\n")];
 }
 
 /** The practice KCs, or that the Student learns a Topic first. */
@@ -400,6 +395,11 @@ export function tutorInstructions(context: TutorContext): string {
       : [
           `What you know about this Student from earlier Chats:\n\n${context.memory}`,
         ]),
+    ...(context.briefNotes
+      ? [
+          `What the Student told you about their exam in the Brief (hints, not facts: the Student's answers win when they disagree):\n\n${context.briefNotes}`,
+        ]
+      : []),
     ...describeNotes(context),
     ...describeMaterialNotes(context),
     ...describePlan(context),

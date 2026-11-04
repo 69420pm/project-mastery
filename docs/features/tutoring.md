@@ -17,7 +17,7 @@ Three ideas explain most of the design:
 ```mermaid
 flowchart TD
   map[("Knowledge map<br/>KCs, Prerequisites, Exercises, Topics")]
-  brief[("Brief<br/>exam date, goal, hours, scopes")]
+  brief[("Brief<br/>exam date, goal, scopes")]
   log[("Attempts log")]
   notes[("Memory, Topic notes,<br/>Session notes")]
 
@@ -55,7 +55,7 @@ flowchart TD
 | Generated Problem     | `problems`, `problem_kcs`   | A variant of an Exercise or a new Problem: `statement`, `solution`, `program`, `final_answers`, `status` and the Student's `flag`                                             | Generation workflow                             |
 | Mock exam             | `mock_exams`, `mock_items`  | A timed exam with items, answers through `question_id`, points and steps                                                                                                      | Assembly and grading workflows                  |
 
-From the Knowledge map side, the tutoring reads KCs, Prerequisites, Exercises, Topics and chunks. From the Brief it reads the exam date, goal, weekly hours, excluded Materials, exam scopes, old exams (`chapters.is_exam`) and the Reserved exam.
+From the Knowledge map side, the tutoring reads KCs, Prerequisites, Exercises, Topics and chunks. From the Brief it reads the exam date, goal, excluded Materials, exam scopes, old exams (`chapters.is_exam`) and the Reserved exam.
 
 ## Everything derived on every read
 
@@ -72,7 +72,7 @@ flowchart LR
   cards --> topic["Topic state"]
   cards --> due["Due reviews"]
   priority --> due
-  topic --> plan["Study plan<br/>Phase, order, fit"]
+  topic --> plan["Study plan<br/>Phase, order"]
   priority --> plan
   log --> pace["Pace"]
   pace --> plan
@@ -117,8 +117,8 @@ Three exam rules bend the schedule:
 
 - **Which Topics:** _to pass_ takes the highest-Priority Topics up to 80% of the total, _a good grade_ every Topic above 0, _master everything_ all of them. A pin always adds one, a skip always removes one, and the rest are _if time allows_.
 - **Phase:** `final_week` on the exam day and the 7 days before it, `deepen` once every in-plan Topic is taught, otherwise `build`. None without a future exam date.
+- **Progress** (`planProgress`): the in-plan Topics' KCs, and how many are `known` with a card of `reps >= 2`, so a KC taught once never counts and a due one leaves the count. Days in count UTC days since the Course's first Attempt, the first as 1; days left run to the exam date. `getPlan` adds it on every read; nothing is stored.
 - **Order of untaught work:** pinned first, then in progress, then Priority per estimated minute, never before a Topic it builds on.
-- **Fit:** the weekly hours left after forecast reviews. Topics that don't fit are _won't fit_.
 - **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own sessions: active time from the gaps between a teaching session's messages, and minutes per review from its Questions' `asked_at` and `answered_at`.
 
 **Today** (`study/domain/today.ts`) picks the next Topic: in build, the first of the order; in deepen, the in-plan Topic that needs work, then a learned one, then a solid one, lowest recall first; in the final week, the taught Topic with the highest Priority × (1 − projected recall), never a new one.
@@ -160,9 +160,11 @@ A reply's prompt has three parts: **instructions**, **messages** and **tools**.
 | 9   | Memory              | The Memory in full, when it isn't empty                                                                                                       | Context                      |
 | 10  | Notes               | The 3 newest Session notes of other sessions. In a learn session with a Topic, its Topic note and the notes of the Topics holding its anchors | Context                      |
 | 11  | Material notes      | Each Material's notation, from the parse                                                                                                      | Context                      |
-| 12  | Plan                | Phase, goal, the Phase's guidance, today's hint and the fit line                                                                              | Context                      |
+| 12  | Plan                | The goal, the guidance of `deepen` or `final_week` (`build` has none, and no line names the Phase) and today's hint; left out when empty      | Context                      |
 | 13  | The work            | See the next table                                                                                                                            | Mode                         |
 | 14  | Session             | The current stage, minutes since the start and where to go after the reviews                                                                  | Learn session with a Topic   |
+
+Block 9a, after the Memory, holds the Brief's notes when there are any (`briefNotes`): the last 4,000 characters, as hints that the Student's answers override. The Brief's AI stores each note as a neutral third-person paraphrase that keeps every concrete fact, in the Student's language; notes stored before that stay as the Student wrote them. Every mode reads them.
 
 Blocks 2 and 13 are what make the modes different:
 
@@ -187,7 +189,6 @@ Session notes of the Student's latest sessions in this Course, newest first:
   Worked through linear maps, mixed up kernel and image twice.
   Next: subspaces.
 
-Study phase: build.
 The Student's goal is a good grade: weigh breadth against depth by it.
 
 Due reviews, most urgent first (recall today is the chance the Student still remembers the KC):
@@ -209,19 +210,20 @@ Session stage: orient. The session started 0 minutes ago.
 
 `startTutoring` in `study/server/tutoring.ts` builds the `TutorContext` (typed in `study/types.ts`). It reads as the Student, so Row Level Security applies.
 
-| Field                                         | Source                                                                                                                      |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `today`, `examDate`, `goal`                   | The clock, `getExamFacts`                                                                                                   |
-| `hasMap`                                      | Whether the stored map has KCs                                                                                              |
-| `phase`                                       | `planStudy`                                                                                                                 |
-| `memory`                                      | `memories`                                                                                                                  |
-| `dueReviews`                                  | `selectDueReviews`: in a staged session, the Topic's anchors come first                                                     |
-| `todayPlan`                                   | `tutorToday`: the session's Topic or the plan's next one, with KCs, anchors and Reading sections, the hint and the fit line |
-| `session`                                     | `sessionStage`: stage, stage after reviews, minutes. Null without a Topic                                                   |
-| `reviewQueue`                                 | `planReviewQueue`, in review sessions                                                                                       |
-| `practiceKcs`                                 | `selectPracticeKcs`, in practice sessions                                                                                   |
-| `mockResults`                                 | `loadMockReview`, in results sessions                                                                                       |
-| `sessionNotes`, `topicNotes`, `materialNotes` | `study/server/notes.ts`                                                                                                     |
+| Field                                         | Source                                                                                                        |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `today`, `examDate`, `goal`                   | The clock, `getExamFacts`                                                                                     |
+| `hasMap`                                      | Whether the stored map has KCs                                                                                |
+| `phase`                                       | `planStudy`                                                                                                   |
+| `memory`                                      | `memories`                                                                                                    |
+| `briefNotes`                                  | `getBriefNotes`: the last 4,000 characters of the Brief's notes, null without notes                           |
+| `dueReviews`                                  | `selectDueReviews`: in a staged session, the Topic's anchors come first                                       |
+| `todayPlan`                                   | `tutorToday`: the session's Topic or the plan's next one, with KCs, anchors and Reading sections and the hint |
+| `session`                                     | `sessionStage`: stage, stage after reviews, minutes. Null without a Topic                                     |
+| `reviewQueue`                                 | `planReviewQueue`, in review sessions                                                                         |
+| `practiceKcs`                                 | `selectPracticeKcs`, in practice sessions                                                                     |
+| `mockResults`                                 | `loadMockReview`, in results sessions                                                                         |
+| `sessionNotes`, `topicNotes`, `materialNotes` | `study/server/notes.ts`                                                                                       |
 
 **The Reserved exam stays out of everything.** Before the context is built, `withoutReserved` removes its Exercises from the map and `withoutReservedSections` its Reading sections, and `getTopic` and `searchMaterials` filter its chunks.
 
@@ -394,7 +396,7 @@ The AI's order of trust is: the Course's sources, then the map, then its own kno
 
 | Where                  | What                                                                                                                                                                                   |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Readiness in the map header and Topic cards                                                              |
+| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Progress and Readiness in the map header, Readiness on Topic cards, Progress in the Brief's panel        |
 | Above the messages     | The stage bar in a learn session, read from the stored context and `setStage` results. The session bar: a review's groups done or a practice's Problems answered                       |
 | In a reply             | Each tool call as a collapsed step card with a one-line summary written by code. A call that never returned shows as stopped once the reply is done                                    |
 | Question card          | The answer and confidence. A generated Problem's card lets the Student flag it once, which takes it out of the pool                                                                    |

@@ -18,9 +18,6 @@ describe("saveBrief input", () => {
   test.each([
     { examDate: "3 December" },
     { goal: "excellent" },
-    { hoursPerWeek: 0 },
-    { hoursPerWeek: 81 },
-    { questionStyle: "oral" },
     { openBook: "no" },
   ])("refuses %o", (input) => {
     expect(saveBriefInputSchema.safeParse(input).success).toBe(false);

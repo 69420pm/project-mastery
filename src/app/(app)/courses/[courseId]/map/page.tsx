@@ -10,9 +10,9 @@ import {
 } from "@/features/knowledge-map/server";
 import {
   ExamResultCard,
-  FitLine,
   MapFindingsCard,
   mockExamPath,
+  ProgressLine,
   ReadinessLine,
   TodayCard,
   topicBadges,
@@ -79,11 +79,13 @@ export default async function CourseMapPage({
       learning={learning}
       topicStates={topicStates}
       topicReadiness={readiness.topics}
+      progressLine={
+        <ProgressLine plan={plan} briefHref={briefPath(courseId)} />
+      }
       readinessLine={<ReadinessLine readiness={readiness} />}
       topicBadges={Object.fromEntries(
         plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
       )}
-      planLine={<FitLine plan={plan} briefHref={briefPath(courseId)} />}
       today={
         <>
           <TodayCard

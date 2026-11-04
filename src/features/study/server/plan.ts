@@ -10,12 +10,16 @@ import {
   DEFAULT_PACE,
   type Pace,
   type Plan,
+  planProgress,
   planStudy,
 } from "@/features/study/domain/plan";
 import type { KcSchedule } from "@/features/study/domain/replay";
 import { selectDueReviews } from "@/features/study/domain/reviews";
 import { planToday, type TodayPlan } from "@/features/study/domain/today";
-import { loadSchedules } from "@/features/study/server/attempts";
+import {
+  loadFirstAttemptAt,
+  loadSchedules,
+} from "@/features/study/server/attempts";
 import { loadTopicChoices } from "@/features/study/server/choices";
 import { loadPace } from "@/features/study/server/pace";
 import type { StudyPlan } from "@/features/study/types";
@@ -27,11 +31,11 @@ const NO_PLAN: StudyPlan = {
   phase: null,
   topics: [],
   order: [],
-  fit: null,
-  hoursPerWeek: null,
   pace: DEFAULT_PACE,
   hasMap: false,
   today: { reviews: null, next: null, hint: null },
+  examDate: null,
+  progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
 };
 
 /**
@@ -81,8 +85,9 @@ function countDue(...args: Parameters<typeof selectDueReviews>): number {
 }
 
 /**
- * The signed-in Student's study plan of a Course with today's work, derived
- * now from its Topics, map, Priorities, attempts and Brief. An unknown or
+ * The signed-in Student's study plan of a Course with today's work and its
+ * Progress (`planProgress`), derived now from its Topics, map, Priorities,
+ * attempts and Brief. An unknown or
  * another Student's Course has none.
  */
 export async function getPlan(courseId: string): Promise<StudyPlan> {
@@ -90,10 +95,12 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
     return NO_PLAN;
   }
   const supabase = await createClient();
-  const [map, priorities, exam] = await Promise.all([
+  const [map, priorities, exam, topics, firstAttemptAt] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
     getExamFacts(supabase, courseId),
+    loadStoredTopics(supabase, courseId),
+    loadFirstAttemptAt(supabase, courseId),
   ]);
   const now = new Date();
   const schedules = await loadSchedules(
@@ -111,12 +118,20 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
       exam,
       schedules,
       dueCount: countDue(map.kcs, schedules, priorities, now),
+      topics,
     },
     now,
   );
   return {
     ...plan,
-    hoursPerWeek: exam.hoursPerWeek,
     hasMap: map.kcs.length > 0,
+    examDate: exam.examDate,
+    progress: planProgress(plan, {
+      topics,
+      schedules,
+      examDate: exam.examDate,
+      firstAttemptAt,
+      now,
+    }),
   };
 }

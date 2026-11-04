@@ -18,7 +18,6 @@ import {
 import {
   dueReviewText,
   goalLabel,
-  pacingText,
   phaseLabel,
   todayOf,
 } from "@/features/chat/domain/tutor-context";
@@ -73,7 +72,6 @@ function ContextDetails({ context }: { context: TutorContext }) {
             ["Exam date", context.examDate ?? "Not set"],
             ["Phase", phaseLabel(context.phase)],
             ["Goal", goalLabel(context.goal)],
-            ["Pacing", pacingText(context)],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="contents">

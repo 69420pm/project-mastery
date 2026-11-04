@@ -11,7 +11,7 @@ const EXAM_TITLE = "Klausur 2025";
 
 /** What the Student tells the AI, one message per reply. */
 const MESSAGES = [
-  "Exam is 2026-12-03, closed book, calculator allowed, written. I want a good grade and have 6 hours a week.",
+  "Exam is 2026-12-03, closed book, calculator allowed. I want a good grade.",
   "Skip the lab manual. The lecturer said determinants are important.",
   `Yes, ${EXAM_TITLE} at the end of the lecture notes is an old exam, nothing else is.`,
   "Yes, Chapter 2 is not examined, leave it out.",
@@ -254,7 +254,7 @@ export const briefSmoke: SmokeCheck = {
       supabase
         .from("briefs")
         .select(
-          "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes",
+          "exam_date, goal, open_book, formula_sheet, calculator, scope_confirmed, notes",
         )
         .eq("course_id", courseId)
         .single(),
@@ -279,8 +279,6 @@ export const briefSmoke: SmokeCheck = {
     const expected = {
       exam_date: "2026-12-03",
       goal: "good_grade",
-      hours_per_week: 6,
-      question_style: "written",
       open_book: false,
       calculator: true,
     };
@@ -355,8 +353,6 @@ async function completeIntake(supabase: AdminSupabase, courseId: string) {
     .update({
       exam_date: "2026-12-03",
       goal: "good_grade",
-      hours_per_week: 6,
-      question_style: "written",
       open_book: false,
       formula_sheet: false,
       calculator: true,

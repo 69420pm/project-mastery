@@ -223,8 +223,6 @@ function createDb() {
         owner: signedIn,
         exam_date: null,
         goal: null,
-        hours_per_week: null,
-        question_style: null,
         open_book: null,
         formula_sheet: null,
         calculator: null,

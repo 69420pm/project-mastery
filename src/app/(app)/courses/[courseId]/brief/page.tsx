@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Brief, BriefLayout, BriefPanel, briefPath } from "@/features/brief";
 import { getBrief } from "@/features/brief/server";
-import { MemoryCard, StudyPlanFacts } from "@/features/study";
+import { MemoryCard, ProgressLine } from "@/features/study";
 import { getMemory, getPlan } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
@@ -34,7 +34,7 @@ export default async function BriefPage({
       panel={
         <BriefPanel
           brief={brief}
-          plan={<StudyPlanFacts plan={plan} />}
+          progress={<ProgressLine plan={plan} empty="No KCs in the plan yet" />}
           memory={<MemoryCard courseId={courseId} text={memory} />}
         />
       }

@@ -142,11 +142,11 @@ describe.each([
       phase: null,
       topics: [],
       order: [],
-      fit: null,
-      hoursPerWeek: null,
       pace: { minutesPerKc: 30, minutesPerReview: 2 },
       hasMap: false,
       today: { reviews: null, next: null, hint: null },
+      examDate: null,
+      progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
     });
   });
 });
@@ -264,33 +264,38 @@ describe("getTopicStates", () => {
 });
 
 describe("getPlan", () => {
-  const brief = (hoursPerWeek: string) =>
+  const brief = () =>
     db.tables.briefs.push({
       course_id: COURSE,
       exam_date: day(21),
-      hours_per_week: hoursPerWeek,
       goal: null,
     });
 
-  test("gives the Topic plan with its fit and the weekly hours", async () => {
-    brief("10");
+  test("gives the Topic plan", async () => {
+    brief();
 
     const plan = await getPlan(COURSE);
     expect(plan).toMatchObject({
       phase: "build",
       // t1 is in progress, with Thrust taught.
       order: ["t1", "t2"],
-      fit: { fitting: 2, inPlan: 2, examWeight: 100 },
-      hoursPerWeek: 10,
     });
     expect(plan.topics).toMatchObject([
-      { id: "t1", priority: 0.8, untaught: [EFFICIENCY], fits: true },
-      { id: "t2", priority: 0.1, untaught: [NOZZLE], fits: true },
+      { id: "t1", priority: 0.8, untaught: [EFFICIENCY] },
+      { id: "t2", priority: 0.1, untaught: [NOZZLE] },
     ]);
+    // Thrust's card came due, so nothing counts; the first attempt was 6
+    // days ago.
+    expect(plan.progress).toEqual({
+      known: 0,
+      total: 3,
+      daysIn: 7,
+      daysLeft: 21,
+    });
   });
 
   test("reads the Student's skips and pins", async () => {
-    brief("10");
+    brief();
     choices = [
       { topicId: "t1", choice: "skipped", createdAt: at(-1) },
       { topicId: "t2", choice: "pinned", createdAt: at(-1) },
@@ -304,16 +309,6 @@ describe("getPlan", () => {
     ]);
     // The Today card names the pinned Topic, not the skipped one.
     expect(plan.today.next?.id).toBe("t2");
-  });
-
-  test("leaves out what the weekly hours don't fit", async () => {
-    brief("0.01");
-
-    expect((await getPlan(COURSE)).fit).toEqual({
-      fitting: 0,
-      inPlan: 2,
-      examWeight: 0,
-    });
   });
 
   test("measures the pace from 3 ended teaching sessions' messages", async () => {
@@ -356,12 +351,12 @@ describe("getPlan", () => {
   });
 
   test("has no Phase without an exam date", async () => {
-    expect(await getPlan(COURSE)).toMatchObject({ phase: null, fit: null });
+    expect(await getPlan(COURSE)).toMatchObject({ phase: null });
   });
 
   test("is empty for another Student's Course", async () => {
     expect(await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).toMatchObject(
-      { phase: null, topics: [], order: [], fit: null },
+      { phase: null, topics: [], order: [] },
     );
   });
 });

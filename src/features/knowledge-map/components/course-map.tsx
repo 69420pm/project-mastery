@@ -29,7 +29,7 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's home, the Course map: the build's state with Build or Update
- * map, the reviews due and the study plan's line (`planLine`, a slot,
+ * map, the reviews due and the Progress line (`progressLine`, a slot,
  * since the study feature that owns the plan depends on this one), the
  * Today card (`today`, a slot too), then its Topic tree as a graph of
  * nested boxes filling the rest of the page, each with its Topic state and recall
@@ -44,7 +44,7 @@ export function CourseMap({
   topicStates,
   topicReadiness = {},
   topicBadges,
-  planLine,
+  progressLine,
   readinessLine,
   today,
 }: {
@@ -55,7 +55,8 @@ export function CourseMap({
   topicStates: MapTopicStates;
   topicReadiness?: MapTopicReadiness;
   topicBadges: MapTopicBadges;
-  planLine: ReactNode;
+  /** The study feature's Progress line, shown in the header. */
+  progressLine: ReactNode;
   /** The study feature's Readiness line, shown in the header. */
   readinessLine?: ReactNode;
   /** The study feature's Today card, shown above the graph. */
@@ -88,7 +89,7 @@ export function CourseMap({
               <p>
                 {dueCount} {dueCount === 1 ? "review" : "reviews"} due
               </p>
-              {planLine}
+              {progressLine}
               {readinessLine}
             </>
           )}

@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, test, vi } from "vitest";
-import { type StudyPlan, StudyPlanFacts } from "@/features/study";
+import { ProgressLine } from "@/features/study";
 import { BriefPanel } from "./brief-panel";
 
 // The study feature's index also exports its Memory card's server action.
@@ -13,8 +13,6 @@ const brief: Props["brief"] = {
   fields: {
     examDate: null,
     goal: null,
-    hoursPerWeek: null,
-    questionStyle: null,
     openBook: null,
     formulaSheet: null,
     calculator: null,
@@ -28,30 +26,54 @@ const brief: Props["brief"] = {
   reservedExam: null,
 };
 
-const plan: StudyPlan = {
-  phase: null,
-  topics: [],
-  order: [],
-  fit: null,
-  hoursPerWeek: null,
-  pace: { minutesPerKc: 30, minutesPerReview: 2 },
-  hasMap: false,
-  today: { reviews: null, next: null, hint: null },
+type Plan = ComponentProps<typeof ProgressLine>["plan"];
+
+const noProgress: Plan = {
+  examDate: null,
+  progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
 };
 
 const renderPanel = (
-  overrides: {
-    brief?: Partial<Props["brief"]>;
-    plan?: Partial<StudyPlan>;
-  } = {},
+  overrides: { brief?: Partial<Props["brief"]>; plan?: Plan } = {},
 ) =>
   render(
     <BriefPanel
       brief={{ ...brief, ...overrides.brief }}
-      plan={<StudyPlanFacts plan={{ ...plan, ...overrides.plan }} />}
+      progress={
+        <ProgressLine
+          plan={overrides.plan ?? noProgress}
+          empty="No KCs in the plan yet"
+        />
+      }
       memory={<p>Memory slot</p>}
     />,
   );
+
+describe("the Progress section", () => {
+  const section = () => screen.getByRole("region", { name: "Progress" });
+
+  test("shows the bar and the line, leaving out the days it lacks", () => {
+    renderPanel({
+      plan: {
+        examDate: "2026-12-03",
+        progress: { known: 3, total: 10, daysIn: null, daysLeft: 1 },
+      },
+    });
+    expect(
+      within(section()).getByRole("progressbar", { name: "Progress" }),
+    ).toHaveAttribute("aria-valuenow", "3");
+    expect(
+      within(section()).getByText("3 of 10 KCs known · 1 day left"),
+    ).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Study plan" })).toBeNull();
+  });
+
+  test("says so without in-plan KCs", () => {
+    renderPanel();
+    expect(within(section()).queryByRole("progressbar")).toBeNull();
+    expect(within(section()).getByText("No KCs in the plan yet")).toBeVisible();
+  });
+});
 
 test("shows the reserved exam as a line, or none once answered", () => {
   const { unmount } = renderPanel({
@@ -71,7 +93,7 @@ describe("BriefPanel", () => {
     renderPanel();
 
     const exam = screen.getByRole("region", { name: "Exam" });
-    expect(within(exam).getAllByText("Not set")).toHaveLength(7);
+    expect(within(exam).getAllByText("Not set")).toHaveLength(5);
     for (const name of [
       "Excluded Materials",
       "Old exams",
@@ -82,7 +104,6 @@ describe("BriefPanel", () => {
         within(screen.getByRole("region", { name })).getByText("None"),
       ).toBeVisible();
     }
-    expect(screen.getByText("No exam date")).toBeVisible();
     expect(screen.getByText("Memory slot")).toBeVisible();
   });
 
@@ -92,8 +113,6 @@ describe("BriefPanel", () => {
         fields: {
           examDate: "2026-12-03",
           goal: "good_grade",
-          hoursPerWeek: 5.5,
-          questionStyle: "multiple_choice",
           openBook: false,
           formulaSheet: true,
           calculator: false,
@@ -107,8 +126,6 @@ describe("BriefPanel", () => {
       within(exam).getByText(label).nextElementSibling?.textContent;
     expect(value("Date")).toBe("Dec 3, 2026");
     expect(value("Goal")).toBe("A good grade");
-    expect(value("Weekly hours")).toBe("5.5 h");
-    expect(value("Question style")).toBe("Multiple choice");
     expect(value("Open book")).toBe("No");
     expect(value("Formula sheet")).toBe("Yes");
     expect(value("Calculator")).toBe("No");
@@ -166,42 +183,10 @@ describe("BriefPanel", () => {
     ).toHaveTextContent("Excluded: Eigenvalues · “Chapter 7 is not examined”");
   });
 
-  test("shows the fit line with the names of the Topics that won't fit", () => {
-    const topic = (id: string, name: string, fits: boolean) => ({
-      id,
-      name,
-      priority: 1,
-      topicState: { state: "new" as const, recall: 0 },
-      status: "in_plan" as const,
-      pinned: false,
-      untaught: ["k"],
-      fits,
-    });
-    renderPanel({
-      plan: {
-        phase: "build",
-        hoursPerWeek: 5,
-        topics: [
-          topic("t1", "Thrust", true),
-          topic("t2", "Momentum", false),
-          topic("t3", "Nozzles", false),
-        ],
-        fit: { fitting: 1, inPlan: 3, examWeight: 33 },
-      },
-    });
+  test("asks for no weekly hours or question style", () => {
+    renderPanel();
 
-    const section = screen.getByRole("region", { name: "Study plan" });
-    expect(within(section).getByText("Build phase")).toBeVisible();
-    expect(
-      within(section).getByText(
-        "Build phase. At your pace, 1 of 3 Topics fit, covering 33% of exam weight.",
-      ),
-    ).toBeVisible();
-    const wontFit = within(section).getByRole("list", {
-      name: "Topics that won't fit",
-    });
-    expect(wontFit).toHaveTextContent("Momentum");
-    expect(wontFit).toHaveTextContent("Nozzles");
-    expect(wontFit).not.toHaveTextContent("Thrust");
+    expect(screen.queryByText("Weekly hours")).toBeNull();
+    expect(screen.queryByText("Question style")).toBeNull();
   });
 });

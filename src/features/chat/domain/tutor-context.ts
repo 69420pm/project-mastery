@@ -28,11 +28,6 @@ export function todayOf(context: TutorContext): TutorToday | null {
   return (context.todayPlan as TutorToday | undefined) ?? null;
 }
 
-/** The fit line, or "No pacing" without one. */
-export function pacingText(context: TutorContext): string {
-  return todayOf(context)?.fitLine ?? "No pacing";
-}
-
 /**
  * A due review with today's recall, such as "due · Recall today 84%".
  * Contexts stored before FSRS (#174) have no recall.

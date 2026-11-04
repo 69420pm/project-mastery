@@ -26,7 +26,7 @@ export function TopicStateBadge({
   );
 }
 
-/** A Topic's study plan badges, such as "won't fit"; nothing without. */
+/** A Topic's study plan badges, such as "pinned"; nothing without. */
 export function PlanBadges({ badges = [] }: { badges?: string[] }) {
   if (badges.length === 0) return null;
   return (

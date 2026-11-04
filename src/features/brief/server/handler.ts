@@ -30,6 +30,7 @@ import {
   saveMessage,
 } from "@/features/brief/server/brief-store";
 import type { BriefUIMessage } from "@/features/brief/types";
+import { courseMapPath } from "@/features/knowledge-map/server";
 import {
   checkDailyLimit,
   dailyLimitReachedMessage,
@@ -169,7 +170,7 @@ async function streamReply({
   const studentTexts = messages
     .filter(({ role }) => role === "user")
     .map(({ parts }) => messageText(parts));
-  const settings = briefReplySettings(context);
+  const settings = briefReplySettings(context, courseMapPath(courseId));
   // What the provider reports when the call completes. A stopped or failed
   // call reports neither.
   let reportedUsage: LanguageModelUsage | undefined;

@@ -43,7 +43,7 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
     supabase
       .from("briefs")
       .select(
-        "exam_date, goal, hours_per_week, question_style, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at, reserved_exam_answered, reserved_exam_chapter_id",
+        "exam_date, goal, open_book, formula_sheet, calculator, scope_confirmed, notes, notes_updated_at, reserved_exam_answered, reserved_exam_chapter_id",
       )
       .eq("course_id", courseId)
       .single(),
@@ -67,8 +67,6 @@ async function loadPanelData(supabase: Supabase, courseId: string) {
   const fields: BriefFields = {
     examDate: data.exam_date,
     goal: data.goal as BriefFields["goal"],
-    hoursPerWeek: data.hours_per_week,
-    questionStyle: data.question_style as BriefFields["questionStyle"],
     openBook: data.open_book,
     formulaSheet: data.formula_sheet,
     calculator: data.calculator,
@@ -123,7 +121,7 @@ function reservedExamLink(
 }
 
 /**
- * The exam date, weekly hours and goal of a Course's Brief, read with
+ * The exam date and goal of a Course's Brief, read with
  * `supabase`, a Student's session client; each null when not set or without
  * a Brief.
  */
@@ -133,16 +131,28 @@ export async function getExamFacts(
 ): Promise<ExamFacts> {
   const { data, error } = await supabase
     .from("briefs")
-    .select("exam_date, hours_per_week, goal")
+    .select("exam_date, goal")
     .eq("course_id", courseId)
     .maybeSingle();
   if (error) throw new Error(`Loading the Brief failed: ${error.message}`);
   return {
     examDate: data?.exam_date ?? null,
-    hoursPerWeek:
-      data?.hours_per_week == null ? null : Number(data.hours_per_week),
     goal: (data?.goal ?? null) as ExamFacts["goal"],
   };
+}
+
+/** The Brief's notes, read with `supabase`; null when empty or without a Brief. */
+export async function getBriefNotes(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("briefs")
+    .select("notes")
+    .eq("course_id", courseId)
+    .maybeSingle();
+  if (error) failed("Loading the Brief's notes", error);
+  return data?.notes?.trim() ? data.notes : null;
 }
 
 /**

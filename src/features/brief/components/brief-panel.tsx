@@ -19,12 +19,6 @@ const GOAL_NAMES = {
   master_everything: "Master everything",
 } as const;
 
-const QUESTION_STYLE_NAMES = {
-  written: "Written",
-  multiple_choice: "Multiple choice",
-  mixed: "Mixed",
-} as const;
-
 const yesNo = (value: boolean) => (value ? "Yes" : "No");
 
 function Time({ iso }: { iso: string }) {
@@ -71,12 +65,12 @@ function MaterialLinks({
 /**
  * Everything the Brief holds and what follows from it, beside its
  * conversation: the exam facts, the excluded Materials, the old exams, the
- * exam scope, the notes, the study plan and the Memory (slots, since the
- * study feature that owns them depends on this one).
+ * exam scope, the notes, the Progress and the Memory (slots, since the study
+ * feature that owns them depends on this one).
  */
 export function BriefPanel({
   brief,
-  plan,
+  progress,
   memory,
 }: {
   brief: Pick<
@@ -89,7 +83,7 @@ export function BriefPanel({
     | "examScopes"
     | "reservedExam"
   >;
-  plan: ReactNode;
+  progress: ReactNode;
   memory: ReactNode;
 }) {
   return (
@@ -153,7 +147,9 @@ export function BriefPanel({
           <None />
         )}
       </Section>
-      <Section title="Study plan">{plan}</Section>
+      <Section title="Progress">
+        <div className="text-sm">{progress}</div>
+      </Section>
       <Section title="Memory">{memory}</Section>
     </div>
   );
@@ -167,14 +163,6 @@ function ExamFacts({ fields }: { fields: BriefFields }) {
         dayFormat.format(new Date(`${fields.examDate}T00:00Z`)),
     ],
     ["Goal", fields.goal && GOAL_NAMES[fields.goal]],
-    [
-      "Weekly hours",
-      fields.hoursPerWeek === null ? null : `${fields.hoursPerWeek} h`,
-    ],
-    [
-      "Question style",
-      fields.questionStyle && QUESTION_STYLE_NAMES[fields.questionStyle],
-    ],
     ["Open book", fields.openBook === null ? null : yesNo(fields.openBook)],
     [
       "Formula sheet",

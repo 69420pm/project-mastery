@@ -138,6 +138,7 @@ describe("the tools", () => {
               input: {
                 examDate: "2026-12-03",
                 goal: "good_grade",
+                // Answers the Brief no longer asks for are ignored.
                 hoursPerWeek: 6,
                 questionStyle: "written",
                 openBook: false,
@@ -160,14 +161,14 @@ describe("the tools", () => {
     expect(db.tables.briefs[0]).toMatchObject({
       exam_date: "2026-12-03",
       goal: "good_grade",
-      hours_per_week: 6,
-      question_style: "written",
       open_book: false,
       formula_sheet: null,
       calculator: true,
       scope_confirmed: true,
       notes: "Heat exchangers!",
     });
+    expect(db.tables.briefs[0]).not.toHaveProperty("hours_per_week");
+    expect(db.tables.briefs[0]).not.toHaveProperty("question_style");
     expect(db.tables.brief_excluded_materials).toEqual([
       expect.objectContaining({ course_id: COURSE, material_id: OLD_EXAM }),
     ]);
@@ -221,18 +222,18 @@ describe("the tools", () => {
 
   test("a malformed call changes nothing and tells the model why", async () => {
     const model = mockToolModel(
-      [[{ toolName: "saveBrief", input: { hoursPerWeek: 100 } }]],
-      "How many hours?",
+      [[{ toolName: "saveBrief", input: { goal: "excellent" } }]],
+      "What is your goal?",
     );
     useMockModels({ brief: model });
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const reply = await send({ courseId: COURSE, message: userMessage("…") });
 
-    expect(reply.text).toBe("How many hours?");
-    expect(db.tables.briefs[0]?.hours_per_week).toBeNull();
+    expect(reply.text).toBe("What is your goal?");
+    expect(db.tables.briefs[0]?.goal).not.toBe("excellent");
     const retry = JSON.stringify(model.doStreamCalls.at(-1)!.prompt);
-    expect(retry).toContain("hoursPerWeek");
+    expect(retry).toContain("goal");
   });
 
   test("the instructions hold the stored answers and the Course's Materials", async () => {

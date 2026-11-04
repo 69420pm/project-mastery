@@ -40,7 +40,7 @@ export function TopicDetail({
   topic: MapTopicDetail;
   /** The Topic's state and recall today; undefined while it is new. */
   topicState?: MapTopicState;
-  /** The study plan's badges of the Topic, such as "won't fit". */
+  /** The study plan's badges of the Topic, such as "pinned". */
   badges?: string[];
   topics: MapTopic[];
   map: KnowledgeMapView;

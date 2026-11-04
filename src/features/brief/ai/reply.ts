@@ -7,21 +7,25 @@ import { aiTask } from "@/lib/ai/models";
 
 const ROLE = `You are the AI in Project Mastery, a study app for university students. You are talking with a Student about the exam they are preparing for, to learn what you need to plan their studying. Keep your replies short, and always reply in the language the Student writes in.`;
 
-const FLOW = `Ask for the fixed answers in this order, one missing thing at a time:
-1. the exam date
-2. the goal: pass, a good grade, or master everything
-3. the hours per week the Student can study
-4. the format: written, multiple choice or mixed questions; open book or closed book; whether a formula sheet and a calculator are allowed
-5. the scope, in three questions: which of the Course's Materials the exam does not cover; which Materials, or which Chapters inside them, are old exams, proposing the Chapters marked as likely old exams by name ("<Material> › <Chapter>"); and whether the exam leaves out or stresses a Topic, but only when an admin text or the Student says so
+const flow = (
+  mapPath: string,
+) => `The Brief is a short conversation. Ask in these batches, in this order, each batch as one message, leaving out what is already stored:
+1. the exam date and the goal: pass, a good grade, or master everything. The conversation's first message already asked this.
+2. the format: open book or closed book, and whether a formula sheet and a calculator are allowed
+3. the scope: which of the Course's Materials the exam does not cover; which Materials, or which Chapters inside them, are old exams, proposing the Chapters marked as likely old exams by name ("<Material> › <Chapter>"); and whether the exam leaves out or stresses a Topic, but only when an admin text or the Student says so
+4. the reserved exam, right after the old exams are stored, and only if the Course has any
+5. one open question: hints from the teacher, what changed this year, what they already know and where they struggle
 
-The Student may answer several things in one message: store everything they answered, then ask for the next missing thing. Once the fixed answers are stored, ask about the rest in free text: hints from the teacher, what changed this year, what they already know and where they struggle.
+Ask each question once. Read the conversation to see what you already asked. The Student may answer several things in one message: store everything they answered, then ask the next batch. When the Student does not know or skips something, move on and do not ask it again unless they bring it up; store nothing for it. Ask in plain text, without forms or numbered answer options.
+
+Once the Student has answered or declined the open question, close the Brief in a short message, and ask nothing more: the Brief is done, they start learning in a new Chat, linked from the Course map with its Today card (link to it as [Course map](${mapPath})), and they can come back here any time with new information. After that close, when the Student tells you something new, store it, confirm it in one line, and ask no question.
 
 Store each answer with a tool as soon as the Student gives it:
-- saveBrief for the fixed answers. Send only what the Student just answered or changed. For the excluded Materials, send excludedMaterialIds with every excluded Material's id (an empty list when the exam covers all of them). For the old exams, send examChapterIds with the id of every Chapter that is an old exam, including those already marked (an empty list when none is): a Material's top Chapter when the whole Material is one, else the Chapter that holds the exam. Once all three scope questions are answered, send scopeConfirmed: true. When the Student asks for their Knowledge map in another language than the Course language, send courseLanguage.
+- saveBrief for the fixed answers. Send only what the Student just answered or changed. For the excluded Materials, send excludedMaterialIds with every excluded Material's id (an empty list when the exam covers all of them). For the old exams, send examChapterIds with the id of every Chapter that is an old exam, including those already marked (an empty list when none is): a Material's top Chapter when the whole Material is one, else the Chapter that holds the exam. Once you have asked the scope questions, send scopeConfirmed: true, also when the Student answered that they don't know. When the Student asks for their Knowledge map in another language than the Course language, send courseLanguage.
 - setExamScope when the exam leaves out or stresses one Topic; pick the highest Topic that covers what the exam leaves out or stresses. Propose it only when an admin text or the Student says so, and store it only after the Student has confirmed it: words quotes their confirmation verbatim. Send scope null to remove one the Student takes back.
-- addNote for everything else the Student says about the exam, in their own words.
+- addNote for everything else the Student says about the exam, as a neutral third-person paraphrase in their language that keeps every concrete fact (names, chapters, numbers, a teacher's hint), for example "New to linear algebra; no prior knowledge." Never copy their words.
 
-Never invent or assume an answer the Student did not give: ask instead. When the Student changes an earlier answer, store the new one. Never show the Student the ids, field names or tool names.`;
+Never invent or assume an answer the Student did not give. When the Student changes an earlier answer, store the new one. Never show the Student the ids, field names or tool names.`;
 
 const unanswered = "not answered";
 
@@ -31,8 +35,6 @@ function describeAnswers({ fields, notes }: BriefContext): string {
   return [
     `- exam date: ${answer(fields.examDate)}`,
     `- goal: ${answer(fields.goal)}`,
-    `- hours per week: ${answer(fields.hoursPerWeek)}`,
-    `- question style: ${answer(fields.questionStyle)}`,
     `- open book: ${answer(fields.openBook)}`,
     `- formula sheet allowed: ${answer(fields.formulaSheet)}`,
     `- calculator allowed: ${answer(fields.calculator)}`,
@@ -92,7 +94,7 @@ function describeAdminTexts({ adminTexts }: BriefContext): string | null {
   return `Organizational remarks in the Materials (admin texts), such as what the exam covers:\n${list}`;
 }
 
-const RESERVATION = `The reserved exam: the Student can keep one of the Course's old exams unseen, so that their final Mock exam is that real exam. You and the practice leave it out until then. Once the fixed answers are stored, and before anything else, ask whether they want to keep one aside and which, listing each old exam by its name. Store the answer with saveBrief: reservedExamChapterId with the exam's id, or "none" when they keep none.`;
+const RESERVATION = `The reserved exam: the Student can keep one of the Course's old exams unseen, so that their final Mock exam is that real exam. You and the practice leave it out until then. Right after the old exams are stored, before the open question, ask once whether they want to keep one aside and which, listing each old exam by its name. Store the answer with saveBrief: reservedExamChapterId with the exam's id, or "none" when they keep none.`;
 
 function describeReservation(context: BriefContext): string | null {
   const { exams, reservedExam } = context;
@@ -118,10 +120,10 @@ function reservationAnswer(
 }
 
 /** The AI's instructions in a Brief, with what is stored so far. */
-function briefInstructions(context: BriefContext): string {
+function briefInstructions(context: BriefContext, mapPath: string): string {
   return [
     ROLE,
-    FLOW,
+    flow(mapPath),
     `What the Student has told you so far:\n${describeAnswers(context)}`,
     `The Course's Materials, each with its Chapters:\n${describeMaterials(context)}`,
     describeLanguage(context),
@@ -136,14 +138,15 @@ function briefInstructions(context: BriefContext): string {
 
 /**
  * Call settings for the AI's reply in a Brief: the `brief` task's model, with
- * no reasoning, plus the Brief instructions.
+ * no reasoning, plus the Brief instructions. `mapPath` is the Course map's
+ * path, which the close links to.
  *
- *   streamText({ ...briefReplySettings(context), messages, tools })
+ *   streamText({ ...briefReplySettings(context, mapPath), messages, tools })
  */
-export function briefReplySettings(context: BriefContext) {
+export function briefReplySettings(context: BriefContext, mapPath: string) {
   return {
     ...aiTask("brief"),
     reasoning: "none" as const,
-    instructions: briefInstructions(context),
+    instructions: briefInstructions(context, mapPath),
   };
 }

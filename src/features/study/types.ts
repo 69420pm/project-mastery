@@ -11,7 +11,7 @@ import type {
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
 import type { SessionMode } from "@/features/study/domain/modes";
-import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
+import type { Pace, Phase, Plan, Progress } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
 import type { PracticeKc } from "@/features/study/domain/practice";
@@ -51,6 +51,11 @@ export type TutorContext = {
   goal: "pass" | "good_grade" | "master_everything" | null;
   /** What the AI noted about the Student in this Course; "" without notes. */
   memory: string;
+  /**
+   * The last 4,000 characters of the Brief's notes; null without notes.
+   * Contexts stored before the notes reached the AI have none.
+   */
+  briefNotes?: string | null;
   /** The map page, where the Student builds the map. */
   mapPath: string;
   /** Most urgent first; none without a map. */
@@ -174,20 +179,20 @@ export type TutorToday = {
   } | null;
   /** Such as "Practice exam-style problems"; null in build. */
   hint: string | null;
-  /** The fit line (`fitText`); null without a fit. */
-  fitLine: string | null;
 };
 
 /**
  * A Course's study plan over its Topics as the map and the Brief show it
- * (`planStudy`), with the Brief's weekly hours, the measured pace it used,
- * whether the Course has a map and today's work (`planToday`).
+ * (`planStudy`), with the measured pace it used, whether the Course has a
+ * map, today's work (`planToday`), the Brief's exam date and the Progress
+ * (`planProgress`).
  */
 export type StudyPlan = Plan & {
-  hoursPerWeek: number | null;
   pace: Pace;
   hasMap: boolean;
   today: TodayPlan;
+  examDate: string | null;
+  progress: Progress;
 };
 
 /** A source chunk as `getTopic` and `searchMaterials` return it. */

@@ -15,9 +15,9 @@ Project Mastery is an AI tutor that helps university students master their cours
 ## What it does today
 
 1. **Upload:** Materials (slides, scripts, exercise sheets, old exams) are parsed into searchable chunks by a durable background workflow.
-2. **Brief:** the student tells the AI about the exam in a conversation: its date, format, their goal, weekly hours and what to skip.
+2. **Brief:** the student tells the AI about the exam in a conversation: its date, format, their goal and what to skip. The AI keeps what else they say as notes that the tutor reads in every Chat.
 3. **Knowledge map:** the AI builds a map of what the Materials teach, with nested Topics, Knowledge components, Prerequisites and the Exercises that test them, drawn as a graph.
-4. **Plan:** code, not a model, plans over the Topics from the exam date, the weekly hours and the student's measured pace, and shows a Today card.
+4. **Plan:** code, not a model, plans over the Topics from the exam date, the goal and the student's measured pace, and shows a Today card.
 5. **Tutor:** a Chat answers from the course, cites Material and page, asks the student to produce answers before it gives solutions, remembers the student, and schedules reviews with [FSRS](docs/adr/0019-fsrs-replay.md) replayed from the student's attempts.
 6. **Read:** every Topic has Reading sections with a source pane that shows the original page.
 

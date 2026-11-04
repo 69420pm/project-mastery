@@ -119,7 +119,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       priorities={{ kcs: {} }}
       learning={{}}
       topicState={{ state: "solid", recall: 0.91 }}
-      badges={["pinned", "won't fit"]}
+      badges={["pinned", "skipped"]}
       controls={<button type="button">Pin</button>}
     />,
   );
@@ -168,7 +168,7 @@ describe("TopicDetail", () => {
   test("shows the plan badges and the pin and skip controls", () => {
     renderTopic(topic);
     expect(screen.getByLabelText("Plan")).toHaveTextContent("pinned");
-    expect(screen.getByLabelText("Plan")).toHaveTextContent("won't fit");
+    expect(screen.getByLabelText("Plan")).toHaveTextContent("skipped");
     expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
   });
 

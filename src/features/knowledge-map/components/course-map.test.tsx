@@ -1,10 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 import type {
   KnowledgeMapView,
   MapTopic,
 } from "@/features/knowledge-map/types";
-import { FitLine, type StudyPlan } from "@/features/study";
+import { ProgressLine } from "@/features/study";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -79,21 +80,15 @@ const topics: MapTopic[] = [
   },
 ];
 
-const plan: StudyPlan = {
-  phase: "build",
-  topics: [],
-  order: [],
-  fit: { fitting: 9, inPlan: 12, examWeight: 84 },
-  hoursPerWeek: 5,
-  pace: { minutesPerKc: 30, minutesPerReview: 2 },
-  hasMap: true,
-  today: { reviews: null, next: null, hint: null },
+const plan: ComponentProps<typeof ProgressLine>["plan"] = {
+  examDate: "2026-12-03",
+  progress: { known: 34, total: 120, daysIn: 12, daysLeft: 30 },
 };
 
 const renderMap = (
   view: KnowledgeMapView,
   mapTopics: MapTopic[],
-  studyPlan: StudyPlan = plan,
+  progressPlan = plan,
 ) =>
   render(
     <CourseMap
@@ -102,8 +97,8 @@ const renderMap = (
       learning={{}}
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
-      topicBadges={{ t2: ["won't fit"] }}
-      planLine={<FitLine plan={studyPlan} briefHref="/brief" />}
+      topicBadges={{ t2: ["pinned"] }}
+      progressLine={<ProgressLine plan={progressPlan} briefHref="/brief" />}
       readinessLine={<p>Readiness line</p>}
     />,
   );
@@ -111,7 +106,7 @@ const renderMap = (
 test("a card shows its plan badges", async () => {
   renderMap(map, topics);
   const card = await screen.findByRole("link", { name: "Nozzles" });
-  expect(within(card).getByLabelText("Plan")).toHaveTextContent("won't fit");
+  expect(within(card).getByLabelText("Plan")).toHaveTextContent("pinned");
   const other = screen.getByRole("link", { name: "Momentum" });
   expect(within(other).queryByLabelText("Plan")).toBeNull();
 });
@@ -169,46 +164,46 @@ test("without a map, the page says so", () => {
   ).toBeVisible();
 });
 
-describe("the plan line", () => {
-  const planLine = () => screen.getByLabelText("Study plan");
-
-  test.each<[string, Partial<StudyPlan>, string]>([
-    [
-      "the fit",
-      {},
-      "Build phase. At your pace, 9 of 12 Topics fit, covering 84% of exam weight.",
-    ],
-    [
-      "the fit without exam weight",
-      { phase: "deepen", fit: { fitting: 1, inPlan: 1, examWeight: null } },
-      "Deepen phase. At your pace, 1 of 1 Topic fit.",
-    ],
-    [
-      "the final week",
-      { phase: "final_week", fit: null },
-      "Final week: review what you've learned.",
-    ],
-    [
-      "no hours",
-      { fit: null, hoursPerWeek: null },
-      "Build phase. Add your weekly hours in the Brief to see your pace.",
-    ],
-  ])("shows %s", (_, overrides, text) => {
-    renderMap(map, topics, { ...plan, ...overrides });
-    expect(planLine()).toHaveTextContent(text);
+describe("the Progress line", () => {
+  test("shows the bar and the line", () => {
+    renderMap(map, topics);
+    const bar = screen.getByRole("progressbar", { name: "Progress" });
+    expect(bar).toHaveAttribute("aria-valuenow", "34");
+    expect(bar).toHaveAttribute("aria-valuemax", "120");
+    expect(
+      screen.getByText("34 of 120 KCs known · 12 days in · 30 days left"),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();
+    expect(screen.getByText("Readiness line")).toBeVisible();
   });
 
-  test("links to the Brief without a Phase", () => {
+  test("leaves out the days it lacks and links to the Brief without a date", () => {
+    renderMap(map, topics, {
+      examDate: null,
+      progress: { known: 0, total: 1, daysIn: null, daysLeft: null },
+    });
+    expect(screen.getByText("0 of 1 KC known")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Add your exam date in the Brief" }),
+    ).toHaveAttribute("href", "/brief");
+  });
+
+  test("reads Exam today on the exam day", () => {
     renderMap(map, topics, {
       ...plan,
-      phase: null,
-      fit: null,
-      hoursPerWeek: null,
+      progress: { ...plan.progress, daysIn: 1, daysLeft: 0 },
     });
     expect(
-      within(planLine()).getByRole("link", {
-        name: "Add your exam date and weekly hours in the Brief to see your pace.",
-      }),
-    ).toHaveAttribute("href", "/brief");
+      screen.getByText("34 of 120 KCs known · 1 day in · Exam today"),
+    ).toBeVisible();
+  });
+
+  test("shows nothing without in-plan KCs", () => {
+    renderMap(map, topics, {
+      examDate: null,
+      progress: { known: 0, total: 0, daysIn: 3, daysLeft: null },
+    });
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();
   });
 });

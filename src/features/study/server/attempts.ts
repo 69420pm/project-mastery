@@ -125,6 +125,24 @@ export async function loadSchedules(
 }
 
 /**
+ * When the Course's first Attempt was made, as an ISO timestamp, read with
+ * `supabase`; null without one.
+ */
+export async function loadFirstAttemptAt(
+  supabase: Supabase,
+  courseId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("attempts")
+    .select("created_at, study_sessions!inner(course_id)")
+    .eq("study_sessions.course_id", courseId)
+    .order("created_at")
+    .limit(1);
+  if (error) failed("Loading the first attempt", error);
+  return data[0]?.created_at ?? null;
+}
+
+/**
  * The columns of a question that name the Problem it poses: an Exercise, or
  * a generated Problem. Each is read with its own query, since a question
  * sets at most one.

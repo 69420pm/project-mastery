@@ -20,7 +20,6 @@ const topic = (
   status: "in_plan",
   pinned: false,
   untaught: [],
-  fits: null,
   ...overrides,
 });
 
@@ -33,7 +32,6 @@ const today = (
       phase: "build",
       topics: [],
       order: [],
-      fit: null,
       pace: DEFAULT_PACE,
       ...plan,
     },

@@ -32,15 +32,15 @@ set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", 
 select ok(
   public.save_brief(
     'aaaaaaaa-c000-0000-0000-000000000001',
-    '{"exam_date": "2026-12-03", "hours_per_week": 6, "calculator": true, "scope_confirmed": true}',
+    '{"exam_date": "2026-12-03", "open_book": true, "calculator": true, "scope_confirmed": true}',
     array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[]
   ),
   'save_brief saves the given fields'
 );
 
 select results_eq(
-  $$select exam_date, hours_per_week, calculator, scope_confirmed, goal from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
-  $$values ('2026-12-03'::date, 6::numeric, true, true, null::text)$$,
+  $$select exam_date, open_book, calculator, scope_confirmed, goal from public.briefs where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$values ('2026-12-03'::date, true, true, true, null::text)$$,
   'only the given fields change'
 );
 
@@ -56,15 +56,15 @@ select results_eq(
 );
 
 select throws_ok(
-  $$select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"hours_per_week": 7}', array['aaaaaaaa-0000-0000-0000-0000000000f2', 'bbbbbbbb-0000-0000-0000-0000000000f1']::uuid[])$$,
+  $$select public.save_brief('aaaaaaaa-c000-0000-0000-000000000001', '{"open_book": false}', array['aaaaaaaa-0000-0000-0000-0000000000f2', 'bbbbbbbb-0000-0000-0000-0000000000f1']::uuid[])$$,
   '42501',
   null,
   'save_brief refuses another Student''s Material'
 );
 
 select results_eq(
-  $$select b.hours_per_week, (select array_agg(material_id) from public.brief_excluded_materials) from public.briefs b where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
-  $$values (6::numeric, array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[])$$,
+  $$select b.open_book, (select array_agg(material_id) from public.brief_excluded_materials) from public.briefs b where course_id = 'aaaaaaaa-c000-0000-0000-000000000001'$$,
+  $$values (true, array['aaaaaaaa-0000-0000-0000-0000000000f1']::uuid[])$$,
   'a failed save_brief changes nothing'
 );
 

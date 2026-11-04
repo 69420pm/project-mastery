@@ -1,5 +1,5 @@
 import "server-only";
-import { getExamFacts } from "@/features/brief/server";
+import { getBriefNotes, getExamFacts } from "@/features/brief/server";
 import { loadChunkSources } from "@/features/ingestion/server";
 import {
   courseMapPath,
@@ -90,6 +90,7 @@ export async function startTutoring(
     topics,
     session,
     reserved,
+    briefNotes,
   ] = await Promise.all([
     loadStoredMap(supabase, courseId),
     loadKcPriorities(supabase, courseId),
@@ -99,6 +100,7 @@ export async function startTutoring(
     loadStoredTopics(supabase, courseId),
     loadStageSession(supabase, chatId),
     loadReservedChunks(supabase, courseId),
+    getBriefNotes(supabase, courseId),
   ]);
   // The reserved exam stays unseen: the tutor never gets its chunks.
   const map = withoutReserved(storedMap, reserved);
@@ -199,6 +201,7 @@ export async function startTutoring(
       phase: plan.phase,
       goal: exam.goal,
       memory,
+      briefNotes: briefNotes === null ? null : briefNotes.slice(-4000),
       mapPath: courseMapPath(courseId),
       // The review opening prepares the docking: the Topic's anchors first.
       dueReviews: staged

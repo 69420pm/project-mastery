@@ -11,10 +11,10 @@ const context: TutorContext = {
   memory: "",
   mapPath: "/courses/c/map",
   dueReviews: { kcs: [], more: 0 },
-  todayPlan: { next: null, hint: null, fitLine: null },
+  todayPlan: { next: null, hint: null },
 };
 
-test("hold the next Topic's KCs in teaching order with its anchors, the hint and the fit line", () => {
+test("hold the next Topic's KCs in teaching order with its anchors and the hint, and ignore a stored fit line", () => {
   const instructions = tutorInstructions({
     ...context,
     hasMap: true,
@@ -31,7 +31,8 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
         anchors: [{ id: "p1", name: "Momentum" }],
       },
       hint: "Practice exam-style problems",
-      fitLine: "Deepen phase. At your pace, 3 of 3 Topics fit.",
+      // A context stored before the estimate went away still holds the line.
+      ...{ fitLine: "Deepen phase. At your pace, 3 of 3 Topics fit." },
     },
   });
 
@@ -48,9 +49,7 @@ test("hold the next Topic's KCs in teaching order with its anchors, the hint and
   expect(instructions).toContain(
     "Today's suggestion for the Student: Practice exam-style problems.",
   );
-  expect(instructions).toContain(
-    "The study plan: Deepen phase. At your pace, 3 of 3 Topics fit.",
-  );
+  expect(instructions).not.toContain("At your pace");
 });
 
 test("render a context stored before #177 without a Today plan", () => {
@@ -158,7 +157,6 @@ test("mark the Topic's KCs and anchors without sources, and orient skips only wi
         anchors: [{ id: "p1", name: "Sets", withoutSources: true }],
       },
       hint: null,
-      fitLine: null,
     },
   });
 
@@ -241,4 +239,29 @@ test("hold the Notes rules, and the notes when the context has them", () => {
     "- 2026-10-25, learn session:\nCovered thrust.\nNext: drag.",
   );
   expect(withNotes).toContain("- Thrust:\nMixes up mass flow and speed.");
+});
+
+test("render the Brief's notes as hints after the Memory, and nothing without them", () => {
+  const withNotes = tutorInstructions({
+    ...context,
+    memory: "prefers examples",
+    briefNotes: "New to linear algebra; no prior knowledge.",
+  });
+  expect(withNotes).toContain("New to linear algebra; no prior knowledge.");
+  expect(withNotes.indexOf("prefers examples")).toBeLessThan(
+    withNotes.indexOf("New to linear algebra"),
+  );
+  expect(tutorInstructions({ ...context, briefNotes: null })).not.toContain(
+    "in the Brief",
+  );
+  expect(tutorInstructions(context)).not.toContain("in the Brief");
+});
+
+test("name no Study phase and leave out an empty plan block", () => {
+  const build = tutorInstructions({ ...context, phase: "build" });
+  expect(build).not.toContain("Study phase");
+  expect(build).not.toContain("Today's suggestion");
+  const deepen = tutorInstructions({ ...context, phase: "deepen" });
+  expect(deepen).not.toContain("Study phase");
+  expect(deepen).toContain("Deepen phase:");
 });
