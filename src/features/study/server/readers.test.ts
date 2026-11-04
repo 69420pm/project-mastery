@@ -145,6 +145,8 @@ describe.each([
       pace: { minutesPerKc: 30, minutesPerReview: 2 },
       hasMap: false,
       today: { reviews: null, next: null, hint: null },
+      examDate: null,
+      progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
     });
   });
 });
@@ -282,6 +284,14 @@ describe("getPlan", () => {
       { id: "t1", priority: 0.8, untaught: [EFFICIENCY] },
       { id: "t2", priority: 0.1, untaught: [NOZZLE] },
     ]);
+    // Thrust's card came due, so nothing counts; the first attempt was 6
+    // days ago.
+    expect(plan.progress).toEqual({
+      known: 0,
+      total: 3,
+      daysIn: 7,
+      daysLeft: 21,
+    });
   });
 
   test("reads the Student's skips and pins", async () => {

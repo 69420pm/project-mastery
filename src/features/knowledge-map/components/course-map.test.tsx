@@ -1,9 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
-import { beforeAll, expect, test, vi } from "vitest";
+import type { ComponentProps } from "react";
+import { beforeAll, describe, expect, test, vi } from "vitest";
 import type {
   KnowledgeMapView,
   MapTopic,
 } from "@/features/knowledge-map/types";
+import { ProgressLine } from "@/features/study";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
 // The study feature's index also exports its Memory card's server action.
@@ -78,7 +80,16 @@ const topics: MapTopic[] = [
   },
 ];
 
-const renderMap = (view: KnowledgeMapView, mapTopics: MapTopic[]) =>
+const plan: ComponentProps<typeof ProgressLine>["plan"] = {
+  examDate: "2026-12-03",
+  progress: { known: 34, total: 120, daysIn: 12, daysLeft: 30 },
+};
+
+const renderMap = (
+  view: KnowledgeMapView,
+  mapTopics: MapTopic[],
+  progressPlan = plan,
+) =>
   render(
     <CourseMap
       map={view}
@@ -87,6 +98,7 @@ const renderMap = (view: KnowledgeMapView, mapTopics: MapTopic[]) =>
       topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
       topicBadges={{ t2: ["pinned"] }}
+      progressLine={<ProgressLine plan={progressPlan} briefHref="/brief" />}
       readinessLine={<p>Readiness line</p>}
     />,
   );
@@ -152,7 +164,46 @@ test("without a map, the page says so", () => {
   ).toBeVisible();
 });
 
-test("shows no line about the plan's fit", () => {
-  renderMap(map, topics);
-  expect(screen.queryByLabelText("Study plan")).toBeNull();
+describe("the Progress line", () => {
+  test("shows the bar and the line", () => {
+    renderMap(map, topics);
+    const bar = screen.getByRole("progressbar", { name: "Progress" });
+    expect(bar).toHaveAttribute("aria-valuenow", "34");
+    expect(bar).toHaveAttribute("aria-valuemax", "120");
+    expect(
+      screen.getByText("34 of 120 KCs known · 12 days in · 30 days left"),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();
+    expect(screen.getByText("Readiness line")).toBeVisible();
+  });
+
+  test("leaves out the days it lacks and links to the Brief without a date", () => {
+    renderMap(map, topics, {
+      examDate: null,
+      progress: { known: 0, total: 1, daysIn: null, daysLeft: null },
+    });
+    expect(screen.getByText("0 of 1 KC known")).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Add your exam date in the Brief" }),
+    ).toHaveAttribute("href", "/brief");
+  });
+
+  test("reads Exam today on the exam day", () => {
+    renderMap(map, topics, {
+      ...plan,
+      progress: { ...plan.progress, daysIn: 1, daysLeft: 0 },
+    });
+    expect(
+      screen.getByText("34 of 120 KCs known · 1 day in · Exam today"),
+    ).toBeVisible();
+  });
+
+  test("shows nothing without in-plan KCs", () => {
+    renderMap(map, topics, {
+      examDate: null,
+      progress: { known: 0, total: 0, daysIn: 3, daysLeft: null },
+    });
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();
+  });
 });

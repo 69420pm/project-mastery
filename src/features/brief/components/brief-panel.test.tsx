@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { describe, expect, test, vi } from "vitest";
+import { ProgressLine } from "@/features/study";
 import { BriefPanel } from "./brief-panel";
 
 // The study feature's index also exports its Memory card's server action.
@@ -25,13 +26,54 @@ const brief: Props["brief"] = {
   reservedExam: null,
 };
 
-const renderPanel = (overrides: { brief?: Partial<Props["brief"]> } = {}) =>
+type Plan = ComponentProps<typeof ProgressLine>["plan"];
+
+const noProgress: Plan = {
+  examDate: null,
+  progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
+};
+
+const renderPanel = (
+  overrides: { brief?: Partial<Props["brief"]>; plan?: Plan } = {},
+) =>
   render(
     <BriefPanel
       brief={{ ...brief, ...overrides.brief }}
+      progress={
+        <ProgressLine
+          plan={overrides.plan ?? noProgress}
+          empty="No KCs in the plan yet"
+        />
+      }
       memory={<p>Memory slot</p>}
     />,
   );
+
+describe("the Progress section", () => {
+  const section = () => screen.getByRole("region", { name: "Progress" });
+
+  test("shows the bar and the line, leaving out the days it lacks", () => {
+    renderPanel({
+      plan: {
+        examDate: "2026-12-03",
+        progress: { known: 3, total: 10, daysIn: null, daysLeft: 1 },
+      },
+    });
+    expect(
+      within(section()).getByRole("progressbar", { name: "Progress" }),
+    ).toHaveAttribute("aria-valuenow", "3");
+    expect(
+      within(section()).getByText("3 of 10 KCs known · 1 day left"),
+    ).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Study plan" })).toBeNull();
+  });
+
+  test("says so without in-plan KCs", () => {
+    renderPanel();
+    expect(within(section()).queryByRole("progressbar")).toBeNull();
+    expect(within(section()).getByText("No KCs in the plan yet")).toBeVisible();
+  });
+});
 
 test("shows the reserved exam as a line, or none once answered", () => {
   const { unmount } = renderPanel({

@@ -8,6 +8,7 @@ export { EndSessionButton } from "./components/end-session-button";
 export { ExamResultCard } from "./components/exam-result-card";
 export { MapFindingsCard } from "./components/map-findings-card";
 export { MemoryCard } from "./components/memory-card";
+export { ProgressLine } from "./components/progress-line";
 export { ReadinessLine } from "./components/readiness-line";
 export { MockExamStatus } from "./components/mock-exam-status";
 export { MockTaskSheet } from "./components/mock-task-sheet";

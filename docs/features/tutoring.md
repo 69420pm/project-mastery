@@ -117,6 +117,7 @@ Three exam rules bend the schedule:
 
 - **Which Topics:** _to pass_ takes the highest-Priority Topics up to 80% of the total, _a good grade_ every Topic above 0, _master everything_ all of them. A pin always adds one, a skip always removes one, and the rest are _if time allows_.
 - **Phase:** `final_week` on the exam day and the 7 days before it, `deepen` once every in-plan Topic is taught, otherwise `build`. None without a future exam date.
+- **Progress** (`planProgress`): the in-plan Topics' KCs, and how many are `known` with a card of `reps >= 2`, so a KC taught once never counts and a due one leaves the count. Days in count UTC days since the Course's first Attempt, the first as 1; days left run to the exam date. `getPlan` adds it on every read; nothing is stored.
 - **Order of untaught work:** pinned first, then in progress, then Priority per estimated minute, never before a Topic it builds on.
 - **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own sessions: active time from the gaps between a teaching session's messages, and minutes per review from its Questions' `asked_at` and `answered_at`.
 
@@ -393,7 +394,7 @@ The AI's order of trust is: the Course's sources, then the map, then its own kno
 
 | Where                  | What                                                                                                                                                                                   |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Readiness in the map header and Topic cards                                                              |
+| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Progress and Readiness in the map header, Readiness on Topic cards, Progress in the Brief's panel        |
 | Above the messages     | The stage bar in a learn session, read from the stored context and `setStage` results. The session bar: a review's groups done or a practice's Problems answered                       |
 | In a reply             | Each tool call as a collapsed step card with a one-line summary written by code. A call that never returned shows as stopped once the reply is done                                    |
 | Question card          | The answer and confidence. A generated Problem's card lets the Student flag it once, which takes it out of the pool                                                                    |

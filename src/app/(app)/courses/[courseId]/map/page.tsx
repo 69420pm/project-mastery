@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { briefPath } from "@/features/brief";
 import { getCourse } from "@/features/courses/server";
 import { newChatPath } from "@/features/chat";
 import { CourseMap, courseMapPath, topicPath } from "@/features/knowledge-map";
@@ -11,6 +12,7 @@ import {
   ExamResultCard,
   MapFindingsCard,
   mockExamPath,
+  ProgressLine,
   ReadinessLine,
   TodayCard,
   topicBadges,
@@ -77,6 +79,9 @@ export default async function CourseMapPage({
       learning={learning}
       topicStates={topicStates}
       topicReadiness={readiness.topics}
+      progressLine={
+        <ProgressLine plan={plan} briefHref={briefPath(courseId)} />
+      }
       readinessLine={<ReadinessLine readiness={readiness} />}
       topicBadges={Object.fromEntries(
         plan.topics.map((topic) => [topic.id, topicBadges(topic)]),

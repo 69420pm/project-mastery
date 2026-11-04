@@ -11,7 +11,7 @@ import type {
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
 import type { SessionMode } from "@/features/study/domain/modes";
-import type { Pace, Phase, Plan } from "@/features/study/domain/plan";
+import type { Pace, Phase, Plan, Progress } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
 import type { DueReviews } from "@/features/study/domain/reviews";
 import type { PracticeKc } from "@/features/study/domain/practice";
@@ -179,12 +179,15 @@ export type TutorToday = {
 /**
  * A Course's study plan over its Topics as the map and the Brief show it
  * (`planStudy`), with the measured pace it used, whether the Course has a
- * map and today's work (`planToday`).
+ * map, today's work (`planToday`), the Brief's exam date and the Progress
+ * (`planProgress`).
  */
 export type StudyPlan = Plan & {
   pace: Pace;
   hasMap: boolean;
   today: TodayPlan;
+  examDate: string | null;
+  progress: Progress;
 };
 
 /** A source chunk as `getTopic` and `searchMaterials` return it. */

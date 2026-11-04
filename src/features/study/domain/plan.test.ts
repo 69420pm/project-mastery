@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   DEFAULT_PACE,
   goalTopics,
+  planProgress,
   planStudy,
   type PlanInput,
   type TopicChoice,
@@ -190,5 +191,83 @@ describe("the plan order", () => {
         ],
       }),
     ).toEqual(["t2", "t3", "t1"]);
+  });
+});
+
+describe("the Progress", () => {
+  /** A card not due, strong enough to be known, after `reps` ratings. */
+  const card = (reps: number, due = "2026-10-30T12:00:00Z"): KcSchedule => ({
+    card: { ...learned.card!, reps, due: new Date(due) },
+  });
+  const progress = (
+    schedules: Record<string, KcSchedule>,
+    overrides: {
+      choices?: TopicChoice[];
+      examDate?: string | null;
+      firstAttemptAt?: string | null;
+    } = {},
+  ) => {
+    const map = new Map(Object.entries(schedules));
+    const examDate =
+      overrides.examDate === undefined ? EXAM : overrides.examDate;
+    return planProgress(
+      plan({
+        schedules: map,
+        choices: overrides.choices ?? [],
+        exam: { examDate },
+      }),
+      {
+        topics: [
+          topic("t1", ["a", "b"]),
+          topic("t2", ["c"]),
+          topic("t3", ["d"]),
+        ],
+        schedules: map,
+        examDate,
+        firstAttemptAt:
+          overrides.firstAttemptAt === undefined
+            ? "2026-09-20T23:00:00Z"
+            : overrides.firstAttemptAt,
+        now: NOW,
+      },
+    );
+  };
+
+  test("counts only known KCs reviewed after their teaching", () => {
+    expect(
+      progress({
+        // Taught, without a Review yet.
+        a: { card: null },
+        // Rated Easy once: strong and not due, but never reviewed.
+        b: card(1),
+        // Reviewed once after its teaching.
+        c: card(2),
+        // Reviewed, but due again.
+        d: card(3, "2026-10-01T00:00:00Z"),
+      }),
+    ).toEqual({ known: 1, total: 4, daysIn: 12, daysLeft: 21 });
+  });
+
+  test("leaves out the KCs of Topics outside the plan", () => {
+    const skipped: TopicChoice = {
+      topicId: "t2",
+      choice: "skipped",
+      createdAt: "2026-09-01T00:00:00Z",
+    };
+    expect(progress({ c: card(2) }, { choices: [skipped] })).toMatchObject({
+      known: 0,
+      total: 3,
+    });
+  });
+
+  test("has no days without Attempts or an exam date, and 0 on the exam day", () => {
+    expect(
+      progress({}, { examDate: null, firstAttemptAt: null }),
+    ).toMatchObject({ daysIn: null, daysLeft: null });
+    expect(progress({}, { examDate: "2026-09-30" }).daysLeft).toBeNull();
+    expect(progress({}, { examDate: "2026-10-01" }).daysLeft).toBe(0);
+    expect(
+      progress({}, { firstAttemptAt: "2026-10-01T00:00:00Z" }).daysIn,
+    ).toBe(1);
   });
 });

@@ -65,11 +65,12 @@ function MaterialLinks({
 /**
  * Everything the Brief holds and what follows from it, beside its
  * conversation: the exam facts, the excluded Materials, the old exams, the
- * exam scope, the notes and the Memory (a slot, since the study feature that
- * owns it depends on this one).
+ * exam scope, the notes, the Progress and the Memory (slots, since the study
+ * feature that owns them depends on this one).
  */
 export function BriefPanel({
   brief,
+  progress,
   memory,
 }: {
   brief: Pick<
@@ -82,6 +83,7 @@ export function BriefPanel({
     | "examScopes"
     | "reservedExam"
   >;
+  progress: ReactNode;
   memory: ReactNode;
 }) {
   return (
@@ -144,6 +146,9 @@ export function BriefPanel({
         ) : (
           <None />
         )}
+      </Section>
+      <Section title="Progress">
+        <div className="text-sm">{progress}</div>
       </Section>
       <Section title="Memory">{memory}</Section>
     </div>

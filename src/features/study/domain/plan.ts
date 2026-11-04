@@ -1,14 +1,15 @@
 /**
  * The study plan of a Course over its Topics (#177), derived on every read:
  * which Topics the goal puts in it, its Phase before the exam, the order of
- * the untaught work. Pure code on UTC days, like the FSRS replay; nothing about it is
- * stored.
+ * the untaught work, and the Progress. Pure code on UTC days, like the FSRS
+ * replay; nothing about it is stored.
  */
 import {
   daysBetween,
   desiredRetention,
   type Goal,
   type KcSchedule,
+  kcState,
   utcDay,
 } from "@/features/study/domain/replay";
 import {
@@ -153,6 +154,64 @@ export function planStudy(input: PlanInput): Plan {
         ? "deepen"
         : "build";
   return { phase, topics: planned, order };
+}
+
+/**
+ * How far the Student has come, kept conservative: the in-plan KCs (`total`)
+ * and how many of them are `known` (`known`), the UTC days since the first
+ * Attempt with that day counting as 1 (`daysIn`), and the days to the exam
+ * (`daysLeft`, 0 on its day).
+ */
+export type Progress = {
+  known: number;
+  total: number;
+  /** Null without Attempts. */
+  daysIn: number | null;
+  /** Null without an exam date or once it has passed. */
+  daysLeft: number | null;
+};
+
+/**
+ * The Progress of a plan (`planStudy`) over its Topics' KCs (`topics`, as
+ * the plan got them). A KC counts as known only while its state is `known`
+ * and its card has had at least one Review after its teaching (`reps >= 2`),
+ * so a KC taught once, even rated Easy, never counts, and one that comes due
+ * or lapses leaves the count until it is reviewed again.
+ */
+export function planProgress(
+  plan: Pick<Plan, "topics">,
+  input: {
+    topics: PlanInput["topics"];
+    schedules: Map<string, KcSchedule>;
+    examDate: string | null;
+    /** The Course's first Attempt, as an ISO timestamp; null without one. */
+    firstAttemptAt: string | null;
+    now: Date;
+  },
+): Progress {
+  const { schedules, examDate, firstAttemptAt, now } = input;
+  const inPlan = new Set(
+    plan.topics.filter((t) => t.status === "in_plan").map((t) => t.id),
+  );
+  const kcs = input.topics.flatMap((t) => (inPlan.has(t.id) ? t.kcs : []));
+  const known = kcs.filter((id) => {
+    const schedule = schedules.get(id);
+    return (
+      (schedule?.card?.reps ?? 0) >= 2 &&
+      kcState(schedule, now).state === "known"
+    );
+  }).length;
+  const today = utcDay(now);
+  const daysLeft = examDate === null ? null : daysBetween(today, examDate);
+  return {
+    known,
+    total: kcs.length,
+    daysIn:
+      firstAttemptAt === null
+        ? null
+        : daysBetween(utcDay(firstAttemptAt), today) + 1,
+    daysLeft: daysLeft !== null && daysLeft >= 0 ? daysLeft : null,
+  };
 }
 
 /** A Topic's badges in the plan, which the map and its Topic page show. */

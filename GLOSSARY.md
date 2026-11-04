@@ -96,6 +96,10 @@ _Avoid_: Mastered, mastery level, status
 How much of a Course's exam weight a Student is likely to recall on the exam day, from the projected recall of the KCs that matter weighted by Priority, and checked against graded Mock exams. It is never a grade.
 _Avoid_: Score, grade, prediction
 
+**Progress**:
+How many of the KCs in the study plan a Student knows, kept conservative: a KC counts only while it is _known_ and has had a Review after its teaching, so the count can fall when one comes due. Shown as a bar with the days since the first Attempt and the days to the exam, on the Course map and in the Brief's panel.
+_Avoid_: Mastery, completion
+
 **Phase**:
 Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
 _Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
