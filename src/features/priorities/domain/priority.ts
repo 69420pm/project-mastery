@@ -4,12 +4,19 @@
  *
  *   Priority = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare)
  *
+ * Then a KC is at least as important as any KC that builds on it, directly
+ * or not, unless its own scope factor is 0. A KC without sources has no own
+ * value: its Priority is exactly that highest Priority.
+ *
  * Pure code; `server/priorities.ts` feeds it the stored map and Brief.
  */
 
 /** A KC as Priority reads it. */
 type PriorityKc = {
   id: string;
+  name: string;
+  /** The ids of the KCs it builds on, its Prerequisites. */
+  prerequisites: string[];
   /**
    * The Topic that holds it, then that Topic's ancestors up to the top;
    * empty when no Topic holds it.
@@ -124,28 +131,78 @@ export function kcPriorities(input: PriorityInput): KcPriority[] {
     ...[...counts.values()].map((c) => c.exercises),
   );
   const excluded = new Set(input.excludedMaterialIds);
-  const values = input.kcs.map((kc) => {
-    const count = counts.get(kc.id) ?? { exercises: 0, oldExam: 0 };
-    const scope = scopeOf(kc, input, excluded);
-    const oldExamShare = maxOldExam > 0 ? count.oldExam / maxOldExam : 0;
-    const exerciseShare = maxExercises > 0 ? count.exercises / maxExercises : 0;
-    const reasons =
-      scope.factor === 0
-        ? [scope.reason as string]
-        : [
-            count.oldExam > 0 &&
-              `Tested in ${plural(count.oldExam, "old-exam Exercise", "old-exam Exercises")}`,
-            count.exercises > 0 &&
-              `Tested in ${plural(count.exercises, "Exercise", "Exercises")}`,
-            scope.reason,
-          ].filter((reason) => typeof reason === "string");
-    return {
-      kcId: kc.id,
-      priority:
-        scope.factor * (0.25 + 0.5 * oldExamShare + 0.25 * exerciseShare),
-      reasons,
-    };
-  });
+  type Own = { priority: number; excluded: boolean; reasons: string[] };
+  const own = new Map<string, Own>(
+    input.kcs.map((kc) => {
+      if (kc.sources.length === 0) {
+        return [kc.id, { priority: 0, excluded: false, reasons: [] }];
+      }
+      const count = counts.get(kc.id) ?? { exercises: 0, oldExam: 0 };
+      const scope = scopeOf(kc, input, excluded);
+      const oldExamShare = maxOldExam > 0 ? count.oldExam / maxOldExam : 0;
+      const exerciseShare =
+        maxExercises > 0 ? count.exercises / maxExercises : 0;
+      const reasons =
+        scope.factor === 0
+          ? [scope.reason as string]
+          : [
+              count.oldExam > 0 &&
+                `Tested in ${plural(count.oldExam, "old-exam Exercise", "old-exam Exercises")}`,
+              count.exercises > 0 &&
+                `Tested in ${plural(count.exercises, "Exercise", "Exercises")}`,
+              scope.reason,
+            ].filter((reason) => typeof reason === "string");
+      return [
+        kc.id,
+        {
+          priority:
+            scope.factor * (0.25 + 0.5 * oldExamShare + 0.25 * exerciseShare),
+          excluded: scope.factor === 0,
+          reasons,
+        },
+      ];
+    }),
+  );
+  const dependents = new Map<string, PriorityKc[]>();
+  for (const kc of input.kcs) {
+    for (const id of kc.prerequisites) {
+      dependents.set(id, [...(dependents.get(id) ?? []), kc]);
+    }
+  }
+  const done = new Map<string, { priority: number; reasons: string[] }>();
+  const resolve = (
+    kc: PriorityKc,
+    visiting: Set<string>,
+  ): { priority: number; reasons: string[] } => {
+    const known = done.get(kc.id);
+    if (known) return known;
+    const mine = own.get(kc.id) as Own;
+    let best = { priority: 0, from: null as PriorityKc | null };
+    visiting.add(kc.id);
+    for (const dependent of dependents.get(kc.id) ?? []) {
+      if (visiting.has(dependent.id)) continue;
+      const { priority } = resolve(dependent, visiting);
+      if (priority > best.priority) best = { priority, from: dependent };
+    }
+    visiting.delete(kc.id);
+    let result = { priority: mine.priority, reasons: mine.reasons };
+    if (mine.excluded) {
+      // The Student confirmed it: stays at 0.
+    } else if (best.from && best.priority > mine.priority) {
+      result = {
+        priority: best.priority,
+        reasons: [...mine.reasons, `Needed for ${best.from.name}`],
+      };
+    } else if (kc.sources.length === 0) {
+      result = { priority: 0, reasons: ["Nothing you study builds on it"] };
+    }
+    done.set(kc.id, result);
+    return result;
+  };
+  const values = input.kcs.map((kc) => ({
+    kcId: kc.id,
+    ...resolve(kc, new Set()),
+  }));
   const levels = levelsOf(values);
   return values.map((value) => ({
     ...value,

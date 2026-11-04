@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { test as base, type BrowserContext, type Page } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
@@ -309,6 +310,36 @@ export async function seedKc(
     .from("topic_kcs")
     .insert({ topic_id: topic.data.id, kc_id: kc.data.id, owner, position: 0 });
   if (link.error) throw new Error(link.error.message);
+  // A chunk of the Materials teaches it: a KC without sources has no own
+  // Priority, so the tutor would not offer it.
+  const material = await seedMaterial(owner, courseId, {
+    name: "Lecture notes",
+    file: path.join(__dirname, "files", "lecture-notes.pdf"),
+    mediaType: "application/pdf",
+  });
+  const parsed = await admin
+    .from("materials")
+    .update({ parse_status: "parsed" })
+    .eq("id", material.id);
+  if (parsed.error) throw new Error(parsed.error.message);
+  const chunk = await admin
+    .from("chunks")
+    .insert({
+      ...owned,
+      material_id: material.id,
+      position: 0,
+      page_from: 1,
+      page_to: 1,
+      label: "content",
+      markdown: "Thrust is mass flow times the change in velocity.",
+    })
+    .select("id")
+    .single();
+  if (chunk.error) throw new Error(chunk.error.message);
+  const source = await admin
+    .from("kc_sources")
+    .insert({ ...owned, kc_id: kc.data.id, chunk_id: chunk.data.id });
+  if (source.error) throw new Error(source.error.message);
   return { name, topicId: topic.data.id };
 }
 

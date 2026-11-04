@@ -10,6 +10,8 @@ const kc = (
   // Every Topic sits in the top-level Topic "top".
   topics: topicId === null ? [] : [topicId, "top"],
   sources,
+  name: `KC ${id}`,
+  prerequisites: [] as string[],
 });
 
 function input(overrides: Partial<PriorityInput> = {}): PriorityInput {
@@ -124,6 +126,62 @@ describe("kcPriorities", () => {
       reasons: ["Excluded: you skip Notes, Slides"],
     });
     expect(result.c.priority).toBe(0);
+  });
+
+  it("lifts a KC to the Priority of what builds on it, through a chain", () => {
+    const result = kcPriorities(
+      input({
+        kcs: [
+          { ...kc("a"), prerequisites: [] },
+          { ...kc("b"), prerequisites: ["a"] },
+          { ...kc("c"), prerequisites: ["b"] },
+        ],
+        exercises: [{ questionChunk: "q1", kcs: ["c"] }],
+      }),
+    );
+    expect(result.map((value) => value.priority)).toEqual([1, 1, 1]);
+    expect(result[0]?.reasons).toEqual(["Needed for KC b"]);
+    expect(result[1]?.reasons).toEqual(["Needed for KC c"]);
+  });
+
+  it("keeps an excluded KC at 0 when something builds on it", () => {
+    const result = kcPriorities(
+      input({
+        kcs: [kc("a"), { ...kc("b"), prerequisites: ["a"] }],
+        excludedMaterialIds: ["notes"],
+        chunkMaterials: { "c-a": "notes", "c-b": "slides" },
+      }),
+    );
+    expect(result[0]).toMatchObject({ priority: 0, level: "excluded" });
+    expect(result[1]?.priority).toBe(0.25);
+  });
+
+  it("gives a KC without sources exactly what builds on it", () => {
+    const result = kcPriorities(
+      input({
+        kcs: [
+          kc("a", null, []),
+          { ...kc("b"), prerequisites: ["a"] },
+          { ...kc("c"), prerequisites: ["a"] },
+        ],
+        examScopes: [],
+        exercises: [{ questionChunk: "q1", kcs: ["b"] }],
+      }),
+    );
+    expect(result[0]).toMatchObject({
+      priority: 1,
+      reasons: ["Needed for KC b"],
+    });
+  });
+
+  it("gives a KC without sources 0 under excluded KCs", () => {
+    const result = kcPriorities(
+      input({
+        kcs: [kc("a", null, []), { ...kc("b"), prerequisites: ["a"] }],
+        excludedMaterialIds: ["notes"],
+      }),
+    );
+    expect(result[0]).toMatchObject({ priority: 0, level: "excluded" });
   });
 
   it("keeps a KC with one source outside the excluded Materials", () => {

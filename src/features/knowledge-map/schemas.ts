@@ -11,7 +11,7 @@ const description = z.string().trim().min(1).max(1000);
 /**
  * A knowledge component that its `sources` chunks teach. It comes from the
  * content, or from an exercise that needs it when the content does not
- * teach it.
+ * teach it. A KC the Materials assume but never teach has no sources.
  */
 const kcSchema = z.object({
   id,
@@ -113,8 +113,9 @@ export type ExtractedExercise = z.infer<typeof extractedExerciseSchema>;
 
 /**
  * A stored unit extraction (`chapter_extractions.output`): its KCs with
- * stored chunk ids and, until they are stored, their vectors of
- * "name: description"; Prerequisites by index into `kcs`. An exercise
+ * stored chunk ids, what each assumes (`{ name, description }`) and, until
+ * they are stored, their vectors of "name: description"; Prerequisites by
+ * index into `kcs`. An exercise
  * unit's also has its subtasks, whose new KCs are its `kcs`.
  */
 export const storedExtractionSchema = z.object({
@@ -123,7 +124,7 @@ export const storedExtractionSchema = z.object({
       name,
       description,
       chunkIds: z.array(z.string()).min(1),
-      assumes: z.array(z.string()),
+      assumes: z.array(z.object({ name, description })),
       embedding: z.array(z.number()).optional(),
     }),
   ),

@@ -44,7 +44,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Signed-in tests create test Students in local Supabase, as in the
       # database job. The app runs with AI_PROVIDER=mock (playwright.config.ts).
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
       - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
       - name: Point the app and tests at local Supabase
         run: |
@@ -87,7 +87,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Installs the CLI version pinned in pnpm-lock.yaml.
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
       # Only Postgres, Auth, Storage and the API gateway are needed here.
       - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
       - run: supabase db lint --local --fail-on error

@@ -78,6 +78,7 @@ vi.mock("@/features/knowledge-map/server", async () => ({
             { id: "k3", sources: ["c2"] },
           ]
         : [],
+    prerequisites: [],
     exercises:
       courseId === COURSE ? [{ questionChunk: "q1", kcs: ["k1"] }] : [],
   }),

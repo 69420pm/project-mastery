@@ -242,15 +242,20 @@ async function matchStored(
 }
 
 /**
- * Asks the merge calls about the clusters: the KC each merged new KC
- * becomes, by key, and the indexes of the clusters decided. "limit" when
- * the Daily limit is reached.
+ * Asks the merge calls (task `map`, trace `merge-kcs`) about the clusters
+ * of new KCs by key, and of stored KCs keyed `kc:<id>`: the KC each merged
+ * new KC becomes, by key, and the indexes of the clusters decided. `since`
+ * goes to `runCalls`. "limit" when the Daily limit is reached.
  */
-async function mergeClusters(
+export async function mergeClusters(
   supabase: AdminSupabase,
   owner: string,
-  fresh: FreshKc[],
+  fresh: ReadonlyArray<{
+    key: string;
+    kc: { name: string; description: string };
+  }>,
   clusters: string[][],
+  since?: number,
 ): Promise<{ targets: Map<string, string>; decided: Set<number> } | "limit"> {
   const targets = new Map<string, string>();
   const decided = new Set<number>();
@@ -299,40 +304,44 @@ async function mergeClusters(
     );
   }
   let limitReached = false;
-  await runCalls(calls, async (indexes) => {
-    const keyOf = new Map<string, string>();
-    const offered = indexes.map((index): OfferedCluster => ({
-      kcs: clusterKcsOf(clusters[index]!).map(({ key }) => {
-        const id = `k${keyOf.size + 1}`;
-        keyOf.set(id, key);
-        const { name, description } = textOf(key)!;
-        return { id, name, description };
-      }),
-    }));
-    const answer = await buildCall(
-      supabase,
-      { studentId: owner, task: "map", traceName: "merge-kcs" },
-      { ...kcMergeSettings(offered), messages: kcMergeMessages(offered) },
-      kcMergeSchema(),
-    );
-    if (answer === "limit") {
-      limitReached = true;
-      return "stop";
-    }
-    const { same } = answer;
-    const groups = same.map((group) =>
-      group.kcIds.flatMap((id) => keyOf.get(id) ?? []),
-    );
-    for (const index of indexes) {
-      for (const [key, target] of mergeTargets(
-        clusterKcsOf(clusters[index]!),
-        groups,
-      )) {
-        targets.set(key, target);
+  await runCalls(
+    calls,
+    async (indexes) => {
+      const keyOf = new Map<string, string>();
+      const offered = indexes.map((index): OfferedCluster => ({
+        kcs: clusterKcsOf(clusters[index]!).map(({ key }) => {
+          const id = `k${keyOf.size + 1}`;
+          keyOf.set(id, key);
+          const { name, description } = textOf(key)!;
+          return { id, name, description };
+        }),
+      }));
+      const answer = await buildCall(
+        supabase,
+        { studentId: owner, task: "map", traceName: "merge-kcs" },
+        { ...kcMergeSettings(offered), messages: kcMergeMessages(offered) },
+        kcMergeSchema(),
+      );
+      if (answer === "limit") {
+        limitReached = true;
+        return "stop";
       }
-      decided.add(index);
-    }
-  });
+      const { same } = answer;
+      const groups = same.map((group) =>
+        group.kcIds.flatMap((id) => keyOf.get(id) ?? []),
+      );
+      for (const index of indexes) {
+        for (const [key, target] of mergeTargets(
+          clusterKcsOf(clusters[index]!),
+          groups,
+        )) {
+          targets.set(key, target);
+        }
+        decided.add(index);
+      }
+    },
+    since,
+  );
   return limitReached ? "limit" : { targets, decided };
 }
 

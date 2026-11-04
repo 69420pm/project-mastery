@@ -44,9 +44,16 @@ export const chapterExtractionSchema = (chunkIds: readonly string[] = []) =>
           .array(offeredId(chunkIds))
           .describe("The chunks that teach it, at least one."),
         assumes: z
-          .array(z.string())
+          .array(
+            z.object({
+              name: z.string().describe("Short, in the course language."),
+              description: z
+                .string()
+                .describe("One line: what it states or what it is."),
+            }),
+          )
           .describe(
-            "Up to 3 names of things it uses that this unit does not explain. Empty when none.",
+            "Up to 3 things it uses that this unit does not explain. Empty when none.",
           ),
       }),
     ),
@@ -68,7 +75,7 @@ const EXTRACTION_INSTRUCTIONS = `You get one unit of a university course's mater
 - Together, the unit's KCs cover what it teaches. Do not split one thing into several KCs or merge several into one.
 - Headings, summaries, asides, the organisation of the course and repeated material are no KCs.
 - Give each KC a short name, a one-line description and the ids of the chunks that teach it.
-- For each KC, name up to 3 things it uses that this unit does not explain, such as a concept from an earlier chapter, under assumes.
+- For each KC, list under assumes up to 3 things it uses that this unit does not explain, from an earlier chapter or from outside the course, each with a short name and a one-line description of what it states or what it is. Leave out everyday knowledge that a university student of this subject cannot lack.
 - List a Prerequisite between two of this unit's KCs, by their names, only where the text shows that the second builds on the first.
 - Write every name and description in the course language. Formulas in LaTeX ($...$).`;
 

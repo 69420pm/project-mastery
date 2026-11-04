@@ -56,14 +56,24 @@ export function createBuildDb() {
     },
     functions: {
       retire_unsourced_kcs: (args, tables) => {
-        const retired = tables.kcs.filter(
-          (kc) =>
-            kc.course_id === args.p_course_id &&
-            !kc.retired_at &&
-            !tables.kc_sources.some((source) => source.kc_id === kc.id),
-        );
-        for (const kc of retired) kc.retired_at = now();
-        return retired.length;
+        const live = (id: unknown) =>
+          tables.kcs.some((kc) => kc.id === id && !kc.retired_at);
+        let count = 0;
+        for (let changed = true; changed;) {
+          const retired = tables.kcs.filter(
+            (kc) =>
+              kc.course_id === args.p_course_id &&
+              !kc.retired_at &&
+              !tables.kc_sources.some((source) => source.kc_id === kc.id) &&
+              !tables.prerequisite_links.some(
+                (link) => link.from_kc === kc.id && live(link.to_kc),
+              ),
+          );
+          for (const kc of retired) kc.retired_at = now();
+          count += retired.length;
+          changed = retired.length > 0;
+        }
+        return count;
       },
       match_kcs: (args, tables) => {
         const embedding = vectorOf(args.p_embedding);
@@ -197,6 +207,25 @@ export function createBuildDb() {
       store_assumed_prerequisites: (args, tables) => {
         const build = building(tables, args.p_course_id);
         if (!build) return false;
+        for (const kc of args.p_kcs as FakeRow[]) {
+          if (kc.new) {
+            tables.kcs.push({
+              owner: build.owner,
+              course_id: args.p_course_id,
+              id: kc.id,
+              name: kc.name,
+              description: kc.description,
+              origin: "content",
+              position: tables.kcs.length,
+              embedding: kc.embedding,
+              retired_at: null,
+              created_at: now(),
+            });
+          } else {
+            const stored = tables.kcs.find((row) => row.id === kc.id);
+            if (stored) stored.retired_at = null;
+          }
+        }
         for (const link of args.p_prerequisites as FakeRow[]) {
           tables.prerequisite_links.push({
             owner: build.owner,
