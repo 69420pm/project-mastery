@@ -13,7 +13,7 @@ Start with one or two sentences on why the change exists, then use these heading
 
 - `## What changes`: the behaviour and structure that changed, grouped by topic, not by file.
 - `## Decisions`: choices the issue left open, and why each was made.
-- `## Deploying needs`: migrations to apply to staging and production (list them with `git diff --name-only origin/main...HEAD -- supabase/migrations`), environment variables and provider settings. Write "Nothing beyond the code" if there are none.
+- `## Deploying needs`: migrations to apply to production (list them with `git diff --name-only origin/main...HEAD -- supabase/migrations`; staging gets them on merge through the `migrate-staging` workflow, ADR 0025), environment variables and provider settings. Write "Nothing beyond the code" if there are none.
 - `## Checked`: what ran and passed, including live checks.
 - `## Not verified`: what could not be checked, and why.
 
