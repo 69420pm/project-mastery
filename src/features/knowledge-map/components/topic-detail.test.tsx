@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, test, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import type {
   KcView,
   KnowledgeMapView,
@@ -18,11 +18,24 @@ vi.mock("@/features/knowledge-map/hooks/use-graph-layout", async () => {
     useGraphLayout(graph: object) {
       const [laidOut, setLaidOut] = useState<object | null>(null);
       useEffect(() => {
-        void elk.layout(graph as never).then(setLaidOut);
+        // ELK can finish after the test ends, when jsdom is gone. Ignore a
+        // result that arrives once the component has unmounted.
+        let mounted = true;
+        void elk.layout(graph as never).then((result) => {
+          if (mounted) setLaidOut(result);
+        });
+        return () => {
+          mounted = false;
+        };
       }, [graph]);
       return { laidOut, failed: false };
     },
   };
+});
+
+// Vitest globals are off, so Testing Library does not unmount after each test.
+afterEach(() => {
+  cleanup();
 });
 
 beforeAll(() => {

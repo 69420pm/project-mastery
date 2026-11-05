@@ -4,7 +4,8 @@
  *   pnpm -s agent help
  *
  * Every command prints only what an agent needs to decide the next step, so
- * a clean result costs a line, not a page. Works only against the local stack.
+ * a clean result costs a line, not a page. Every command works against the
+ * local stack, except `staging`, which reads the staging project (ADR 0025).
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -23,6 +24,7 @@ import { checkAll, newProblems } from "./diagnostics";
 import { formatMail, latestMail } from "./mail";
 import { callNextTool } from "./next-mcp";
 import { PERSONA_PASSWORD, PERSONAS, persona } from "./personas";
+import { queryStaging, queryStagingSql } from "./staging";
 import { formatSqlResult } from "./sql-format";
 import {
   ensurePersonas,
@@ -32,7 +34,7 @@ import {
   startSupabase,
 } from "./supabase";
 
-const HELP = `pnpm -s agent <command>   (local stack only)
+const HELP = `pnpm -s agent <command>   (local stack, except \`staging\`)
 
 Setup
   up                     start Supabase and next dev if needed, create test users
@@ -59,7 +61,14 @@ Data
   sql "<query>" [--as student|classmate|anon|<email>] [--all]
                          run SQL; --as applies Row Level Security for that user
   mail [email] [--body]  latest email (to <email>): subject and links
-  users                  test users and their password`;
+  users                  test users and their password
+
+Staging (real data, read only; from .env.local, ADR 0025)
+  staging "<table>?<params>"
+                         rows as one JSON line; limit defaults to 20, max 200
+                         e.g. staging "materials?select=id,title&limit=5"
+  staging-sql "<query>"  one read-only SQL statement; at most 200 rows printed
+                         e.g. staging-sql "select count(*) from materials"`;
 
 const appUrl = (port: number, target: string) =>
   /^https?:\/\//.test(target)
@@ -245,6 +254,13 @@ async function run(
       return sql(args);
     case "mail":
       return mail(args);
+    case "staging":
+      if (!args[0])
+        throw new AgentError('Usage: agent staging "<table>?<params>"');
+      return queryStaging(args[0]);
+    case "staging-sql":
+      if (!args[0]) throw new AgentError('Usage: agent staging-sql "<query>"');
+      return queryStagingSql(args[0]);
     case "users":
       return Object.entries(PERSONAS)
         .map(([name, { email }]) => `${name.padEnd(10)}${email}`)

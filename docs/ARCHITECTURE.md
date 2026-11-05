@@ -62,6 +62,8 @@ flowchart LR
 
 Preview deployments never touch production data.
 
+Staging is the Supabase project of previews. Agents read its rows with `pnpm -s agent staging` and `staging-sql`, and never write to it ([ADR 0025](adr/0025-staging-for-agent-review.md)).
+
 ## Project structure
 
 The code is organized by feature, in layers that depend in one direction only ([ADR 0014](adr/0014-feature-modules-with-lint-boundaries.md)). ESLint enforces everything in this section: a file in the wrong place or an import across a forbidden boundary fails `pnpm lint`, with a message that says where the code belongs.
@@ -95,7 +97,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors. For example, `chat` depends on `courses`: a Chat belongs to a Course and attaches its Materials. `courses` never imports `chat`. Likewise `courses` depends on `ingestion`, which parses its Materials, and `ingestion` never imports `courses`.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`. Smoke checks in `evals/smoke/` (`pnpm smoke`, [docs/agents/live-ai.md](agents/live-ai.md)) may also use the admin client, to set up and remove a throwaway Student on the local stack, as may `evals/metrics-cli.ts` (`pnpm -s metrics`), which reads every Student's Chats to score them in Langfuse.
-- `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`. `tools/retro/` digests Claude Code transcripts for `/retro` (`pnpm -s retro`). `tools/sweep/` runs the deterministic checks for `/sweep` (`pnpm -s sweep`, `pnpm -s sweep mutate`): knip, jscpd, coverage, Stryker and metrics per unit, written to `.sweep/<date>/`; it defines the units.
+- `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`. Its `staging` and `staging-sql` commands read rows of the staging project, never writing ([ADR 0025](adr/0025-staging-for-agent-review.md)). `tools/retro/` digests Claude Code transcripts for `/retro` (`pnpm -s retro`). `tools/sweep/` runs the deterministic checks for `/sweep` (`pnpm -s sweep`, `pnpm -s sweep mutate`): knip, jscpd, coverage, Stryker and metrics per unit, written to `.sweep/<date>/`; it defines the units.
 
 ### Anatomy of a feature
 
@@ -187,6 +189,7 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 - [0022](adr/0022-knowledge-map-from-parts.md): Knowledge map from Parts: bounded calls, stored per step; Parts, Big ideas and the naming call superseded by 0023
 - [0023](adr/0023-knowledge-map-from-chapters.md): Knowledge map from Chapters: page batches and an Outline per Material, extraction per Chapter unit with reasoning, one call for a nested Topic tree, old exams as Chapters; the Prerequisite check superseded by 0024
 - [0024](adr/0024-kcs-without-sources.md): KCs without sources: what the Materials assume becomes KCs with no source chunks, kept while a live KC builds on them
+- [0025](adr/0025-staging-for-agent-review.md): Staging for agent review, superseding the staging clause of 0015
 
 ## Open questions
 

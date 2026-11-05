@@ -53,3 +53,7 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 ## Live AI calls
 
 Tests and app runs use `AI_PROVIDER=mock`. Read [docs/agents/live-ai.md](docs/agents/live-ai.md) before any command that calls a real model: a smoke check or a single provider call.
+
+## Staging database
+
+`pnpm -s agent staging "<table>?<params>"` reads rows of the staging project, which holds real data, and `pnpm -s agent staging-sql "<query>"` runs one read-only SQL statement there. Nothing writes to staging: its role can only read. Read [ADR 0025](docs/adr/0025-staging-for-agent-review.md) first.
