@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.2](https://github.com/69420pm/project-mastery/compare/project-mastery-v0.1.1...project-mastery-v0.1.2) (2026-11-05)
+
+
+### Features
+
+* let agents read the staging database ([#247](https://github.com/69420pm/project-mastery/issues/247)) ([5b09d82](https://github.com/69420pm/project-mastery/commit/5b09d825db8ee3f6f631ff605000e22a82f586cd))
+* shorten the brief, make its notes count and replace the estimate with progress ([#243](https://github.com/69420pm/project-mastery/issues/243)) ([ff67ddb](https://github.com/69420pm/project-mastery/commit/ff67ddb513feca9f5e1d582e9326eb9db67cf80c))
+
+
+### Bug Fixes
+
+* label course and exam information as admin when reading pages ([#245](https://github.com/69420pm/project-mastery/issues/245)) ([453376a](https://github.com/69420pm/project-mastery/commit/453376a1a5895a338e5c531106b06fef2772f8f5))
+
 ## [0.1.1](https://github.com/69420pm/project-mastery/compare/project-mastery-v0.1.0...project-mastery-v0.1.1) (2026-11-04)
 
 
