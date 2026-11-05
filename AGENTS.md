@@ -56,4 +56,4 @@ Tests and app runs use `AI_PROVIDER=mock`. Read [docs/agents/live-ai.md](docs/ag
 
 ## Staging database
 
-`pnpm -s agent staging "<table>?<params>"` reads rows of the staging project, which holds real data, and `pnpm -s agent staging-sql "<query>"` runs one read-only SQL statement there. Nothing writes to staging: its role can only read, and migrations reach it on merge to `main`. Read [ADR 0025](docs/adr/0025-staging-for-agent-review-and-migrations.md) first.
+`pnpm -s agent staging "<table>?<params>"` reads rows of the staging project, which holds real data, and `pnpm -s agent staging-sql "<query>"` runs one read-only SQL statement there. Nothing writes to staging: its role can only read. Read [ADR 0025](docs/adr/0025-staging-for-agent-review.md) first.
