@@ -24,7 +24,7 @@ import { checkAll, newProblems } from "./diagnostics";
 import { formatMail, latestMail } from "./mail";
 import { callNextTool } from "./next-mcp";
 import { PERSONA_PASSWORD, PERSONAS, persona } from "./personas";
-import { queryStaging } from "./staging";
+import { queryStaging, queryStagingSql } from "./staging";
 import { formatSqlResult } from "./sql-format";
 import {
   ensurePersonas,
@@ -63,10 +63,12 @@ Data
   mail [email] [--body]  latest email (to <email>): subject and links
   users                  test users and their password
 
-Staging (real data, read only; secret key from .env.local, ADR 0025)
+Staging (real data, read only; from .env.local, ADR 0025)
   staging "<table>?<params>"
                          rows as one JSON line; limit defaults to 20, max 200
-                         e.g. staging "materials?select=id,title&limit=5"`;
+                         e.g. staging "materials?select=id,title&limit=5"
+  staging-sql "<query>"  one read-only SQL statement; at most 200 rows printed
+                         e.g. staging-sql "select count(*) from materials"`;
 
 const appUrl = (port: number, target: string) =>
   /^https?:\/\//.test(target)
@@ -256,6 +258,9 @@ async function run(
       if (!args[0])
         throw new AgentError('Usage: agent staging "<table>?<params>"');
       return queryStaging(args[0]);
+    case "staging-sql":
+      if (!args[0]) throw new AgentError('Usage: agent staging-sql "<query>"');
+      return queryStagingSql(args[0]);
     case "users":
       return Object.entries(PERSONAS)
         .map(([name, { email }]) => `${name.padEnd(10)}${email}`)

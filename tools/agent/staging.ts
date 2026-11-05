@@ -1,3 +1,4 @@
+import postgres from "postgres";
 import { AgentError } from "./config";
 
 /**
@@ -88,4 +89,84 @@ export async function queryStaging(
     );
   }
   return JSON.stringify(JSON.parse(body));
+}
+
+/** The most rows one SQL call prints. */
+export const SQL_ROW_LIMIT = 200;
+
+/** Statements that only read. Anything else is refused before it reaches the database. */
+const READ_STATEMENT = /^\s*(select|with|table|values|show|explain)\b/i;
+
+/**
+ * One read-only statement, or a refusal. A second statement after a `;` could
+ * end the read-only transaction, so it is refused too.
+ */
+export function checkReadQuery(query: string): string {
+  const trimmed = query.trim().replace(/;\s*$/, "");
+  if (!READ_STATEMENT.test(trimmed)) {
+    throw new AgentError(
+      "staging-sql runs reads only: the query must start with select, with, table, values, show or explain.",
+    );
+  }
+  if (trimmed.includes(";")) {
+    throw new AgentError("staging-sql runs one statement at a time.");
+  }
+  return trimmed;
+}
+
+/**
+ * The staging database's connection string from `.env.local`: a Postgres
+ * role that can only read (ADR 0025). The role is the real guard; the read-only
+ * transaction below is a second layer.
+ */
+export function stagingDatabaseUrl(env: Env = process.env): string {
+  const url = env.STAGING_DATABASE_URL;
+  if (!url) {
+    throw new AgentError(
+      "Missing STAGING_DATABASE_URL in .env.local. Set it to the connection string of the read-only staging role (ADR 0025).",
+    );
+  }
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    throw new AgentError("STAGING_DATABASE_URL must start with postgresql://.");
+  }
+  return url;
+}
+
+/**
+ * Runs one read-only query against the staging database. Prints at most
+ * SQL_ROW_LIMIT rows, as one JSON line each, and says how many were left out.
+ */
+export async function queryStagingSql(
+  query: string,
+  env: Env = process.env,
+): Promise<string> {
+  const statement = checkReadQuery(query);
+  const sql = postgres(stagingDatabaseUrl(env), {
+    max: 1,
+    connect_timeout: 15,
+    onnotice: () => {},
+  });
+  try {
+    const rows = await sql.begin(async (tx) => {
+      await tx`SET TRANSACTION READ ONLY`;
+      await tx`SET LOCAL statement_timeout = '15s'`;
+      return tx.unsafe(statement);
+    });
+    const shown = rows
+      .slice(0, SQL_ROW_LIMIT)
+      .map((row) => JSON.stringify(row));
+    if (rows.length > SQL_ROW_LIMIT) {
+      shown.push(
+        `(${rows.length} rows, showing ${SQL_ROW_LIMIT}; add a LIMIT to the query)`,
+      );
+    }
+    return shown.join("\n") || "(no rows)";
+  } catch (error) {
+    if (error instanceof postgres.PostgresError) {
+      throw new AgentError(`Staging database: ${error.message}`);
+    }
+    throw error;
+  } finally {
+    await sql.end();
+  }
 }
