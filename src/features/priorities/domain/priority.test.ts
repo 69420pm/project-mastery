@@ -156,34 +156,6 @@ describe("kcPriorities", () => {
     expect(result[1]?.priority).toBe(0.25);
   });
 
-  it("gives a KC without sources exactly what builds on it", () => {
-    const result = kcPriorities(
-      input({
-        kcs: [
-          kc("a", null, []),
-          { ...kc("b"), prerequisites: ["a"] },
-          { ...kc("c"), prerequisites: ["a"] },
-        ],
-        examScopes: [],
-        exercises: [{ questionChunk: "q1", kcs: ["b"] }],
-      }),
-    );
-    expect(result[0]).toMatchObject({
-      priority: 1,
-      reasons: ["Needed for KC b"],
-    });
-  });
-
-  it("gives a KC without sources 0 under excluded KCs", () => {
-    const result = kcPriorities(
-      input({
-        kcs: [kc("a", null, []), { ...kc("b"), prerequisites: ["a"] }],
-        excludedMaterialIds: ["notes"],
-      }),
-    );
-    expect(result[0]).toMatchObject({ priority: 0, level: "excluded" });
-  });
-
   it("keeps a KC with one source outside the excluded Materials", () => {
     const result = kcPriorities(
       input({

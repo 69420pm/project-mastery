@@ -6,7 +6,6 @@ import { redundantLinks } from "@/features/knowledge-map/domain/prerequisite-cyc
 import {
   planTopicTree,
   storedAsProposed,
-  withUnsourced,
 } from "@/features/knowledge-map/domain/topic-tree";
 import { teachingOrder } from "@/features/knowledge-map/domain/topics";
 import type { CheckReport } from "@/features/knowledge-map/schemas";
@@ -44,8 +43,7 @@ const MAX_DUPLICATES = 100;
 
 /**
  * Ends a build: retires the KCs whose sources went meanwhile, puts the KCs
- * in the order of their first sources, each KC without sources directly
- * before the KC it is placed by, and the Exercises in Course order,
+ * in the order of their first sources and the Exercises in Course order,
  * stores the Topic tree `tree` proposes (or the stored one again) with each
  * Topic's KCs in teaching order, drops redundant Prerequisites, stores the
  * check report and marks the build built.
@@ -63,14 +61,12 @@ export async function arrangeKnowledgeMap(
     loadMapInput(supabase, courseId),
     loadStoredTree(supabase, courseId),
   ]);
-  const { sourced, anchors } = courseOrder(input);
-  const kcs = withUnsourced(sourced, anchors);
+  const kcs = courseOrder(input);
   const topics = planTopicTree({
     proposed: tree.topics ?? storedAsProposed(stored),
     chapters: input.chapters,
     kcs: treeKcs(input),
     storedIds: new Set(stored.map((topic) => topic.id)),
-    unsourced: anchors,
   }).map((topic) => ({
     ...topic,
     kcs: teachingOrder(topic.kcs, input.prerequisites),

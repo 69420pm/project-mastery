@@ -87,7 +87,7 @@ flowchart LR
 Priority = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare)
 ```
 
-The shares are the KC's old-exam Exercises and all its Exercises, over the Course's most. `scope` is 0 when every source is in an excluded Material; otherwise it comes from the exam scope of the KC's Topic or the nearest Topic above it, 0 for `excluded`, 2 for `emphasized`, else 1. A KC is then lifted to the highest Priority of anything that builds on it, unless it is excluded. A KC without sources has no value of its own and takes exactly that highest Priority. Without old exams, Exercises or exam scopes, every KC is equal.
+The shares are the KC's old-exam Exercises and all its Exercises, over the Course's most. `scope` is 0 when every source is in an excluded Material; otherwise it comes from the exam scope of the KC's Topic or the nearest Topic above it, 0 for `excluded`, 2 for `emphasized`, else 1. A KC is then lifted to the highest Priority of anything that builds on it, unless it is excluded. Without old exams, Exercises or exam scopes, every KC is equal.
 
 **FSRS cards** (`study/domain/replay.ts`): each KC's attempts replayed through `ts-fsrs`.
 
@@ -196,7 +196,6 @@ Due reviews, most urgent first (recall today is the chance the Student still rem
 
 Next Topic: Subspaces (id ...). Central question: When is a subset itself a vector space?
 Its KCs in teaching order:
-- Set notation (id ...; not taught yet; without sources)
 - Subspace criterion (id ...; not taught yet)
 Anchors (the KCs of other Topics it docks onto):
 - Vector space axioms (id ...)
@@ -270,20 +269,18 @@ A Study session is one Chat with one mode. The Today card's buttons open a new C
 
 The first reply fixes the Topic and the start stage. It starts at `review` when reviews are due, otherwise where the Topic's last session stopped (before `close`), otherwise at `orient`.
 
-| Stage     | Job                                                                                                                                         | Skipped when                                                |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `review`  | The due reviews, the Topic's anchors first, for at most 10 minutes                                                                          | Nothing is due, so it isn't the start stage                 |
-| `orient`  | One wide question over the anchors and KCs without sources. A KC answered in full needs no teaching                                         | No anchor is taught and no KC without sources is among them |
-| `prime`   | 1 or 2 prequestions the reading will answer                                                                                                 | The Topic has no Reading section                            |
-| `read`    | `showReading` on the next section without a Done, with a purpose question                                                                   | No Reading section, or the Student already knows it         |
-| `work`    | The Student explains it, then questions spanning at least 2 KCs. Back to `read` while sections are left                                     |                                                             |
-| `apply`   | 1 to 3 Problems, the Course's own first                                                                                                     |                                                             |
-| `rebuild` | One `ask` of kind `rebuild` over all the Topic's KCs: how they connect, from memory. Then the source pane shows the Topic's part of the map |                                                             |
-| `close`   | A short wrap-up, then the app shows the close card, with a summary and the Session rating                                                   |                                                             |
+| Stage     | Job                                                                                                                                         | Skipped when                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `review`  | The due reviews, the Topic's anchors first, for at most 10 minutes                                                                          | Nothing is due, so it isn't the start stage         |
+| `orient`  | One wide question over the anchors. A KC answered in full needs no teaching                                                                 | No anchor is taught                                 |
+| `prime`   | 1 or 2 prequestions the reading will answer                                                                                                 | The Topic has no Reading section                    |
+| `read`    | `showReading` on the next section without a Done, with a purpose question                                                                   | No Reading section, or the Student already knows it |
+| `work`    | The Student explains it, then questions spanning at least 2 KCs. Back to `read` while sections are left                                     |                                                     |
+| `apply`   | 1 to 3 Problems, the Course's own first                                                                                                     |                                                     |
+| `rebuild` | One `ask` of kind `rebuild` over all the Topic's KCs: how they connect, from memory. Then the source pane shows the Topic's part of the map |                                                     |
+| `close`   | A short wrap-up, then the app shows the close card, with a summary and the Session rating                                                   |                                                     |
 
 `setStage` allows the next stage, `review` to the stage named for after it, and `work` back to `read` while a section is left. Any other forward move needs a one-line reason. Nothing else moves backwards, and `close` is final (`stageMoveRefusal` in `study/domain/stages.ts`).
-
-Where the map shows up here: a KC without sources has no Reading section, so `orient` asks about it first. If the Student doesn't show it, the AI uses `searchMaterials` for how the Course uses it, states it marked as beyond the materials, and checks it with a question.
 
 ### Review sessions
 

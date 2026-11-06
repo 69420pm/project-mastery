@@ -980,6 +980,7 @@ export type Database = {
       };
       kcs: {
         Row: {
+          assumes: NonNullable<Json>;
           course_id: string;
           created_at: string;
           description: string;
@@ -993,6 +994,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          assumes?: NonNullable<Json>;
           course_id: string;
           created_at?: string;
           description: string;
@@ -1005,6 +1007,7 @@ export type Database = {
           retired_at?: string | null;
         };
         Update: {
+          assumes?: NonNullable<Json>;
           course_id?: string;
           created_at?: string;
           description?: string;
@@ -2316,9 +2319,10 @@ export type Database = {
       };
       store_assumed_prerequisites: {
         Args: {
+          p_assumes: Json;
           p_course_id: string;
           p_extraction_ids: string[];
-          p_kcs: Json;
+          p_matched: Json;
           p_prerequisites: Json;
         };
         Returns: boolean;

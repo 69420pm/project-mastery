@@ -153,9 +153,7 @@ export function KcPanel({
 
       <Section title="Sources">
         {kc.sources.length === 0 ? (
-          <None>
-            Not taught in your Materials: the AI teaches it in the Chat.
-          </None>
+          <None>No sources.</None>
         ) : (
           <ul className="flex flex-col gap-1">
             {kc.sources.map((source) => (

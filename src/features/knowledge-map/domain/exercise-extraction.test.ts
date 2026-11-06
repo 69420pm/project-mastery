@@ -65,6 +65,32 @@ describe("checkExerciseAnswer", () => {
     expect(checked.exercises[1]).toMatchObject({ kcIds: [], newKcs: [] });
     expect(checked.kcs).toEqual([{ ...rank, chunkIds: ["c1"], assumes: [] }]);
   });
+
+  test("counts a new KC named by an offered id as that KC", () => {
+    const checked = checkExerciseAnswer(
+      {
+        subtasks: [
+          {
+            id: "s1",
+            notAnExercise: false,
+            kcIds: ["k2"],
+            newKcs: [
+              { name: " k1", description: "The first one." },
+              { name: "k2", description: "Again." },
+            ],
+            finalAnswers: [],
+          },
+        ],
+      },
+      subtasks.slice(0, 1),
+      kcIdOf,
+    );
+    expect(checked.exercises[0]).toMatchObject({
+      kcIds: ["kc-2", "kc-1"],
+      newKcs: [],
+    });
+    expect(checked.kcs).toEqual([]);
+  });
 });
 
 describe("needsExerciseExtraction", () => {

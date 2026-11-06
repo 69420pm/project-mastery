@@ -71,7 +71,7 @@ export const chapterExtractionSchema = (chunkIds: readonly string[] = []) =>
 
 const EXTRACTION_INSTRUCTIONS = `You get one unit of a university course's materials as JSON: the material's name, its outline with the unit's chapters marked, the course language and the unit's chunks, each with an id and its Markdown. List the knowledge components (KCs) this unit teaches.
 
-- A KC is one thing the unit teaches that one short exam question can test: a statement to know, an idea to understand, a method to carry out or when to use which method.
+- A KC is one thing the unit teaches: a statement to know, an idea to understand, a method to carry out or when to use which method. Size it as something an exam task could test on its own and a Student could learn in one sitting.
 - Together, the unit's KCs cover what it teaches. Do not split one thing into several KCs or merge several into one.
 - Headings, summaries, asides, the organisation of the course and repeated material are no KCs.
 - Give each KC a short name, a one-line description and the ids of the chunks that teach it.

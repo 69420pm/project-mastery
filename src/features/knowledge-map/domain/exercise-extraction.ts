@@ -47,7 +47,8 @@ const nameKey = (name: string) => name.trim().toLowerCase();
 
 /**
  * Checks the call's answer for an exercise unit: an unknown candidate id is
- * dropped, a new KC whose name the unit already proposed is the same KC, and
+ * dropped, a new KC named by an offered id is that candidate, a new KC
+ * whose name the unit already proposed is the same KC, and
  * an Exercise tests at most MAX_EXERCISE_KCS KCs, candidates first. A
  * subtask the call left out is an Exercise without KCs or final answers.
  */
@@ -60,12 +61,18 @@ export function checkExerciseAnswer(
   const indexOf = new Map<string, number>();
   const exercises = subtasks.map((subtask): ExtractedExercise => {
     const answered = answer.subtasks.find((given) => given.id === subtask.id);
+    // A new KC named by an offered id, such as k5, is that offered KC.
+    const named = [
+      ...(answered?.kcIds ?? []),
+      ...(answered?.newKcs ?? []).map((kc) => kc.name.trim()),
+    ];
     const kcIds = [
-      ...new Set(answered?.kcIds.flatMap((id) => kcIdOf.get(id) ?? []) ?? []),
+      ...new Set(named.flatMap((id) => kcIdOf.get(id) ?? [])),
     ].slice(0, MAX_EXERCISE_KCS);
     const newKcs: number[] = [];
     for (const kc of answered?.newKcs ?? []) {
       if (kcIds.length + newKcs.length >= MAX_EXERCISE_KCS) break;
+      if (kcIdOf.has(kc.name.trim())) continue;
       const name = kc.name.trim().slice(0, 200);
       const description = kc.description.trim().slice(0, 1000);
       if (!name || !description) continue;

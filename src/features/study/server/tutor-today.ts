@@ -36,15 +36,11 @@ export function tutorToday(
                 id,
                 name: kc.name,
                 taught: schedules.has(id),
-                withoutSources: kc.sources.length === 0,
               },
             ]
           : [];
       }),
-      anchors: topicAnchors(next.kcs, map).map((anchor) => ({
-        ...anchor,
-        withoutSources: kcById.get(anchor.id)?.sources.length === 0,
-      })),
+      anchors: topicAnchors(next.kcs, map),
       readingSections: (readings.get(next.id) ?? []).map((section) => ({
         id: section.id,
         label: readingLabel(section),

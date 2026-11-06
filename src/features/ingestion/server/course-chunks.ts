@@ -297,13 +297,14 @@ export async function loadCourseChunks(
   return chunks;
 }
 
-/** Where a chunk is in the Course, without its text. */
+/** Where a chunk is in the Course, and its label, without its text. */
 export type ChunkSpan = {
   id: string;
   materialId: string;
   materialName: string;
   pageFrom: number;
   pageTo: number;
+  label: string;
 };
 
 /**
@@ -329,7 +330,7 @@ export async function loadCourseChunkSpans(
     const rows = await allRows("Loading the chunks", (from, to) =>
       supabase
         .from("chunks")
-        .select("id, page_from, page_to")
+        .select("id, page_from, page_to, label")
         .eq("material_id", material.id)
         .order("position")
         .range(from, to),
@@ -341,6 +342,7 @@ export async function loadCourseChunkSpans(
         materialName: material.name,
         pageFrom: chunk.page_from,
         pageTo: chunk.page_to,
+        label: chunk.label,
       });
     }
   }
@@ -359,7 +361,7 @@ export async function findChunkSpan(
 ): Promise<ChunkSpan | null> {
   const { data, error } = await supabase
     .from("chunks")
-    .select("id, material_id, page_from, page_to, materials(name)")
+    .select("id, material_id, page_from, page_to, label, materials(name)")
     .eq("course_id", courseId)
     .eq("id", chunkId)
     .maybeSingle();
@@ -371,6 +373,7 @@ export async function findChunkSpan(
       materialName: data.materials?.name ?? "",
       pageFrom: data.page_from,
       pageTo: data.page_to,
+      label: data.label,
     }
   );
 }

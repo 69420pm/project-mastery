@@ -5,8 +5,7 @@
  *   Priority = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare)
  *
  * Then a KC is at least as important as any KC that builds on it, directly
- * or not, unless its own scope factor is 0. A KC without sources has no own
- * value: its Priority is exactly that highest Priority.
+ * or not, unless its own scope factor is 0.
  *
  * Pure code; `server/priorities.ts` feeds it the stored map and Brief.
  */
@@ -134,9 +133,6 @@ export function kcPriorities(input: PriorityInput): KcPriority[] {
   type Own = { priority: number; excluded: boolean; reasons: string[] };
   const own = new Map<string, Own>(
     input.kcs.map((kc) => {
-      if (kc.sources.length === 0) {
-        return [kc.id, { priority: 0, excluded: false, reasons: [] }];
-      }
       const count = counts.get(kc.id) ?? { exercises: 0, oldExam: 0 };
       const scope = scopeOf(kc, input, excluded);
       const oldExamShare = maxOldExam > 0 ? count.oldExam / maxOldExam : 0;
@@ -193,8 +189,6 @@ export function kcPriorities(input: PriorityInput): KcPriority[] {
         priority: best.priority,
         reasons: [...mine.reasons, `Needed for ${best.from.name}`],
       };
-    } else if (kc.sources.length === 0) {
-      result = { priority: 0, reasons: ["Nothing you study builds on it"] };
     }
     done.set(kc.id, result);
     return result;

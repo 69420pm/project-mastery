@@ -44,11 +44,11 @@ select results_eq(
   'alike_kcs lists each pair of alike live KCs once');
 
 select is(
-  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001', '[]',
+  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001',
     '[{"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000002", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',
-    '{eeeeeeee-0000-0000-0000-000000000001}'),
+    '[]', '[]', '{eeeeeeee-0000-0000-0000-000000000001}'),
   true, 'the running build stores assumed Prerequisites');
 select is((select count(*)::int from public.prerequisite_links), 3, 'all three are stored');
 select is((select assumes_matched from public.chapter_extractions), true,

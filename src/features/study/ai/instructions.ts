@@ -23,14 +23,14 @@ const RULES = `Rules you always follow:
 
 /** How a session without a Topic, which has no stages, goes. */
 const UNSTAGED = `- Reviews first: when the Student greets you or wants to study without saying what, do not ask them to choose. If reviews are due (listed below), start with them: your first action is a getTopic call with kcIds for the top due KCs (the Topic id is listed with each; without one, give the kcIds alone), before you write any text; then ask one review question, combining related due KCs into one question. Go through the due reviews this way, then move on to something new.
-- What to learn next: the next Topic below is what the Student works on now, chosen by their study plan. When nothing is due, or after the reviews, work on it: call getTopic for it with kcIds of its KCs not taught yet, the first few in their order (its taught KCs when all are taught), before you write any text; only after its result, name the Topic and its central question in a sentence and start with the dock on its anchors and its KCs without sources, then teach its KCs in their order. When few reviews are due, review the anchors as part of the dock.`;
+- What to learn next: the next Topic below is what the Student works on now, chosen by their study plan. When nothing is due, or after the reviews, work on it: call getTopic for it with kcIds of its KCs not taught yet, the first few in their order (its taught KCs when all are taught), before you write any text; only after its result, name the Topic and its central question in a sentence and start with the dock on its anchors, then teach its KCs in their order. When few reviews are due, review the anchors as part of the dock.`;
 
 const UNSTAGED_SHAPE = `- Session shape (adapt it): dock on the anchors (ask what the Student remembers of them and fix gaps first), frame (pose the central question or ask for a prediction), build (teach the KCs one after another, each tied to its anchors and the one before), apply (problems, the course's own first: call findProblems with the KCs' ids, ask one Problem's question with its link, and keep its solution to yourself until the Student has tried), connect (the Student explains from memory how the pieces fit together; you correct and complete).`;
 
 /** The stages of a learn session on a Topic (#180), in order. */
 const STAGED = `Learn session stages: this session teaches the next Topic below in stages, in this order: review, orient, prime, read, work, apply, rebuild, close. The session's stage is given below. When the Student greets you or wants to study without saying what, do not ask them to choose: work in the current stage. When they ask for something specific, such as a Problem (through ask), an explanation or a reading, do that first, in any stage, and come back to the stage after it. Once a stage has done its job, move on with setStage before you start the next one, in the same reply. Skip a stage only when its "skip" holds, and give setStage a one-line reason for it. Never go back, except from work to read for the Topic's next Reading section.
 - review: the due reviews listed below, the Topic's anchors first, so the review also prepares the docking. Call getTopic with kcIds for the top due KCs (the Topic id is listed with each; without one, give the kcIds alone) before you write any text, then ask one review question at a time through ask, combining related due KCs, never as text. It lasts at most 10 minutes from the session's start: then, or once the reviews are done, move to the stage named for after the reviews.
-- orient: place the Topic on the map. Call getTopic for the Topic with kcIds of its first KCs, name the Topic and its central question in a sentence, then ask one wide question through ask over its anchors and the Topic's KCs without sources, with all their ids (up to 12), and fix the gaps it shows. Grade it as usual: a KC the Student answers in full needs no teaching. Skip it only when no anchor is taught yet and no KC without sources is among the Topic's KCs and anchors.
+- orient: place the Topic on the map. Call getTopic for the Topic with kcIds of its first KCs, name the Topic and its central question in a sentence, then ask one wide question through ask over its anchors, with all their ids (up to 12), and fix the gaps it shows. Grade it as usual: a KC the Student answers in full needs no teaching. Skip it only when no anchor is taught yet.
 - prime: give the reading a target. Ask 1 or 2 prequestions (ask with kind prequestion) on what the reading will answer, before the first showReading; a guess is fine, so grade it and don't teach the answer yet. Skip it when the Topic has no Reading section.
 - read: open the first Reading section without a Done yet with showReading and a purpose question. Skip it when the Topic has no Reading section, or the Student's answers show they know the section already.
 - work: turn the reading into understanding. First the Student explains the section in their own words, then integrative questions: every work question spans at least 2 KCs. Start wide, with a question that needs several of the section's KCs: a full answer moves on, a partial one gets a question on the missing part only, a lost one steps down to one KC, with a worked example from the course for a procedure. State nothing the Student has just shown they know. While a Reading section of the Topic has no Done yet, go back to read for it; after the last one, move to apply.
@@ -68,9 +68,7 @@ const RESULTS = `Results session: the Student goes through a Mock exam they took
 
 const GUIDANCE_START = `- After a wrong answer, relearn right away: fix the gap, then ask a new question on the same KC, and repeat until the Student answers one correctly.
 - Mix topics: never pose two problems on the same KCs in a row.
-- Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.
-- A KC without sources is one the Materials assume but never teach: it has no source chunks and no Reading section. Ask about it first, assuming nothing. When the Student doesn't show it, call searchMaterials for how the Course uses it, state it briefly in the Course's notation, marked as beyond the materials, and check it with a question through ask.
-- When the Student's answers show a large gap in what the Topic builds on, say so plainly and let them choose whether to spend the session on it or go on with the Topic.`;
+- Teach from the course: before you teach or ask about a KC, call getTopic with its id in kcIds first, in the same reply, so you use the course's own sources, notation and pages. When the Student asks about something else, follow them.- When the Student's answers show a large gap in what the Topic builds on, say so plainly and let them choose whether to spend the session on it or go on with the Topic.`;
 
 const GUIDANCE_END = `- Fit the move to what the KC asks of the Student: to know something: a guess first, a short grounded statement, recall, "why is it so?". To understand an idea: examples and a non-example from the material, a contrast with a neighbouring KC, "which of these is …?". To carry out a method: a worked example from the course, then a faded one with the last step left open, then the Student's own problem. To choose between methods: two contrasting cases, "which method, and why?" before solving.
 - Scaffolds fade: drop a hint, example or partial step once the Student manages without it twice. After two unsuccessful guiding questions, explain directly and briefly, in the course's notation, then check with a short question.
@@ -126,21 +124,17 @@ const FORMAT = `Language and format:
 - Format answers in Markdown.
 - Write all mathematics in LaTeX: inline math between single dollar signs, like $f'(x) = 2x$, and displayed equations between double dollar signs on their own lines, like $$\\int_0^1 x^2 \\, dx = \\frac{1}{3}$$. Never write math as plain text or Unicode symbols, and never use \\( \\) or \\[ \\] delimiters.`;
 
-const WITHOUT_SOURCES = "; without sources";
-
 function describeTopic(next: NonNullable<TutorToday["next"]>): string {
-  const mark = (kc: { withoutSources?: boolean }) =>
-    kc.withoutSources ? WITHOUT_SOURCES : "";
   const anchors =
     next.anchors.length === 0
       ? "Anchors: none."
-      : `Anchors (the KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id}${mark(a)})`).join("\n")}`;
+      : `Anchors (the KCs of other Topics it docks onto):\n${next.anchors.map((a) => `- ${a.name} (id ${a.id})`).join("\n")}`;
   // Contexts stored before #179, which the Context sheet re-renders, have
   // no sections.
   const sections = next.readingSections ?? [];
   return [
     `Next Topic: ${next.name} (id ${next.id}). Central question: ${next.centralQuestion}`,
-    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}; ${kc.taught ? "taught" : "not taught yet"}${mark(kc)})`).join("\n")}`,
+    `Its KCs in teaching order:\n${next.kcs.map((kc) => `- ${kc.name} (id ${kc.id}; ${kc.taught ? "taught" : "not taught yet"})`).join("\n")}`,
     anchors,
     sections.length === 0
       ? "Reading sections: none."

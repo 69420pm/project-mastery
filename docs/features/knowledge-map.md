@@ -27,12 +27,12 @@ flowchart TD
   end
 
   subgraph build ["Build, per Course, on Update map"]
-    retire["Retire KCs<br/>without sources"]
+    retire["Retire KCs<br/>whose sources are gone"]
     extract["Extract KCs<br/>per teaching unit"]
     merge1["Consolidate<br/>merge alike KCs"]
     exercises["Extract Exercises<br/>per exercise unit"]
     merge2["Consolidate<br/>their new KCs"]
-    assume["Match what KCs assume<br/>Prerequisites, KCs without sources"]
+    assume["Match what KCs assume<br/>Prerequisites, or text on the KC"]
     tree["Propose the Topic tree"]
     arrange["Arrange<br/>Course order, check report"]
     retire --> extract --> merge1 --> exercises --> merge2 --> assume --> tree --> arrange
@@ -66,22 +66,22 @@ erDiagram
   TOPIC }o--o{ KC : "topic_kcs"
 ```
 
-| What                  | Table                  | What it holds                                                                                                                                                     | Written by                                                 |
-| --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Material              | `materials`            | The file's name, place in Storage and Course order (`position`), parse progress, and the `language` and `notes` the Outline found                                 | Upload, then the parse                                     |
-| Page result           | `material_pages`       | One row per page: the **page units** that start on it, or why it was `skipped` (`overlay`, `blank`, `unreadable`, `uncovered`). A working table for the parse     | Parse                                                      |
-| Chapter               | `chapters`             | One node of a Material's Outline, with its title as printed. The root Chapter (depth 0) is titled by the Material. `exam_proposed` is the AI's guess              | Parse. The Brief sets `is_exam` and `exam_asked`           |
-| Chunk                 | `chunks`               | A passage of Markdown with its pages, Chapter, vector and `label`: `content`, `exercise`, `solution` or `admin`                                                   | Parse                                                      |
-| Exercise pair         | `exercise_solutions`   | For each exercise chunk of the Course, its solution chunk or "no solution"                                                                                        | Parse. Recomputed for the whole Course                     |
-| Unit extraction       | `chapter_extractions`  | The checked answer of one extraction call, keyed by Chapter, kind and unit, with the unit's content hash, `kc_ids` once stored and `assumes_matched` once matched | Build                                                      |
-| Knowledge component   | `kcs`                  | Name, description, vector, Course order (`position`), `origin` (`content` or `exercise`), and `retired_at` when it left the map                                   | Build. An accepted Map Finding can rewrite the description |
-| KC source             | `kc_sources`           | Which chunks teach a KC. A KC with no rows is a **KC without sources**: the Materials assume it but never teach it                                                | Build                                                      |
-| Prerequisite          | `prerequisite_links`   | `from_kc` must be learned before `to_kc`. They form no cycle                                                                                                      | Build. An accepted Map Finding can add or delete one       |
-| Exercise              | `exercises`            | Its question chunk, printed solution chunk if any, difficulty 1 to 3 and `final_answers` as printed: answer keys `{ label, value, anyOrder }`, values in mathjs   | Build                                                      |
-| KCs an Exercise tests | `exercise_kcs`         | At most 6 per Exercise                                                                                                                                            | Build                                                      |
-| Topic                 | `topics`               | Name, parent, tree order, `central_question`, and the `chapter_ids` it covers                                                                                     | Build                                                      |
-| A Topic's own KCs     | `topic_kcs`            | Each KC in one Topic, in teaching order                                                                                                                           | Build                                                      |
-| Build state           | `knowledge_map_builds` | One row per Course: status, failure reason, heartbeat, `check_report`, and `topic_tree_hash`                                                                      | Build                                                      |
+| What                  | Table                  | What it holds                                                                                                                                                                         | Written by                                                 |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Material              | `materials`            | The file's name, place in Storage and Course order (`position`), parse progress, and the `language` and `notes` the Outline found                                                     | Upload, then the parse                                     |
+| Page result           | `material_pages`       | One row per page: the **page units** that start on it, or why it was `skipped` (`overlay`, `blank`, `unreadable`, `uncovered`). A working table for the parse                         | Parse                                                      |
+| Chapter               | `chapters`             | One node of a Material's Outline, with its title as printed. The root Chapter (depth 0) is titled by the Material. `exam_proposed` is the AI's guess                                  | Parse. The Brief sets `is_exam` and `exam_asked`           |
+| Chunk                 | `chunks`               | A passage of Markdown with its pages, Chapter, vector and `label`: `content`, `exercise`, `solution` or `admin`                                                                       | Parse                                                      |
+| Exercise pair         | `exercise_solutions`   | For each exercise chunk of the Course, its solution chunk or "no solution"                                                                                                            | Parse. Recomputed for the whole Course                     |
+| Unit extraction       | `chapter_extractions`  | The checked answer of one extraction call, keyed by Chapter, kind and unit, with the unit's content hash, `kc_ids` once stored and `assumes_matched` once matched                     | Build                                                      |
+| Knowledge component   | `kcs`                  | Name, description, vector, Course order (`position`), `origin` (`content` or `exercise`), `assumes` (what it assumes that no KC means, as text) and `retired_at` when it left the map | Build. An accepted Map Finding can rewrite the description |
+| KC source             | `kc_sources`           | Which chunks teach a KC. Every live KC has one: a KC whose sources are all gone is retired                                                                                            | Build                                                      |
+| Prerequisite          | `prerequisite_links`   | `from_kc` must be learned before `to_kc`. They form no cycle                                                                                                                          | Build. An accepted Map Finding can add or delete one       |
+| Exercise              | `exercises`            | Its question chunk, printed solution chunk if any, difficulty 1 to 3 and `final_answers` as printed: answer keys `{ label, value, anyOrder }`, values in mathjs                       | Build                                                      |
+| KCs an Exercise tests | `exercise_kcs`         | At most 6 per Exercise                                                                                                                                                                | Build                                                      |
+| Topic                 | `topics`               | Name, parent, tree order, `central_question`, and the `chapter_ids` it covers                                                                                                         | Build                                                      |
+| A Topic's own KCs     | `topic_kcs`            | Each KC in one Topic, in teaching order                                                                                                                                               | Build                                                      |
+| Build state           | `knowledge_map_builds` | One row per Course: status, failure reason, heartbeat, `check_report`, and `topic_tree_hash`                                                                                          | Build                                                      |
 
 **"Unit" means two things**, one in each job. A _page unit_ is a run of one label under one heading, as a page read returns it. A _Chapter unit_ is the piece of a Chapter one extraction call reads. They never meet: page units become chunks, and chunks are grouped into Chapter units.
 
@@ -90,7 +90,7 @@ erDiagram
 | Derived                  | From                                                                             | Code                                           |
 | ------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------- |
 | A Topic's anchors        | Prerequisites of its KCs that come from outside it                               | `topicAnchors` in `domain/topic-reading.ts`    |
-| Reading sections         | The chunks its KCs cite, cut to at most 3 pages in one Material                  | `readingSections` in `domain/topic-reading.ts` |
+| Reading sections         | The `content` chunks its KCs cite, cut to at most 3 pages in one Material        | `readingSections` in `domain/topic-reading.ts` |
 | An Exercise's label      | Where its question is printed, as "Chapter · Material p. N"                      | `domain/exercise-label.ts`                     |
 | Arrows on the Course map | Prerequisites between KCs of different Topics, transitively reduced              | `domain/topic-graph.ts`                        |
 | Priority                 | The map and the Brief ([tutoring](tutoring.md#everything-derived-on-every-read)) | `priorities/domain/priority.ts`                |
@@ -164,13 +164,15 @@ The same step as 2 over the exercise extractions, which also stores their Exerci
 
 `matchAssumptions` decides what each `assumes` entry means. It embeds the entry and offers it the 5 nearest live KCs other than the assuming KC. One call per 25 entries picks a candidate or answers null.
 
-| The call answers                      | Result                                                                                           |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| A KC that comes earlier in the Course | A Prerequisite                                                                                   |
-| A KC that comes later                 | Nothing: a forward link could make the cycle check drop real Prerequisites                       |
-| Null, or there were no candidates     | A **KC without sources** that the assuming KC builds on. It revives a retired KC if one is alike |
+| The call answers                      | Result                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| A KC that comes earlier in the Course | A Prerequisite                                                             |
+| A KC that comes later                 | Nothing: a forward link could make the cycle check drop real Prerequisites |
+| Null, or there were no candidates     | The entry stays on the assuming KC as text, in `kcs.assumes`               |
 
-New KCs of one step are made unique by name and through the merge call. `store_assumed_prerequisites` writes them, their links and the matched marks in one transaction.
+`kcs.assumes` holds each name once: entries from KCs merged into one are joined by name. `store_assumed_prerequisites` writes the links, the text and the matched marks in one transaction.
+
+**Matching again.** Before that, `rematchAssumptions` takes the text entries of live KCs whose 5 nearest live KCs now include one this build stored (created since the build started). It embeds them again, since their vectors aren't stored, and asks the same call. A match removes the entry, and an earlier KC also becomes a Prerequisite. It handles 100 entries per step, in key order, and the workflow passes the last key it handled to the next run.
 
 ### 6. Propose the Topic tree
 
@@ -183,7 +185,7 @@ The call sees every Material's Outline with its KC names under each Chapter, plu
 `arrangeKnowledgeMap` makes no model call. It:
 
 - retires KCs whose sources went meanwhile;
-- orders the KCs by first source, with a KC without sources directly before the first KC that builds on it;
+- orders the KCs by first source;
 - turns the proposal into Topics (`planTopicTree`, rules below), with each Topic's KCs in teaching order (Prerequisites first);
 - drops redundant Prerequisites (transitive reduction);
 - stores the check report: Chapters with content that no KC cites, Exercises without KCs, KC pairs still alike, teaching units below the coverage bar and pages read without units (`unreadable` or `uncovered`). The Course map shows the Student one line when pages went unread or Chapters were covered only in part (`checkReportLine`), and the full lists outside production;
@@ -194,7 +196,6 @@ The call sees every Material's Outline with its KC names under each Chapter, plu
 - Each Chapter with KCs goes to the first Topic that names it. One that no Topic names becomes a top-level Topic titled by the Chapter.
 - A KC joins its first source's Chapter's Topic.
 - A KC from an exercise call that was tested alongside others joins the Topic holding most of them.
-- A KC without sources joins the Topic of the first KC that builds on it.
 - A Topic left with no KCs and no children is dropped.
 - A Topic with KCs of its own always has a central question, its name if the call gave none. A Topic with only child Topics has none, and the study plan skips it.
 
@@ -217,10 +218,10 @@ Chapter "4.2 Subspaces", three content chunks
   │ match assumptions: "Vector space axioms" means a KC of Chapter 3.1;
   │                    "Set notation" means no KC of the Course
   ▼ prerequisite_links + kcs
-  Prerequisite from the Chapter 3.1 KC; a new KC without sources "Set notation"
+  Prerequisite from the Chapter 3.1 KC; "Set notation" stays in its assumes
   │ Topic tree: the Chapter goes to the Topic "Subspaces"
   ▼ topics + topic_kcs
-  Topic "Subspaces": "Set notation" (without sources), "Subspace criterion", ...
+  Topic "Subspaces": "Subspace criterion", ...
   Its anchors, the Chapter 3.1 KC, and its Reading sections are computed on read.
 ```
 
@@ -265,8 +266,8 @@ A build always _updates_ the stored map. The tutoring keys everything on KC, Exe
 
 What happens to the map when the Student changes the Materials and presses Update map:
 
-- **A Material is added.** Its units are new, so they are extracted. Other units keep their hash and make no call. Its KCs merge into alike ones, which gain sources, so a KC without sources can gain its first ones here. The tree call runs again because the Outlines changed.
-- **A Material is deleted.** Its chunks go, and with them their `kc_sources` and the Exercises they pose. Pairing runs again at once. The next build retires each KC with no sources left, unless a live KC builds on it. Such a KC stays as a KC without sources.
+- **A Material is added.** Its units are new, so they are extracted. Other units keep their hash and make no call. Its KCs merge into alike ones, which gain sources, and text that KCs assume is matched again against its new KCs. The tree call runs again because the Outlines changed.
+- **A Material is deleted.** Its chunks go, and with them their `kc_sources` and the Exercises they pose. Pairing runs again at once. The next build retires each KC with no sources left.
 - **Nothing changed.** No model calls: every hash matches, and the stored tree is arranged again.
 
 A parse never changes a Material's chunks once it has stored them, so a unit's hash only changes when its chunks go.
@@ -292,17 +293,16 @@ A card opens the Topic page (`map/[topicId]`): its detail, anchors, KCs, Reading
 
 The map is the tutoring's only source of what there is to learn. The tutoring reads it through `knowledge-map/server.ts` and never writes to it, with one exception: Map Findings.
 
-| The tutoring needs                              | It reads                                                   | Used for                                                                                         |
-| ----------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| KCs, Prerequisites, Exercises, sources          | `loadStoredMap`: live KCs only, and links between live KCs | Every Attempt and FSRS card is per KC. Priority, due reviews and `getTopic`                      |
-| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The study plan and Today card. A learn session teaches one Topic                                 |
-| The whole Topic tree                            | `loadTopicTree`                                            | Exam scopes inherited down the tree, the Course map                                              |
-| Anchors                                         | `topicAnchors`                                             | The orient stage docks on them, and the review stage asks them first                             |
-| Reading sections                                | `loadReadingSections`                                      | The read stage and the `showReading` tool                                                        |
-| Chunks, through `ingestion/server.ts`           | `loadChunkSources`, `match_chunks`                         | `getTopic` sources and `searchMaterials`: what the AI cites                                      |
-| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the answer check in `grade`, variants, Mock exams                                |
-| `materials.notes`                               | `loadMaterialNotes` in `study`                             | The instructions tell the AI each Material's notation                                            |
-| KCs without sources (`sources` is empty)        | `loadStoredMap`                                            | Marked "without sources" in the prompt: the AI teaches them in the Chat, with no Reading section |
+| The tutoring needs                              | It reads                                                   | Used for                                                                    |
+| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| KCs, Prerequisites, Exercises, sources          | `loadStoredMap`: live KCs only, and links between live KCs | Every Attempt and FSRS card is per KC. Priority, due reviews and `getTopic` |
+| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The study plan and Today card. A learn session teaches one Topic            |
+| The whole Topic tree                            | `loadTopicTree`                                            | Exam scopes inherited down the tree, the Course map                         |
+| Anchors                                         | `topicAnchors`                                             | The orient stage docks on them, and the review stage asks them first        |
+| Reading sections                                | `loadReadingSections`                                      | The read stage and the `showReading` tool                                   |
+| Chunks, through `ingestion/server.ts`           | `loadChunkSources`, `match_chunks`                         | `getTopic` sources and `searchMaterials`: what the AI cites                 |
+| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the answer check in `grade`, variants, Mock exams           |
+| `materials.notes`                               | `loadMaterialNotes` in `study`                             | The instructions tell the AI each Material's notation                       |
 
 **The way back.** The AI files a **Map Finding** with `flagMap` when the Course's sources show the map is wrong. The Student accepts it on the Course map, and `accept_map_finding` then adds or deletes the Prerequisite or sets the KC's description in one transaction. It refuses a link that would close a cycle. Details are in [the tutoring process](tutoring.md#map-findings). The next build doesn't undo these: it never rewrites a stored KC's description, but a re-extraction may add a link again.
 

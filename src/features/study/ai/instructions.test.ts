@@ -140,41 +140,6 @@ test("a practice session poses Problems on the practice KCs instead of the learn
   );
 });
 
-test("mark the Topic's KCs and anchors without sources, and orient skips only without a taught anchor or a KC without sources", () => {
-  const instructions = tutorInstructions({
-    ...context,
-    hasMap: true,
-    session: { stage: "orient", afterReview: "orient", minutes: 0 },
-    todayPlan: {
-      next: {
-        id: "t1",
-        name: "Vectors",
-        centralQuestion: "What is a vector space?",
-        kcs: [
-          { id: "k1", name: "Field", taught: false, withoutSources: true },
-          { id: "k2", name: "Vector space", taught: false },
-        ],
-        anchors: [{ id: "p1", name: "Sets", withoutSources: true }],
-      },
-      hint: null,
-    },
-  });
-
-  expect(instructions).toContain(
-    "- Field (id k1; not taught yet; without sources)\n- Vector space (id k2; not taught yet)",
-  );
-  expect(instructions).toContain("- Sets (id p1; without sources)");
-  expect(instructions).toContain(
-    "over its anchors and the Topic's KCs without sources",
-  );
-  expect(instructions).toContain(
-    "Skip it only when no anchor is taught yet and no KC without sources is among the Topic's KCs and anchors.",
-  );
-  expect(instructions).toContain(
-    "call searchMaterials for how the Course uses it",
-  );
-});
-
 const MEMORY_HEADING = "What you know about this Student from earlier Chats:";
 
 test("hold every section and the three rules", () => {

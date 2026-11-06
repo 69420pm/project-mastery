@@ -494,11 +494,12 @@ export function seedMap() {
       position,
       page_from: 3 + position,
       page_to: 3 + position * 2,
+      label: "content",
       markdown: `Chunk ${position}: $F = \\dot m (v_e - v_0)$`,
     });
     db.tables.kc_sources.push({ ...owned, kc_id: MAP.thrust, chunk_id: id });
   });
-  // Every KC is taught in the Lecture: none is without sources.
+  // Every KC is taught in the Lecture, as every live KC is.
   db.tables.kc_sources.push(
     { ...owned, kc_id: MAP.newton, chunk_id: MAP.chunks[0] },
     { ...owned, kc_id: MAP.efficiency, chunk_id: MAP.chunks[1] },

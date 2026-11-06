@@ -146,6 +146,12 @@ export const storedExtractionSchema = z.object({
 
 export type StoredExtraction = z.infer<typeof storedExtractionSchema>;
 
+/**
+ * What a KC assumes that no KC of the Course means (`kcs.assumes`): names
+ * with a one-line description, unique by name.
+ */
+export const kcAssumesSchema = z.array(z.object({ name, description }));
+
 /** The input of the Build button's Server Action. */
 export const startKnowledgeMapBuildSchema = z.object({ courseId: z.uuid() });
 

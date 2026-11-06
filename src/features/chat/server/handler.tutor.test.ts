@@ -279,6 +279,7 @@ describe("getTopic", () => {
         position,
         page_from: 9,
         page_to: 9,
+        label: "content",
         markdown: `Chunk ${position}`,
       });
       db.tables.kc_sources.push({

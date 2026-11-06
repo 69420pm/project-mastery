@@ -165,7 +165,7 @@ from public.study_sessions;
 -- Subspace loses its source and retires.
 delete from public.kc_sources where kc_id = 'bbbbbbbb-0000-0000-0000-000000000002';
 select is(public.retire_unsourced_kcs('aaaaaaaa-0000-0000-0000-000000000001'), 1,
-  'a KC without sources retires');
+  'a KC whose sources are gone retires');
 select is((select count(*)::int from public.attempts), 1, 'the retired KC keeps its Attempts');
 select results_eq(
   $$select id from public.match_kcs('aaaaaaaa-0000-0000-0000-000000000001', pg_temp.vec(2), 5, true)$$,

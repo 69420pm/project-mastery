@@ -40,6 +40,16 @@ const { buildKnowledgeMap } = await import("./build-knowledge-map");
 
 const build = () => db.tables.knowledge_map_builds[0];
 
+const kcId = (name: string) => db.tables.kcs.find((kc) => kc.name === name)!.id;
+
+/** The names the KC of this name assumes as text. */
+const assumedBy = (name: string) =>
+  (
+    db.tables.kcs.find((kc) => kc.name === name)!.assumes as Array<{
+      name: string;
+    }>
+  ).map((entry) => entry.name);
+
 /** One KC per chunk, named by its Markdown and citing it. */
 const kcPerChunk = {
   kcsOf: (unit: { chunks: Array<{ markdown: string }> }) =>
@@ -255,7 +265,7 @@ describe("Update map", () => {
     expect(liveKcs(db)).toHaveLength(2);
   });
 
-  test("links what a KC assumes to an earlier KC, not to a later one, and makes a KC without sources of what no KC means, once", async () => {
+  test("links what a KC assumes to an earlier KC, not to a later one, and keeps what no KC means as text on the KC, once", async () => {
     for (const title of ["Vectors", "Bases", "Sums"]) {
       seedMaterial(db, { chapters: [{ title }] });
     }
@@ -274,32 +284,24 @@ describe("Update map", () => {
       ["Sums", 2],
       ["Limits", 2],
     ]);
-    const kcId = (name: string) =>
-      db.tables.kcs.find((kc) => kc.name === name)!.id;
     expect(
       db.tables.prerequisite_links.map((link) => [link.from_kc, link.to_kc]),
-    ).toEqual([
-      [kcId("Vectors"), kcId("Bases")],
-      [kcId("Limits"), kcId("Bases")],
-    ]);
-    expect(liveKcs(db)).toEqual(["Vectors", "Limits", "Bases", "Sums"]);
-    expect(db.tables.kc_sources.map((source) => source.kc_id)).not.toContain(
-      kcId("Limits"),
-    );
+    ).toEqual([[kcId("Vectors"), kcId("Bases")]]);
+    expect(assumedBy("Bases")).toEqual(["Limits"]);
+    expect(liveKcs(db)).toEqual(["Vectors", "Bases", "Sums"]);
     expect(topicTree(db)).toEqual([
       "Vectors: Vectors",
-      "Bases: Limits, Bases",
+      "Bases: Bases",
       "Sums: Sums",
     ]);
 
     const again = useBuildModels();
     await update();
     expect([again.checks, again.trees]).toEqual([[], []]);
-    expect(liveKcs(db)).toEqual(["Vectors", "Limits", "Bases", "Sums"]);
-    expect(db.tables.kcs).toHaveLength(4);
+    expect(assumedBy("Bases")).toEqual(["Limits"]);
   });
 
-  test("makes one KC without sources of a name that has no candidates, without a call", async () => {
+  test("keeps a name that has no candidates as text, once, without a call", async () => {
     seedMaterial(db, { chapters: [{ title: "Vectors" }] });
     const { checks } = useBuildModels({
       assumesOf: () => ["Fields", " fields"],
@@ -307,37 +309,41 @@ describe("Update map", () => {
     await update();
 
     expect(checks).toEqual([]);
-    expect(liveKcs(db)).toEqual(["Fields", "Material 0"]);
-    expect(db.tables.prerequisite_links).toHaveLength(1);
-    expect(topicTree(db)).toEqual(["Vectors: Fields, Material 0"]);
+    expect(liveKcs(db)).toEqual(["Material 0"]);
+    expect(assumedBy("Material 0")).toEqual(["Fields"]);
+    expect(db.tables.prerequisite_links).toEqual([]);
   });
 
-  test("leaves a retired KC retired when the cycle check drops the link that would revive it", async () => {
-    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
-    const sums = seedMaterial(db, { chapters: [{ title: "Sums" }] });
-    // "More Vectors" gives a KC named "Vectors" too.
-    const kcsOf = (unit: { chunks: Array<{ markdown: string }> }) => [
-      unit.chunks[0]!.markdown.slice("About ".length, -1).replace("More ", ""),
+  test("matches text again once a build stores a KC near it", async () => {
+    const titleKc = (unit: { chunks: Array<{ markdown: string }> }) => [
+      unit.chunks[0]!.markdown.slice("About ".length, -1),
     ];
+    seedMaterial(db, { position: 1, chapters: [{ title: "Bases" }] });
     useBuildModels({
-      kcsOf,
-      assumesOf: (kc) => (kc === "Sums" ? ["Vectors"] : []),
+      kcsOf: titleKc,
+      assumesOf: (kc) => (kc === "Bases" ? ["Vectors", "Limits"] : []),
     });
     await update();
-    deleteMaterial(db, sums);
+    expect(assumedBy("Bases")).toEqual(["Vectors", "Limits"]);
+
+    // A Material earlier in Course order teaches Vectors.
+    seedMaterial(db, { position: 0, chapters: [{ title: "Vectors" }] });
+    const { checks } = useBuildModels({ kcsOf: titleKc });
     await update();
 
-    // Vectors builds on the retired Sums, so the link from Sums is a cycle.
-    seedMaterial(db, { chapters: [{ title: "More Vectors" }] });
-    useBuildModels({
-      kcsOf,
-      assumesOf: (kc) => (kc === "Vectors" ? ["Sums"] : []),
-    });
-    await update();
+    expect(checks.map((names) => names.map((name) => name.name))).toEqual([
+      ["Limits", "Vectors"],
+    ]);
+    expect(
+      db.tables.prerequisite_links.map((link) => [link.from_kc, link.to_kc]),
+    ).toEqual([[kcId("Vectors"), kcId("Bases")]]);
+    expect(assumedBy("Bases")).toEqual(["Limits"]);
 
-    expect(build()?.status).toBe("built");
-    expect(liveKcs(db)).toEqual(["Vectors"]);
-    expect(db.tables.prerequisite_links).toHaveLength(1);
+    // Without new KCs, the text is not asked about again.
+    const again = useBuildModels({ kcsOf: titleKc });
+    await update();
+    expect(again.checks).toEqual([]);
+    expect(assumedBy("Bases")).toEqual(["Limits"]);
   });
 
   test("resumes a build the Daily limit stopped without repeating stored extractions", async () => {

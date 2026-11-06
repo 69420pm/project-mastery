@@ -10,13 +10,14 @@ import type { KnowledgeMap } from "@/features/knowledge-map/schemas";
 /** The most pages one Reading section spans. */
 export const MAX_SECTION_PAGES = 3;
 
-/** A chunk's place: its Material, and the pages it covers. */
+/** A chunk's place: its Material and the pages it covers, and its label. */
 export type ChunkSpan = {
   id: string;
   materialId: string;
   materialName: string;
   pageFrom: number;
   pageTo: number;
+  label: string;
 };
 
 /** A part of a Topic's source pages, in one Material, as the cut gives it. */
@@ -84,8 +85,9 @@ export function topicAnchors(
 }
 
 /**
- * The Topic's Reading sections: the chunks its KCs cite, each once, in
- * Material order (`chunks` is every chunk in reading order). A new section
+ * The Topic's Reading sections: the `content` chunks its KCs cite, each
+ * once, in Material order (`chunks` is every chunk in reading order), so a
+ * section teaches and never poses an exercise. A new section
  * starts when the Material changes or the section would span more than
  * `MAX_SECTION_PAGES` pages; a single chunk longer than that is a section
  * of its own.
@@ -96,7 +98,9 @@ export function readingSections(
 ): SectionCut[] {
   const wanted = new Set(sourceChunkIds);
   const sections: SectionCut[] = [];
-  for (const chunk of chunks.filter((item) => wanted.has(item.id))) {
+  for (const chunk of chunks.filter(
+    (item) => item.label === "content" && wanted.has(item.id),
+  )) {
     const last = sections.at(-1);
     const pageTo = Math.max(chunk.pageTo, last?.pageTo ?? 0);
     if (

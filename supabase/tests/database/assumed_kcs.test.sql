@@ -1,6 +1,6 @@
--- KCs without sources (#236): the Prerequisite check stores the KCs the
--- Materials assume with their links, and retirement keeps a KC without
--- sources while a live KC builds on it. Run with `pnpm db:test`.
+-- Assumptions as text (#249): the Prerequisite check stores what no KC
+-- means on the assuming KC, unique by name, removes what it matches again,
+-- and a KC retires once its sources are gone. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
@@ -26,63 +26,59 @@ select 'eeeeeeee-0000-0000-0000-000000000001', id, owner, course_id, 'content', 
   '{"kcs": [], "prerequisites": []}', '{}'
 from public.chapters;
 
-create function pg_temp.vec(axis int) returns extensions.vector language sql as $$
-  select ('[' || array_to_string(array_agg(case when i = axis then 1 else 0 end order by i), ',') || ']')::extensions.vector
-  from generate_series(1, 2048) as i
-$$;
-
--- Basis and Rank are taught; Span was retired earlier.
-insert into public.kcs (id, owner, course_id, name, description, origin, position, embedding, retired_at)
+insert into public.kcs (id, owner, course_id, name, description, origin, position)
 values
   ('bbbbbbbb-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'Basis', 'A spanning independent family.', 'content', 0, pg_temp.vec(1), null),
+    'aaaaaaaa-0000-0000-0000-000000000001', 'Basis', 'A spanning independent family.', 'content', 0),
   ('bbbbbbbb-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'Rank', 'The dimension of the image.', 'content', 1, pg_temp.vec(2), null),
-  ('bbbbbbbb-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
-    'aaaaaaaa-0000-0000-0000-000000000001', 'Span', 'All linear combinations.', 'content', 2, pg_temp.vec(3), now());
+    'aaaaaaaa-0000-0000-0000-000000000001', 'Rank', 'The dimension of the image.', 'content', 1);
 insert into public.kc_sources (kc_id, chunk_id, owner, course_id)
 select k.id, c.id, k.owner, k.course_id
 from public.kcs as k
-join public.chunks as c on c.markdown = case k.name when 'Basis' then 'Bases.' else 'Ranks.' end
-where k.name in ('Basis', 'Rank');
+join public.chunks as c on c.markdown = case k.name when 'Basis' then 'Bases.' else 'Ranks.' end;
 
--- Basis assumes Field, which no KC means, and Span; Rank builds on Basis.
+-- Rank builds on Basis; Basis assumes Field twice and Sets, which no KC means.
 select is(
   public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001',
-    jsonb_build_array(
-      jsonb_build_object('id', 'cccccccc-0000-0000-0000-000000000001', 'new', true,
-        'name', 'Field', 'description', 'A set with addition and multiplication.',
-        'embedding', pg_temp.vec(4)::text),
-      jsonb_build_object('id', 'bbbbbbbb-0000-0000-0000-000000000003', 'new', false)),
-    '[{"from": "cccccccc-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000001"},
-      {"from": "bbbbbbbb-0000-0000-0000-000000000003", "to": "bbbbbbbb-0000-0000-0000-000000000001"},
-      {"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',
-    '{eeeeeeee-0000-0000-0000-000000000001}'),
-  true, 'the running build stores the assumed KCs');
+    '[{"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',
+    '[{"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": "Field", "description": "A set with + and *."},
+      {"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": " field", "description": "Again."},
+      {"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": "Sets", "description": "Collections."}]',
+    '[]', '{eeeeeeee-0000-0000-0000-000000000001}'),
+  true, 'the running build stores what KCs assume');
+select is(
+  (select assumes from public.kcs where name = 'Basis'),
+  '[{"name": "Field", "description": "A set with + and *."}, {"name": "Sets", "description": "Collections."}]'::jsonb,
+  'what no KC means stays on the assuming KC as text, once per name');
 select results_eq(
-  $$select name, origin, position, retired_at is null, embedding is not null,
-      (select count(*)::int from public.kc_sources as s where s.kc_id = k.id)
-    from public.kcs as k order by position$$,
-  $$values ('Basis'::text, 'content'::text, 0, true, true, 1), ('Rank', 'content', 1, true, true, 1),
-    ('Span', 'content', 2, true, true, 0), ('Field', 'content', 3, true, true, 0)$$,
-  'a new KC without sources comes after the others with its vector, and the retired one lives again');
-select is((select count(*)::int from public.prerequisite_links), 3, 'the links are stored');
+  $$select (select count(*)::int from public.prerequisite_links), assumes_matched from public.chapter_extractions$$,
+  $$values (1, true)$$,
+  'the Prerequisite is stored and the extraction marked matched');
 
--- Basis's Material goes: Basis builds a chain on Field and Span, and Rank on Basis.
+-- A merged KC assumes Sets again and Groups; Field is matched later.
+select is(
+  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001', '[]',
+    '[{"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": "SETS", "description": "Other words."},
+      {"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": "Groups", "description": "One operation."}]',
+    '[{"kc": "bbbbbbbb-0000-0000-0000-000000000001", "name": "field "}]', '{}'),
+  true, 'the running build matches again');
+select is(
+  (select jsonb_path_query_array(assumes, '$[*].name') from public.kcs where name = 'Basis'),
+  '["Sets", "Groups"]'::jsonb,
+  'a matched name goes, and new names join by name');
+
+-- Basis's chunk goes: it retires at once, though Rank builds on it.
 delete from public.kc_sources where kc_id = 'bbbbbbbb-0000-0000-0000-000000000001';
-select is(public.retire_unsourced_kcs('aaaaaaaa-0000-0000-0000-000000000001'), 0,
-  'KCs without sources that a live KC builds on, directly or through others, stay');
-
--- Rank goes too: the whole chain retires at once.
-delete from public.kc_sources where kc_id = 'bbbbbbbb-0000-0000-0000-000000000002';
 insert into public.topics (owner, course_id, name, position, central_question, chapter_ids)
 select owner, course_id, 'Bases', 0, 'Why?', array[id] from public.chapters;
 insert into public.topic_kcs (topic_id, kc_id, owner, position)
 select t.id, k.id, t.owner, k.position from public.topics as t cross join public.kcs as k;
-select is(public.retire_unsourced_kcs('aaaaaaaa-0000-0000-0000-000000000001'), 4,
-  'without a live KC building on them, KCs without sources retire along the chain');
-select is((select count(*)::int from public.kcs where retired_at is null), 0, 'none is left live');
-select is((select count(*)::int from public.topic_kcs), 0, 'retired KCs leave their Topic');
+select is(public.retire_unsourced_kcs('aaaaaaaa-0000-0000-0000-000000000001'), 1,
+  'a KC whose sources are gone retires, whatever builds on it');
+select results_eq(
+  $$select k.name from public.topic_kcs as t join public.kcs as k on k.id = t.kc_id$$,
+  $$values ('Rank'::text)$$,
+  'the retired KC leaves its Topic');
 
 select * from finish();
 rollback;

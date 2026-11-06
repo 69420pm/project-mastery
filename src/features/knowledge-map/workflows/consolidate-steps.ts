@@ -275,7 +275,7 @@ async function matchStored(
  * whose call failed. `stepStartedAt` goes to `runCalls`. "limit" when the
  * Daily limit is reached.
  */
-export async function mergeClusters(
+async function mergeClusters(
   supabase: AdminSupabase,
   owner: string,
   fresh: ReadonlyArray<{
