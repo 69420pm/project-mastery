@@ -1,17 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import { getExamFacts } from "@/features/brief/server";
-import { loadKcPriorities } from "@/features/priorities/server";
+import { kcState } from "@/features/study/domain/kc-state";
 import {
-  kcState,
   replayCourse,
-  sessionEnd,
-  utcDay,
   type AttemptHelp,
-  type AttemptKind,
   type AttemptResult,
   type Goal,
-  type KcSchedule,
+  type KcRecall,
   type ReplayAttempt,
 } from "@/features/study/domain/replay";
 import type { KcState } from "@/features/study/types";
@@ -27,101 +23,52 @@ export type CourseAttempt = ReplayAttempt & {
   exerciseId: string | null;
 };
 
-/** The Course's attempts, with which of their sessions have ended at `now`. */
-type CourseEvidence = {
-  attempts: CourseAttempt[];
-  ended: (sessionId: string) => boolean;
-};
-
 /**
- * The Course's attempts read with `supabase`, oldest first, and which of
- * their Study sessions have ended at `now` (`sessionEnd`). Attempts belong
- * to a Course through their Study session. A session whose Chat is gone
- * counts as ended, since no message can reach it.
+ * The Course's attempts read with `supabase`, oldest first. Attempts belong
+ * to a Course through their Study session.
  */
 export async function loadCourseAttempts(
   supabase: Supabase,
   courseId: string,
-  now: Date,
-): Promise<CourseEvidence> {
+): Promise<CourseAttempt[]> {
   const rows = await allRows("Loading the attempts", (from, to) =>
     supabase
       .from("attempts")
       .select(
-        "kc_id, session_id, question_id, kind, result, help, created_at, questions!inner(exercise_id, confidence, asked_at, answered_at), study_sessions!inner(course_id, ended_at, chat_id)",
+        "kc_id, session_id, result, help, created_at, questions!inner(exercise_id, asked_at, answered_at), study_sessions!inner(course_id)",
       )
       .eq("study_sessions.course_id", courseId)
       .order("created_at")
       .order("id")
       .range(from, to),
   );
-  const sessions = new Map(
-    rows.map((row) => [row.session_id, row.study_sessions]),
-  );
-  const openChats = [...sessions.values()].flatMap((session) =>
-    session.ended_at === null && session.chat_id !== null
-      ? [session.chat_id]
-      : [],
-  );
-  const lastMessageAt = new Map<string, string>();
-  if (openChats.length > 0) {
-    const { data, error } = await supabase
-      .from("chats")
-      .select("id, last_message_at")
-      .in("id", openChats);
-    if (error) failed("Loading the Chats of the open sessions", error);
-    for (const chat of data) lastMessageAt.set(chat.id, chat.last_message_at);
-  }
-  const ended = new Set(
-    [...sessions].flatMap(([id, { ended_at, chat_id }]) => {
-      const chatGone = chat_id === null || !lastMessageAt.has(chat_id);
-      if (ended_at === null && chatGone) return [id];
-      const newestMessageAt = chat_id ? lastMessageAt.get(chat_id) : null;
-      const end = sessionEnd(
-        { endedAt: ended_at, newestMessageAt: newestMessageAt ?? null },
-        now,
-      );
-      return end === null ? [] : [id];
-    }),
-  );
-  return {
-    attempts: rows.map((row) => ({
-      kcId: row.kc_id,
-      sessionId: row.session_id,
-      createdAt: row.created_at,
-      kind: row.kind as AttemptKind,
-      result: row.result as AttemptResult,
-      help: row.help as AttemptHelp,
-      exerciseId: row.questions.exercise_id,
-      questionId: row.question_id,
-      confidence: row.questions.confidence,
-      seconds: row.questions.answered_at
-        ? (Date.parse(row.questions.answered_at) -
-            Date.parse(row.questions.asked_at)) /
-          1000
-        : null,
-    })),
-    ended: (sessionId) => ended.has(sessionId),
-  };
+  return rows.map((row) => ({
+    kcId: row.kc_id,
+    sessionId: row.session_id,
+    createdAt: row.created_at,
+    result: row.result as AttemptResult,
+    help: row.help as AttemptHelp,
+    exerciseId: row.questions.exercise_id,
+    seconds: row.questions.answered_at
+      ? (Date.parse(row.questions.answered_at) -
+          Date.parse(row.questions.asked_at)) /
+        1000
+      : null,
+  }));
 }
 
 /**
- * Each taught KC's schedule by KC id at `now`, replayed from the Course's
- * attempts read with `supabase` (`replayCourse`). KCs without a non-`pre`
- * attempt are missing.
+ * Each taught KC's recall by KC id at `now`, replayed from the Course's
+ * attempts read with `supabase` (`replayCourse`). Untaught KCs are missing.
  */
-export async function loadSchedules(
+export async function loadRecall(
   supabase: Supabase,
   courseId: string,
-  facts: {
-    examDate: string | null;
-    goal: Goal;
-    priorities: Record<string, number>;
-  },
+  facts: { examDate: string | null; goal: Goal },
   now: Date,
-): Promise<Map<string, KcSchedule>> {
-  const { attempts, ended } = await loadCourseAttempts(supabase, courseId, now);
-  return replayCourse(attempts, { ...facts, ended, today: utcDay(now) });
+): Promise<Map<string, KcRecall>> {
+  const attempts = await loadCourseAttempts(supabase, courseId);
+  return replayCourse(attempts, { ...facts, now });
 }
 
 /**
@@ -266,18 +213,9 @@ export async function getKcStates(
 ): Promise<Record<string, KcState>> {
   if (!z.uuid().safeParse(courseId).success || !(await getUser())) return {};
   const supabase = await createClient();
-  const [exam, priorities] = await Promise.all([
-    getExamFacts(supabase, courseId),
-    loadKcPriorities(supabase, courseId),
-  ]);
-  const now = new Date();
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
+  const exam = await getExamFacts(supabase, courseId);
+  const recall = await loadRecall(supabase, courseId, exam, new Date());
   return Object.fromEntries(
-    [...schedules].map(([kcId, schedule]) => [kcId, kcState(schedule, now)]),
+    [...recall].map(([kcId, kc]) => [kcId, kcState(kc)]),
   );
 }

@@ -8,4 +8,5 @@ Verified 2026-10-24 against `ts-fsrs@5.4.2`, re-checked on 6.0.0 (the legacy `fs
 - Set `enable_fuzz: false` for a replay that tests can pin: fuzz randomizes intervals.
 - `f.retrievability(card, date)` returns the recall probability as a number (6.0 removed `get_retrievability` and the `<Card>` type argument of `createEmptyCard`).
 - `maximum_interval` is one global number of days, so a cap that depends on the days left to an exam has to be applied to the card's due date after each review.
-- A review's elapsed days are UTC calendar days between `last_review` and the review (`dateDiffInDays`), but `get_retrievability` counts whole 24-hour periods since `last_review`. Overwriting `card.due` (the exam cap, the sweep) changes neither.
+- A review's elapsed days are UTC calendar days between `last_review` and the review (`dateDiffInDays`), but `f.retrievability` counts whole 24-hour periods since `last_review`, so it returns 1 for the first 24 hours after any review, even one rated Again. `replay.ts` computes recall itself with the FSRS-6 curve on fractional days, `(1 + factor · t / S)^decay` with `decay = -w[20]` and `factor = 0.9^(1/decay) − 1`; it matches `f.retrievability` to 6 places at whole days (`f.retrievability` rounds to 8).
+- `fsrs(...).parameters.w` gives the weights the scheduler runs on.

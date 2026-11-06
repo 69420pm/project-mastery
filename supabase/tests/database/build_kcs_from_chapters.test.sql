@@ -158,8 +158,8 @@ select 'dddddddd-0000-0000-0000-000000000001', id, 'What is a subspace?'
 from public.study_sessions;
 insert into public.question_kcs (question_id, kc_id)
 values ('dddddddd-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002');
-insert into public.attempts (question_id, session_id, kc_id, kind, result, help)
-select 'dddddddd-0000-0000-0000-000000000001', id, 'bbbbbbbb-0000-0000-0000-000000000002', 'learn', 'full', 'none'
+insert into public.attempts (question_id, session_id, kc_id, result, help)
+select 'dddddddd-0000-0000-0000-000000000001', id, 'bbbbbbbb-0000-0000-0000-000000000002', 'full', 'none'
 from public.study_sessions;
 
 -- Subspace loses its source and retires.

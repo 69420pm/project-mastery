@@ -19,10 +19,9 @@ import {
   predictedSuccess,
   type MockCandidate,
 } from "@/features/study/domain/mock-plan";
-import { kcState } from "@/features/study/domain/replay";
 import {
   loadAskedProblems,
-  loadSchedules,
+  loadRecall,
 } from "@/features/study/server/attempts";
 import { loadPlan } from "@/features/study/server/plan";
 import { loadReadyProblems } from "@/features/study/server/problems";
@@ -90,12 +89,7 @@ export async function planMockExam(
   const reserved = new Set(
     reservedId === null ? [] : await loadChapterChunkIds(supabase, reservedId),
   );
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
+  const kcRecall = await loadRecall(supabase, courseId, exam, now);
   const plan = await loadPlan(
     supabase,
     courseId,
@@ -103,17 +97,14 @@ export async function planMockExam(
       prerequisites: map.prerequisites,
       priorities,
       exam,
-      schedules,
+      recall: kcRecall,
       dueCount: 0,
       topics,
     },
     now,
   );
   const recall = new Map(
-    map.kcs.map((kc) => [
-      kc.id,
-      kcState(schedules.get(kc.id), now).retrievability,
-    ]),
+    map.kcs.map((kc) => [kc.id, kcRecall.get(kc.id)?.recallToday ?? null]),
   );
   const topicKcs = new Map(topics.map((topic) => [topic.id, topic.kcs]));
   const topicOf = (kcs: string[]) =>

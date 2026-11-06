@@ -3,10 +3,7 @@
  * study plan. Pure, like the plan it reads.
  */
 import type { Pace, Plan, TopicPlan } from "@/features/study/domain/plan";
-import {
-  projectedRecall,
-  type KcSchedule,
-} from "@/features/study/domain/replay";
+import { UNTAUGHT, type KcRecall } from "@/features/study/domain/replay";
 
 /** The Topic the Student works on next. */
 export type TodayTopic = {
@@ -34,10 +31,10 @@ const HINTS = {
 /**
  * Today's work from a plan: the due reviews, then the next Topic. In build
  * and without an exam date it is the first of the plan order. In Deepen it
- * is an in-plan Topic that needs work, otherwise a learned one, otherwise a
- * solid one, each the one with the lowest recall. In the final week it is
- * the taught, unskipped Topic with the highest priority × (1 − its KCs' mean
- * recall projected to the exam), a KC without a card counting as 0: no new
+ * is an in-plan learned Topic, otherwise a solid one, each the one with the
+ * lowest recall. In the final week it is the taught, unskipped Topic with
+ * the highest priority × (1 − its KCs' mean recall on the exam day), an
+ * untaught KC counting as 0: no new
  * Topics. Ties go to Course order.
  */
 export function planToday(
@@ -45,10 +42,8 @@ export function planToday(
   input: {
     /** The stored Topics, with their KC ids in teaching order. */
     topics: Array<{ id: string; centralQuestion: string; kcs: string[] }>;
-    schedules: Map<string, KcSchedule>;
+    recall: Map<string, KcRecall>;
     dueCount: number;
-    examDate: string | null;
-    now: Date;
   },
 ): TodayPlan {
   const next = nextTopic(plan, input);
@@ -84,13 +79,8 @@ function nextTopic(
   plan: Plan,
   {
     topics,
-    schedules,
-    examDate,
-    now,
-  }: Pick<
-    Parameters<typeof planToday>[1],
-    "topics" | "schedules" | "examDate" | "now"
-  >,
+    recall,
+  }: Pick<Parameters<typeof planToday>[1], "topics" | "recall">,
 ): TopicPlan | null {
   const byId = new Map(plan.topics.map((t) => [t.id, t]));
   if (plan.phase === null || plan.phase === "build") {
@@ -98,7 +88,7 @@ function nextTopic(
   }
   if (plan.phase === "deepen") {
     const inPlan = plan.topics.filter((t) => t.status === "in_plan");
-    for (const state of ["needs_work", "learned", "solid"] as const) {
+    for (const state of ["learned", "solid"] as const) {
       const lowest = best(
         inPlan.filter((t) => t.topicState.state === state),
         (t) => -t.topicState.recall,
@@ -110,10 +100,10 @@ function nextTopic(
   const kcsOf = new Map(topics.map((t) => [t.id, t.kcs]));
   const meanProjected = (topic: TopicPlan) => {
     const kcs = kcsOf.get(topic.id) ?? [];
-    const sum = kcs.reduce((total, id) => {
-      const card = schedules.get(id)?.card;
-      return total + (card ? projectedRecall(card, now, examDate) : 0);
-    }, 0);
+    const sum = kcs.reduce(
+      (total, id) => total + (recall.get(id) ?? UNTAUGHT).recallOnExamDay,
+      0,
+    );
     return kcs.length === 0 ? 0 : sum / kcs.length;
   };
   return best(

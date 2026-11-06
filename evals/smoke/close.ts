@@ -115,7 +115,6 @@ export const closeSmoke: SmokeCheck = {
         question_id: questionId,
         session_id: sessionId,
         kc_id: kc,
-        kind: "learn",
         result: "wrong",
         help: "none",
         created_at: started,

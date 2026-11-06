@@ -1,8 +1,7 @@
+import type { KcState, KcStateName } from "@/features/study/domain/kc-state";
 import type {
   AttemptHelp,
   AttemptResult,
-  KcState,
-  KcStateName,
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
 import type { Pace, Phase, Plan, Progress } from "@/features/study/domain/plan";
@@ -105,8 +104,7 @@ export type ProblemView = {
 };
 
 /**
- * A KC of a graded Question as `grade` returns it, with its new state: no
- * next review or recall while its first session runs.
+ * A KC of a graded Question as `grade` returns it, with its new state.
  */
 export type GradedKc = {
   id: string;

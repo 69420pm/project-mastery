@@ -130,7 +130,7 @@ export type MapTopic = {
  * KCs' recall today, 0 to 1.
  */
 export type MapTopicState = {
-  state: "new" | "in_progress" | "learned" | "solid" | "needs_work";
+  state: "new" | "in_progress" | "learned" | "solid";
   recall: number;
 };
 

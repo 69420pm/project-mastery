@@ -77,11 +77,11 @@ export type Database = {
           help: string;
           id: string;
           kc_id: string;
-          kind: string;
           owner: string;
           question_id: string;
           result: string;
           session_id: string;
+          source: string;
         };
         ComputedFields: never;
         Insert: {
@@ -90,11 +90,11 @@ export type Database = {
           help: string;
           id?: string;
           kc_id: string;
-          kind: string;
           owner?: string;
           question_id: string;
           result: string;
           session_id: string;
+          source?: string;
         };
         Update: {
           check?: string | null;
@@ -102,11 +102,11 @@ export type Database = {
           help?: string;
           id?: string;
           kc_id?: string;
-          kind?: string;
           owner?: string;
           question_id?: string;
           result?: string;
           session_id?: string;
+          source?: string;
         };
         Relationships: [
           {

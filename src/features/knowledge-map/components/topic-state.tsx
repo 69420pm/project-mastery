@@ -9,7 +9,6 @@ const STATES: Record<
   in_progress: { name: "In progress", variant: "outline" },
   learned: { name: "Learned", variant: "secondary" },
   solid: { name: "Solid", variant: "default" },
-  needs_work: { name: "Needs work", variant: "destructive" },
 };
 
 /** A Topic's state as a badge; new without one. */

@@ -4,7 +4,7 @@ How a Chat tutors a Student from the Course's Knowledge map: what is stored, wha
 
 This is the second half of one system. [The Knowledge map](knowledge-map.md) covers how the map is made, and [how the two connect](knowledge-map.md#how-the-two-connect) lists every point where they touch. Read it first if KCs, Topics or anchors are new to you.
 
-Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0018](../adr/0018-questions-as-first-class-objects.md), [0019](../adr/0019-fsrs-replay.md), [0021](../adr/0021-problem-verification.md) and [0026](../adr/0026-assumptions-as-text.md). In code, "tutor" names what the AI is given to tutor with, such as `TutorContext` and `tutorTools`. In the product it is always "the AI".
+Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0018](../adr/0018-questions-as-first-class-objects.md), [0021](../adr/0021-problem-verification.md), [0026](../adr/0026-assumptions-as-text.md) and [0027](../adr/0027-per-day-scheduling-and-one-ranking.md). In code, "tutor" names what the AI is given to tutor with, such as `TutorContext` and `tutorTools`. In the product it is always "the AI".
 
 ## The short version
 
@@ -42,18 +42,18 @@ flowchart TD
 
 ## The data
 
-| What                  | Table                       | What it holds                                                                                                                                                                 | Written by                                      |
-| --------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Chat and its messages | `chats`, `chat_messages`    | The history. Each AI reply also stores the `tutor_context` it was given, its parts (with tool calls) and its model. A Done on a reading card sets `reading_section_id`        | Chat handler                                    |
-| Study session         | `study_sessions`            | One per Chat, created by a database trigger. `mode`, `topic_id`, `stage`, `ended_at`, `session_note`, `rating`, `mock_id`                                                     | Trigger, then security-definer functions        |
-| Question              | `questions`, `question_kcs` | One graded ask: `kind`, `prompt`, the KCs it tests, the Student's `answer_text` and `confidence` (1 to 4), timestamps, and the Exercise or generated Problem it poses, if any | `ask`, then the answer, then `grade`            |
-| Attempt               | `attempts`                  | One KC of one Question: `result` (`full`, `partial`, `wrong`), `help` (`none`, `some`, `solution_shown`), `kind` and the numeric `check`. **The only stored learning state**  | `grade`, or Mock exam grading                   |
-| Memory                | `memories`                  | One text per Course, at most 4,000 characters, about the Student and never mastery. A line starting with `!` is pinned                                                        | `remember`, the close call, the Student         |
-| Topic note            | `topic_notes`               | What clicked and what kept going wrong on one Topic. Replaced at each learn session's close                                                                                   | Close call                                      |
-| Topic choice          | `topic_choices`             | A pin or skip of a Topic                                                                                                                                                      | The Student, on the Topic page                  |
-| Map Finding           | `map_findings`              | A claim that the map is wrong, with a quote from a chunk                                                                                                                      | `flagMap`, then the Student's accept or dismiss |
-| Generated Problem     | `problems`, `problem_kcs`   | A variant of an Exercise or a new Problem: `statement`, `solution`, `program`, `final_answers`, `status` and the Student's `flag`                                             | Generation workflow                             |
-| Mock exam             | `mock_exams`, `mock_items`  | A timed exam with items, answers through `question_id`, points and steps                                                                                                      | Assembly and grading workflows                  |
+| What                  | Table                       | What it holds                                                                                                                                                                                   | Written by                                      |
+| --------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Chat and its messages | `chats`, `chat_messages`    | The history. Each AI reply also stores the `tutor_context` it was given, its parts (with tool calls) and its model. A Done on a reading card sets `reading_section_id`                          | Chat handler                                    |
+| Study session         | `study_sessions`            | One per Chat, created by a database trigger. `mode`, `topic_id`, `stage`, `ended_at`, `session_note`, `rating`, `mock_id`                                                                       | Trigger, then security-definer functions        |
+| Question              | `questions`, `question_kcs` | One graded ask: `kind`, `prompt`, the KCs it tests, the Student's `answer_text` and `confidence` (1 to 4), timestamps, and the Exercise or generated Problem it poses, if any                   | `ask`, then the answer, then `grade`            |
+| Attempt               | `attempts`                  | One KC of one Question: `result` (`full`, `partial`, `wrong`), `help` (`none`, `some`, `solution_shown`), `source` (`chat`, `mock`) and the numeric `check`. **The only stored learning state** | `grade`, or Mock exam grading                   |
+| Memory                | `memories`                  | One text per Course, at most 4,000 characters, about the Student and never mastery. A line starting with `!` is pinned                                                                          | `remember`, the close call, the Student         |
+| Topic note            | `topic_notes`               | What clicked and what kept going wrong on one Topic. Replaced at each learn session's close                                                                                                     | Close call                                      |
+| Topic choice          | `topic_choices`             | A pin or skip of a Topic                                                                                                                                                                        | The Student, on the Topic page                  |
+| Map Finding           | `map_findings`              | A claim that the map is wrong, with a quote from a chunk                                                                                                                                        | `flagMap`, then the Student's accept or dismiss |
+| Generated Problem     | `problems`, `problem_kcs`   | A variant of an Exercise or a new Problem: `statement`, `solution`, `program`, `final_answers`, `status` and the Student's `flag`                                                               | Generation workflow                             |
+| Mock exam             | `mock_exams`, `mock_items`  | A timed exam with items, answers through `question_id`, points and steps                                                                                                                        | Assembly and grading workflows                  |
 
 From the Knowledge map side, the tutoring reads KCs, Prerequisites, Exercises, Topics and chunks. From the Brief it reads the exam date, goal, excluded Materials, exam scopes, old exams (`chapters.is_exam`) and the Reserved exam.
 
@@ -89,41 +89,35 @@ Priority = scope × (0.25 + 0.5 × oldExamShare + 0.25 × exerciseShare)
 
 The shares are the KC's old-exam Exercises and all its Exercises, over the Course's most. `scope` is 0 when every source is in an excluded Material; otherwise it comes from the exam scope of the KC's Topic or the nearest Topic above it, 0 for `excluded`, 2 for `emphasized`, else 1. A KC is then lifted to the highest Priority of anything that builds on it, unless it is excluded. Without old exams, Exercises or exam scopes, every KC is equal.
 
-**FSRS cards** (`study/domain/replay.ts`): each KC's attempts replayed through `ts-fsrs`.
+**FSRS cards** (`study/domain/replay.ts`): each KC's attempts replayed through `ts-fsrs` by the per-day rule ([ADR 0027](../adr/0027-per-day-scheduling-and-one-ranking.md)), on UTC days. Every Attempt counts, from a Chat or a Mock exam, and sessions play no part.
 
-- `pre` (prequestion) and `retry` (Results session) attempts never schedule. `learn` and `mock` attempts do.
-- The **first session** with a scheduling attempt on a KC teaches it: the card is created once that session has ended, rated by its _last_ attempt there. Until then the KC is `learning` with no card.
-- In **each later session**, only the KC's _first_ attempt is a review.
-- A session counts as ended at `ended_at`, or at its newest message once it has been idle for 2 hours.
+- A KC's **first day** with an Attempt teaches it: its card is created from that day's _newest_ Attempt so far, dated at it, so it changes until the day ends.
+- On **each later day**, only the KC's _first_ Attempt is a Review. Its other Attempts that day don't schedule.
+- **Retention** follows the goal: 0.85 for pass, 0.90 for a good grade or no goal, 0.93 for master everything. Nothing else bends the schedule.
 
-| Attempt                                                                | FSRS rating |
-| ---------------------------------------------------------------------- | ----------- |
-| `wrong`, or `solution_shown`                                           | Again       |
-| `partial`, or `some` help                                              | Hard        |
-| `full` without help                                                    | Good        |
-| `full` without help, confidence 4 and faster than the Student's median | Easy        |
+| Attempt                               | FSRS rating |
+| ------------------------------------- | ----------- |
+| `wrong`, or `solution_shown`          | Again       |
+| `partial`, or `full` with `some` help | Hard        |
+| `full` without help                   | Good        |
 
-Three exam rules bend the schedule:
+Replay gives each KC `taught` (it has a card), `learned` (a `full` Attempt without help), `recallToday` (at the end of today's UTC day, so an answer just given counts), `recallOnExamDay` (today's without a future exam date), `due` (its due day is today or earlier) and `nextReview`.
 
-- **Retention** follows the goal: 0.85 for pass, 0.90 for a good grade or no goal, 0.93 for master everything.
-- **The exam cap:** a review's next due date is at most half the days left to the exam.
-- **The final-week sweep:** the sweep day is 3 days before the exam. The top half of cards by Priority come due on it, unless they were last reviewed within 7 days of it or are due by then anyway.
+**KC state,** until recall bands replace it: `new` (untaught), `due`, `known` (learned), `learning` (anything else).
 
-**KC state:** `new` (no attempts other than prequestions), `due` (its card is due today or earlier), `learning` (its first session is open, or stability is under 7 days), `known` (anything else).
-
-**Topic state,** the first that holds: `needs_work` (a card has 3 or more lapses), `solid` (every KC's projected recall reaches the retention), `learned` (every KC taught), `in_progress` (some KC taught), `new`. "Taught" means the KC has a schedule.
+**Topic state,** the first that holds: `solid` (every KC's recall on the exam day reaches the retention), `learned` (every KC taught), `in_progress` (some KC taught), `new`.
 
 **Study plan** (`study/domain/plan.ts`):
 
 - **Which Topics:** _to pass_ takes the highest-Priority Topics up to 80% of the total, _a good grade_ every Topic above 0, _master everything_ all of them. A pin always adds one, a skip always removes one, and the rest are _if time allows_.
 - **Phase:** `final_week` on the exam day and the 7 days before it, `deepen` once every in-plan Topic is taught, otherwise `build`. None without a future exam date.
-- **Progress** (`planProgress`): the in-plan Topics' KCs, and how many are `known` with a card of `reps >= 2`, so a KC taught once never counts and a due one leaves the count. Days in count UTC days since the Course's first Attempt, the first as 1; days left run to the exam date. `getPlan` adds it on every read; nothing is stored.
+- **Progress** (`planProgress`): the in-plan Topics' KCs, and how many are `learned`. Days in count UTC days since the Course's first Attempt, the first as 1; days left run to the exam date. `getPlan` adds it on every read; nothing is stored.
 - **Order of untaught work:** pinned first, then in progress, then Priority per estimated minute, never before a Topic it builds on.
-- **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own sessions: active time from the gaps between a teaching session's messages, and minutes per review from its Questions' `asked_at` and `answered_at`.
+- **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own Attempts. Minutes per KC: the active time of each session that holds a KC's first Attempt, from the gaps between its messages, less its Reviews, over the KCs it taught. Minutes per review: the time to answer each Review (a KC's first Attempt on a later day), from its Question's `asked_at` and `answered_at`.
 
-**Today** (`study/domain/today.ts`) picks the next Topic: in build, the first of the order; in deepen, the in-plan Topic that needs work, then a learned one, then a solid one, lowest recall first; in the final week, the taught Topic with the highest Priority × (1 − projected recall), never a new one.
+**Today** (`study/domain/today.ts`) picks the next Topic: in build, the first of the order; in deepen, a learned in-plan Topic, then a solid one, lowest recall first; in the final week, the taught Topic with the highest Priority × (1 − recall on the exam day), never a new one.
 
-**Due reviews** (`study/domain/reviews.ts`) rank due KCs by Priority × (1 − today's recall) and list the top 8 with a count of the rest. **Readiness** is the Priority-weighted mean of each KC's projected recall on the exam date, with 0 for an untaught KC.
+**Readiness** is the Priority-weighted mean of each KC's recall on the exam day, with 0 for an untaught KC.
 
 ## One reply, step by step
 
@@ -322,7 +316,7 @@ sequenceDiagram
 
 **The answer check.** A Question that poses an Exercise or generated Problem with `final_answers` has answer keys `{ label, value, anyOrder }`, each value a mathjs expression. `grade` takes the Student's `finalValues` as `[{ label, value }]`, the label optional with one key, and `checkAnswer` in `knowledge-map/domain/answer-keys.ts` checks each key: `match`, `mismatch` or `unchecked`. Numbers, units and complex numbers match within 1% (plus 1e-9 for zero) in the key's unit; vectors and matrices element by element; `anyOrder` lists as multisets; expressions with free symbols at 5 fixed points, of which 3 must evaluate. Any other value is `unchecked`, and one mathjs cannot parse is refused. A mismatch turns every `full` into `partial`, and a `full` while a key has no value is refused. The worst check (`mismatch`, then `unchecked`, then `match`) goes on each Attempt as `check`; it is null without keys.
 
-**The `kind` of an Attempt** follows the Question and the session: a prequestion gives `pre`, a results session gives `retry`, anything else `learn`. Mock exam grading writes `mock`.
+**The `source` of an Attempt** is `chat`, the default, or `mock`, which only Mock exam grading writes. It is read only for analytics.
 
 ## Problems
 

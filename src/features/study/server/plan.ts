@@ -13,12 +13,11 @@ import {
   planProgress,
   planStudy,
 } from "@/features/study/domain/plan";
-import type { KcSchedule } from "@/features/study/domain/replay";
-import { selectDueReviews } from "@/features/study/domain/reviews";
+import type { KcRecall } from "@/features/study/domain/replay";
 import { planToday, type TodayPlan } from "@/features/study/domain/today";
 import {
   loadFirstAttemptAt,
-  loadSchedules,
+  loadRecall,
 } from "@/features/study/server/attempts";
 import { loadTopicChoices } from "@/features/study/server/choices";
 import { loadPace } from "@/features/study/server/pace";
@@ -51,7 +50,7 @@ export async function loadPlan(
     prerequisites: Array<{ from: string; to: string }>;
     priorities: Record<string, number>;
     exam: Awaited<ReturnType<typeof getExamFacts>>;
-    schedules: Map<string, KcSchedule>;
+    recall: Map<string, KcRecall>;
     /** How many KCs of the map are due. */
     dueCount: number;
     /** The stored Topics, when the caller has them; read otherwise. */
@@ -61,7 +60,7 @@ export async function loadPlan(
 ): Promise<Plan & { pace: Pace; today: TodayPlan }> {
   const [topics, pace, choices] = await Promise.all([
     loaded.topics ?? loadStoredTopics(supabase, courseId),
-    loadPace(supabase, courseId, now),
+    loadPace(supabase, courseId),
     loadTopicChoices(supabase, courseId),
   ]);
   const plan = {
@@ -70,25 +69,16 @@ export async function loadPlan(
   };
   const today = planToday(plan, {
     topics,
-    schedules: loaded.schedules,
+    recall: loaded.recall,
     dueCount: loaded.dueCount,
-    examDate: loaded.exam.examDate,
-    now,
   });
   return { ...plan, today };
-}
-
-/** How many KCs of a map are due at `now`. */
-function countDue(...args: Parameters<typeof selectDueReviews>): number {
-  const { kcs, more } = selectDueReviews(...args);
-  return kcs.length + more;
 }
 
 /**
  * The signed-in Student's study plan of a Course with today's work and its
  * Progress (`planProgress`), derived now from its Topics, map, Priorities,
- * attempts and Brief. An unknown or
- * another Student's Course has none.
+ * attempts and Brief. An unknown or another Student's Course has none.
  */
 export async function getPlan(courseId: string): Promise<StudyPlan> {
   if (!z.uuid().safeParse(courseId).success || !(await getUser())) {
@@ -103,12 +93,7 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
     loadFirstAttemptAt(supabase, courseId),
   ]);
   const now = new Date();
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
+  const recall = await loadRecall(supabase, courseId, exam, now);
   const plan = await loadPlan(
     supabase,
     courseId,
@@ -116,8 +101,8 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
       prerequisites: map.prerequisites,
       priorities,
       exam,
-      schedules,
-      dueCount: countDue(map.kcs, schedules, priorities, now),
+      recall,
+      dueCount: map.kcs.filter((kc) => recall.get(kc.id)?.due).length,
       topics,
     },
     now,
@@ -128,7 +113,7 @@ export async function getPlan(courseId: string): Promise<StudyPlan> {
     examDate: exam.examDate,
     progress: planProgress(plan, {
       topics,
-      schedules,
+      recall,
       examDate: exam.examDate,
       firstAttemptAt,
       now,

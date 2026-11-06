@@ -272,7 +272,6 @@ export const tutorSmoke: SmokeCheck = {
         question_id: question.id,
         session_id: session.id,
         kc_id: kcId,
-        kind: "learn",
         result: "full",
         help: "none",
         created_at: taughtAt,

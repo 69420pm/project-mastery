@@ -5,7 +5,6 @@ import {
   loadStoredMap,
   loadStoredTopics,
 } from "@/features/knowledge-map/server";
-import { loadKcPriorities } from "@/features/priorities/server";
 import { targetDifficulty } from "@/features/study/domain/exercises";
 import {
   dueSoon,
@@ -13,7 +12,7 @@ import {
   planTopicStock,
   type PlannedProblem,
 } from "@/features/study/domain/problem-stock";
-import { kcState, utcDay } from "@/features/study/domain/replay";
+import { utcDay } from "@/features/study/domain/replay";
 import {
   loadReservedChunks,
   withoutReserved,
@@ -21,7 +20,7 @@ import {
 import {
   loadAskedProblems,
   loadLastUnassistedSuccess,
-  loadSchedules,
+  loadRecall,
 } from "@/features/study/server/attempts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { allRows } from "@/lib/supabase/all-rows";
@@ -187,20 +186,12 @@ async function dueKcs(
   kcs: Array<{ id: string }>,
   now: Date,
 ): Promise<string[]> {
-  const [exam, priorities] = await Promise.all([
-    getExamFacts(supabase, courseId),
-    loadKcPriorities(supabase, courseId),
-  ]);
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
+  const exam = await getExamFacts(supabase, courseId);
+  const recall = await loadRecall(supabase, courseId, exam, now);
   return dueSoon(
     kcs.map(({ id }) => ({
       kcId: id,
-      nextReview: kcState(schedules.get(id), now).nextReview,
+      nextReview: recall.get(id)?.nextReview ?? null,
     })),
     utcDay(now),
   );

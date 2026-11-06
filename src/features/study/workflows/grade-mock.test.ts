@@ -165,9 +165,9 @@ const item = (id: string) => db.tables.mock_items.find((i) => i.id === id)!;
 const attemptsOf = (questionId: string) =>
   db.tables.attempts
     .filter((a) => a.question_id === questionId)
-    .map(({ kc_id, kind, result, help, check }) => ({
+    .map(({ kc_id, source, result, help, check }) => ({
       kc_id,
-      kind,
+      source,
       result,
       help,
       check,
@@ -191,7 +191,7 @@ test("grades each item, a blank one without a call, and makes the mock graded", 
   expect(attemptsOf("q0")).toEqual([
     {
       kc_id: "k1",
-      kind: "mock",
+      source: "mock",
       result: "partial",
       help: "none",
       check: "mismatch",

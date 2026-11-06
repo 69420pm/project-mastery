@@ -8,7 +8,7 @@ import {
 import { DEFAULT_PACE } from "./plan";
 import type { ReplayAttempt } from "./replay";
 
-/** A Good `learn` attempt on `kcId` in session `sessionId`, `day` days in. */
+/** A Good attempt on `kcId` in session `sessionId`, `day` days in. */
 const attempt = (
   kcId: string,
   sessionId: string,
@@ -17,12 +17,9 @@ const attempt = (
 ): ReplayAttempt => ({
   kcId,
   sessionId,
-  createdAt: new Date(Date.UTC(2026, 9, 1 + day)).toISOString(),
-  kind: "learn",
+  createdAt: new Date(Date.UTC(2026, 9, 1) + day * 86_400_000).toISOString(),
   result: "full",
   help: "none",
-  questionId: `${kcId}@${sessionId}`,
-  confidence: null,
   seconds,
 });
 
@@ -59,20 +56,21 @@ describe("activeSeconds", () => {
 });
 
 describe("paceEvidence", () => {
-  test("finds the reviews and the ended sessions that first taught KCs", () => {
+  test("finds the first-of-day Reviews and the sessions that hold KCs' first days", () => {
     const attempts = [
       attempt("a", "s1", 0),
       attempt("b", "s1", 0),
+      // Still a's first day, in another session: not a Review.
+      attempt("a", "s1b", 0.2, 20),
       attempt("a", "s2", 2, 40),
-      // A second attempt in a session isn't a review.
+      // A second attempt on a later day isn't a Review.
       attempt("a", "s2", 2.1, 50),
       attempt("c", "s2", 2),
-      // Its first session still runs, so it has no review yet.
-      attempt("d", "open", 3),
-      attempt("d", "s4", 4, 30),
+      // The same day in another session isn't a Review either.
+      attempt("c", "s3", 2.2, 60),
     ];
 
-    const { reviews, teaching } = paceEvidence(attempts, (id) => id !== "open");
+    const { reviews, teaching } = paceEvidence(attempts);
 
     expect(reviews.map((r) => r.seconds)).toEqual([40]);
     expect(teaching).toEqual([
@@ -86,7 +84,7 @@ describe("paceEvidence", () => {
         sessionId: "s2",
         kcsTaught: 1,
         reviews: 1,
-        firstAt: attempts[4]!.createdAt,
+        firstAt: attempts[5]!.createdAt,
       },
     ]);
   });

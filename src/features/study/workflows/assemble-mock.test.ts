@@ -222,7 +222,6 @@ function seedCourse({ exam = false }: { exam?: boolean } = {}) {
     session_id: "s0",
     exercise_id: "x2",
     problem_id: null,
-    kind: "question",
     confidence: null,
     asked_at: at,
     answered_at: at,

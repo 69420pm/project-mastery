@@ -137,7 +137,6 @@ export async function saveAttempts(
       question_id: grade.questionId,
       session_id: grade.sessionId,
       kc_id: kcId,
-      kind: "learn",
       result,
       help: grade.help,
       check: grade.check,

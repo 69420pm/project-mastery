@@ -1,12 +1,8 @@
-import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import { DEFAULT_PACE, type Pace, type Plan, type TopicPlan } from "./plan";
-import type { KcSchedule } from "./replay";
+import { UNTAUGHT, type KcRecall } from "./replay";
 import type { TopicStateName } from "./topic-state";
 import { planToday } from "./today";
-
-const NOW = new Date("2026-10-01T12:00:00Z");
-const EXAM = "2026-10-05";
 
 const topic = (
   id: string,
@@ -25,7 +21,7 @@ const topic = (
 
 const today = (
   plan: Partial<Plan & { pace: Pace }>,
-  input: { dueCount?: number; schedules?: Map<string, KcSchedule> } = {},
+  input: { dueCount?: number; recall?: Map<string, KcRecall> } = {},
 ) =>
   planToday(
     {
@@ -41,22 +37,17 @@ const today = (
         centralQuestion: `Why ${t.id}?`,
         kcs: [`${t.id}-kc`],
       })),
-      schedules: input.schedules ?? new Map(),
+      recall: input.recall ?? new Map(),
       dueCount: input.dueCount ?? 0,
-      examDate: EXAM,
-      now: NOW,
     },
   );
 
-/** A card reviewed today with the given stability in days. */
-const card = (stability: number): KcSchedule => ({
-  card: {
-    ...createEmptyCard(NOW),
-    state: State.Review,
-    stability,
-    due: new Date("2026-11-30T12:00:00Z"),
-    last_review: NOW,
-  },
+/** A taught KC with the given recall on the exam day. */
+const recalled = (recallOnExamDay: number): KcRecall => ({
+  ...UNTAUGHT,
+  taught: true,
+  recallToday: 1,
+  recallOnExamDay,
 });
 
 describe("planToday", () => {
@@ -96,20 +87,23 @@ describe("planToday", () => {
     expect(today({ topics: [topic("a", "learned")] }).next).toBeNull();
   });
 
-  test("in Deepen takes a needs-work Topic, otherwise the learned one with the lowest recall", () => {
+  test("in Deepen takes the learned Topic with the lowest recall, otherwise a solid one", () => {
     const low = { topicState: { state: "learned" as const, recall: 0.2 } };
-    const topics = [topic("a", "learned"), topic("b", "learned", low)];
-    expect(today({ phase: "deepen", topics }).next?.id).toBe("b");
-    const withWork = [...topics, topic("c", "needs_work")];
-    const result = today({ phase: "deepen", topics: withWork });
-    expect(result.next?.id).toBe("c");
+    const topics = [
+      topic("s", "solid"),
+      topic("a", "learned"),
+      topic("b", "learned", low),
+    ];
+    const result = today({ phase: "deepen", topics });
+    expect(result.next?.id).toBe("b");
     expect(result.hint).toBe("Practice exam-style problems");
+    expect(today({ phase: "deepen", topics: [topics[0]!] }).next?.id).toBe("s");
   });
 
-  test("in the final week takes the taught Topic with the highest priority × (1 − projected recall)", () => {
-    const schedules = new Map([
-      ["a-kc", card(100)],
-      ["b-kc", card(1)],
+  test("in the final week takes the taught Topic with the highest priority × (1 − recall on the exam day)", () => {
+    const recall = new Map([
+      ["a-kc", recalled(0.95)],
+      ["b-kc", recalled(0.3)],
     ]);
     const result = today(
       {
@@ -121,7 +115,7 @@ describe("planToday", () => {
           topic("d", "learned", { priority: 9, status: "skipped" }),
         ],
       },
-      { schedules },
+      { recall },
     );
     expect(result.next?.id).toBe("b");
     expect(result.hint).toBe("Try an old exam under exam conditions");

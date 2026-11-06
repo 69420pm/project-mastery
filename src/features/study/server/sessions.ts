@@ -1,5 +1,5 @@
 import "server-only";
-import { sessionEnd } from "@/features/study/domain/replay";
+import { sessionEnd } from "@/features/study/domain/session-end";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 

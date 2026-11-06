@@ -7,7 +7,7 @@ import {
 } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import { readiness } from "@/features/study/domain/readiness";
-import { loadSchedules } from "@/features/study/server/attempts";
+import { loadRecall } from "@/features/study/server/attempts";
 import type { CourseReadiness } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { failed } from "@/lib/supabase/failed";
@@ -41,26 +41,19 @@ export async function getReadiness(courseId: string): Promise<CourseReadiness> {
   ]);
   if (graded.error) failed("Counting the graded mocks", graded.error);
   const now = new Date();
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
-  const options = { now, examDate: exam.examDate };
+  const recall = await loadRecall(supabase, courseId, exam, now);
   const kcs = map.kcs.map((kc) => ({ id: kc.id }));
   const byId = new Map(kcs.map((kc) => [kc.id, kc]));
   const topicValues = topics.flatMap((topic) => {
     const value = readiness(
       topic.kcs.flatMap((id) => byId.get(id) ?? []),
       priorities,
-      schedules,
-      options,
+      recall,
     );
     return value === null ? [] : [[topic.id, value] as const];
   });
   return {
-    course: readiness(kcs, priorities, schedules, options),
+    course: readiness(kcs, priorities, recall),
     topics: Object.fromEntries(topicValues),
     mocks: graded.count ?? 0,
     onTheDay:

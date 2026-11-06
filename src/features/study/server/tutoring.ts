@@ -7,17 +7,17 @@ import {
   loadStoredTopics,
   topicAnchors,
 } from "@/features/knowledge-map/server";
-import { loadKcPriorities } from "@/features/priorities/server";
 import {
   TutorToolError,
   tutorTools,
   type TutorToolActions,
   type TutorTools,
 } from "@/features/study/ai/tools";
-import { loadSchedules } from "@/features/study/server/attempts";
+import { loadRecall } from "@/features/study/server/attempts";
 import { findProblems } from "@/features/study/server/find-problems";
 import { isReadyProblem } from "@/features/study/server/problems";
-import { kcState, utcDay } from "@/features/study/domain/replay";
+import { kcState } from "@/features/study/domain/kc-state";
+import { utcDay } from "@/features/study/domain/replay";
 import { mathRunner } from "@/features/study/server/math-runner";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
@@ -55,7 +55,6 @@ export async function startTutoring(
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
   const [
     storedMap,
-    priorities,
     memory,
     exam,
     storedReadings,
@@ -65,7 +64,6 @@ export async function startTutoring(
     materialNotes,
   ] = await Promise.all([
     loadStoredMap(supabase, courseId),
-    loadKcPriorities(supabase, courseId),
     loadMemory(supabase, courseId),
     getExamFacts(supabase, courseId),
     loadReadingSections(supabase, courseId),
@@ -90,7 +88,7 @@ export async function startTutoring(
       tutorToolActions(supabase, {
         courseId,
         chatId,
-        facts: { examDate: exam.examDate, goal: exam.goal, priorities },
+        facts: { examDate: exam.examDate, goal: exam.goal },
         map,
         topics,
         readings,
@@ -113,7 +111,7 @@ function tutorToolActions(
   }: {
     courseId: string;
     chatId: string;
-    facts: Parameters<typeof loadSchedules>[2];
+    facts: Parameters<typeof loadRecall>[2];
     map: KnowledgeMap;
     topics: Awaited<ReturnType<typeof loadStoredTopics>>;
     readings: Awaited<ReturnType<typeof loadReadingSections>>;
@@ -195,14 +193,12 @@ function tutorToolActions(
         check,
       });
       if (!saved) return null;
-      // The whole Course, since the final-week sweep ranks all its cards.
-      const now = new Date();
-      const schedules = await loadSchedules(supabase, courseId, facts, now);
+      const recall = await loadRecall(supabase, courseId, facts, new Date());
       return results.map(({ kcId, result }) => ({
         id: kcId,
         name: kcById.get(kcId)?.name ?? kcId,
         result,
-        ...kcState(schedules.get(kcId), now),
+        ...kcState(recall.get(kcId)),
       }));
     },
     compute: (program) => mathRunner.run(program),
@@ -236,9 +232,8 @@ function tutorToolActions(
           `These KCs are not in this Topic: ${foreign.join(", ")}. Use the ids of its KCs.`,
         );
       }
-      const now = new Date();
-      const schedules = await loadSchedules(supabase, courseId, facts, now);
-      const stateOf = (id: string) => kcState(schedules.get(id), now).state;
+      const recall = await loadRecall(supabase, courseId, facts, new Date());
+      const stateOf = (id: string) => kcState(recall.get(id)).state;
       const wanted = new Set(kcIds ?? topic?.kcs);
       const ids = topic?.kcs ?? [...wanted];
       const kcs = ids.flatMap((id) => kcById.get(id) ?? []);

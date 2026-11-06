@@ -85,7 +85,7 @@ export function TodayCard({
   const practice = plan.topics.some(
     (t) =>
       t.status === "in_plan" &&
-      ["learned", "solid", "needs_work"].includes(t.topicState.state),
+      ["learned", "solid"].includes(t.topicState.state),
   );
   const showMock = mock && (mock.openHref !== null || practice);
   return (

@@ -5,7 +5,7 @@ import type { MapTopicStates } from "@/features/knowledge-map";
 import { loadStoredTopics } from "@/features/knowledge-map/server";
 import { desiredRetention } from "@/features/study/domain/replay";
 import { topicState } from "@/features/study/domain/topic-state";
-import { loadSchedules } from "@/features/study/server/attempts";
+import { loadRecall } from "@/features/study/server/attempts";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,24 +25,9 @@ export async function getTopicStates(
     getExamFacts(supabase, courseId),
   ]);
   if (topics.length === 0) return {};
-  const now = new Date();
-  // Priorities only order the final-week sweep, which moves due dates;
-  // neither the state nor the recall reads them.
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities: {} },
-    now,
-  );
-  const options = {
-    now,
-    examDate: exam.examDate,
-    retention: desiredRetention(exam.goal),
-  };
+  const recall = await loadRecall(supabase, courseId, exam, new Date());
+  const retention = desiredRetention(exam.goal);
   return Object.fromEntries(
-    topics.map((topic) => [
-      topic.id,
-      topicState(topic.kcs, schedules, options),
-    ]),
+    topics.map((topic) => [topic.id, topicState(topic.kcs, recall, retention)]),
   );
 }

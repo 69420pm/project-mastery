@@ -474,11 +474,10 @@ describe("a question", () => {
       expect.objectContaining({
         question_id: question!.id,
         kc_id: MAP.thrust,
-        kind: "learn",
         result: "partial",
       }),
     ]);
-    // Taught in this open session: its first review comes when it ends.
+    // Taught today: its card exists at once, Hard due two days on.
     const gradePart = db.tables.chat_messages
       .flatMap((row) => row.parts as Array<{ type: string; output?: unknown }>)
       .find((part) => part.type === "tool-grade");
@@ -487,8 +486,10 @@ describe("a question", () => {
         {
           id: MAP.thrust,
           state: "learning",
-          nextReview: null,
-          retrievability: null,
+          nextReview: new Date(Date.now() + 2 * 86_400_000)
+            .toISOString()
+            .slice(0, 10),
+          retrievability: expect.any(Number),
         },
       ],
     });

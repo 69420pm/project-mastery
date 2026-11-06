@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(24);
 
 insert into auth.users (id, email)
 values
@@ -90,27 +90,32 @@ select throws_ok(
   '42501', null, 'what was asked cannot be changed');
 
 select lives_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help, "check")
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'partial', 'some', 'unchecked'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help, "check")
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'partial', 'some', 'unchecked'
     from public.questions$$,
   'the owner records an attempt on the question''s KC');
 select results_eq(
-  $$select owner, result, help, "check", created_at = now() from public.attempts$$,
-  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'unchecked', true)$$,
-  'the owner reads it, owned by them and timed by the database');
+  $$select owner, source, result, help, "check", created_at = now() from public.attempts$$,
+  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'chat', 'partial', 'some', 'unchecked', true)$$,
+  'the owner reads it, owned by them, from the Chat and timed by the database');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help)
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'learn', 'full', 'none'
+  $$insert into public.attempts (question_id, session_id, kc_id, source, result, help)
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'mock', 'full', 'none'
+    from public.questions$$,
+  '42501', null, 'only mock grading records a mock attempt');
+select throws_ok(
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help)
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'full', 'none'
     from public.questions$$,
   '42501', null, 'a KC the question does not test is refused');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help)
-    select q.id, ids.bob_session, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'full', 'none'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help)
+    select q.id, ids.bob_session, 'bbbbbbbb-0000-0000-0000-000000000001', 'full', 'none'
     from public.questions q, ids$$,
   '42501', null, 'an attempt in another session than its question''s is refused');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help, created_at)
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'full', 'none', now() - interval '3 days'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help, created_at)
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'full', 'none', now() - interval '3 days'
     from public.questions$$,
   '42501', null, 'an attempt cannot be backdated');
 select throws_ok(

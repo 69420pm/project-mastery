@@ -1,4 +1,3 @@
-import { createEmptyCard, State } from "ts-fsrs";
 import { describe, expect, test } from "vitest";
 import {
   DEFAULT_PACE,
@@ -8,21 +7,20 @@ import {
   type PlanInput,
   type TopicChoice,
 } from "./plan";
-import { type KcSchedule } from "./replay";
+import { type KcRecall } from "./replay";
 
 const NOW = new Date("2026-10-01T12:00:00Z");
 // 21 days left: the final week starts on 2026-10-15, 14 days from now.
 const EXAM = "2026-10-22";
 
-/** A taught KC whose card is strong and not due, so its Topic is learned. */
-const learned: KcSchedule = {
-  card: {
-    ...createEmptyCard(NOW),
-    state: State.Review,
-    stability: 30,
-    due: new Date("2026-10-30T12:00:00Z"),
-    last_review: NOW,
-  },
+/** A learned KC, not due, under the retention on the exam day. */
+const learned: KcRecall = {
+  taught: true,
+  learned: true,
+  recallToday: 0.95,
+  recallOnExamDay: 0.8,
+  due: false,
+  nextReview: "2026-10-30",
 };
 
 const topic = (id: string, kcs: string[]) => ({ id, name: `T ${id}`, kcs });
@@ -36,7 +34,7 @@ const plan = (
     topics: [topic("t1", ["a", "b"]), topic("t2", ["c"]), topic("t3", ["d"])],
     prerequisites: [],
     priorities: { a: 0.4, b: 0.3, c: 0.2, d: 0.1 },
-    schedules: new Map(),
+    recall: new Map(),
     choices: [],
     pace: DEFAULT_PACE,
     now: NOW,
@@ -123,15 +121,15 @@ describe("the Phase", () => {
   });
 
   test("deepens once every in-plan Topic is taught, ignoring the rest", () => {
-    const schedules = new Map([
+    const recall = new Map([
       ["a", learned],
       ["b", learned],
       ["c", learned],
     ]);
     // d's Priority 0 leaves t3 out of the plan for no goal.
     const priorities = { a: 0.4, b: 0.3, c: 0.2, d: 0 };
-    expect(plan({ schedules, priorities }).phase).toBe("deepen");
-    expect(plan({ schedules: new Map([["a", learned]]) }).phase).toBe("build");
+    expect(plan({ recall, priorities }).phase).toBe("deepen");
+    expect(plan({ recall: new Map([["a", learned]]) }).phase).toBe("build");
   });
 
   test("has no Phase without an exam date or once it has passed", () => {
@@ -162,11 +160,11 @@ describe("the plan order", () => {
   });
 
   test("puts pinned Topics first, earliest pin first, then in-progress ones", () => {
-    const schedules = new Map([["c", learned]]);
-    expect(order({ schedules })).toEqual(["t3", "t2", "t1"]);
+    const recall = new Map([["c", learned]]);
+    expect(order({ recall })).toEqual(["t3", "t2", "t1"]);
     expect(
       order({
-        schedules,
+        recall,
         choices: [
           pin("t2", "2026-09-02T00:00:00Z"),
           pin("t1", "2026-09-01T00:00:00Z"),
@@ -195,24 +193,20 @@ describe("the plan order", () => {
 });
 
 describe("the Progress", () => {
-  /** A card not due, strong enough to be known, after `reps` ratings. */
-  const card = (reps: number, due = "2026-10-30T12:00:00Z"): KcSchedule => ({
-    card: { ...learned.card!, reps, due: new Date(due) },
-  });
   const progress = (
-    schedules: Record<string, KcSchedule>,
+    recallById: Record<string, KcRecall>,
     overrides: {
       choices?: TopicChoice[];
       examDate?: string | null;
       firstAttemptAt?: string | null;
     } = {},
   ) => {
-    const map = new Map(Object.entries(schedules));
+    const map = new Map(Object.entries(recallById));
     const examDate =
       overrides.examDate === undefined ? EXAM : overrides.examDate;
     return planProgress(
       plan({
-        schedules: map,
+        recall: map,
         choices: overrides.choices ?? [],
         exam: { examDate },
       }),
@@ -222,7 +216,7 @@ describe("the Progress", () => {
           topic("t2", ["c"]),
           topic("t3", ["d"]),
         ],
-        schedules: map,
+        recall: map,
         examDate,
         firstAttemptAt:
           overrides.firstAttemptAt === undefined
@@ -233,19 +227,16 @@ describe("the Progress", () => {
     );
   };
 
-  test("counts only known KCs reviewed after their teaching", () => {
+  test("counts the learned KCs", () => {
     expect(
       progress({
-        // Taught, without a Review yet.
-        a: { card: null },
-        // Rated Easy once: strong and not due, but never reviewed.
-        b: card(1),
-        // Reviewed once after its teaching.
-        c: card(2),
-        // Reviewed, but due again.
-        d: card(3, "2026-10-01T00:00:00Z"),
+        // Taught, never full without help.
+        a: { ...learned, learned: false },
+        b: learned,
+        // Learned, and due again.
+        c: { ...learned, due: true },
       }),
-    ).toEqual({ known: 1, total: 4, daysIn: 12, daysLeft: 21 });
+    ).toEqual({ known: 2, total: 4, daysIn: 12, daysLeft: 21 });
   });
 
   test("leaves out the KCs of Topics outside the plan", () => {
@@ -254,7 +245,7 @@ describe("the Progress", () => {
       choice: "skipped",
       createdAt: "2026-09-01T00:00:00Z",
     };
-    expect(progress({ c: card(2) }, { choices: [skipped] })).toMatchObject({
+    expect(progress({ c: learned }, { choices: [skipped] })).toMatchObject({
       known: 0,
       total: 3,
     });

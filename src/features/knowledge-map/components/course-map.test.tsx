@@ -108,7 +108,7 @@ const renderMap = (
       map={view}
       topics={mapTopics}
       learning={{}}
-      topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
+      topicStates={{ t1: { state: "learned", recall: 0.426 } }}
       topicReadiness={{ t1: 0.624 }}
       topicBadges={{ t2: ["pinned"] }}
       progressLine={<ProgressLine plan={progressPlan} briefHref="/brief" />}
@@ -142,7 +142,7 @@ test("each Topic is a card opening its Topic page", async () => {
 test("each card shows its Topic state and recall today", async () => {
   renderMap(map, topics);
   const card = await screen.findByRole("link", { name: "Momentum" });
-  expect(within(card).getByLabelText("Topic state: Needs work")).toBeVisible();
+  expect(within(card).getByLabelText("Topic state: Learned")).toBeVisible();
   expect(card).toHaveTextContent("Recall today 43%");
   // A Topic without a Topic state is new.
   const other = screen.getByRole("link", { name: "Nozzles" });

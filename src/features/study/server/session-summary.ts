@@ -1,22 +1,18 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
-import { loadKcPriorities } from "@/features/priorities/server";
-import {
-  kcState,
-  replayCourse,
-  sessionEnd,
-  utcDay,
-} from "@/features/study/domain/replay";
+import { kcState } from "@/features/study/domain/kc-state";
+import { replayCourse } from "@/features/study/domain/replay";
+import { sessionEnd } from "@/features/study/domain/session-end";
 import { loadCourseAttempts } from "@/features/study/server/attempts";
 import type { SessionSummary } from "@/features/study/types";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
- * What the close card shows of a Chat's Study session at `now`, computed as
- * if the session had ended: each KC with attempts in it with its state and
- * next review. Null without a session.
+ * What the close card shows of a Chat's Study session at `now`: each KC
+ * with attempts in it with its state and next review. Null without a
+ * session.
  */
 export async function loadSessionSummary(
   supabase: Supabase,
@@ -39,28 +35,25 @@ export async function loadSessionSummary(
   if (chat.error) failed("Loading the Chat", chat.error);
   if (!session) return null;
   const courseId = session.course_id;
-  const [exam, priorities, evidence, map] = await Promise.all([
+  const [exam, attempts, map] = await Promise.all([
     getExamFacts(supabase, courseId),
-    loadKcPriorities(supabase, courseId),
-    loadCourseAttempts(supabase, courseId, now),
+    loadCourseAttempts(supabase, courseId),
     loadStoredMap(supabase, courseId),
   ]);
-  const schedules = replayCourse(evidence.attempts, {
-    ended: (id) => id === session.id || evidence.ended(id),
+  const recall = replayCourse(attempts, {
     examDate: exam.examDate,
     goal: exam.goal,
-    priorities,
-    today: utcDay(now),
+    now,
   });
   const kcName = new Map(map.kcs.map((kc) => [kc.id, kc.name]));
   const practised = new Set(
-    evidence.attempts
+    attempts
       .filter((attempt) => attempt.sessionId === session.id)
       .map((attempt) => attempt.kcId),
   );
   return {
     kcs: [...practised].map((id) => {
-      const { state, nextReview } = kcState(schedules.get(id), now);
+      const { state, nextReview } = kcState(recall.get(id));
       return { id, name: kcName.get(id) ?? id, state, nextReview };
     }),
     ended:

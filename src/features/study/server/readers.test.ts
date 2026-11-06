@@ -106,13 +106,12 @@ vi.mock("@/features/study/server/choices", () => ({
 const { getKcLearning, getKcStates, getPlan, getTopicStates } =
   await import("@/features/study/server");
 
-/** A stored `learn` attempt on a KC `days` from now, in the ended session. */
+/** A stored attempt on a KC `days` from now, in the ended session. */
 const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
   id: randomUUID(),
   question_id: QUESTION,
   session_id: SESSION,
   kc_id: kcId,
-  kind: "learn",
   result: correct ? "full" : "wrong",
   help: "none",
   created_at: at(days),
@@ -123,8 +122,8 @@ beforeEach(() => {
   choices = [];
   map = MAP;
   db = createDb();
-  // Stored newest first: the readers order them by time. The session's last
-  // answer, a Good, creates the card due three days later.
+  // Stored newest first: the readers order them by time. A wrong answer
+  // teaches Thrust; the next day's Good reviews it, due three days later.
   db.tables.attempts.push(attempt(THRUST, -5), attempt(THRUST, -6, false));
 });
 
@@ -168,56 +167,32 @@ describe("getKcLearning", () => {
     });
   });
 
-  test("reads only the Course's sessions, and a partial answer as Hard", async () => {
+  test("reads only the Course's sessions", async () => {
     db.tables.study_sessions.push({
       id: "other",
       course_id: "other-course",
       ended_at: at(-1),
     });
     db.tables.questions.push({ id: "q2", session_id: "other" });
-    db.tables.attempts.push(
-      { ...attempt(NOZZLE, -1), question_id: "q2", session_id: "other" },
-      { ...attempt(THRUST, -4.5), result: "partial" },
-    );
+    db.tables.attempts.push({
+      ...attempt(NOZZLE, -1),
+      question_id: "q2",
+      session_id: "other",
+    });
 
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[NOZZLE]).toBeUndefined();
-    // Hard on a new card gives two days.
-    expect(learning[THRUST]).toMatchObject({ nextReview: day(-2.5) });
+    expect((await getKcLearning(COURSE))[NOZZLE]).toBeUndefined();
   });
 
-  test("keeps a KC learning without a next review while its first session runs", async () => {
+  test("schedules a KC taught in a session that still runs", async () => {
     db.tables.attempts.push({
       ...attempt(EFFICIENCY, 0),
       session_id: OPEN_SESSION,
     });
-    // A prequestion leaves a KC new.
-    db.tables.attempts.push({ ...attempt(NOZZLE, -1), kind: "pre" });
 
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[EFFICIENCY]).toMatchObject({
-      state: "learning",
-      nextReview: null,
-      retrievability: null,
+    expect((await getKcLearning(COURSE))[EFFICIENCY]).toMatchObject({
+      state: "known",
+      nextReview: day(3),
     });
-    expect(learning[NOZZLE]).toMatchObject({
-      state: "new",
-      attempts: [expect.objectContaining({ result: "full" })],
-    });
-  });
-
-  test("ends a session after 2 hours without a message", async () => {
-    db.tables.chats[0]!.last_message_at = at(-0.1);
-    db.tables.attempts.push({
-      ...attempt(EFFICIENCY, -0.11),
-      session_id: OPEN_SESSION,
-    });
-
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[EFFICIENCY]).toMatchObject({ nextReview: day(2.89) });
   });
 
   test("lists only KCs with attempts", async () => {
@@ -240,8 +215,8 @@ describe("getKcStates", () => {
       },
       [EFFICIENCY]: {
         state: "learning",
-        nextReview: null,
-        retrievability: null,
+        nextReview: day(1),
+        retrievability: expect.any(Number),
       },
     });
   });
@@ -284,10 +259,9 @@ describe("getPlan", () => {
       { id: "t1", priority: 0.8, untaught: [EFFICIENCY] },
       { id: "t2", priority: 0.1, untaught: [NOZZLE] },
     ]);
-    // Thrust's card came due, so nothing counts; the first attempt was 6
-    // days ago.
+    // Thrust is learned; the first attempt was 6 days ago.
     expect(plan.progress).toEqual({
-      known: 0,
+      known: 1,
       total: 3,
       daysIn: 7,
       daysLeft: 21,

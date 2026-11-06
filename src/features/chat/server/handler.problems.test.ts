@@ -121,7 +121,6 @@ function answered(exerciseId: string, help: "none" | "some", askedAt: string) {
     question_id: questionId,
     session_id: sessionId,
     kc_id: MAP.thrust,
-    kind: "learn",
     result: "full",
     help,
     check: null,

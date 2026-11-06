@@ -8,8 +8,7 @@ import {
   daysBetween,
   desiredRetention,
   type Goal,
-  type KcSchedule,
-  kcState,
+  type KcRecall,
   utcDay,
 } from "@/features/study/domain/replay";
 import {
@@ -81,8 +80,8 @@ export type PlanInput = {
   prerequisites: Array<{ from: string; to: string }>;
   /** Priority by KC id. */
   priorities: Record<string, number>;
-  /** The replayed schedule of each taught KC, by KC id. */
-  schedules: Map<string, KcSchedule>;
+  /** The replayed recall of each taught KC, by KC id. */
+  recall: Map<string, KcRecall>;
   exam: {
     examDate: string | null;
     goal: Goal;
@@ -96,11 +95,11 @@ export type PlanInput = {
  * The plan of a Course's Topics. The goal picks the Topics in the plan
  * (`goalTopics`); a pin always adds one and a skip always removes one.
  * The Phase is the final week on the exam day and the 7 days before it,
- * deepen once every in-plan Topic is learned, solid or needs work, build
+ * deepen once every in-plan Topic is learned or solid, build
  * otherwise. The untaught work is ordered by `orderTopics`.
  */
 export function planStudy(input: PlanInput): Plan {
-  const { topics, priorities, schedules, exam, choices, pace, now } = input;
+  const { topics, priorities, recall, exam, choices, pace, now } = input;
   const retention = desiredRetention(exam.goal);
   const choice = new Map(choices.map((c) => [c.topicId, c]));
   const priorityOf = (kcs: string[]) =>
@@ -117,11 +116,7 @@ export function planStudy(input: PlanInput): Plan {
       id: topic.id,
       name: topic.name,
       priority: priorityOf(topic.kcs),
-      topicState: topicState(topic.kcs, schedules, {
-        now,
-        examDate: exam.examDate,
-        retention,
-      }),
+      topicState: topicState(topic.kcs, recall, retention),
       status:
         chosen === "skipped"
           ? "skipped"
@@ -129,7 +124,7 @@ export function planStudy(input: PlanInput): Plan {
             ? "in_plan"
             : "if_time_allows",
       pinned: chosen === "pinned",
-      untaught: topic.kcs.filter((id) => !schedules.has(id)),
+      untaught: topic.kcs.filter((id) => !recall.has(id)),
     };
   });
   const inPlan = planned.filter((t) => t.status === "in_plan");
@@ -173,34 +168,26 @@ export type Progress = {
 
 /**
  * The Progress of a plan (`planStudy`) over its Topics' KCs (`topics`, as
- * the plan got them). A KC counts as known only while its state is `known`
- * and its card has had at least one Review after its teaching (`reps >= 2`),
- * so a KC taught once, even rated Easy, never counts, and one that comes due
- * or lapses leaves the count until it is reviewed again.
+ * the plan got them). A KC counts as known once it is learned: it has a
+ * `full` Attempt without help.
  */
 export function planProgress(
   plan: Pick<Plan, "topics">,
   input: {
     topics: PlanInput["topics"];
-    schedules: Map<string, KcSchedule>;
+    recall: Map<string, KcRecall>;
     examDate: string | null;
     /** The Course's first Attempt, as an ISO timestamp; null without one. */
     firstAttemptAt: string | null;
     now: Date;
   },
 ): Progress {
-  const { schedules, examDate, firstAttemptAt, now } = input;
+  const { recall, examDate, firstAttemptAt, now } = input;
   const inPlan = new Set(
     plan.topics.filter((t) => t.status === "in_plan").map((t) => t.id),
   );
   const kcs = input.topics.flatMap((t) => (inPlan.has(t.id) ? t.kcs : []));
-  const known = kcs.filter((id) => {
-    const schedule = schedules.get(id);
-    return (
-      (schedule?.card?.reps ?? 0) >= 2 &&
-      kcState(schedule, now).state === "known"
-    );
-  }).length;
+  const known = kcs.filter((id) => recall.get(id)?.learned).length;
   const today = utcDay(now);
   const daysLeft = examDate === null ? null : daysBetween(today, examDate);
   return {
