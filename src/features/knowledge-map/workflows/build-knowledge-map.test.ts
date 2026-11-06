@@ -418,6 +418,35 @@ describe("Update map", () => {
     });
   });
 
+  test("forms no teaching unit from an old exam, and drops what an earlier build took from it", async () => {
+    seedMaterial(db, {
+      chapters: [
+        { title: "Vectors" },
+        { title: "Final exam", children: [{ title: "Task 1" }] },
+      ],
+    });
+    const { extractions } = useBuildModels({
+      kcsOf: (unit) => unit.chunks.map((chunk) => chunk.markdown),
+      chunkIdOf: (kc, unit) =>
+        unit.chunks.find((chunk) => chunk.markdown === kc)!.id,
+    });
+    await update();
+    expect(liveKcs(db)).toEqual([
+      "About Vectors.",
+      "About Final exam.",
+      "About Task 1.",
+    ]);
+
+    // The Student confirms the exam; its subtree no longer teaches.
+    db.tables.chapters.find((c) => c.title === "Final exam")!.is_exam = true;
+    extractions.length = 0;
+    await update();
+
+    expect(liveKcs(db)).toEqual(["About Vectors."]);
+    expect(db.tables.chapter_extractions).toHaveLength(1);
+    expect(build()?.check_report).toMatchObject({ chaptersWithoutKcs: [] });
+  });
+
   test("makes the Topic tree call once, then keeps the tree and its ids without a call", async () => {
     seedMaterial(db, {
       language: "German",

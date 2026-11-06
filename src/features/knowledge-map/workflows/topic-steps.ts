@@ -48,23 +48,59 @@ export type TreeProposal = {
 export type TreeOutcome =
   { ok: true; tree: TreeProposal | null } | { ok: false; reason: string };
 
-/** The live KCs as the tree places them, in Course order. */
-export function treeKcs(input: MapInput): TreeKc[] {
+/**
+ * The live KCs as the tree places them, in Course order, with their
+ * embeddings when `vectors` has them.
+ */
+export function treeKcs(
+  input: MapInput,
+  vectors: ReadonlyMap<string, number[]> = new Map(),
+): TreeKc[] {
   const places = firstSourcePlaces(input);
   return input.kcs
     .filter((kc) => places.has(kc.id))
     .toSorted((a, b) => places.get(a.id)! - places.get(b.id)!)
     .map((kc) => {
       const chapterId = input.chunks[places.get(kc.id)!]!.chapterId;
-      if (kc.origin !== "exercise") return { id: kc.id, chapterId };
+      const vector = vectors.get(kc.id);
+      const base = { id: kc.id, chapterId, ...(vector && { vector }) };
+      if (kc.origin !== "exercise") return base;
       return {
-        id: kc.id,
-        chapterId,
+        ...base,
         tests: input.exercises
           .filter((kcs) => kcs.includes(kc.id))
           .flatMap((kcs) => kcs.filter((id) => id !== kc.id)),
       };
     });
+}
+
+/** The embeddings of the Course's live KCs, by KC id. */
+export async function loadKcVectors(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<Map<string, number[]>> {
+  const rows = await allRows("Loading the KC embeddings", (from, to) =>
+    supabase
+      .from("kcs")
+      .select("id, embedding")
+      .eq("course_id", courseId)
+      .is("retired_at", null)
+      .not("embedding", "is", null)
+      .order("id")
+      .range(from, to),
+  );
+  return new Map(
+    rows.flatMap((row) => {
+      // PostgREST returns a vector as its text, `[0.1,0.2]`.
+      const vector: unknown =
+        typeof row.embedding === "string"
+          ? JSON.parse(row.embedding)
+          : row.embedding;
+      return Array.isArray(vector)
+        ? [[row.id, vector as number[]] as const]
+        : [];
+    }),
+  );
 }
 
 /** The Course's stored Topics in tree order. */

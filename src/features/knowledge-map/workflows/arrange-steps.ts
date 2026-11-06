@@ -10,6 +10,7 @@ import {
 import { teachingOrder } from "@/features/knowledge-map/domain/topics";
 import type { CheckReport } from "@/features/knowledge-map/schemas";
 import {
+  loadKcVectors,
   loadStoredTree,
   treeKcs,
   type TreeProposal,
@@ -57,16 +58,17 @@ export async function arrangeKnowledgeMap(
   if (!(await touchBuild(supabase, courseId))) return;
   await retireUnsourcedKcs(supabase, courseId);
 
-  const [input, stored] = await Promise.all([
+  const [input, stored, vectors] = await Promise.all([
     loadMapInput(supabase, courseId),
     loadStoredTree(supabase, courseId),
+    loadKcVectors(supabase, courseId),
   ]);
   const kcs = courseOrder(input);
   const topics = planTopicTree({
     proposed: tree.topics ?? storedAsProposed(stored),
     chapters: input.chapters,
-    kcs: treeKcs(input),
-    storedIds: new Set(stored.map((topic) => topic.id)),
+    kcs: treeKcs(input, vectors),
+    stored,
   }).map((topic) => ({
     ...topic,
     kcs: teachingOrder(topic.kcs, input.prerequisites),
@@ -127,7 +129,10 @@ async function checkReport(
   const name = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
   return {
     chaptersWithoutKcs: input.chapters
-      .filter((chapter) => teaching.has(chapter.id) && !cited.has(chapter.id))
+      .filter(
+        (chapter) =>
+          !chapter.inExam && teaching.has(chapter.id) && !cited.has(chapter.id),
+      )
       .map((chapter) => chapter.title),
     exercisesWithoutKcs: exercises,
     duplicates: alike.data.flatMap(({ a, b, similarity }) =>

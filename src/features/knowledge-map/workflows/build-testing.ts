@@ -62,6 +62,27 @@ export function createBuildDb() {
     },
     functions: {
       retire_unsourced_kcs: (args, tables) => {
+        // Old exams teach nothing: their content chunks lose their sources.
+        const exams = new Set(
+          tables.chapters.filter((c) => c.is_exam === true).map((c) => c.id),
+        );
+        for (let grew = true; grew;) {
+          grew = false;
+          for (const c of tables.chapters) {
+            if (exams.has(c.parent_id) && !exams.has(c.id)) {
+              exams.add(c.id);
+              grew = true;
+            }
+          }
+        }
+        const examChunks = new Set(
+          tables.chunks
+            .filter((c) => c.label === "content" && exams.has(c.chapter_id))
+            .map((c) => c.id),
+        );
+        tables.kc_sources = tables.kc_sources.filter(
+          (source) => !examChunks.has(source.chunk_id),
+        );
         const retired = tables.kcs.filter(
           (kc) =>
             kc.course_id === args.p_course_id &&
@@ -324,6 +345,8 @@ type SeedChunk =
 type SeedChapter = {
   title: string;
   exercise?: boolean;
+  /** Confirmed as an old exam. */
+  exam?: boolean;
   chunks?: SeedChunk[];
   children?: SeedChapter[];
 };
@@ -381,6 +404,7 @@ export function seedMaterial(
       depth,
       title: chapter.title,
       page_from: 1,
+      is_exam: chapter.exam ?? null,
     });
     const chunks = chapter.chunks ?? (root ? [] : [`About ${chapter.title}.`]);
     for (const chunk of chunks) {

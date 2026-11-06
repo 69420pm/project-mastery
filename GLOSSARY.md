@@ -37,7 +37,7 @@ A Student-confirmed statement that the exam leaves out (`excluded`) or stresses 
 _Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
 
 **Knowledge map**:
-What a Course's Materials teach and what they assume without explaining, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and assume and drops what deleted ones taught, unless a KC still builds on it; its KCs and Exercises keep their identity across updates.
+What a Course's Materials teach, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. What the Materials assume without explaining stays as text on the KCs that assume it. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates. Old exams teach nothing, but their exercises count.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -45,11 +45,11 @@ The Course's home: its Topics drawn as nested boxes, with the arrows between Top
 _Avoid_: Dashboard, overview, home page
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, with the chunks of the Materials that teach it, if any. A KC without chunks is one the Materials assume but never explain; the AI teaches it in the Chat, and it counts like any other KC. Every KC sits in one Topic, a KC without chunks in the Topic of the first KC that builds on it; a KC whose chunks are all gone, and that no live KC builds on, is retired and keeps its Attempts.
+One thing an exam task could test on its own and a Student could learn in one sitting, with the chunks of the Materials that teach it. It also lists, as text, what it assumes that no KC means. Every KC sits in one Topic; a KC whose chunks are all gone is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
-A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call continues it.
+A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call, or else the new Topic holding most of its Chapters, continues it.
 _Avoid_: Big idea, chapter, unit, lesson, module
 
 **Topic state**:
@@ -65,7 +65,7 @@ A link saying one KC must be learned before another. The Prerequisites of a Know
 _Avoid_: Dependency, requirement
 
 **Exercise**:
-One printed exercise of a Course's Materials with all its subtasks, such as "Ex. 7.2", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "Linear maps · Sheet 2 p. 3" (its Chapter, Material and page), is built when read. Its statement is a chunk labelled `exercise`; the subtasks stay in it, so they share the Exercise's KCs and final answers.
+One printed exercise of a Course's Materials with all its subtasks, such as "Ex. 7.2", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed, each an answer key a code check can use (a mathjs expression with a label), and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "Linear maps · Sheet 2 p. 3" (its Chapter, Material and page), is built when read. Its statement is a chunk labelled `exercise`; the subtasks stay in it, so they share the Exercise's KCs and final answers.
 _Avoid_: Task, assignment
 
 **Problem**:

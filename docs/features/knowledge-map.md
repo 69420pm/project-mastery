@@ -4,7 +4,7 @@ How a Course's Materials become its Knowledge map: what data exists, how it flow
 
 The Knowledge map is half of one system. This document covers everything up to and including the stored map. [The tutoring process](tutoring.md) starts from the stored map and covers everything a Student does with it. [How the two connect](#how-the-two-connect) lists every point where they touch.
 
-Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0007](../adr/0007-ingest-each-upload-once.md), [0020](../adr/0020-topics.md), [0023](../adr/0023-knowledge-map-from-chapters.md) and [0024](../adr/0024-kcs-without-sources.md).
+Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0007](../adr/0007-ingest-each-upload-once.md), [0020](../adr/0020-topics.md), [0021](../adr/0021-problem-verification.md), [0023](../adr/0023-knowledge-map-from-chapters.md) and [0026](../adr/0026-assumptions-as-text.md).
 
 ## The short version
 
@@ -125,13 +125,15 @@ The Student's button calls `startKnowledgeMapBuild`, which queues through `queue
 
 ### 0. Prepare
 
-`prepareBuild` fails the build with a reason when the Course has no `content` or `exercise` chunks, and retires KCs whose sources are gone.
+`prepareBuild` fails the build with a reason when the Course has no `content` or `exercise` chunks, and retires KCs whose sources are gone. First `retire_unsourced_kcs` takes the sources in the `content` chunks of old exams from the KCs, so a KC taught only there is retired too.
 
 ### 1. Extract the teaching units
 
 `extractChapters` makes one call per teaching unit without a current extraction.
 
 A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 25,000 characters of chunks of one kind (`UNIT_CHARS`, about 2 minutes of a call) is one unit. A bigger one makes units of its children, plus units of its own chunks outside them, and packs consecutive children under the cap into one unit, up to the cap. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
+
+**Old exams teach nothing.** A Chapter the Student confirmed as an old exam (`is_exam`), and its whole subtree, form no teaching units. Their `exercise` chunks still form exercise units, so the exam's tasks become Exercises. A unit the build no longer forms loses its extraction when the next step loads the current ones. Nothing marks the map as needing Update map after the Student confirms or withdraws an exam: the button is always there, and the units that change are the ones whose hash or existence changed.
 
 A unit's hash covers its Chapter's title and its chunks' Markdown. A unit whose stored extraction has the same hash makes no call: this is why Update map is cheap.
 
@@ -178,7 +180,7 @@ The same step as 2 over the exercise extractions, which also stores their Exerci
 
 `proposeTopicTree` makes one call for the whole Course, and only when the Outlines, the KC names on them or the language changed (`topic_tree_hash`).
 
-The call sees every Material's Outline with its KC names under each Chapter, plus the stored tree. It answers a flat list in tree order, where `level` gives the nesting: a Topic's parent is the nearest earlier Topic with a lower level. Each Topic names the Chapters it holds, its central question and which stored Topic it `continues`.
+The call sees every Material's Outline with its KC names under each Chapter, plus the stored tree. Only KCs from the teaching units are listed there: a KC from an exercise call is placed by code (rules below), so a Chapter that holds only such KCs shows no names and the hash ignores them. It answers a flat list in tree order, where `level` gives the nesting: a Topic's parent is the nearest earlier Topic with a lower level. Each Topic names the Chapters it holds, its central question and which stored Topic it `continues`.
 
 ### 7. Arrange
 
@@ -194,9 +196,10 @@ The call sees every Material's Outline with its KC names under each Chapter, plu
 `planTopicTree` gives the model's proposal the guarantees the tutoring relies on:
 
 - Each Chapter with KCs goes to the first Topic that names it. One that no Topic names becomes a top-level Topic titled by the Chapter.
-- A KC joins its first source's Chapter's Topic.
-- A KC from an exercise call that was tested alongside others joins the Topic holding most of them.
+- A KC from a teaching unit joins its first source's Chapter's Topic.
+- A KC from an exercise call joins the first of: the Topic holding most of the KCs tested alongside it (the earlier on a tie, repeated until no KC moves, so a KC tested only with exercise KCs follows them); the Topic of its nearest placed KC by vector; its own Chapter's Topic, which a Chapter no Topic names gets as a top-level Topic. Its vector is read in the arrange step (`loadKcVectors`), since the tree call never sees it.
 - A Topic left with no KCs and no children is dropped.
+- **Continuity.** A Topic keeps the stored id it `continues` when that id is stored and no earlier Topic took it. A stored Topic that no Topic continues is then continued by the free Topic holding most of its `chapter_ids`, when that Topic continues no other, so a tree call that forgets a Topic does not lose its exam scopes, Topic choices and notes. A stored Topic with no Chapter in common with a free Topic goes.
 - A Topic with KCs of its own always has a central question, its name if the call gave none. A Topic with only child Topics has none, and the study plan skips it.
 
 ### One Chapter through the build
@@ -257,17 +260,18 @@ The vectors come from task `embed`: chunks as their Markdown, KCs and assumed na
 
 A build always _updates_ the stored map. The tutoring keys everything on KC, Exercise and Topic ids, so those survive updates wherever the content does.
 
-| Thing           | Keeps its id because                                                                       | Loses it when                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| KC              | A new KC merges into it or revives it instead of being stored as new                       | Never deleted: it is only retired, and it keeps its Attempts                  |
-| Exercise        | It is stored by its question chunk                                                         | Its question chunk is deleted                                                 |
-| Topic           | The tree call names it under `continues`, and code checks the id                           | The call forgets to continue it, which also loses its notes and Topic choices |
-| Reading section | Its id is a UUID v5 of Topic, Material and pages, so a Done mark holds while the cut stays | The cut changes                                                               |
+| Thing           | Keeps its id because                                                                       | Loses it when                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| KC              | A new KC merges into it or revives it instead of being stored as new                       | Never deleted: it is only retired, and it keeps its Attempts                     |
+| Exercise        | It is stored by its question chunk                                                         | Its question chunk is deleted                                                    |
+| Topic           | The tree call names it under `continues`, or code continues it by the Chapters it covers   | No new Topic holds a Chapter of it, which also loses its notes and Topic choices |
+| Reading section | Its id is a UUID v5 of Topic, Material and pages, so a Done mark holds while the cut stays | The cut changes                                                                  |
 
 What happens to the map when the Student changes the Materials and presses Update map:
 
 - **A Material is added.** Its units are new, so they are extracted. Other units keep their hash and make no call. Its KCs merge into alike ones, which gain sources, and text that KCs assume is matched again against its new KCs. The tree call runs again because the Outlines changed.
 - **A Material is deleted.** Its chunks go, and with them their `kc_sources` and the Exercises they pose. Pairing runs again at once. The next build retires each KC with no sources left.
+- **An old exam is confirmed or withdrawn.** Its content chunks stop or start forming teaching units. The KCs taught only there are retired, or extracted.
 - **Nothing changed.** No model calls: every hash matches, and the stored tree is arranged again.
 
 A parse never changes a Material's chunks once it has stored them, so a unit's hash only changes when its chunks go.

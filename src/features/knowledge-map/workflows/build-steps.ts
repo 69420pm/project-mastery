@@ -7,7 +7,10 @@ import {
 } from "@/features/knowledge-map/domain/chapter-units";
 import { keptFailingReason } from "@/features/knowledge-map/domain/build-failure";
 import type { UnitExtraction } from "@/features/knowledge-map/domain/chapter-extraction";
-import { loadCourseLanguage as loadLanguage } from "@/features/ingestion/server";
+import {
+  examChapterIds,
+  loadCourseLanguage as loadLanguage,
+} from "@/features/ingestion/server";
 import type { StoredExtraction } from "@/features/knowledge-map/schemas";
 import { meteredStream } from "@/features/usage/server";
 import { callFits, CallTimeoutError } from "@/lib/ai/call-timeout";
@@ -181,7 +184,7 @@ export async function loadCourseUnits(
     allRows("Loading the Chapters", (from, to) =>
       supabase
         .from("chapters")
-        .select("id, material_id, parent_id, depth, title")
+        .select("id, material_id, parent_id, depth, title, is_exam")
         .eq("course_id", courseId)
         .order("material_id")
         .order("position")
@@ -199,9 +202,28 @@ export async function loadCourseUnits(
     ),
   ]);
   if (materials.error) failed("Loading the Materials", materials.error);
+  // Old exams teach nothing: their chunks form no teaching units. Their
+  // exercise chunks still form exercise units.
+  const exams =
+    kind === "content"
+      ? examChapterIds(
+          chapters.map((c) => ({
+            id: c.id,
+            parentId: c.parent_id,
+            isExam: c.is_exam === true,
+          })),
+        )
+      : new Set<string>();
+  const rootOf = new Map(
+    chapters.filter((c) => c.parent_id === null).map((c) => [c.material_id, c]),
+  );
   return materials.data.flatMap((material) => {
     const outline = chapters.filter((c) => c.material_id === material.id);
-    const ofMaterial = chunks.filter((c) => c.material_id === material.id);
+    const ofMaterial = chunks.filter(
+      (c) =>
+        c.material_id === material.id &&
+        !exams.has(c.chapter_id ?? rootOf.get(material.id)?.id ?? ""),
+    );
     const chunkOf = new Map(ofMaterial.map((chunk) => [chunk.id, chunk]));
     const titleOf = new Map(outline.map((c) => [c.id, c.title]));
     return chapterUnits(

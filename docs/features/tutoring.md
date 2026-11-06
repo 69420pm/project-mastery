@@ -4,7 +4,7 @@ How a Chat tutors a Student from the Course's Knowledge map: what is stored, wha
 
 This is the second half of one system. [The Knowledge map](knowledge-map.md) covers how the map is made, and [how the two connect](knowledge-map.md#how-the-two-connect) lists every point where they touch. Read it first if KCs, Topics or anchors are new to you.
 
-Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0018](../adr/0018-questions-as-first-class-objects.md), [0019](../adr/0019-fsrs-replay.md), [0021](../adr/0021-problem-verification.md) and [0024](../adr/0024-kcs-without-sources.md). In code, "tutor" names what the AI is given to tutor with, such as `TutorContext` and `tutorTools`. In the product it is always "the AI".
+Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind the design are in [ADR 0018](../adr/0018-questions-as-first-class-objects.md), [0019](../adr/0019-fsrs-replay.md), [0021](../adr/0021-problem-verification.md) and [0026](../adr/0026-assumptions-as-text.md). In code, "tutor" names what the AI is given to tutor with, such as `TutorContext` and `tutorTools`. In the product it is always "the AI".
 
 ## The short version
 

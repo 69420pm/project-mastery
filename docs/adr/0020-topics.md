@@ -1,6 +1,6 @@
 # Topics
 
-> How Topics are made: superseded by [ADR 0023](0023-knowledge-map-from-chapters.md), where one tree call per build groups the Materials' Chapters into a nested Topic tree, Big ideas are gone and a Topic keeps its id while the call continues it. Stored Topics, their order and the anchors and Reading sections derived on read are unchanged.
+> How Topics are made: superseded by [ADR 0023](0023-knowledge-map-from-chapters.md), where one tree call per build groups the Materials' Chapters into a nested Topic tree, Big ideas are gone and a Topic keeps its id while the call continues it, or, when the call forgets it, while a new Topic holds most of its Chapters (#249). Stored Topics, their order and the anchors and Reading sections derived on read are unchanged.
 
 **Context.** Learn sessions teach one Topic at a time (#170), so a Course needs Topics: units of a few KCs of one Big idea with a central question, that keep their identity as the map grows. Study sessions already point at a `topic_id` (ADR 0018), and later modes store notes and progress against it. Regrouping every KC on each build would give Topics new ids and names each time, and the Student's work would lose its anchor.
 
