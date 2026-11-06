@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { loadStoredMap } from "@/features/knowledge-map/server";
+import {
+  checkAnswer,
+  loadStoredMap,
+  type AnswerKey,
+} from "@/features/knowledge-map/server";
 import {
   findProblems,
   generateProblems,
@@ -115,21 +119,14 @@ export const generateSmoke: SmokeCheck = {
       ready
         .filter((p) => p.program !== null)
         .map(async (p) => {
-          const stored = (p.final_answers ?? []) as Array<{
-            label: string;
-            value: number;
-            unit: string | null;
-          }>;
-          const again = await mathRunner.run(
-            p.program!,
-            stored.map(({ label, unit }) => ({ variable: label, unit })),
-          );
+          const stored = (p.final_answers ?? []) as AnswerKey[];
+          const again = await mathRunner.run(p.program!);
           const same =
             again.ok &&
-            again.answers.length === stored.length &&
-            again.answers.every(
-              (answer, i) => answer.value === stored[i]!.value,
-            );
+            stored.every((key) => {
+              const value = again.values[key.label];
+              return value && checkAnswer(key, value.text) === "match";
+            });
           return { id: p.id, same };
         }),
     );

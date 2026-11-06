@@ -1,10 +1,12 @@
 import { hasToolCall, tool } from "ai";
 import { z } from "zod";
-import type { FinalAnswer } from "@/features/knowledge-map";
 import {
-  checkFinalValue,
-  parseFinalValue,
-} from "@/features/study/domain/final-answers";
+  checkAnswers,
+  MAX_ANSWER_LENGTH,
+  worstCheck,
+  type AnswerCheck,
+  type AnswerKey,
+} from "@/features/knowledge-map/server";
 import {
   STAGES,
   stageMoveRefusal,
@@ -119,12 +121,28 @@ const gradeInputSchema = z.object({
     .describe(
       "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
     ),
-  finalValue: z
-    .string()
-    .max(100)
+  finalValues: z
+    .array(
+      z.object({
+        label: z
+          .string()
+          .max(200)
+          .nullish()
+          .describe(
+            "The label of the final result it answers; may be left out when the question has one.",
+          ),
+        value: z
+          .string()
+          .max(MAX_ANSWER_LENGTH)
+          .describe(
+            'The Student\'s value as mathjs, such as "17.5 kN", "[[1, 2], [0, 1]]", "[2, -3]", "n + 1" or "3 + 4i".',
+          ),
+      }),
+    )
+    .max(10)
     .nullish()
     .describe(
-      'For a question that poses an Exercise with a numeric result: the Student\'s final value with its unit, as a number and a unit such as "17.5 kN", "1.2e5 Pa" or "9.81 m/s^2". Omit it when the Student gave no final number.',
+      "For a question with final results: the Student's final value for each one they gave, even when it looks wrong. Leave out a result the Student gave no value for.",
     ),
 });
 
@@ -139,12 +157,12 @@ export type QuestionToGrade = {
   graded: boolean;
   /** Whether its Study session has ended, which closes it for grading. */
   sessionEnded: boolean;
-  /** Its Exercise's or generated Problem's numeric final answers; null without any. */
-  finalAnswers: FinalAnswer[] | null;
+  /** Its Exercise's or generated Problem's answer keys; null without any. */
+  finalAnswers: AnswerKey[] | null;
 };
 
-/** What the numeric check found: null when it didn't apply. */
-export type FinalValueCheck = "match" | "mismatch" | null;
+/** The worst check of the final values: null when the question has no keys. */
+export type FinalValueCheck = AnswerCheck | null;
 
 /** What `remember` takes: one line for the Memory. */
 const rememberInputSchema = z.object({
@@ -358,7 +376,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     grade: tool({
       description:
-        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
+        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results. A KC first taught in this session is learning with no next review or recall until the session ends.",
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
     }),
@@ -481,9 +499,9 @@ const alreadyGraded = "This question is already graded.";
 
 /**
  * The `grade` call's rules: one result for each KC of an ungraded, answered
- * question of a running session, and the numeric check of a final value against its Exercise's
- * final answers, which turns every `full` into `partial` on a mismatch. A
- * `full` on a question with a key needs the final value, so the check runs.
+ * question of a running session, and the check of its final values against
+ * its keys, which turns every `full` into `partial` on a mismatch. A `full`
+ * needs a value for every key, so each check runs.
  */
 async function grade(
   actions: TutorToolActions,
@@ -517,16 +535,19 @@ async function grade(
       `Give one result for each KC the question tests, and no others: ${question.kcIds.join(", ")}.`,
     );
   }
+  const keys = question.finalAnswers ?? [];
+  const checked = checkAnswers(keys, input.finalValues ?? []);
+  if (!checked.ok) throw new TutorToolError(checked.error);
+  const unvalued = keys.filter((_, index) => checked.checks[index] === null);
   if (
-    question.finalAnswers?.length &&
-    !input.finalValue &&
+    unvalued.length > 0 &&
     input.results.some(({ result }) => result === "full")
   ) {
     throw new TutorToolError(
-      "This question poses an Exercise with a numeric result, so a full needs the Student's final value: give it as finalValue for the check. Without a final number in the answer, no KC is full.",
+      `A full needs the Student's value for each final result, for the check: give it in finalValues for ${unvalued.map(({ label }) => `"${label}"`).join(", ")}. Without one in the answer, no KC is full.`,
     );
   }
-  const check = checkAgainstKey(question.finalAnswers, input.finalValue);
+  const check = worstCheck(checked.checks);
   const kcs = await actions.saveGrade({
     questionId: input.questionId,
     kind: question.kind === "prequestion" ? "pre" : "learn",
@@ -539,21 +560,6 @@ async function grade(
   });
   if (!kcs) throw new TutorToolError(alreadyGraded);
   return { kcs, check };
-}
-
-/** The numeric check, when the question has a key and a value was given. */
-function checkAgainstKey(
-  keys: FinalAnswer[] | null,
-  finalValue: string | null | undefined,
-): FinalValueCheck {
-  if (!keys || keys.length === 0 || !finalValue) return null;
-  const value = parseFinalValue(finalValue);
-  if (value === null) {
-    throw new TutorToolError(
-      `finalValue "${finalValue}" is no number with a unit: give it like "17.5 kN" or "0.508", or omit it.`,
-    );
-  }
-  return checkFinalValue(value, keys);
 }
 
 export type TutorTools = ReturnType<typeof tutorTools>;

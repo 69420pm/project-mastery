@@ -25,23 +25,24 @@ const kcSchema = z.object({
 const prerequisiteSchema = z.object({ from: id, to: id });
 
 /**
- * One numeric final result of an Exercise, the key a Student's final value
- * is checked against: such as `{ label: "Thrust", value: 17.5, unit: "kN" }`.
- * The unit is written for mathjs; null for a number without one.
+ * One final result of an Exercise or a generated Problem, the key a
+ * Student's final value is checked against (`domain/answer-keys.ts`): such
+ * as `{ label: "Thrust", value: "17.5 kN", anyOrder: false }`.
  */
-export const finalAnswerSchema = z.object({
-  label: z.string().trim().min(1).max(200),
-  value: z.number(),
-  unit: z.string().trim().min(1).max(50).nullable(),
-});
+/** The longest answer key or final value read. */
+export const MAX_ANSWER_LENGTH = 500;
 
-export type FinalAnswer = z.infer<typeof finalAnswerSchema>;
+export const answerKeySchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  value: z.string().trim().min(1).max(MAX_ANSWER_LENGTH),
+  anyOrder: z.boolean(),
+});
 
 /**
  * An Exercise: one subtask whose question is the `questionChunk`, with its
  * printed solution's chunk (null without one), the KCs it tests, a
- * difficulty from 1 (easy) to 3 (hard) and its numeric final answers as
- * printed (null without any).
+ * difficulty from 1 (easy) to 3 (hard) and its answer keys as printed (null
+ * without any).
  */
 const exerciseSchema = z.object({
   id,
@@ -49,7 +50,7 @@ const exerciseSchema = z.object({
   solutionChunk: id.nullable(),
   difficulty: z.int().min(1).max(3),
   kcs: z.array(id),
-  finalAnswers: z.array(finalAnswerSchema).min(1).nullish(),
+  finalAnswers: z.array(answerKeySchema).min(1).nullish(),
 });
 
 /**
@@ -116,7 +117,7 @@ const extractedExerciseSchema = z.object({
   notAnExercise: z.boolean(),
   kcIds: z.array(z.string()),
   newKcs: z.array(z.int()),
-  finalAnswers: z.array(finalAnswerSchema),
+  finalAnswers: z.array(answerKeySchema),
   solutionLines: z.int().nullable(),
 });
 

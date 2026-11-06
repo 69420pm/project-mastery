@@ -45,7 +45,7 @@ export type SentExerciseUnit = {
 export type SubtaskAnswer = {
   kcs?: string[];
   newKcs?: string[];
-  finalAnswers?: Array<{ label: string; value: number; unit: string | null }>;
+  finalAnswers?: Array<{ label: string; value: string; anyOrder: boolean }>;
   notAnExercise?: boolean;
 };
 

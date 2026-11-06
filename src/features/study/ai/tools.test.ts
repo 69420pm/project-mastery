@@ -1,5 +1,8 @@
-import { describe, expect, test } from "vitest";
+// @vitest-environment node
+import { describe, expect, test, vi } from "vitest";
 import type { z } from "zod";
+
+vi.mock("server-only", () => ({}));
 import {
   endsReply,
   tutorTools,
@@ -233,7 +236,7 @@ describe("grade", () => {
       { kcId: "kc-a", result: "full" },
       { kcId: "kc-b", result: "wrong" },
     ],
-    finalValue?: string,
+    finalValues?: Array<{ label?: string; value: string }>,
   ) {
     saved.length = 0;
     const { grade } = tutorTools({
@@ -245,7 +248,7 @@ describe("grade", () => {
       },
     });
     return grade.execute!(
-      { questionId: "q-1", results, help: "some", finalValue } as never,
+      { questionId: "q-1", results, help: "some", finalValues } as never,
       { toolCallId: "1", messages: [] } as never,
     );
   }
@@ -308,58 +311,86 @@ describe("grade", () => {
     expect(saved).toEqual([]);
   });
 
-  describe("the numeric check", () => {
-    const keyed = (unit: string | null, value: number): QuestionToGrade => ({
-      ...open,
-      finalAnswers: [{ label: "Result", value, unit }],
+  describe("the answer check", () => {
+    const key = (label: string, value: string) => ({
+      label,
+      value,
+      anyOrder: false,
     });
-    const thrust = keyed("kN", 17.5);
+    const thrust: QuestionToGrade = {
+      ...open,
+      finalAnswers: [key("Thrust", "17.5 kN")],
+    };
+    const two: QuestionToGrade = {
+      ...open,
+      finalAnswers: [key("A", "[[1, 2], [0, 1]]"), key("b", "n + 1")],
+    };
+    const partial = [
+      { kcId: "kc-a", result: "partial" },
+      { kcId: "kc-b", result: "wrong" },
+    ];
 
     test.each([
-      ["the key's unit", thrust, "17.5 kN", "match"],
-      ["another unit of it", thrust, "17500 N", "match"],
-      ["no unit, read in the key's", thrust, "17.5", "match"],
-      ["0.6% off", thrust, "17.6 kN", "match"],
-      ["1.7% off", thrust, "17.8 kN", "mismatch"],
-      ["a unit of another quantity", thrust, "17.5 kg", "mismatch"],
-      ["kelvin for degrees Celsius", keyed("degC", 300), "573.15 K", "match"],
-      ["a percentage for a pure number", keyed(null, 0.508), "50.8 %", "match"],
-      ["a unit for a pure number", keyed(null, 0.508), "0.508 m", "mismatch"],
-    ])("stores %s as %s", async (_, question, finalValue, check) => {
-      await grade(question, undefined, finalValue);
+      ["one unlabelled value", thrust, [{ value: "17500 N" }], "match"],
+      [
+        "each key by label",
+        two,
+        [
+          { label: "A", value: "[[1, 2], [0, 1]]" },
+          { label: "B", value: "1 + n" },
+        ],
+        "match",
+      ],
+      [
+        "the worst check",
+        two,
+        [
+          { label: "A", value: "[[1, 2], [0, 1]]" },
+          { label: "b", value: "n" },
+        ],
+        "mismatch",
+      ],
+      [
+        "a value code doesn't compare",
+        thrust,
+        [{ value: "true" }],
+        "unchecked",
+      ],
+    ])("stores %s as %s", async (_, question, finalValues, check) => {
+      await grade(question, undefined, finalValues);
       expect(saved[0]?.check).toBe(check);
     });
 
     test("a mismatch turns full into partial; a match keeps the verdict", async () => {
       const results = (value: string) =>
-        grade(thrust, undefined, value).then(() =>
+        grade(thrust, undefined, [{ value }]).then(() =>
           saved[0]?.results.map(({ result }) => result),
         );
       expect(await results("20 kN")).toEqual(["partial", "wrong"]);
       expect(await results("17.5 kN")).toEqual(["full", "wrong"]);
     });
 
-    test("applies only with a key and a final value", async () => {
-      await grade(open, undefined, "17.5 kN");
+    test("is null without keys, and unchecked for a key without a value", async () => {
+      await grade(open, undefined, [{ value: "17.5 kN" }]);
       expect(saved[0]?.check).toBeNull();
-      await grade(thrust, [
-        { kcId: "kc-a", result: "partial" },
-        { kcId: "kc-b", result: "wrong" },
-      ]);
-      expect(saved[0]?.check).toBeNull();
+      await grade(thrust, partial);
+      expect(saved[0]?.check).toBe("unchecked");
     });
 
-    test("refuses a full without the final value", async () => {
-      await expect(grade(thrust)).rejects.toThrow(
-        "a full needs the Student's final value",
-      );
+    test("refuses a full while a key has no value", async () => {
+      await expect(
+        grade(two, undefined, [{ label: "A", value: "[[1, 2], [0, 1]]" }]),
+      ).rejects.toThrow('give it in finalValues for "b"');
       expect(saved).toEqual([]);
     });
 
-    test("refuses a final value that is no number", async () => {
-      await expect(grade(thrust, undefined, "about 17")).rejects.toThrow(
-        "no number with a unit",
-      );
+    test("refuses an unknown label and a value mathjs can't read", async () => {
+      await expect(
+        grade(two, partial, [{ label: "c", value: "1" }]),
+      ).rejects.toThrow("A, b");
+      await expect(
+        grade(thrust, partial, [{ value: "17.5 kN)" }]),
+      ).rejects.toThrow("mathjs");
       expect(saved).toEqual([]);
     });
   });

@@ -28,7 +28,7 @@ describe("checkExerciseAnswer", () => {
     ["k2", "kc-2"],
   ]);
 
-  test("drops unknown ids, shares a new KC named twice and keeps unanswered subtasks", () => {
+  test("drops unknown ids and unreadable keys, shares a new KC named twice and keeps unanswered subtasks", () => {
     const rank = {
       name: "Rank",
       description: "The rank.",
@@ -42,8 +42,8 @@ describe("checkExerciseAnswer", () => {
             kcIds: ["k2", "k7", "k2"],
             newKcs: [rank, { ...rank, name: " rank" }],
             finalAnswers: [
-              { label: " x ", value: 8, unit: " " },
-              { label: "y", value: Number.NaN, unit: null },
+              { label: " x ", value: " [[1, 2], [0, 1]] ", anyOrder: false },
+              { label: "y", value: "8 kN)", anyOrder: false },
             ],
           },
         ],
@@ -57,7 +57,9 @@ describe("checkExerciseAnswer", () => {
       notAnExercise: false,
       kcIds: ["kc-2"],
       newKcs: [0],
-      finalAnswers: [{ label: "x", value: 8, unit: null }],
+      finalAnswers: [
+        { label: "x", value: "[[1, 2], [0, 1]]", anyOrder: false },
+      ],
       solutionLines: 2,
     });
     expect(checked.exercises[1]).toMatchObject({ kcIds: [], newKcs: [] });

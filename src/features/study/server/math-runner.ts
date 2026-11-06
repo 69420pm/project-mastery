@@ -38,8 +38,16 @@ export type ProgramValue = {
   text: string;
 };
 
-/** A declared final answer's value, in its declared unit. */
-export type AnswerValue = DeclaredAnswer & { value: number };
+/**
+ * A declared final answer's value: a number in its declared unit, or a
+ * vector, matrix or complex number (`value` null) declared without one.
+ */
+export type AnswerValue = DeclaredAnswer & {
+  /** The number in `unit`; null for a vector, matrix or complex number. */
+  value: number | null;
+  /** The value as a mathjs expression, in `unit`: its answer key. */
+  text: string;
+};
 
 /** A run's outcome: the values, or the error that failed it. */
 export type ProgramRun =
@@ -123,8 +131,20 @@ function run({ program, answers }) {
     }
     const shown = variable + " = " + text(value);
     if (unit === null) {
-      if (typeof value !== "number") return fail(shown + " is declared without a unit, so it must be a plain number.");
-      results.push({ variable, unit, value });
+      if (typeof value === "number") {
+        results.push({ variable, unit, value, text: text(value) });
+        continue;
+      }
+      if (!math.isMatrix(value) && !Array.isArray(value) && !math.isComplex(value)) {
+        return fail(shown + " is declared without a unit, so it must be a number, a vector, a matrix or a complex number.");
+      }
+      if (math.isMatrix(value) || Array.isArray(value)) {
+        const elements = math.flatten(math.isMatrix(value) ? value.valueOf() : value);
+        if (!elements.every((e) => typeof e === "number" || math.isComplex(e))) {
+          return fail(shown + " is declared without a unit, so its elements must be plain or complex numbers.");
+        }
+      }
+      results.push({ variable, unit, value: null, text: text(value) });
       continue;
     }
     let target;
@@ -136,7 +156,8 @@ function run({ program, answers }) {
     if (!math.isUnit(value) || value.value === null || !value.equalBase(target)) {
       return fail(shown + " is no quantity in " + unit + ": it must carry a unit convertible to " + unit + ". Dividing by a unit, as in x / 1000 N, drops it.");
     }
-    results.push({ variable, unit, value: value.toNumber(unit) });
+    const number = value.toNumber(unit);
+    results.push({ variable, unit, value: number, text: text(number) + " " + unit });
   }
   done({ ok: true, values, answers: results });
 }

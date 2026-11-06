@@ -94,7 +94,7 @@ function seedMock() {
     id: "x1",
     question_chunk_id: "c1",
     solution_chunk_id: null,
-    final_answers: [{ label: "F", value: 17.5, unit: "kN" }],
+    final_answers: [{ label: "F", value: "17.5 kN", anyOrder: false }],
   });
   t.problems.push(
     { id: "p1", solution: "Stages.", final_answers: null },
@@ -158,7 +158,7 @@ const grading = (
 ) => ({
   steps: [{ points, reason: "Right." }],
   results: { K1: result },
-  finalValue,
+  finalValues: finalValue === null ? [] : [{ label: "F", value: finalValue }],
 });
 
 const item = (id: string) => db.tables.mock_items.find((i) => i.id === id)!;

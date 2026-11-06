@@ -1,21 +1,20 @@
-import type { FinalAnswer } from "@/features/knowledge-map";
-import {
-  checkFinalValue,
-  parseFinalValue,
-} from "@/features/study/domain/final-answers";
+import type { AnswerCheck } from "@/features/knowledge-map";
 import type { AttemptResult } from "@/features/study/domain/replay";
 
 /**
  * The scoring rules of a graded Mock exam (#186): an item's points from its
- * graded steps, the numeric check's cap, and the mock's score and Brier
+ * graded steps, the answer check's cap, and the mock's score and Brier
  * score over the items grading did not fail.
  */
 
 /** One graded step of an item's answer. */
 export type GradedStep = { points: number; reason: string };
 
-/** How the item's final value compared with its key; null when unchecked. */
-export type MockCheck = "match" | "mismatch" | null;
+/**
+ * The worst check of the item's final values against its keys; null when
+ * the item has no keys.
+ */
+export type MockCheck = AnswerCheck | null;
 
 /** To the nearest half point. */
 const toHalf = (points: number) => Math.round(points * 2) / 2;
@@ -32,16 +31,6 @@ export function awardedPoints(
   const max = check === "mismatch" ? Math.max(0, points - 1) : points;
   const sum = steps.reduce((total, step) => total + step.points, 0);
   return Math.min(max, Math.max(0, toHalf(sum)));
-}
-
-/** The numeric check; null without keys or a readable final value. */
-export function checkMockValue(
-  keys: FinalAnswer[] | null,
-  finalValue: string | null,
-): MockCheck {
-  if (!keys?.length || !finalValue) return null;
-  const value = parseFinalValue(finalValue);
-  return value === null ? null : checkFinalValue(value, keys);
 }
 
 /** A KC's result after the check: a mismatch turns `full` into `partial`. */

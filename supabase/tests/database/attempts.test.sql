@@ -91,12 +91,12 @@ select throws_ok(
 
 select lives_ok(
   $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help, "check")
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'partial', 'some', 'mismatch'
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'partial', 'some', 'unchecked'
     from public.questions$$,
   'the owner records an attempt on the question''s KC');
 select results_eq(
   $$select owner, result, help, "check", created_at = now() from public.attempts$$,
-  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'mismatch', true)$$,
+  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'unchecked', true)$$,
   'the owner reads it, owned by them and timed by the database');
 select throws_ok(
   $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help)

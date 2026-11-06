@@ -432,6 +432,6 @@ export type MockTaskGrade =
       status: "graded";
       pointsAwarded: number;
       steps: Array<{ points: number; reason: string }>;
-      /** The final value against the key; null when unchecked. */
-      check: "match" | "mismatch" | null;
+      /** The worst check of the final values; null without keys. */
+      check: "match" | "mismatch" | "unchecked" | null;
     };

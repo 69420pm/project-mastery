@@ -35,6 +35,7 @@ async function update() {
 
 const STATEMENT = "Find the dimension of U.";
 const SOLUTION = "dim U = 2.";
+const DIM_U = { label: "dim U", value: "2", anyOrder: false };
 
 const kcNamesOf = (exerciseId: unknown) =>
   db.tables.exercise_kcs
@@ -76,7 +77,7 @@ describe("Update map's Exercises", () => {
           ? {
               kcs: ["Dimension", "Unknown"],
               newKcs: ["Basis of a subspace"],
-              finalAnswers: [{ label: "dim U", value: 2, unit: null }],
+              finalAnswers: [DIM_U],
             }
           : { notAnExercise: true },
     });
@@ -97,7 +98,7 @@ describe("Update map's Exercises", () => {
       expect.objectContaining({
         question_chunk_id: chunkWith(db, STATEMENT),
         solution_chunk_id: chunkWith(db, SOLUTION),
-        final_answers: [{ label: "dim U", value: 2, unit: null }],
+        final_answers: [DIM_U],
         difficulty: 2,
       }),
     ]);
@@ -142,9 +143,7 @@ describe("Update map's Exercises", () => {
       kcsOf,
       subtaskOf: (subtask) => ({
         kcs: ["Dimension"],
-        finalAnswers: subtask.solution
-          ? [{ label: "dim U", value: 2, unit: null }]
-          : [],
+        finalAnswers: subtask.solution ? [DIM_U] : [],
       }),
     });
     await update();
@@ -154,7 +153,7 @@ describe("Update map's Exercises", () => {
       expect.objectContaining({
         id: exercise!.id,
         solution_chunk_id: chunkWith(db, SOLUTION),
-        final_answers: [{ label: "dim U", value: 2, unit: null }],
+        final_answers: [DIM_U],
       }),
     ]);
     expect(db.tables.attempts).toHaveLength(1);

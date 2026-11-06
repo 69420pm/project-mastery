@@ -128,7 +128,7 @@ select is(
         'chunkIds', jsonb_build_array(pg_temp.chunk(1), pg_temp.chunk(2)),
         'exercises', jsonb_build_array(jsonb_build_object('questionChunkId', pg_temp.chunk(1),
           'solutionChunkId', null, 'kcIds', '["bbbbbbbb-0000-0000-0000-000000000002"]'::jsonb,
-          'finalAnswers', '[{"label": "dim U", "value": 2, "unit": null}]'::jsonb, 'difficulty', 1))))),
+          'finalAnswers', '[{"label": "dim U", "value": "2", "anyOrder": false}]'::jsonb, 'difficulty', 1))))),
   true, 'the running build stores KCs');
 select results_eq(
   $$select name, origin from public.kcs order by position$$,
@@ -137,7 +137,7 @@ select results_eq(
 select results_eq(
   $$select e.final_answers, k.name from public.exercises e
     join public.exercise_kcs x on x.exercise_id = e.id join public.kcs k on k.id = x.kc_id$$,
-  $$values ('[{"label": "dim U", "value": 2, "unit": null}]'::jsonb, 'Subspace'::text)$$,
+  $$values ('[{"label": "dim U", "value": "2", "anyOrder": false}]'::jsonb, 'Subspace'::text)$$,
   'the exercise unit stores its Exercise with its KCs');
 select results_eq(
   $$select unit, kc_ids, output -> 'kcs' -> 0 ? 'embedding' from public.chapter_extractions where kind = 'content'$$,

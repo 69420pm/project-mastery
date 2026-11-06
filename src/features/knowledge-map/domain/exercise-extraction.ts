@@ -1,8 +1,9 @@
+import {
+  isReadableAnswer,
+  type AnswerKey,
+} from "@/features/knowledge-map/domain/answer-keys";
 import type { ExtractedKc } from "@/features/knowledge-map/domain/chapter-extraction";
-import type {
-  ExtractedExercise,
-  FinalAnswer,
-} from "@/features/knowledge-map/schemas";
+import type { ExtractedExercise } from "@/features/knowledge-map/schemas";
 
 /**
  * The extraction of one exercise unit (task `exercise`): per subtask, the
@@ -23,7 +24,7 @@ export type AnsweredSubtask = {
   notAnExercise: boolean;
   kcIds: string[];
   newKcs: Array<{ name: string; description: string }>;
-  finalAnswers: Array<{ label: string; value: number; unit: string | null }>;
+  finalAnswers: AnswerKey[];
 };
 
 /** A subtask the call was offered, with its stored chunks. */
@@ -96,15 +97,16 @@ export function checkExerciseAnswer(
   return { kcs, exercises };
 }
 
+/** The answer keys with a label and a value mathjs can parse. */
 function checkFinalAnswers(
   answers: AnsweredSubtask["finalAnswers"],
-): FinalAnswer[] {
+): AnswerKey[] {
   return answers
     .flatMap((answer) => {
       const label = answer.label.trim().slice(0, 200);
-      const unit = answer.unit?.trim().slice(0, 50) || null;
-      return label && Number.isFinite(answer.value)
-        ? [{ label, value: answer.value, unit }]
+      const value = answer.value.trim();
+      return label && isReadableAnswer(value)
+        ? [{ label, value, anyOrder: answer.anyOrder }]
         : [];
     })
     .slice(0, MAX_FINAL_ANSWERS);

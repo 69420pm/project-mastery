@@ -1,8 +1,10 @@
 import "server-only";
 import { z } from "zod";
 import { loadChunkSources } from "@/features/ingestion/server";
-import type { FinalAnswer } from "@/features/knowledge-map";
-import { finalAnswerSchema } from "@/features/knowledge-map/server";
+import {
+  answerKeySchema,
+  type AnswerKey,
+} from "@/features/knowledge-map/server";
 import {
   byPointsLost,
   type GradedStep,
@@ -36,7 +38,11 @@ export function taskGrade(item: {
     pointsAwarded: item.points_awarded,
     steps: steps.success ? (steps.data satisfies GradedStep[]) : [],
     check:
-      item.check === "match" || item.check === "mismatch" ? item.check : null,
+      item.check === "match" ||
+      item.check === "mismatch" ||
+      item.check === "unchecked"
+        ? item.check
+        : null,
   };
 }
 
@@ -47,9 +53,9 @@ export function taskGrade(item: {
 export async function loadItemSource(
   supabase: Supabase,
   item: { exercise_id: string | null; problem_id: string | null },
-): Promise<{ reference: string | null; keys: FinalAnswer[] | null }> {
+): Promise<{ reference: string | null; keys: AnswerKey[] | null }> {
   const keysOf = (value: unknown) => {
-    const parsed = z.array(finalAnswerSchema).safeParse(value);
+    const parsed = z.array(answerKeySchema).safeParse(value);
     return parsed.success ? parsed.data : null;
   };
   if (item.problem_id !== null) {

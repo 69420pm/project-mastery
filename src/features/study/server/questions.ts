@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { finalAnswerSchema } from "@/features/knowledge-map/server";
+import { answerKeySchema } from "@/features/knowledge-map/server";
 import type {
   FinalValueCheck,
   QuestionToGrade,
@@ -93,7 +93,7 @@ export async function findSessionQuestion(
   // The key of the Exercise or generated Problem it poses. A key that no
   // longer parses is no key: the check then doesn't apply.
   const finalAnswers = z
-    .array(finalAnswerSchema)
+    .array(answerKeySchema)
     .safeParse(
       data.exercises?.final_answers ?? data.problems?.final_answers ?? null,
     );
@@ -118,7 +118,7 @@ export async function saveAttempts(
     kind: "pre" | "learn" | "retry";
     help: AttemptHelp;
     results: Array<{ kcId: string; result: AttemptResult }>;
-    /** The numeric check, stored on every attempt; null when it didn't apply. */
+    /** The worst answer check, stored on every attempt; null without keys. */
     check: FinalValueCheck;
   },
 ): Promise<boolean> {

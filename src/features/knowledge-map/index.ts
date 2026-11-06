@@ -7,7 +7,14 @@ export { KnowledgeMap } from "./components/knowledge-map";
 export { TopicDetail } from "./components/topic-detail";
 export { TopicTitle } from "./components/topic-title";
 export { courseMapPath, topicPath } from "./domain/map-paths";
-export type { FinalAnswer } from "./schemas";
+export {
+  checkAnswer,
+  checkAnswers,
+  worstCheck,
+  type AnswerCheck,
+  type AnswerKey,
+  type GivenValue,
+} from "./domain/answer-keys";
 export type {
   KnowledgeMapView,
   MapKcLearning,

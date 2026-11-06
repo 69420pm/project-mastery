@@ -45,7 +45,7 @@ flowchart LR
 | Background jobs          | Durable workflows: Vercel Workflow                                                            |
 | PDF pages to images      | unpdf with @napi-rs/canvas                                                                    |
 | Spaced repetition        | FSRS (`ts-fsrs`) replayed from the attempts log on every read                                 |
-| Numeric answer check     | mathjs: final values with units, in process                                                   |
+| Answer check             | mathjs: answer keys as expressions, in process                                                |
 | Problem verification     | mathjs programs, each in its own `node -e` process ([0021](adr/0021-problem-verification.md)) |
 | LLM tracing              | Langfuse                                                                                      |
 | Errors, analytics, email | Sentry, PostHog, Resend                                                                       |

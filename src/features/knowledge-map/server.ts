@@ -8,7 +8,14 @@ export { exerciseLabel } from "./domain/exercise-label";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export { restrictMapToTopic } from "./domain/topic-map";
 export { topicAnchors } from "./domain/topic-reading";
-export { finalAnswerSchema } from "./schemas";
+export {
+  checkAnswer,
+  checkAnswers,
+  worstCheck,
+  type AnswerCheck,
+  type AnswerKey,
+} from "./domain/answer-keys";
+export { answerKeySchema, MAX_ANSWER_LENGTH } from "./schemas";
 export {
   findReadingSection,
   loadCourseTopics,

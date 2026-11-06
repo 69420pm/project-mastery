@@ -38,7 +38,7 @@ values
     'aaaaaaaa-0000-0000-0000-000000000001', 'variant', 'ready',
     'eeeeeeee-0000-0000-0000-000000000001', 2,
     'An engine moves 50 kg/s.', 'F = 25 kN.',
-    '[{"label": "Thrust", "value": 25000, "unit": "N"}]', 'F = 50 kg/s * 500 m/s', null),
+    '[{"label": "Thrust", "value": "25000 N", "anyOrder": false}]', 'F = 50 kg/s * 500 m/s', null),
   ('ffffffff-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
     'aaaaaaaa-0000-0000-0000-000000000001', 'new', 'queued', null, 1,
     null, null, null, null, null),

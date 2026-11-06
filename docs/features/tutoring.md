@@ -242,18 +242,18 @@ A Material the Student attached in the Chat is sent as its file, up to 20 MB per
 
 `tutorTools` in `study/ai/tools.ts` defines the same tools for every mode, and each tool's `description` is part of the prompt. A refused call throws a `TutorToolError` whose message tells the model what to fix, and the model can try again in the next step.
 
-| Tool              | What it does                                                                                                                                                     | Code enforces                                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `getTopic`        | A Topic's central question, KCs with states, anchors, Reading sections with done marks and open Findings, with up to 3 source chunks per KC. Or KCs alone, by id | KCs must be of the Topic, or of the Course; no reserved chunks                                                        |
-| `searchMaterials` | Up to 4 chunks of the whole Course nearest to a one-line query (`match_chunks`, which scans the Course's vectors without an index; metered embedding)            | No reserved chunks; refused at the Daily limit                                                                        |
-| `findProblems`    | Up to 3 Problems for up to 8 KCs, with their solutions                                                                                                           | Unseen ones, in a review session also ones asked over 14 days ago; [ranking](#problems) is code                       |
-| `ask`             | Stores a Question and shows its card. **Ends the reply**                                                                                                         | KCs must be of the Course; `problemId` must be an Exercise or a ready Problem                                         |
-| `grade`           | Stores one Attempt per KC and returns each KC's new state                                                                                                        | One result per KC of an answered, ungraded Question of a running session; the [numeric check](#questions-and-grading) |
-| `showReading`     | Opens a Reading section beside the Chat, and returns its Markdown to the AI. **Ends the reply**                                                                  | The section must exist                                                                                                |
-| `setStage`        | Moves the learn session's Stage                                                                                                                                  | [The rules below](#learn-session-stages)                                                                              |
-| `compute`         | Runs a mathjs program in its own process                                                                                                                         | The math runner's limits                                                                                              |
-| `remember`        | Appends one dated line to the Memory                                                                                                                             | One line of at most 300 characters; refused when full                                                                 |
-| `flagMap`         | Files a Map Finding                                                                                                                                              | The quote must be in the chunk's Markdown; the fields must fit the kind                                               |
+| Tool              | What it does                                                                                                                                                     | Code enforces                                                                                                        |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `getTopic`        | A Topic's central question, KCs with states, anchors, Reading sections with done marks and open Findings, with up to 3 source chunks per KC. Or KCs alone, by id | KCs must be of the Topic, or of the Course; no reserved chunks                                                       |
+| `searchMaterials` | Up to 4 chunks of the whole Course nearest to a one-line query (`match_chunks`, which scans the Course's vectors without an index; metered embedding)            | No reserved chunks; refused at the Daily limit                                                                       |
+| `findProblems`    | Up to 3 Problems for up to 8 KCs, with their solutions                                                                                                           | Unseen ones, in a review session also ones asked over 14 days ago; [ranking](#problems) is code                      |
+| `ask`             | Stores a Question and shows its card. **Ends the reply**                                                                                                         | KCs must be of the Course; `problemId` must be an Exercise or a ready Problem                                        |
+| `grade`           | Stores one Attempt per KC and returns each KC's new state                                                                                                        | One result per KC of an answered, ungraded Question of a running session; the [answer check](#questions-and-grading) |
+| `showReading`     | Opens a Reading section beside the Chat, and returns its Markdown to the AI. **Ends the reply**                                                                  | The section must exist                                                                                               |
+| `setStage`        | Moves the learn session's Stage                                                                                                                                  | [The rules below](#learn-session-stages)                                                                             |
+| `compute`         | Runs a mathjs program in its own process                                                                                                                         | The math runner's limits                                                                                             |
+| `remember`        | Appends one dated line to the Memory                                                                                                                             | One line of at most 300 characters; refused when full                                                                |
+| `flagMap`         | Files a Map Finding                                                                                                                                              | The quote must be in the chunk's Markdown; the fields must fit the kind                                              |
 
 ## The session modes
 
@@ -317,13 +317,13 @@ sequenceDiagram
   Student->>Code: Answer with confidence 1 to 4
   Note over Code: recordAnswer. A later answer replaces it until graded
   Code->>AI: Next reply, the message marked with its question id
-  AI->>Code: grade(questionId, results, help, finalValue)
+  AI->>Code: grade(questionId, results, help, finalValues)
   Note over Code: Checks. Numeric check. Attempts stored
   Code-->>AI: Each KC's result, state, next review, recall, check
   AI->>Student: Feedback
 ```
 
-**The numeric check.** A Question that poses an Exercise or generated Problem with `final_answers` has a key. `grade` takes the Student's final value, and code in `study/domain/final-answers.ts` parses both with their units through mathjs and compares them at 1% relative tolerance. A mismatch turns every `full` into `partial`, and a `full` without a final value is refused. The outcome goes on each Attempt as `check`.
+**The answer check.** A Question that poses an Exercise or generated Problem with `final_answers` has answer keys `{ label, value, anyOrder }`, each value a mathjs expression. `grade` takes the Student's `finalValues` as `[{ label, value }]`, the label optional with one key, and `checkAnswer` in `knowledge-map/domain/answer-keys.ts` checks each key: `match`, `mismatch` or `unchecked`. Numbers, units and complex numbers match within 1% (plus 1e-9 for zero) in the key's unit; vectors and matrices element by element; `anyOrder` lists as multisets; expressions with free symbols at 5 fixed points, of which 3 must evaluate. Any other value is `unchecked`, and one mathjs cannot parse is refused. A mismatch turns every `full` into `partial`, and a `full` while a key has no value is refused. The worst check (`mismatch`, then `unchecked`, then `match`) goes on each Attempt as `check`; it is null without keys.
 
 **The `kind` of an Attempt** follows the Question and the session: a prequestion gives `pre`, a results session gives `retry`, anything else `learn`. Mock exam grading writes `mock`.
 
@@ -340,7 +340,7 @@ A **Problem** is an Exercise from the Materials, or a generated variant or new P
 | A learn session's first reply | Each Topic KC with fewer than 2 unseen Problems gets up to 2, at most 4 per Topic |
 | Any Study session's end       | Each KC due within 3 days with no unseen Problem gets one, at most 6              |
 
-A queued Problem is a variant of an Exercise that tests the KC and has no variant yet, or else a new Problem. The model never does the arithmetic: it writes every number as a `{{variable}}` of a mathjs program, code runs the program and fills in the values at 4 significant figures. A failing draft goes back once with its error. A second failure or a model error marks the Problem `failed`, and a reached Daily limit leaves the rest `queued` for the next run. A trigger during a run is dropped.
+A queued Problem is a variant of an Exercise that tests the KC and has no variant yet, or else a new Problem. The model never does the arithmetic: it writes every number, vector or matrix as a `{{variable}}` of a mathjs program, code runs the program and fills in the values at 4 significant figures. Each declared final answer's value, a number in its declared unit or a vector, matrix or complex number, becomes the Problem's answer key. A failing draft goes back once with its error. A second failure or a model error marks the Problem `failed`, and a reached Daily limit leaves the rest `queued` for the next run. A trigger during a run is dropped.
 
 ## Mock exams
 
@@ -348,7 +348,7 @@ A Mock exam is a timed session without the AI: the Student answers on the mock p
 
 1. **Assemble** (`assembleMock`). A 90-minute blueprint shares its time among in-plan Topics by Priority, split 30/50/20 by difficulty. Unseen Exercises and Problems fill the slots, and at most 6 empty ones are generated. The final mock is the Reserved exam itself.
 2. **Submit.** `submit_mock_exam`, then the `gradeMock` workflow.
-3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final value goes through the numeric check: a mismatch also caps the points one below full. Each item stores its points and steps, and a `mock` Attempt per KC, which does schedule. An item that still fails after retries is left out of the score.
+3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final values, by the labels of the item's keys, go through the answer check: a mismatch also caps the points one below full. Each item stores its points and steps, and a `mock` Attempt per KC, which does schedule. An item that still fails after retries is left out of the score.
 4. **Finish.** The mock stores its score and its Brier score (the mean squared gap between each item's predicted success and its share of points), and the result page offers a `results` session.
 
 ## When a session ends
@@ -369,13 +369,13 @@ A session without a Student message gets no call and stays claimed with no note.
 
 ## All the prompts
 
-| Call (task)           | When                        | Instructions in                             | User message                                                                                        | Answer                                                     |
-| --------------------- | --------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Reply (`chat`)        | Each Student message        | `study/ai/instructions.ts`, built per reply | The Chat's history                                                                                  | Text and tool calls, streamed                              |
-| Title (`title`)       | After a Chat's first reply  | `chat/ai/title.ts`                          | The first message                                                                                   | A short title                                              |
-| Close (`close`)       | Once per ended session      | `study/ai/close-call.ts`                    | JSON: mode, Topic, transcript, Questions with Attempts, Topic note, Memory, what to write           | Two note lines, Topic note, Memory lines, condensed lines  |
-| Generate (`generate`) | Once per queued Problem     | `study/ai/generate-call.ts`                 | JSON: an Exercise to vary, or KCs with up to 3 sources each, a difficulty and up to 2 style anchors | Statement, solution, program, final answers                |
-| Grade (`grade_exam`)  | Once per answered mock item | `study/ai/grade-exam-call.ts`               | JSON: task, points, reference solution, answer, KCs by label                                        | Points per step with reasons, a result per KC, final value |
+| Call (task)           | When                        | Instructions in                             | User message                                                                                        | Answer                                                      |
+| --------------------- | --------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Reply (`chat`)        | Each Student message        | `study/ai/instructions.ts`, built per reply | The Chat's history                                                                                  | Text and tool calls, streamed                               |
+| Title (`title`)       | After a Chat's first reply  | `chat/ai/title.ts`                          | The first message                                                                                   | A short title                                               |
+| Close (`close`)       | Once per ended session      | `study/ai/close-call.ts`                    | JSON: mode, Topic, transcript, Questions with Attempts, Topic note, Memory, what to write           | Two note lines, Topic note, Memory lines, condensed lines   |
+| Generate (`generate`) | Once per queued Problem     | `study/ai/generate-call.ts`                 | JSON: an Exercise to vary, or KCs with up to 3 sources each, a difficulty and up to 2 style anchors | Statement, solution, program, final answers                 |
+| Grade (`grade_exam`)  | Once per answered mock item | `study/ai/grade-exam-call.ts`               | JSON: task, points, reference solution, answer, KCs by label, the keys' labels                      | Points per step with reasons, a result per KC, final values |
 
 `close` and `grade_exam` are metered but run past the Daily limit, so work the Student already did always gets finished. The Brief has its own call and tools in the `brief` feature, and reaches the tutoring only through what it stores.
 

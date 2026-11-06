@@ -254,7 +254,7 @@ async function checkMap(
   const answers = new Map(
     exercises.data!.map((exercise) => [
       numberOf.get(exercise.question_chunk_id),
-      ((exercise.final_answers ?? []) as Array<{ value: number }>).map(
+      ((exercise.final_answers ?? []) as Array<{ value: string }>).map(
         (answer) => answer.value,
       ),
     ]),

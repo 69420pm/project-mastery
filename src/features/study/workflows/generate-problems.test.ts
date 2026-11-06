@@ -211,7 +211,7 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     solution_chunk_id: null,
     difficulty: 2,
     position: 0,
-    final_answers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
+    final_answers: [{ label: "Thrust", value: "17.5 kN", anyOrder: false }],
   });
   t.exercise_kcs.push({ ...owned, exercise_id: "x1", kc_id: "k1" });
   const at = new Date(Date.now() - 3 * DAY_MS).toISOString();
@@ -307,7 +307,9 @@ describe("Topic stock", () => {
       original_exercise_id: "x1",
       difficulty: 2,
       solution: "$F = \\dot m (v_e - v_0)$, so the thrust is 17.5 kN.",
-      final_answers: [{ label: "thrust_kN", value: 17.5, unit: "kN" }],
+      final_answers: [
+        { label: "thrust_kN", value: "17.5 kN", anyOrder: false },
+      ],
     });
     expect(variant.statement).not.toContain("{{");
     expect(variant.statement).toContain("250");

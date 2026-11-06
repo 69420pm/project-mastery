@@ -367,7 +367,7 @@ describe("ask and grade on a generated Problem", () => {
   test("grade checks the final value against the Problem's key", async () => {
     seedExercises();
     addProblem(1, {
-      final_answers: [{ label: "Thrust", value: 25000, unit: "N" }],
+      final_answers: [{ label: "Thrust", value: "25000 N", anyOrder: false }],
     });
     const chatId = randomUUID();
     useMockModels({ chat: askProblem(problemId(1)) });
@@ -384,7 +384,7 @@ describe("ask and grade on a generated Problem", () => {
                 questionId: question!.id,
                 results: [{ kcId: MAP.thrust, result: "full" }],
                 help: "none",
-                finalValue: "30 kN",
+                finalValues: [{ value: "30 kN" }],
               },
             },
           ],

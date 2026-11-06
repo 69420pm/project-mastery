@@ -77,7 +77,7 @@ erDiagram
 | Knowledge component   | `kcs`                  | Name, description, vector, Course order (`position`), `origin` (`content` or `exercise`), and `retired_at` when it left the map                                   | Build. An accepted Map Finding can rewrite the description |
 | KC source             | `kc_sources`           | Which chunks teach a KC. A KC with no rows is a **KC without sources**: the Materials assume it but never teach it                                                | Build                                                      |
 | Prerequisite          | `prerequisite_links`   | `from_kc` must be learned before `to_kc`. They form no cycle                                                                                                      | Build. An accepted Map Finding can add or delete one       |
-| Exercise              | `exercises`            | Its question chunk, printed solution chunk if any, difficulty 1 to 3 and `final_answers` as printed                                                               | Build                                                      |
+| Exercise              | `exercises`            | Its question chunk, printed solution chunk if any, difficulty 1 to 3 and `final_answers` as printed: answer keys `{ label, value, anyOrder }`, values in mathjs   | Build                                                      |
 | KCs an Exercise tests | `exercise_kcs`         | At most 6 per Exercise                                                                                                                                            | Build                                                      |
 | Topic                 | `topics`               | Name, parent, tree order, `central_question`, and the `chapter_ids` it covers                                                                                     | Build                                                      |
 | A Topic's own KCs     | `topic_kcs`            | Each KC in one Topic, in teaching order                                                                                                                           | Build                                                      |
@@ -152,7 +152,7 @@ The call answers KCs (name, description, the chunks that teach it, up to 3 thing
 
 `extractExercises` makes one call per exercise unit that has no current extraction, or whose paired solutions changed. The call sees each exercise chunk's statement and paired solution, and the 30 live KCs nearest to the unit's statements. That's why it runs after step 2.
 
-It answers, per exercise chunk (the call's prompt says "subtask"): the listed KCs it tests, new KCs only when none fits, numeric final answers copied as printed, and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
+It answers, per exercise chunk (the call's prompt says "subtask"): the listed KCs it tests, new KCs only when none fits, mathematical final results copied as printed and written as mathjs (code drops a key mathjs cannot parse), and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
 
 **One exercise chunk gives one Exercise**, and the page read keeps an exercise with all its printed subtasks in one unit, so "Ex. 7.2" with parts a to c is one Exercise. A new KC's source is the exercise chunk that needed it, with `origin` `exercise`.
 
@@ -300,7 +300,7 @@ The map is the tutoring's only source of what there is to learn. The tutoring re
 | Anchors                                         | `topicAnchors`                                             | The orient stage docks on them, and the review stage asks them first                             |
 | Reading sections                                | `loadReadingSections`                                      | The read stage and the `showReading` tool                                                        |
 | Chunks, through `ingestion/server.ts`           | `loadChunkSources`, `match_chunks`                         | `getTopic` sources and `searchMaterials`: what the AI cites                                      |
-| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the numeric check in `grade`, variants, Mock exams                               |
+| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the answer check in `grade`, variants, Mock exams                                |
 | `materials.notes`                               | `loadMaterialNotes` in `study`                             | The instructions tell the AI each Material's notation                                            |
 | KCs without sources (`sources` is empty)        | `loadStoredMap`                                            | Marked "without sources" in the prompt: the AI teaches them in the Chat, with no Reading section |
 

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { evaluate, format, multiply, type MathType } from "mathjs";
 import { gradeMock } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import {
@@ -14,7 +15,15 @@ const OPENING = "Let's go through the mock.";
 
 /** The key with every value doubled: a final value off the key. */
 const offKey = (answers: FinalAnswer[]) =>
-  answers.map((answer) => ({ ...answer, value: answer.value * 2 + 1 }));
+  answers.map((answer) => {
+    const value: unknown = evaluate(answer.value);
+    // Doubled, and a plain number also moved off zero.
+    const off =
+      typeof value === "number"
+        ? value * 2 + 1
+        : multiply(value as MathType, 2);
+    return { ...answer, value: format(off, { precision: 6 }) };
+  });
 
 /** The longest words of `text`, which a reply about it likely repeats. */
 function keywords(text: string, other: string) {
