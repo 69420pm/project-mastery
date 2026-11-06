@@ -448,7 +448,7 @@ describe("findProblems", () => {
     );
   });
 
-  test("in a review session, gives Exercises last asked over 14 days ago after the unseen ones", async () => {
+  test("gives Exercises last asked over 14 days ago after the unseen ones", async () => {
     seedExercises();
     addLectureExercise(4, 2);
     const daysAgo = (days: number) =>
@@ -456,16 +456,12 @@ describe("findProblems", () => {
     answered("ex-1", "none", daysAgo(20));
     answered("ex-3", "none", daysAgo(3));
 
-    const learn = finderModel();
-    useMockModels({ chat: learn });
+    const model = finderModel();
+    useMockModels({ chat: model });
     await send(firstMessage());
-    const review = finderModel();
-    useMockModels({ chat: review });
-    await send({ ...firstMessage(), mode: "review" });
 
-    expect(promptOf(learn, 1)).toContain(ex(4));
-    expect(promptOf(learn, 1)).not.toContain(ex(1));
-    const result = promptOf(review, 1);
+    const result = promptOf(model, 1);
+    expect(result.indexOf(ex(4))).toBeGreaterThan(-1);
     expect(result.indexOf(ex(4))).toBeLessThan(result.indexOf(ex(1)));
     expect(result).not.toContain(ex(3));
   });

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { respondInChat } from "@/features/chat/server";
-import { startTutoring, type GradedKc } from "@/features/study/server";
+import type { GradedKc } from "@/features/study/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
 import {
@@ -62,25 +62,13 @@ type ToolCall = {
 
 /**
  * Sends `text` in the Chat through the real Chat handler as the Student,
- * and returns the AI's tool calls and text. `chat.mode` starts a new Chat's
- * Study session in that mode.
+ * and returns the AI's tool calls and text.
  */
 export async function sendMessage(
   client: Supabase,
   studentId: string,
-  chat: {
-    chatId: string;
-    courseId: string;
-    mode?: "learn" | "review" | "practice" | "results";
-    /** The graded mock a `results` Chat goes through. */
-    mockId?: string;
-  },
+  chat: { chatId: string; courseId: string },
   text: string,
-  /**
-   * The question it answers on its question card, or the Reading section
-   * its Done is for.
-   */
-  metadata?: { questionId?: string; readingSectionId?: string },
 ): Promise<{
   calls: ToolCall[];
   text: string;
@@ -92,8 +80,6 @@ export async function sendMessage(
   readings: Array<{ sectionId: string; purpose: string }>;
 }> {
   console.info(`Student: ${text}`);
-  const sent =
-    metadata && Object.values(metadata).some(Boolean) ? metadata : undefined;
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
       method: "POST",
@@ -103,7 +89,6 @@ export async function sendMessage(
           id: randomUUID(),
           role: "user",
           parts: [{ type: "text", text }],
-          ...(sent && { metadata: sent }),
         },
       }),
     }),
@@ -215,16 +200,15 @@ export async function sendMessage(
  * are due, and sends "Let's start studying.", their descriptions as the
  * answer and a learning preference in a new Chat; in a third one, a request
  * for an Exercise with a numeric key on the KCs the AI knows, and its key as
- * the answer; in a fourth, the wish to read the course's pages first and
- * then "Done reading." for the section the AI opened, all through the real
- * Chat handler. Checks what the AI did, said, remembered, graded and
- * opened, numeric check included, and that every KC id it used belongs to
- * its context.
+ * the answer; in a fourth, the wish to read the course's pages first, all
+ * through the real Chat handler. Checks what the AI did, said, remembered,
+ * graded and opened, numeric check included, and that every KC id it used
+ * belongs to the Course or a tool's result.
  */
 export const tutorSmoke: SmokeCheck = {
   name: "tutor",
   usage:
-    "pnpm smoke tutor (the gold course; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for a numeric Exercise and its answer in a third Chat; a wish to read first and Done in a fourth)",
+    "pnpm smoke tutor (the gold course; a greeting on the next Topic, then two due KCs, a greeting, an answer, a preference, and a request for a numeric Exercise and its answer in a third Chat; a wish to read first in a fourth)",
   // The spec's budget. The check counts `ai_usage` rows, and a reply's steps
   // are recorded as one row (task `chat`), with a title per Chat the only
   // others.
@@ -238,13 +222,8 @@ export const tutorSmoke: SmokeCheck = {
     // Before anything is taught, a greeting starts on the next Topic.
     const client = await signInAsUser(supabase, studentId);
     const freshChat = { chatId: randomUUID(), courseId: course.id };
-    const fresh = (await startTutoring(client, course.id, freshChat.chatId))
-      .context;
-    const nextKcs = new Set(fresh.todayPlan.next?.kcs.map((kc) => kc.id));
-    console.info(
-      `Next Topic: ${fresh.todayPlan.next?.name ?? "none"} (${nextKcs.size} KCs)`,
-    );
-    if (nextKcs.size === 0) throw new Error("The context has no next Topic.");
+    const nextKcs = new Set(gold.topics[0]?.kcs);
+    if (nextKcs.size === 0) throw new Error("The gold course has no Topic.");
     const opening = await sendMessage(client, studentId, freshChat, GREETING);
 
     // Two KCs without Prerequisites, taught a few days ago by a question
@@ -264,7 +243,6 @@ export const tutorSmoke: SmokeCheck = {
       {
         ...owned,
         ...session,
-        mode: "learn",
         started_at: taughtAt,
         ended_at: taughtAt,
       },
@@ -274,7 +252,6 @@ export const tutorSmoke: SmokeCheck = {
       {
         ...question,
         session_id: session.id,
-        kind: "question",
         prompt: `Explain ${taughtKcs.map((kc) => kc.name).join(" and ")}.`,
         asked_at: taughtAt,
         answer_text: answer,
@@ -303,28 +280,13 @@ export const tutorSmoke: SmokeCheck = {
     );
 
     const chat = { chatId: randomUUID(), courseId: course.id };
-    const { context } = await startTutoring(client, course.id, chat.chatId);
-    const due = new Set(context.dueReviews.kcs.map((kc) => kc.id));
-    const offered = new Set(
-      [fresh, context].flatMap(({ dueReviews, todayPlan: { next } }) => [
-        ...dueReviews.kcs.map((kc) => kc.id),
-        ...(next?.kcs ?? []).map((kc) => kc.id),
-        ...(next?.anchors ?? []).map((kc) => kc.id),
-      ]),
-    );
-    console.info(
-      `Due reviews: ${due.size}; next Topic: ${context.todayPlan.next?.name ?? "none"}`,
-    );
-    if (due.size !== taught.length) {
-      throw new Error(`Expected ${taught.length} due KCs, got ${due.size}`);
-    }
+    const due = new Set(taught);
+    const offered = new Set(gold.kcs.map((kc) => kc.id));
 
     const first = await sendMessage(client, studentId, chat, GREETING);
-    // The Student answers the question the first reply asked, on its card.
+    // The Student's next message answers the question the first reply asked.
     const asked = first.questionIds.at(-1);
-    const second = await sendMessage(client, studentId, chat, answer, {
-      questionId: asked,
-    });
+    const second = await sendMessage(client, studentId, chat, answer);
     const memoryBefore = await readMemory(supabase, course.id);
     // The turn may cross UTC midnight, so either day counts as "this turn".
     const utcDay = () => new Date().toISOString().slice(0, 10);
@@ -336,16 +298,10 @@ export const tutorSmoke: SmokeCheck = {
       .split("\n")
       .slice(memoryBefore === "" ? 0 : memoryBefore.split("\n").length);
     console.info(`Memory: ${JSON.stringify(memoryAfter)}`);
-    // In another Chat, without open cards, the Student asks for an Exercise
-    // with a numeric key on the KCs the AI knows, and answers it on its card.
+    // In another Chat the Student asks for an Exercise with a numeric key on
+    // the KCs studied so far, and answers it.
     const exerciseChat = { chatId: randomUUID(), courseId: course.id };
-    const known = (await startTutoring(client, course.id, exerciseChat.chatId))
-      .context;
-    const target = numericExercise(gold, [
-      ...known.dueReviews.kcs.map((kc) => kc.id),
-      ...(known.todayPlan.next?.kcs ?? []).map((kc) => kc.id),
-      ...(known.todayPlan.next?.anchors ?? []).map((kc) => kc.id),
-    ]);
+    const target = numericExercise(gold, [...taught, ...nextKcs]);
     const fourth = await sendMessage(
       client,
       studentId,
@@ -358,17 +314,10 @@ export const tutorSmoke: SmokeCheck = {
       studentId,
       exerciseChat,
       `My result: ${answerText(target.finalAnswers)}.`,
-      { questionId: exerciseAsked },
     );
 
-    // In a fourth Chat, the Student wants to read first, then says Done.
+    // In a fourth Chat, the Student wants to read first.
     const readingChat = { chatId: randomUUID(), courseId: course.id };
-    const listed = new Set(
-      (
-        (await startTutoring(client, course.id, readingChat.chatId)).context
-          .todayPlan.next?.readingSections ?? []
-      ).map((section) => section.id),
-    );
     const sixth = await sendMessage(
       client,
       studentId,
@@ -376,13 +325,6 @@ export const tutorSmoke: SmokeCheck = {
       READING_REQUEST,
     );
     const opened = sixth.readings.at(-1);
-    const seventh = await sendMessage(
-      client,
-      studentId,
-      readingChat,
-      "Done reading.",
-      { readingSectionId: opened?.sectionId },
-    );
 
     // An asked question with its answer and the attempts its grade stored.
     const loadQuestion = async (questionId: string | undefined) => {
@@ -410,16 +352,7 @@ export const tutorSmoke: SmokeCheck = {
         toolName === "getTopic" && kcIds.some((kc) => due.has(kc)),
     );
     // A link's target holds ids, but the Student sees only its label.
-    const replies = [
-      opening,
-      first,
-      second,
-      third,
-      fourth,
-      fifth,
-      sixth,
-      seventh,
-    ];
+    const replies = [opening, first, second, third, fourth, fifth, sixth];
     const shown = replies
       .map((reply) => reply.text)
       .join("\n")
@@ -517,11 +450,9 @@ export const tutorSmoke: SmokeCheck = {
         `checks ${JSON.stringify(checks)}; ${describe(fifth.calls)}`,
       ),
       result(
-        "the wish to read opened a listed section with a purpose through showReading",
-        opened !== undefined &&
-          listed.has(opened.sectionId) &&
-          opened.purpose.trim() !== "",
-        `${describe(sixth.calls)}; ${listed.size} sections listed; ${JSON.stringify(opened ?? null)}`,
+        "the wish to read opened a section with a purpose through showReading",
+        opened !== undefined && opened.purpose.trim() !== "",
+        `${describe(sixth.calls)}; ${JSON.stringify(opened ?? null)}`,
       ),
       result(
         "no ids or tool names in the text",

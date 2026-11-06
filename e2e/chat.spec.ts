@@ -244,28 +244,10 @@ test.describe("signed in", () => {
         tutor_context: {
           today: "2026-10-16",
           examDate: "2026-12-03",
-          hasMap: true,
-          phase: "build",
           goal: "pass",
-          memory: "",
-          mapPath: `/courses/${course.id}/map`,
-          dueReviews: { kcs: [], more: 0 },
-          todayPlan: {
-            next: {
-              id: "topic-1",
-              name: "Continuity",
-              centralQuestion: "When can you draw a graph without lifting?",
-              kcs: [
-                {
-                  id: "kc-2",
-                  name: "Continuity",
-                  taught: false,
-                },
-              ],
-              anchors: [{ id: "kc-1", name: "Limits" }],
-            },
-            hint: null,
-          },
+          memory: "2026-10-01: Likes worked examples.",
+          briefNotes: null,
+          materialNotes: [],
         },
       });
     expect(error).toBeNull();
@@ -287,8 +269,8 @@ test.describe("signed in", () => {
     const sheet = page.getByRole("dialog", { name: "Context" });
     await expect(
       sheet
-        .getByRole("region", { name: "Next Topic" })
-        .getByRole("heading", { name: "Continuity" }),
+        .getByRole("region", { name: "Memory" })
+        .getByText("2026-10-01: Likes worked examples."),
     ).toBeVisible();
   });
 

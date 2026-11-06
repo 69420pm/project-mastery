@@ -1,24 +1,13 @@
 import type {
-  KnowledgeMapView,
-  MapKcLearning,
-  MapPriorities,
-} from "@/features/knowledge-map";
-import type {
   AttemptHelp,
   AttemptResult,
   KcState,
   KcStateName,
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
-import type { SessionMode } from "@/features/study/domain/modes";
 import type { Pace, Phase, Plan, Progress } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
-import type { DueReviews } from "@/features/study/domain/reviews";
-import type { PracticeKc } from "@/features/study/domain/practice";
-import type { ReviewGroup } from "@/features/study/domain/review-queue";
-import type { Stage } from "@/features/study/domain/stages";
 import type { TodayPlan } from "@/features/study/domain/today";
-import type { TopicState } from "@/features/study/domain/topic-state";
 
 export type {
   AttemptHelp,
@@ -27,7 +16,6 @@ export type {
   KcStateName,
   Phase,
   ProblemSource,
-  Stage,
 };
 
 /** Why a Student flags a generated Problem. */
@@ -35,73 +23,24 @@ export type ProblemFlag = "unclear" | "wrong" | "too_easy" | "off_topic";
 
 /**
  * What code tells the AI on every reply in a Chat, so it is always current:
- * the dates, the due reviews and what to propose learning next from the
- * Course's Knowledge map.
+ * the dates, the goal and the notes about the Student and the Materials.
  */
 export type TutorContext = {
   /** As YYYY-MM-DD. */
   today: string;
   /** As YYYY-MM-DD; null when the Brief has none. */
   examDate: string | null;
-  /** Whether the Course has a built Knowledge map. */
-  hasMap: boolean;
-  /** Where the study stands (`planStudy`); null without a running exam date. */
-  phase: Phase | null;
   /** The Student's goal from the Brief; null until answered. */
   goal: "pass" | "good_grade" | "master_everything" | null;
   /** What the AI noted about the Student in this Course; "" without notes. */
   memory: string;
-  /**
-   * The last 4,000 characters of the Brief's notes; null without notes.
-   * Contexts stored before the notes reached the AI have none.
-   */
-  briefNotes?: string | null;
-  /** The map page, where the Student builds the map. */
-  mapPath: string;
-  /** Most urgent first; none without a map. */
-  dueReviews: DueReviews;
-  /**
-   * What to work on after the due reviews, from the Today card. Contexts
-   * stored before #177 have none.
-   */
-  todayPlan: TutorToday;
-  /**
-   * The learn session's stage; null without a Topic. Contexts stored before
-   * #180 have none.
-   */
-  session?: TutorSession | null;
-  /**
-   * A review session's queue (`planReviewQueue`), in order; absent outside
-   * review sessions and in contexts stored before #184.
-   */
-  reviewQueue?: ReviewGroup[];
-  /**
-   * A practice session's KCs (`selectPracticeKcs`), most urgent first;
-   * absent outside practice sessions and in contexts stored before #184.
-   */
-  practiceKcs?: PracticeKc[];
-  /**
-   * A results session's graded Mock exam items, the most points lost
-   * first (`byPointsLost`); absent outside results sessions.
-   */
-  mockResults?: MockReviewItem[];
-  /**
-   * The Course's newest Session notes of other sessions, newest first;
-   * absent in contexts stored before #187.
-   */
-  sessionNotes?: SessionNoteEntry[];
-  /**
-   * In a learn session with a Topic, that Topic's note first, then the notes
-   * of the Topics holding its anchors; absent otherwise and in contexts
-   * stored before #187.
-   */
-  topicNotes?: TopicNoteEntry[];
+  /** The last 4,000 characters of the Brief's notes; null without notes. */
+  briefNotes: string | null;
   /**
    * The notes of the Course's Materials (`materials.notes`), in Material
-   * order, Materials without notes left out; absent in contexts stored
-   * before the Outline.
+   * order, Materials without notes left out.
    */
-  materialNotes?: MaterialNoteEntry[];
+  materialNotes: MaterialNoteEntry[];
 };
 
 /** A Material's notation and conventions as the AI is told of them. */
@@ -109,67 +48,6 @@ export type MaterialNoteEntry = {
   /** The Material's name. */
   material: string;
   text: string;
-};
-
-/** A Session note as the AI is told of it. */
-export type SessionNoteEntry = {
-  /** The day the session ended, as YYYY-MM-DD. */
-  date: string;
-  mode: SessionMode;
-  text: string;
-};
-
-/** A Topic note as the AI is told of it. */
-export type TopicNoteEntry = {
-  /** The Topic's name. */
-  topic: string;
-  text: string;
-};
-
-/** A graded Mock exam's item as a Results session goes through it. */
-export type MockReviewItem = {
-  /** Its task number in the mock, from 1. */
-  number: number;
-  prompt: string;
-  /** Null when left blank. */
-  answer: string | null;
-  points: number;
-  /** Null when it could not be graded. */
-  pointsAwarded: number | null;
-  steps: Array<{ points: number; reason: string }>;
-  /** The Exercise's or Problem's solution; null without one. */
-  reference: string | null;
-  kcs: Array<{ id: string; name: string }>;
-};
-
-/** A learn session's stage as the AI is told of it. */
-export type TutorSession = {
-  stage: Stage;
-  /** Where the session goes after `review`. */
-  afterReview: Stage;
-  /** Whole minutes since the session started. */
-  minutes: number;
-};
-
-/** The Today card's work as the AI is told of it. */
-export type TutorToday = {
-  /** Null without a map, Topics or a Topic to work on. */
-  next: {
-    id: string;
-    name: string;
-    centralQuestion: string;
-    /** In teaching order; `taught` when it has an FSRS schedule. */
-    kcs: Array<{ id: string; name: string; taught: boolean }>;
-    /** Prerequisites from outside the Topic. */
-    anchors: Array<{ id: string; name: string }>;
-    /**
-     * The Topic's Reading sections in order. Contexts stored before #179
-     * have none.
-     */
-    readingSections?: ReadingSectionView[];
-  } | null;
-  /** Such as "Practice exam-style problems"; null in build. */
-  hint: string | null;
 };
 
 /**
@@ -226,10 +104,6 @@ export type ProblemView = {
   };
 };
 
-/** What a Question asks for, which sets how its attempts count. */
-export type QuestionKind =
-  "prequestion" | "recall" | "question" | "problem" | "rebuild" | "mock_item";
-
 /**
  * A KC of a graded Question as `grade` returns it, with its new state: no
  * next review or recall while its first session runs.
@@ -259,8 +133,6 @@ export type ReadingView = {
  * (`loadSessionSummary`).
  */
 export type SessionSummary = {
-  /** The session's Topic and its new state; null without a Topic. */
-  topic: ({ name: string } & TopicState) | null;
   /** Each KC with attempts in the session, with its state and next review. */
   kcs: Array<{
     id: string;
@@ -274,51 +146,6 @@ export type SessionSummary = {
   /** 1 to 5; null until rated. */
   rating: number | null;
   ratingNote: string | null;
-};
-
-/**
- * A Topic's part of the Knowledge map as the Chat's side slot shows it
- * (`getTopicKnowledgeMap`).
- */
-export type TopicKnowledgeMap = {
-  name: string;
-  map: KnowledgeMapView;
-  priorities: MapPriorities;
-  learning: MapKcLearning;
-};
-
-/**
- * What a map Finding says is wrong with the Knowledge map: a link between
- * two KCs it lacks, a link it has that the sources contradict, or a KC's
- * description.
- */
-export type MapFindingKind =
-  "missing_link" | "wrong_link" | "wrong_description";
-
-/** A map Finding on a KC as `getTopic` lists it. */
-export type MapFindingView = {
-  kind: MapFindingKind;
-  /** The other KC of a link kind; null for `wrong_description`. */
-  otherKc: { id: string; name: string } | null;
-  reason: string;
-};
-
-/**
- * An open map Finding on the Course map's Map findings card, which the
- * Student can accept (applying it) or dismiss. `linkedKc` is the
- * prerequisite of `kc` for a link kind, null otherwise;
- * `proposedDescription` is the new description of a `wrong_description`.
- */
-export type MapFindingItem = {
-  id: string;
-  kind: MapFindingKind;
-  kc: string;
-  linkedKc: string | null;
-  proposedDescription: string | null;
-  reason: string;
-  quote: string;
-  /** Such as "Lecture 3, p. 12", with the link to the chunk on its page. */
-  source: { label: string; link: string } | null;
 };
 
 /**
@@ -337,12 +164,10 @@ export type TopicView = {
     state: KcStateName;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
-    /** Its open map Findings, oldest first. */
-    findings: MapFindingView[];
   }>;
   anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
-  /** In order; `done` when the Student has a Done message for it. */
-  readingSections: Array<ReadingSectionView & { done: boolean }> | null;
+  /** In order. */
+  readingSections: ReadingSectionView[] | null;
 };
 
 /** A Mock exam as its page shows it (#185). */

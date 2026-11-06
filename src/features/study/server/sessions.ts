@@ -1,8 +1,4 @@
 import "server-only";
-import {
-  parseSessionMode,
-  type SessionMode,
-} from "@/features/study/domain/modes";
 import { sessionEnd } from "@/features/study/domain/replay";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
@@ -56,43 +52,6 @@ export async function getSessionEnd(
 ): Promise<string | null> {
   const session = await loadChatSession(supabase, chatId);
   return session && sessionEnd(session, now);
-}
-
-/** The Chat's Study session's mode; learn when the Chat has none. */
-export async function getSessionMode(
-  supabase: Supabase,
-  chatId: string,
-): Promise<SessionMode> {
-  const { data, error } = await supabase
-    .from("study_sessions")
-    .select("mode")
-    .eq("chat_id", chatId)
-    .maybeSingle();
-  if (error) failed("Loading the Study session", error);
-  return parseSessionMode(data?.mode);
-}
-
-/**
- * Switches a new Chat's session to review or practice, or to results on
- * the graded Mock exam `mockId`. False, leaving it learn, when it is not
- * the caller's, has ended, has a Topic or a question, or the mock is not
- * the caller's graded mock of the Chat's Course.
- */
-export async function startSessionMode(
-  supabase: Supabase,
-  chatId: string,
-  mode: SessionMode,
-  mockId?: string,
-): Promise<boolean> {
-  const session = await loadChatSession(supabase, chatId);
-  if (!session) return false;
-  const { data, error } = await supabase.rpc("start_study_session_mode", {
-    p_session_id: session.id,
-    p_mode: mode,
-    ...(mockId && { p_mock_id: mockId }),
-  });
-  if (error) failed("Setting the session's mode", error);
-  return data === true;
 }
 
 /**

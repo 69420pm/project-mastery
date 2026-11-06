@@ -14,7 +14,6 @@ vi.mock("@/features/study/server/actions", () => ({
 const { CloseCard } = await import("./close-card");
 
 const summary: SessionSummary = {
-  topic: { name: "Thrust basics", state: "in_progress", recall: 0.5 },
   kcs: [
     {
       id: "k1",
@@ -48,12 +47,10 @@ function renderCard(busy = false) {
   );
 }
 
-test("shows the Topic's new state and each KC practised with its next review", async () => {
+test("shows each KC practised with its next review", async () => {
   renderCard();
   const card = screen.getByRole("region", { name: "Session summary" });
-  expect(await within(card).findByText("Thrust basics")).toBeVisible();
-  expect(within(card).getByLabelText("Topic state: In progress")).toBeVisible();
-  const kcs = within(card).getByRole("list", { name: "KCs practised" });
+  const kcs = await within(card).findByRole("list", { name: "KCs practised" });
   expect(
     within(kcs)
       .getAllByRole("listitem")

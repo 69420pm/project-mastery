@@ -1,18 +1,13 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
-import {
-  loadStoredMap,
-  loadStoredTopics,
-} from "@/features/knowledge-map/server";
+import { loadStoredMap } from "@/features/knowledge-map/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import {
-  desiredRetention,
   kcState,
   replayCourse,
   sessionEnd,
   utcDay,
 } from "@/features/study/domain/replay";
-import { topicState } from "@/features/study/domain/topic-state";
 import { loadCourseAttempts } from "@/features/study/server/attempts";
 import type { SessionSummary } from "@/features/study/types";
 import { failed } from "@/lib/supabase/failed";
@@ -20,8 +15,8 @@ import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * What the close card shows of a Chat's Study session at `now`, computed as
- * if the session had ended: its Topic's new state, and each KC with
- * attempts in it with its state and next review. Null without a session.
+ * if the session had ended: each KC with attempts in it with its state and
+ * next review. Null without a session.
  */
 export async function loadSessionSummary(
   supabase: Supabase,
@@ -31,7 +26,7 @@ export async function loadSessionSummary(
   const [{ data: session, error }, chat] = await Promise.all([
     supabase
       .from("study_sessions")
-      .select("id, course_id, topic_id, ended_at, rating, rating_note")
+      .select("id, course_id, ended_at, rating, rating_note")
       .eq("chat_id", chatId)
       .maybeSingle(),
     supabase
@@ -44,12 +39,11 @@ export async function loadSessionSummary(
   if (chat.error) failed("Loading the Chat", chat.error);
   if (!session) return null;
   const courseId = session.course_id;
-  const [exam, priorities, evidence, map, topics] = await Promise.all([
+  const [exam, priorities, evidence, map] = await Promise.all([
     getExamFacts(supabase, courseId),
     loadKcPriorities(supabase, courseId),
     loadCourseAttempts(supabase, courseId, now),
     loadStoredMap(supabase, courseId),
-    loadStoredTopics(supabase, courseId),
   ]);
   const schedules = replayCourse(evidence.attempts, {
     ended: (id) => id === session.id || evidence.ended(id),
@@ -64,18 +58,7 @@ export async function loadSessionSummary(
       .filter((attempt) => attempt.sessionId === session.id)
       .map((attempt) => attempt.kcId),
   );
-  const topic = topics.find(({ id }) => id === session.topic_id);
   return {
-    topic: topic
-      ? {
-          name: topic.name,
-          ...topicState(topic.kcs, schedules, {
-            now,
-            examDate: exam.examDate,
-            retention: desiredRetention(exam.goal),
-          }),
-        }
-      : null,
     kcs: [...practised].map((id) => {
       const { state, nextReview } = kcState(schedules.get(id), now);
       return { id, name: kcName.get(id) ?? id, state, nextReview };

@@ -1,6 +1,6 @@
--- Topic notes and Session notes (#187): the service role writes them, the
--- owner reads them and nobody else does, a Topic note is capped at 1,500
--- characters and goes with its Topic. Run with `pnpm db:test`.
+-- Topic notes and a session's close marks (#187): the service role writes
+-- them, the owner reads them and nobody else does, a Topic note is capped at
+-- 1,500 characters and goes with its Topic. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
@@ -30,9 +30,8 @@ select lives_ok(
     values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Mixes up mass flow and velocity.')$$,
   'the service role writes a Topic note');
 select lives_ok(
-  $$update public.study_sessions set session_note = 'Covered thrust.' || chr(10) || 'Next: drag.',
-    close_started_at = now()$$,
-  'the service role writes the Session note and the claim');
+  $$update public.study_sessions set closed_at = now(), close_started_at = now()$$,
+  'the service role writes the close and the claim');
 select throws_ok(
   $$update public.topic_notes set text = repeat('x', 1501)$$,
   '23514', null, 'a Topic note over 1,500 characters is refused');
@@ -43,8 +42,8 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
 select is((select text from public.topic_notes), 'Mixes up mass flow and velocity.',
   'the owner reads the Topic note');
-select is((select session_note from public.study_sessions), 'Covered thrust.' || chr(10) || 'Next: drag.',
-  'the owner reads the Session note');
+select isnt((select closed_at from public.study_sessions), null,
+  'the owner reads the close');
 select isnt((select close_started_at from public.study_sessions), null,
   'the owner reads the claim');
 select throws_ok(
@@ -55,8 +54,8 @@ select throws_ok(
     values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Again.')$$,
   '42501', null, 'the owner cannot add a Topic note');
 select throws_ok(
-  $$update public.study_sessions set session_note = 'Mine.'$$,
-  '42501', null, 'the owner cannot write the Session note');
+  $$update public.study_sessions set closed_at = null$$,
+  '42501', null, 'the owner cannot clear the close');
 select throws_ok(
   $$update public.study_sessions set close_started_at = null$$,
   '42501', null, 'the owner cannot clear the claim');

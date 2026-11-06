@@ -24,12 +24,6 @@ export const rateSessionSchema = z.object({
     .optional(),
 });
 
-/** The input of a Topic's Knowledge map read: a Topic of the Course. */
-export const topicKnowledgeMapSchema = z.object({
-  courseId: z.uuid(),
-  topicId: z.uuid(),
-});
-
 /** Why a message to an ended Study session is refused. */
 export const sessionEndedMessage =
   "This study session has ended, so it takes no more messages. Start a new session to keep studying.";
@@ -60,12 +54,6 @@ export const PROBLEM_FLAGS = [
 export const flagProblemSchema = z.object({
   problemId: z.uuid(),
   flag: z.enum(PROBLEM_FLAGS),
-});
-
-/** The input of the Map findings card's Accept and Dismiss. */
-export const answerMapFindingSchema = z.object({
-  id: z.uuid(),
-  status: z.enum(["accepted", "dismissed"]),
 });
 
 /** The input of the exam card's Save and Skip; no grade is a skip. */

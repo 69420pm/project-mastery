@@ -2,7 +2,6 @@ import "server-only";
 import { closeCall } from "@/features/study/ai/close-call";
 import {
   buildCloseInput,
-  guardedNotes,
   type CloseNotes,
   type CloseSource,
 } from "@/features/study/domain/close";
@@ -66,59 +65,39 @@ export async function writeSessionClose(
   );
   // The provider's daily quota: a later retry may get through.
   if (!result) throw new Error("The close call got no answer.");
-  return {
-    ...guardedNotes(notes(result.output), loaded.source.memory),
-    memoryReadAt: loaded.memoryReadAt,
-  };
+  return { ...notes(result.output), memoryReadAt: loaded.memoryReadAt };
 }
 
 async function loadCloseSource(supabase: Supabase, sessionId: string) {
   const { data: session, error } = await supabase
     .from("study_sessions")
-    .select("owner, course_id, chat_id, mode, topic_id")
+    .select("owner, course_id, chat_id")
     .eq("id", sessionId)
     .maybeSingle();
   if (error) failed("Loading the Study session", error);
   if (!session?.chat_id) return null;
-  const [messages, topic, topicNote, questions, attempts, memory] =
-    await Promise.all([
-      supabase
-        .from("chat_messages")
-        .select("role, parts, created_at")
-        .eq("chat_id", session.chat_id)
-        .order("created_at", { ascending: true }),
-      session.topic_id === null
-        ? null
-        : supabase
-            .from("topics")
-            .select("name")
-            .eq("id", session.topic_id)
-            .maybeSingle(),
-      session.topic_id === null
-        ? null
-        : supabase
-            .from("topic_notes")
-            .select("text")
-            .eq("topic_id", session.topic_id)
-            .maybeSingle(),
-      supabase
-        .from("questions")
-        .select("id, prompt, answer_text, asked_at")
-        .eq("session_id", sessionId)
-        .order("asked_at", { ascending: true }),
-      supabase
-        .from("attempts")
-        .select("question_id, kc_id, result, help")
-        .eq("session_id", sessionId),
-      supabase
-        .from("memories")
-        .select("text, updated_at")
-        .eq("course_id", session.course_id)
-        .maybeSingle(),
-    ]);
+  const [messages, questions, attempts, memory] = await Promise.all([
+    supabase
+      .from("chat_messages")
+      .select("role, parts, created_at")
+      .eq("chat_id", session.chat_id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("questions")
+      .select("id, prompt, answer_text, asked_at")
+      .eq("session_id", sessionId)
+      .order("asked_at", { ascending: true }),
+    supabase
+      .from("attempts")
+      .select("question_id, kc_id, result, help")
+      .eq("session_id", sessionId),
+    supabase
+      .from("memories")
+      .select("text, updated_at")
+      .eq("course_id", session.course_id)
+      .maybeSingle(),
+  ]);
   if (messages.error) failed("Loading the session's messages", messages.error);
-  if (topic?.error) failed("Loading the session's Topic", topic.error);
-  if (topicNote?.error) failed("Loading the Topic note", topicNote.error);
   if (questions.error)
     failed("Loading the session's Questions", questions.error);
   if (attempts.error) failed("Loading the session's attempts", attempts.error);
@@ -128,8 +107,6 @@ async function loadCloseSource(supabase: Supabase, sessionId: string) {
     attempts.data.map(({ kc_id }) => kc_id),
   );
   const source: CloseSource = {
-    mode: session.mode,
-    topicName: topic?.data?.name ?? null,
     messages: messages.data,
     questions: questions.data.map((question) => ({
       prompt: question.prompt,
@@ -142,7 +119,6 @@ async function loadCloseSource(supabase: Supabase, sessionId: string) {
           help,
         })),
     })),
-    topicNote: topicNote?.data?.text ?? null,
     memory: memory.data?.text ?? "",
   };
   return {
@@ -168,7 +144,7 @@ async function loadKcNames(
 
 /**
  * Stores the session's notes in one transaction (`store_session_close`).
- * A session that has its notes already is left as it is.
+ * A session whose close is stored already is left as it is.
  */
 export async function storeSessionClose(
   sessionId: string,
@@ -177,9 +153,7 @@ export async function storeSessionClose(
   "use step";
   const { error } = await createAdminClient().rpc("store_session_close", {
     p_session_id: sessionId,
-    p_session_note: close.sessionNote,
     p_memory_lines: close.memoryLines,
-    ...(close.topicNote !== null && { p_topic_note: close.topicNote }),
     ...(close.condensedMemory !== null &&
       close.memoryReadAt !== null && {
         p_condensed_memory: close.condensedMemory,

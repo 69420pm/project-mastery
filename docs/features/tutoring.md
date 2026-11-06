@@ -424,6 +424,6 @@ Paths are relative to `src/features/`.
 | Problems and Mock exams                   | `study/server/find-problems.ts`, `study/domain/exercises.ts`, `study/domain/problem-stock.ts`, `study/workflows/` |
 | Tool cards and step summaries in the Chat | `chat/components/`, `chat/domain/reply-steps.ts`                                                                  |
 
-To see it run: `pnpm smoke tutor`, `review`, `close`, `generate`, `mock`, `grade-mock` and `map-findings` call real models, so read [docs/agents/live-ai.md](../agents/live-ai.md) first, and [docs/agents/notes/tutor-smoke.md](../agents/notes/tutor-smoke.md) for how one run reads. A change to the instructions means running `pnpm smoke tutor`.
+To see it run: `pnpm smoke tutor`, `close`, `generate`, `mock` and `grade-mock` call real models, so read [docs/agents/live-ai.md](../agents/live-ai.md) first, and [docs/agents/notes/tutor-smoke.md](../agents/notes/tutor-smoke.md) for how one run reads. A change to the instructions means running `pnpm smoke tutor`.
 
 Change this document in the same PR as the behaviour it describes.

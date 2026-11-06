@@ -61,6 +61,6 @@ test("Mock exam: start, answer one task, submit", async ({
   await page
     .getByRole("link", { name: "Go through it with the tutor" })
     .click();
-  await expect(page).toHaveURL(/mode=results&mock=/);
-  await expect(page.getByText("Results", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/courses/${course.id}/chat$`));
+  await expect(page.getByRole("textbox", { name: "Message" })).toBeVisible();
 });

@@ -34,19 +34,15 @@ import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
 import { chatPath, newChatPath } from "@/features/chat/domain/chat-paths";
-import { CloseCard, sessionEndedMessage } from "@/features/study";
-import { TopicGraph } from "@/features/chat/components/topic-graph";
-import { SessionBar } from "@/features/chat/components/session-bar";
+import {
+  CloseCard,
+  EndSessionButton,
+  sessionEndedMessage,
+} from "@/features/study";
 import { messageText } from "@/lib/ai/reply";
 import { cn } from "@/lib/utils";
 import { replyActivity, THINKING } from "@/features/chat/domain/reply-activity";
-import {
-  questionStates,
-  rebuildQuestions,
-  sessionView,
-} from "@/features/chat/domain/reply-steps";
 import { useChatList } from "@/features/chat/hooks/use-chat-list";
-import { useReadings } from "@/features/chat/hooks/use-readings";
 import { useMessageAttachments } from "@/features/chat/hooks/use-message-attachments";
 import {
   MAX_ATTACHED_MATERIALS,
@@ -94,6 +90,11 @@ type ChatProps = {
   emptyState?: ReactNode;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
+  /**
+   * Whether replies show their step cards and Context sheet: outside
+   * production only.
+   */
+  showDetails: boolean;
 };
 
 /**
@@ -107,6 +108,7 @@ export function Chat({
   ownerId,
   emptyState,
   dailyLimit: initialDailyLimit,
+  showDetails,
 }: ChatProps) {
   const chatId = chat.id;
   const [inputError, setInputError] = useState<string | null>(null);
@@ -185,8 +187,7 @@ export function Chat({
         body: {
           ...body,
           chatId,
-          ...(isNew && { courseId: chat.courseId, mode: chat.mode }),
-          mockId: chat.mockId,
+          ...(isNew && { courseId: chat.courseId }),
           message: messages.at(-1),
         },
       }),
@@ -215,36 +216,11 @@ export function Chat({
   const ended =
     chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
-  const questions = useMemo(() => questionStates(messages), [messages]);
-  const rebuilds = useMemo(() => rebuildQuestions(messages), [messages]);
-  const session = useMemo(() => sessionView(messages), [messages]);
-  // At close, or once ended, the close card takes the composer's place.
-  const closing = ended || session.stage === "close";
-  const readings = useReadings(messages, chat.messages);
-  const canAnswer = !isBusy && !limitReached && !closing;
-
-  /** Sends Done from a reading card or the pane opened from it. */
-  function sendDone(readingSectionId: string) {
-    if (!canAnswer) return;
-    setInputError(null);
-    clearError();
-    void sendMessage({ text: "Done reading.", metadata: { readingSectionId } });
-  }
-
-  /** Sends an answer from a question card as the next message. */
-  function sendAnswer(
-    questionId: string,
-    text: string,
-    confidence: number | undefined,
-  ) {
-    if (!canAnswer) return;
-    setInputError(null);
-    clearError();
-    void sendMessage({
-      text,
-      metadata: { questionId, ...(confidence && { confidence }) },
-    });
-  }
+  // The replies loaded with the Chat; any other arrived while it was open.
+  const storedIds = useMemo(
+    () => new Set(chat.messages.map(({ id }) => id)),
+    [chat.messages],
+  );
 
   async function handleSubmit({ text }: { text: string }) {
     if (
@@ -272,26 +248,22 @@ export function Chat({
   }
 
   return (
-    <WithSourcePane
-      courseId={chat.courseId}
-      reading={{ done: readings.done, canDone: canAnswer, onDone: sendDone }}
-      topicGraph={(id) => <TopicGraph courseId={chat.courseId} topicId={id} />}
-    >
+    <WithSourcePane courseId={chat.courseId}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
-        <SessionBar
-          chatId={chatId}
-          stage={session.stage}
-          mode={chat.mode}
-          progress={session.progress}
-          // Once the first message is sent, the Chat's session can be ended.
-          canEnd={messages.length > 0 && !ended}
-          busy={isBusy}
-          onEnded={() => {
-            setInputError(null);
-            setEndedHere(true);
-          }}
-          onError={setInputError}
-        />
+        {/* Once the first message is sent, the Chat's session can be ended. */}
+        {messages.length > 0 && !ended && (
+          <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
+            <EndSessionButton
+              chatId={chatId}
+              disabled={isBusy}
+              onEnded={() => {
+                setInputError(null);
+                setEndedHere(true);
+              }}
+              onError={setInputError}
+            />
+          </div>
+        )}
         <Conversation className="min-h-0">
           <ConversationContent
             className={cn(
@@ -320,15 +292,8 @@ export function Chat({
                             parts={message.parts}
                             streaming={status === "streaming" && isLast}
                             inProgress={isStreaming}
-                            questions={questions}
-                            problemFlags={chat.problemFlags}
-                            canAnswer={canAnswer}
-                            onAnswer={sendAnswer}
-                            doneReadings={readings.done}
-                            arrived={readings.arrived(message.id)}
-                            onDoneReading={sendDone}
-                            rebuilds={rebuilds}
-                            topicId={session.topicId}
+                            arrived={!storedIds.has(message.id)}
+                            showSteps={showDetails}
                           />
                           {activity !== null && (
                             <Shimmer className="text-sm">{activity}</Shimmer>
@@ -368,9 +333,11 @@ export function Chat({
                     >
                       {message.role === "assistant" && (
                         <>
-                          <ContextAction
-                            context={message.metadata?.tutorContext}
-                          />
+                          {showDetails && (
+                            <ContextAction
+                              context={message.metadata?.tutorContext}
+                            />
+                          )}
                           <ReplyFooter metadata={message.metadata} />
                         </>
                       )}
@@ -400,7 +367,7 @@ export function Chat({
           <ConversationScrollButton />
         </Conversation>
 
-        {closing ? (
+        {ended ? (
           <CloseCard
             chatId={chatId}
             busy={isBusy}

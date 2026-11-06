@@ -52,11 +52,11 @@ select policies_are(
 );
 
 select results_eq(
-  $$select owner, course_id, mode, ended_at is null from public.study_sessions
+  $$select owner, course_id, ended_at is null from public.study_sessions
     where chat_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('11111111-1111-1111-1111-111111111111'::uuid,
-    'aaaaaaaa-c000-0000-0000-000000000001'::uuid, 'learn', true)$$,
-  'a new Chat starts a running learn session in its Course'
+    'aaaaaaaa-c000-0000-0000-000000000001'::uuid, true)$$,
+  'a new Chat starts a running session in its Course'
 );
 
 -- Anonymous visitors see nothing.

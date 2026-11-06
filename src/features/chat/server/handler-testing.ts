@@ -36,7 +36,6 @@ const COURSE_TABLES = [
   "chunks",
   "memories",
   "topics",
-  "map_findings",
   "problems",
   "problem_kcs",
 ] as const;
@@ -82,10 +81,8 @@ function createDb() {
       attempts: [],
       memories: [],
       topics: [],
-      topic_notes: [],
       topic_kcs: [],
       topic_choices: [],
-      map_findings: [],
       problems: [],
       problem_kcs: [],
       problem_runs: [],
@@ -104,7 +101,7 @@ function createDb() {
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
     },
-    // Every new Chat starts a learn session in its Course.
+    // Every new Chat starts a Study session in its Course.
     afterInsert: {
       chats: (chat, tables) => {
         tables.study_sessions.push({
@@ -112,82 +109,12 @@ function createDb() {
           owner: chat.owner,
           chat_id: chat.id,
           course_id: chat.course_id,
-          mode: "learn",
-          topic_id: null,
-          stage: null,
           started_at: new Date().toISOString(),
           ended_at: null,
         });
       },
     },
     functions: {
-      // As the real functions: on the Student's own running session only.
-      start_study_session_topic: (args, tables) => {
-        const session = tables.study_sessions.find(
-          (row) => row.id === args.p_session_id && row.owner === signedIn,
-        );
-        const topic = tables.topics.find(({ id }) => id === args.p_topic_id);
-        if (
-          !session ||
-          session.topic_id !== null ||
-          session.ended_at !== null ||
-          topic?.course_id !== session.course_id
-        ) {
-          return false;
-        }
-        Object.assign(session, {
-          topic_id: args.p_topic_id,
-          stage: args.p_stage,
-        });
-        return true;
-      },
-      start_study_session_mode: (args, tables) => {
-        const session = tables.study_sessions.find(
-          (row) => row.id === args.p_session_id && row.owner === signedIn,
-        );
-        const mock = tables.mock_exams.find(
-          (row) =>
-            row.id === args.p_mock_id &&
-            row.owner === signedIn &&
-            row.course_id === session?.course_id &&
-            row.status === "graded",
-        );
-        const fits =
-          args.p_mode === "results"
-            ? mock !== undefined
-            : (args.p_mode === "review" || args.p_mode === "practice") &&
-              args.p_mock_id === undefined;
-        if (
-          !session ||
-          !fits ||
-          session.mode !== "learn" ||
-          session.topic_id !== null ||
-          session.ended_at !== null ||
-          tables.questions.some((row) => row.session_id === session.id)
-        ) {
-          return false;
-        }
-        Object.assign(session, {
-          mode: args.p_mode,
-          mock_id: args.p_mock_id ?? null,
-        });
-        return true;
-      },
-      set_study_session_stage: (args, tables) => {
-        const session = tables.study_sessions.find(
-          (row) => row.id === args.p_session_id && row.owner === signedIn,
-        );
-        if (
-          !session ||
-          session.topic_id === null ||
-          session.ended_at !== null ||
-          session.stage === "close"
-        ) {
-          return false;
-        }
-        session.stage = args.p_stage;
-        return true;
-      },
       // Records each generate trigger in `problem_runs` and lets none start,
       // so no workflow runs in these tests.
       queue_problem_run: (args, tables) => {
@@ -225,7 +152,6 @@ function createDb() {
         title_set_manually: false,
       }),
       chat_messages: () => ({ model_id: null, stopped: false }),
-      map_findings: () => ({ owner: signedIn, status: "open", outcome: null }),
       questions: () => ({
         owner: signedIn,
         asked_at: new Date().toISOString(),
@@ -264,7 +190,6 @@ function createDb() {
         table === "study_sessions" ||
         table === "questions" ||
         table === "attempts" ||
-        table === "topic_notes" ||
         table === "mock_exams" ||
         table === "mock_items"
       ) {

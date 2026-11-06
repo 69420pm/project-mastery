@@ -72,10 +72,6 @@ _Avoid_: Task, assignment
 An exam-style task a Student solves: an Exercise from the Materials, also from an old exam, a variant of one, or one generated for the KCs it tests.
 _Avoid_: Task, exercise (only for those from the Materials)
 
-**Map Finding**:
-What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong Prerequisite between two KCs, or a wrong KC description with the description it proposes, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map; accepting applies the change at once, unless a new Prerequisite would close a cycle, which refuses the accept.
-_Avoid_: Issue, error, erratum
-
 **Priority**:
 How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. A KC is at least as high as any KC that builds on it, directly or not, unless the Student excluded it. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
@@ -102,7 +98,7 @@ _Avoid_: Mastery, completion
 
 **Phase**:
 Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
-_Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
+_Avoid_: Period
 
 **If time allows**:
 A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
@@ -113,7 +109,7 @@ A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always 
 _Avoid_: Favourite, hide, exclude (an excluded Material is something else)
 
 **Today card**:
-What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and a start button per available Study session mode: Learn with a next Topic, Review with Reviews due, Practice with a learned Topic.
+What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and a Study button that starts a Study session.
 _Avoid_: Dashboard, daily plan, agenda
 
 **AI**:
@@ -125,23 +121,19 @@ One ongoing conversation between a Student and the AI within one Course, kept un
 _Avoid_: Conversation, thread
 
 **Source pane**:
-The pane beside a Chat that shows one thing at a time: a Material's own pages, at a Reading section or a citation, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
+The pane beside a Chat that shows a Material's own pages, at a Reading section or a citation. A citation in the Chat opens the cited page in it.
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:
-A Chat with a mode: _learn_ (one Topic), _review_ (due KCs), _practice_ (exam-style Problems), _mock exam_ or _results_ (going through a graded Mock exam), with a start and an end.
+One sitting of study with a start and an end: a Chat, or a Mock exam.
 _Avoid_: Lesson, sitting, session alone when a Chat is meant
-
-**Stage**:
-Where a Learn session stands in teaching its Topic: _review_ (the due Reviews it opens with), _orient_, _prime_, _read_, _work_, _apply_, _rebuild_ or _close_.
-_Avoid_: Step, phase (a Phase belongs to a Course)
 
 **Session rating**:
 The Student's verdict on a Study session at its close: 1 to 5, with an optional short note.
 _Avoid_: Feedback, score, review (a Review asks about a due KC)
 
 **Question**:
-One graded ask the AI puts to a Student in a Study session, such as a prequestion, a recall question, a Problem or the rebuild of a Topic, with the KCs it tests. Grading its answer gives Attempts.
+One graded ask the AI puts to a Student in a Study session, such as a recall question or a Problem, with the KCs it tests. The Student's messages after it are its answer. Grading its answer gives Attempts.
 _Avoid_: Quiz, prompt, task
 
 **Mock exam**:
@@ -157,16 +149,8 @@ What the AI noted about a Student in one Course to tutor them better, such as pr
 _Avoid_: Profile, notes (the Brief's notes are something else)
 
 **Topic note**:
-What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. Each learn session on the Topic replaces it when it closes; the tutor reads it as a hint.
+What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. The tutor reads it as a hint.
 _Avoid_: Topic summary, Topic memory
-
-**Session note**:
-Two lines the AI writes when a Study session closes: what happened and what is next. The tutor reads the last three of a Course as hints.
-_Avoid_: Session summary, session log
-
-**Pinned line**:
-A Memory line starting with `!`. Condensing the Memory keeps it word for word.
-_Avoid_: Starred line, protected line
 
 **Daily limit**:
 The most a Student's AI use may cost per day, measured in US dollars.

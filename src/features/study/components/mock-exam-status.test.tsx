@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 
 const { MockExamStatus } = await import("./mock-exam-status");
 
-const TUTOR = "/courses/c/chats/new?mode=results&mock=m";
+const TUTOR = "/courses/c/chat";
 
 const task = (n: number, more: Partial<MockTask> = {}): MockTask => ({
   questionId: `q${n}`,

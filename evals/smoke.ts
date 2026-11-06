@@ -23,11 +23,9 @@ import { closeSmoke } from "./smoke/close";
 import { generateSmoke } from "./smoke/generate";
 import { gradeMockSmoke } from "./smoke/grade-mock";
 import { mapSmoke } from "./smoke/map";
-import { mapFindingsSmoke } from "./smoke/map-findings";
 import { mockSmoke } from "./smoke/mock";
 import { pairSmoke } from "./smoke/pair";
 import { parseSmoke } from "./smoke/parse";
-import { reviewSmoke } from "./smoke/review";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
 import { tutorSmoke } from "./smoke/tutor";
 
@@ -38,9 +36,7 @@ const CHECKS: SmokeCheck[] = [
   mapSmoke,
   briefSmoke,
   tutorSmoke,
-  mapFindingsSmoke,
   generateSmoke,
-  reviewSmoke,
   mockSmoke,
   gradeMockSmoke,
   closeSmoke,

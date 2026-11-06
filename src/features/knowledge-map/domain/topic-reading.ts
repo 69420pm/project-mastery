@@ -37,8 +37,8 @@ export type ReadingSection = SectionCut & { id: string };
 
 /**
  * A section's id: a UUID v5 (RFC 9562) of its Topic id, Material id and
- * pages, in the Topic id's namespace. A Done mark
- * (`chat_messages.reading_section_id`) keeps matching while the cut stays.
+ * pages, in the Topic id's namespace, so it stays the same while the cut
+ * stays.
  */
 export function readingSectionId(
   topicId: string,

@@ -9,9 +9,6 @@ import {
   seedGoldCourse,
 } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
-import { sendMessage } from "./tutor";
-
-const OPENING = "Let's go through the mock.";
 
 /** The key with every value doubled: a final value off the key. */
 const offKey = (answers: FinalAnswer[]) =>
@@ -25,31 +22,19 @@ const offKey = (answers: FinalAnswer[]) =>
     return { ...answer, value: format(off, { precision: 6 }) };
   });
 
-/** The longest words of `text`, which a reply about it likely repeats. */
-function keywords(text: string, other: string) {
-  const words = (s: string) => new Set(s.toLowerCase().match(/[a-z]{6,}/g));
-  const own = words(other);
-  return [...words(text)]
-    .filter((word) => !own.has(word))
-    .toSorted((a, b) => b.length - a.length)
-    .slice(0, 5);
-}
-
 /**
  * The gold course with a submitted mock of 3 tasks: an Exercise with a
  * numeric key answered with the key and with a value off it, and another
  * Exercise left blank. The real `gradeMock` runs in process: the mock must
  * reach `graded`, the blank task scores 0 without a call, the wrong value
- * scores less than full and the correct one at least half. Then one reply
- * of a Results session on the mock must start on the biggest loss, the
- * blank task, and ask for the approach without giving the key's value.
+ * scores less than full and the correct one at least half.
  */
 export const gradeMockSmoke: SmokeCheck = {
   name: "grade-mock",
   usage:
-    "pnpm smoke grade-mock (the gold course with a submitted mock of a correct, a wrong and a blank task, graded, then one Results-session reply)",
-  // The spec's budget: 2 grading calls, the reply and the Chat's title.
-  maxCalls: 4,
+    "pnpm smoke grade-mock (the gold course with a submitted mock of a correct, a wrong and a blank task, graded)",
+  // The spec's budget: 2 grading calls.
+  maxCalls: 2,
   async run({ supabase, studentId }) {
     const gold = await seedGoldCourse(supabase, studentId);
     const { courseId } = gold;
@@ -155,22 +140,6 @@ export const gradeMockSmoke: SmokeCheck = {
         .join(", ")}`,
     );
 
-    const chat = { chatId: randomUUID(), courseId };
-    const reply = await sendMessage(
-      client,
-      studentId,
-      { ...chat, mode: "results", mockId },
-      OPENING,
-    );
-    console.info(`Tutor: ${reply.text}`);
-    const text = reply.text;
-    const lowered = text.toLowerCase();
-    const blankWords = keywords(blank.markdown, numeric.markdown);
-    // Short values such as 2 turn up in any text.
-    const keyValues = numeric.finalAnswers
-      .map(({ value }) => String(value))
-      .filter((value) => value.length >= 3);
-
     return [
       result(
         "the mock is graded",
@@ -192,22 +161,6 @@ export const gradeMockSmoke: SmokeCheck = {
         correct?.points_awarded != null &&
           correct.points_awarded >= correct.points / 2,
         `${correct?.points_awarded} of ${correct?.points}`,
-      ),
-      result(
-        "the Results reply starts on the biggest loss",
-        /task 3|third/.test(lowered) ||
-          blankWords.some((word) => lowered.includes(word)),
-        `${blankWords.join(", ")}: ${text.slice(0, 120)}`,
-      ),
-      result(
-        "the reply asks for the approach",
-        text.includes("?"),
-        text.slice(-120),
-      ),
-      result(
-        "the reply does not give the key's final value",
-        !keyValues.some((value) => text.includes(value)),
-        keyValues.join(", "),
       ),
     ];
   },

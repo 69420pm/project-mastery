@@ -21,12 +21,7 @@ const noActions = {
   findQuestion: async () => null,
   saveGrade: async () => null,
   findReading: async () => null,
-  loadStage: async () => null,
-  saveStage: async () => true,
   searchMaterials: async () => [],
-  isKc: () => true,
-  findChunk: async () => null,
-  saveMapFinding: async () => "f-1",
   compute: async () => ({ ok: false, error: "unused" }),
 } satisfies TutorToolActions;
 
@@ -44,7 +39,7 @@ describe.each([
 ] as const)("%s", (name, max) => {
   const input = (ids: string[]) =>
     name === "ask"
-      ? { kind: "recall", prompt: "Why?", kcIds: ids }
+      ? { prompt: "Why?", kcIds: ids }
       : name === "getTopic"
         ? { topicId: "t-1", kcIds: ids }
         : { kcIds: ids };
@@ -127,100 +122,8 @@ describe("searchMaterials", () => {
   });
 });
 
-describe("flagMap", () => {
-  const markdown = "Thrust follows from the\n  **change** in momentum.";
-  const file = (input: object, actions: Partial<TutorToolActions> = {}) => {
-    const saved: unknown[] = [];
-    const run = tutorTools({
-      ...noActions,
-      isKc: (id) => id.startsWith("kc-"),
-      findChunk: async (id) => (id === "ch-1" ? { markdown } : null),
-      saveMapFinding: async (finding) => {
-        saved.push(finding);
-        return "f-1";
-      },
-      ...actions,
-    }).flagMap.execute!(
-      {
-        kind: "missing_link",
-        kcId: "kc-1",
-        linkedKcId: "kc-2",
-        chunkId: "ch-1",
-        quote: "the **change**",
-        reason: "Thrust builds on momentum.",
-        ...input,
-      } as never,
-      { toolCallId: "1", messages: [] } as never,
-    );
-    return { run, saved };
-  };
-
-  test("saves a Finding whose quote is in its chunk, case and whitespace aside", async () => {
-    const { run, saved } = file({ quote: "FOLLOWS from THE  **change**" });
-    expect(await run).toEqual({ findingId: "f-1" });
-    expect(saved).toEqual([
-      {
-        kind: "missing_link",
-        kcId: "kc-1",
-        linkedKcId: "kc-2",
-        proposedDescription: null,
-        chunkId: "ch-1",
-        quote: "FOLLOWS from THE  **change**",
-        reason: "Thrust builds on momentum.",
-      },
-    ]);
-    const description = file({
-      kind: "wrong_description",
-      linkedKcId: null,
-      proposedDescription: "Thrust is the change in momentum per second.",
-    });
-    await expect(description.run).resolves.toEqual({ findingId: "f-1" });
-    expect(description.saved).toMatchObject([
-      {
-        linkedKcId: null,
-        proposedDescription: "Thrust is the change in momentum per second.",
-      },
-    ]);
-  });
-
-  test.each([
-    [{ linkedKcId: null }, "give the prerequisite of kcId"],
-    [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
-    [
-      { kind: "wrong_description", linkedKcId: null },
-      "needs proposedDescription",
-    ],
-    [{ proposedDescription: "New." }, "has no proposedDescription"],
-    [
-      { kind: "wrong_description", proposedDescription: "New." },
-      "omit linkedKcId",
-    ],
-    [{ linkedKcId: "kc-1" }, "two different KCs"],
-    [{ kcId: "x-1" }, "no KC ids of this Course: x-1"],
-    [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],
-    [{ chunkId: "ch-9" }, "ch-9 is no chunk of this Course"],
-    [{ quote: "change of momentum" }, "The quote is not in that chunk"],
-    [{ quote: " \n " }, "The quote is empty"],
-  ])("refuses %o without saving", async (input, message) => {
-    const { run, saved } = file(input);
-    await expect(run).rejects.toThrow(message);
-    expect(saved).toEqual([]);
-  });
-
-  test("takes a quote of at most 500 characters and a one-line reason", () => {
-    const input = { kind: "wrong_link", kcId: "k", chunkId: "c" };
-    const ok = (quote: string, reason = "Off.") =>
-      accepts("flagMap", { ...input, quote, reason });
-    expect(ok("x".repeat(500))).toBe(true);
-    expect(ok("x".repeat(501))).toBe(false);
-    expect(ok("")).toBe(false);
-    expect(ok("x", "Two\nlines")).toBe(false);
-  });
-});
-
 describe("grade", () => {
   const open: QuestionToGrade = {
-    kind: "question",
     kcIds: ["kc-a", "kc-b"],
     answered: true,
     graded: false,
@@ -253,17 +156,11 @@ describe("grade", () => {
     );
   }
 
-  test("stores one result per KC of an answered question, pre for a prequestion", async () => {
+  test("stores the results of an answered question", async () => {
     await grade(open);
     expect(saved).toEqual([
-      expect.objectContaining({
-        questionId: "q-1",
-        kind: "learn",
-        help: "some",
-      }),
+      expect.objectContaining({ questionId: "q-1", help: "some" }),
     ]);
-    await grade({ ...open, kind: "prequestion" });
-    expect(saved[0]?.kind).toBe("pre");
   });
 
   test.each([
@@ -439,49 +336,17 @@ describe("ask", () => {
     tutorTools({
       ...noActions,
       ask: async () => ({ questionId: "q-1", generatedProblemId }),
-    }).ask.execute!(
-      { kind: "problem", prompt: "Go.", kcIds: ["k1"], problemId: "p-1" },
-      { toolCallId: "1", messages: [] } as never,
-    );
+    }).ask.execute!({ prompt: "Go.", kcIds: ["k1"], problemId: "p-1" }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
 
-  test("names the generated Problem it poses, for its card's flag", async () => {
+  test("names the generated Problem it poses", async () => {
     expect(await askWith("p-1")).toEqual({
       questionId: "q-1",
       generatedProblemId: "p-1",
     });
     expect(await askWith(null)).toEqual({ questionId: "q-1" });
-  });
-});
-
-describe("setStage", () => {
-  const call = (actions: Partial<TutorToolActions>, input: object) =>
-    tutorTools({ ...noActions, ...actions }).setStage.execute!(
-      input as never,
-      { toolCallId: "1", messages: [] } as never,
-    );
-  const at = (stage: "orient" | "close") => async () => ({
-    stage,
-    afterReview: "orient" as const,
-    readingLeft: false,
-  });
-
-  test("saves an allowed move and returns the stage", async () => {
-    const saved: string[] = [];
-    const saveStage = async (stage: string) => saved.push(stage) > 0;
-    expect(
-      await call({ loadStage: at("orient"), saveStage }, { stage: "prime" }),
-    ).toEqual({ stage: "prime" });
-    expect(saved).toEqual(["prime"]);
-  });
-
-  test("refuses a session without a Topic, a skip without a reason and leaving close", async () => {
-    await expect(call({}, { stage: "prime" })).rejects.toThrow("no Topic");
-    await expect(
-      call({ loadStage: at("orient") }, { stage: "apply" }),
-    ).rejects.toThrow("give a one-line reason");
-    await expect(
-      call({ loadStage: at("close") }, { stage: "rebuild", reason: "More." }),
-    ).rejects.toThrow("stays there");
   });
 });
 

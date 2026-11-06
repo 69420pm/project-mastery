@@ -72,16 +72,16 @@ select is(
   (select status from public.mock_exams where id = 'dddddddd-0000-0000-0000-000000000001'),
   'in_progress', 'the mock is in progress');
 select is(
-  (select s.mode || ', chat ' || coalesce(s.chat_id::text, 'none')
+  (select 'chat ' || coalesce(s.chat_id::text, 'none')
    from public.study_sessions s
    join public.mock_exams m on m.session_id = s.id
    where m.id = 'dddddddd-0000-0000-0000-000000000001'),
-  'mock, chat none', 'in a mock session without a Chat');
+  'chat none', 'in a session without a Chat');
 select is(
   (select count(*)::int from public.mock_items i
    join public.questions q on q.id = i.question_id
-   where q.kind = 'mock_item' and q.prompt = i.prompt),
-  2, 'each item is asked as a mock_item Question');
+   where q.prompt = i.prompt),
+  2, 'each item is asked as a Question');
 select is(
   (select array_agg(qk.kc_id) from public.mock_items i
    join public.question_kcs qk on qk.question_id = i.question_id),
@@ -90,10 +90,11 @@ select is(
 
 select lives_ok(
   $$update public.questions set answer_text = '25 kN', confidence = 3, answered_at = now()
-    where kind = 'mock_item' and exercise_id is not null$$,
+    where id in (select question_id from public.mock_items) and exercise_id is not null$$,
   'the Student answers while it runs');
 select lives_ok(
-  $$update public.questions set graded_at = now() where kind = 'mock_item'$$,
+  $$update public.questions set graded_at = now()
+    where id in (select question_id from public.mock_items)$$,
   'other columns are not checked');
 
 reset role;
@@ -103,7 +104,8 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
 
 select throws_ok(
-  $$update public.questions set answer_text = 'late' where kind = 'mock_item'$$,
+  $$update public.questions set answer_text = 'late'
+    where id in (select question_id from public.mock_items)$$,
   '55000', null, 'an answer after the deadline is refused');
 
 set local request.jwt.claims = '{"sub": "22222222-2222-2222-2222-222222222222", "role": "authenticated"}';
@@ -128,10 +130,12 @@ set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
 
 select throws_ok(
-  $$update public.questions set confidence = 1 where kind = 'mock_item'$$,
+  $$update public.questions set confidence = 1
+    where id in (select question_id from public.mock_items)$$,
   '55000', null, 'an answer after the submit is refused');
 select is(
-  (select answer_text from public.questions where kind = 'mock_item' and exercise_id is not null),
+  (select answer_text from public.questions
+    where id in (select question_id from public.mock_items) and exercise_id is not null),
   '25 kN', 'the submitted answer stays');
 
 select * from finish();

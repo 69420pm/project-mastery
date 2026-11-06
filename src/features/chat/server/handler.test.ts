@@ -56,7 +56,6 @@ describe("a first message", () => {
         owner: STUDENT,
         chat_id: chatId,
         course_id: COURSE,
-        mode: "learn",
         ended_at: null,
       }),
     ]);
@@ -408,8 +407,8 @@ describe("the Chat title", () => {
   });
 });
 
-describe("a question on a question card", () => {
-  test("is asked, answered by a message that links to it, and graded into attempts", async () => {
+describe("a question", () => {
+  test("is asked, answered by the next message, and graded into attempts", async () => {
     seedMap();
     const chatId = randomUUID();
     useMockModels({
@@ -419,7 +418,6 @@ describe("a question on a question card", () => {
             {
               toolName: "ask",
               input: {
-                kind: "question",
                 prompt: "State the thrust equation.",
                 kcIds: [MAP.thrust],
               },
@@ -462,23 +460,16 @@ describe("a question on a question card", () => {
       "Close: mind the sign.",
     );
     useMockModels({ chat: model });
-    const answer = {
-      ...userMessage("$F = \\dot m (v_0 - v_e)$"),
-      metadata: { questionId: question!.id, confidence: 4 },
-    };
+    const answer = userMessage("$F = \\dot m (v_0 - v_e)$");
 
     const graded = await send({ chatId, message: answer });
 
     expect(graded.text).toBe("Close: mind the sign.");
     expect(question).toMatchObject({
       answer_text: "$F = \\dot m (v_0 - v_e)$",
-      confidence: 4,
       answer_message_id: answer.id,
       graded_at: expect.any(String),
     });
-    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
-      `card of question ${question!.id}`,
-    );
     expect(db.tables.attempts).toEqual([
       expect.objectContaining({
         question_id: question!.id,
@@ -501,58 +492,5 @@ describe("a question on a question card", () => {
         },
       ],
     });
-
-    // Graded, the card takes no more answers.
-    const late = await send({
-      chatId,
-      message: { ...userMessage("Again"), metadata: answer.metadata },
-    });
-    expect(late).toMatchObject({ status: 409 });
-  });
-
-  test("an answer whose recording failed is recorded when it is resent", async () => {
-    seedMap();
-    const chatId = randomUUID();
-    useMockModels({
-      chat: mockToolModel(
-        [
-          [
-            {
-              toolName: "ask",
-              input: { kind: "question", prompt: "Q?", kcIds: [MAP.thrust] },
-            },
-          ],
-        ],
-        "",
-      ),
-    });
-    await send({ chatId, courseId: COURSE, message: userMessage("Quiz me") });
-    const [question] = db.tables.questions;
-    const answer = {
-      ...userMessage("It is $4$."),
-      metadata: { questionId: question!.id },
-    };
-    useMockModels({ chat: mockTextModel("Failed reply.") });
-    await send({ chatId, message: answer });
-    // The message was stored, but recording the answer failed.
-    Object.assign(question!, {
-      answer_text: null,
-      answer_message_id: null,
-      answered_at: null,
-    });
-
-    const model = mockTextModel("Let me grade that.");
-    useMockModels({ chat: model });
-    const retried = await send({ chatId, message: answer });
-
-    expect(retried.text).toBe("Let me grade that.");
-    expect(question).toMatchObject({
-      answer_text: "It is $4$.",
-      answer_message_id: answer.id,
-      answered_at: expect.any(String),
-    });
-    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).toContain(
-      `card of question ${question!.id}`,
-    );
   });
 });

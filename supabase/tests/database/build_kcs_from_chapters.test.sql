@@ -153,8 +153,8 @@ select results_eq(
 -- A Student meets Subspace in a question and an attempt.
 insert into public.chats (id, owner, course_id)
 values ('cccccccc-1111-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001');
-insert into public.questions (id, session_id, kind, prompt)
-select 'dddddddd-0000-0000-0000-000000000001', id, 'question', 'What is a subspace?'
+insert into public.questions (id, session_id, prompt)
+select 'dddddddd-0000-0000-0000-000000000001', id, 'What is a subspace?'
 from public.study_sessions;
 insert into public.question_kcs (question_id, kc_id)
 values ('dddddddd-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002');

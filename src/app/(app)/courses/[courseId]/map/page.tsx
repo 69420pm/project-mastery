@@ -10,7 +10,6 @@ import {
 } from "@/features/knowledge-map/server";
 import {
   ExamResultCard,
-  MapFindingsCard,
   mockExamPath,
   ProgressLine,
   ReadinessLine,
@@ -20,7 +19,6 @@ import {
 import {
   getExamToReport,
   getKcLearning,
-  getMapFindings,
   getOpenMockExam,
   getPlan,
   getReadiness,
@@ -49,7 +47,6 @@ export default async function CourseMapPage({
     learning,
     topicStates,
     plan,
-    mapFindings,
     openMock,
     readiness,
     examToReport,
@@ -60,7 +57,6 @@ export default async function CourseMapPage({
     getKcLearning(courseId),
     getTopicStates(courseId),
     getPlan(courseId),
-    getMapFindings(courseId),
     getOpenMockExam(courseId),
     getReadiness(courseId),
     getExamToReport(courseId),
@@ -105,7 +101,6 @@ export default async function CourseMapPage({
           {examToReport && (
             <ExamResultCard courseId={courseId} examDate={examToReport} />
           )}
-          <MapFindingsCard findings={mapFindings} />
         </>
       }
     />

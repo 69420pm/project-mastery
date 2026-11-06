@@ -14,7 +14,6 @@ export { endsReply, TutorToolError, type TutorTools } from "./ai/tools";
 export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getExamToReport } from "./server/exam-to-report";
-export { getMapFindings } from "./server/map-findings-card";
 export {
   mathRunner,
   type DeclaredAnswer,
@@ -26,18 +25,12 @@ export { getMockExam, getOpenMockExam } from "./server/mock-exams";
 export { getPlan } from "./server/plan";
 export { getReadiness } from "./server/readiness";
 export { loadProblemFlags } from "./server/problems";
-export {
-  isAnswerable,
-  loadAnswerLinks,
-  recordAnswer,
-} from "./server/questions";
+export { recordAnswer } from "./server/questions";
 export { sessionEndedMessage } from "./schemas";
 export {
   closeIdleSession,
   endIdleSessions,
   getSessionEnd,
-  getSessionMode,
-  startSessionMode,
 } from "./server/sessions";
 export { getTopicStates } from "./server/topic-states";
 export { startTutoring } from "./server/tutoring";
@@ -51,12 +44,7 @@ export { assembleMock } from "./workflows/assemble-mock";
 export { gradeMock } from "./workflows/grade-mock";
 // For the `close` smoke check, which closes an ended session in process.
 export { closeStudySession } from "./workflows/close-study-session";
-export {
-  guardedNotes,
-  pinnedLines,
-  type CloseNotes,
-  type CloseSource,
-} from "./domain/close";
+export type { CloseNotes, CloseSource } from "./domain/close";
 export type {
   GradedKc,
   KcState,

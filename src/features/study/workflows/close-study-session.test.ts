@@ -10,13 +10,10 @@ vi.mock("server-only", () => ({}));
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
-const PIN = "!Exam is open book.";
 
 const TABLES = [
   "study_sessions",
   "chat_messages",
-  "topics",
-  "topic_notes",
   "questions",
   "attempts",
   "kcs",
@@ -36,14 +33,14 @@ function createDb() {
       ai_usage: () => ({ created_at: new Date().toISOString() }),
     },
     functions: {
-      // Its transaction and guard are tested with pgTAP; this one stores the
-      // Session note and records the arguments.
+      // Its transaction and guard are tested with pgTAP; this one marks the
+      // session closed and records the arguments.
       store_session_close: (args, tables) => {
         stored.push(args);
         const session = tables.study_sessions.find(
           ({ id }) => id === args.p_session_id,
         )!;
-        session.session_note = args.p_session_note;
+        session.closed_at = new Date().toISOString();
         return true;
       },
     },
@@ -79,7 +76,7 @@ function useCloseModel(answer: object) {
   return model;
 }
 
-/** An ended learn session on Topic t1 with one graded Question. */
+/** An ended session with one graded Question. */
 function seedSession(overrides: FakeRow = {}) {
   const t = db.tables;
   t.study_sessions.push({
@@ -87,15 +84,11 @@ function seedSession(overrides: FakeRow = {}) {
     owner: STUDENT,
     course_id: COURSE,
     chat_id: "c1",
-    mode: "learn",
-    topic_id: "t1",
     ended_at: "2026-10-26T10:00:00Z",
     close_started_at: null,
-    session_note: null,
+    closed_at: null,
     ...overrides,
   });
-  t.topics.push({ id: "t1", name: "Thrust" });
-  t.topic_notes.push({ topic_id: "t1", text: "Mixes up mass flow." });
   t.chat_messages.push(
     {
       chat_id: "c1",
@@ -127,7 +120,7 @@ function seedSession(overrides: FakeRow = {}) {
   });
   t.memories.push({
     course_id: COURSE,
-    text: `${PIN}\n${"Likes short answers. ".repeat(150)}`,
+    text: "Likes short answers. ".repeat(150),
     updated_at: "2026-10-25T08:00:00.123456+00:00",
   });
 }
@@ -135,9 +128,6 @@ function seedSession(overrides: FakeRow = {}) {
 const session = () => db.tables.study_sessions[0]!;
 
 const ANSWER = {
-  happened: "Learned momentum thrust.",
-  next: "Next: nozzles.",
-  topicNote: "Still says velocity alone makes thrust.",
   memoryLines: ["Prefers worked examples."],
   condensedLines: ["Likes short answers."],
 };
@@ -156,36 +146,19 @@ test("a claimed session closes once with one call, and a second start stops at t
 
   expect(model.doGenerateCalls).toHaveLength(1);
   const input = JSON.stringify(model.doGenerateCalls[0]!.prompt);
-  for (const part of [
-    "Thrust is ṁ Δv.",
-    "Momentum thrust",
-    "Mixes up mass flow.",
-  ]) {
+  for (const part of ["Thrust is ṁ Δv.", "Momentum thrust", "Velocity."]) {
     expect(input).toContain(part);
   }
   expect(session().close_started_at).not.toBeNull();
-  // The condensed Memory lost the pinned line, so it is not stored.
   expect(stored).toEqual([
     {
       p_session_id: "s1",
-      p_session_note: `${ANSWER.happened}\n${ANSWER.next}`,
       p_memory_lines: ANSWER.memoryLines,
-      p_topic_note: ANSWER.topicNote,
+      p_condensed_memory: "Likes short answers.",
+      p_memory_read_at: "2026-10-25T08:00:00.123456+00:00",
     },
   ]);
   expect(db.tables.ai_usage).toHaveLength(1);
-});
-
-test("a condensed Memory that keeps the pinned lines is stored with the Memory's read time", async () => {
-  useCloseModel({ ...ANSWER, condensedLines: [PIN, "Likes short answers."] });
-  seedSession();
-
-  await closeStudySession("s1");
-
-  expect(stored[0]).toMatchObject({
-    p_condensed_memory: `${PIN}\nLikes short answers.`,
-    p_memory_read_at: "2026-10-25T08:00:00.123456+00:00",
-  });
 });
 
 test("a session claimed already or still running gets no call", async () => {
@@ -203,7 +176,7 @@ test("a session claimed already or still running gets no call", async () => {
 
 test.each([
   ["without a Student message", { chat_id: "c1" }, "user"],
-  ["without a Chat (a mock)", { chat_id: null, mode: "mock" }, "none"],
+  ["without a Chat (a mock)", { chat_id: null }, "none"],
 ])(
   "a session %s stays claimed with no call and no note",
   async (_, overrides, dropRole) => {
@@ -217,6 +190,6 @@ test.each([
 
     expect(model.doGenerateCalls).toHaveLength(0);
     expect(session().close_started_at).not.toBeNull();
-    expect(session().session_note).toBeNull();
+    expect(stored).toEqual([]);
   },
 );

@@ -7,21 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import type { TopicStateName } from "@/features/study/domain/topic-state";
 import { MAX_RATING_NOTE_LENGTH } from "@/features/study/schemas";
 import {
   getSessionSummary,
   rateStudySession,
 } from "@/features/study/server/actions";
 import type { KcStateName, SessionSummary } from "@/features/study/types";
-
-const TOPIC_STATE_NAMES: Record<TopicStateName, string> = {
-  new: "New",
-  in_progress: "In progress",
-  learned: "Learned",
-  solid: "Solid",
-  needs_work: "Needs work",
-};
 
 const KC_STATE_NAMES: Record<KcStateName, string> = {
   new: "New",
@@ -31,9 +22,8 @@ const KC_STATE_NAMES: Record<KcStateName, string> = {
 };
 
 /**
- * Where a learn session's composer was, at `close` or once it has ended:
- * the Topic's new state and each KC practised with its state and next
- * review, as if the session had ended, then a rating from 1 to 5 with an
+ * Where a session's composer was, once it has ended: each KC practised
+ * with its state and next review, then a rating from 1 to 5 with an
  * optional note, and Start new session. Saving the rating ends the session.
  */
 export function CloseCard({
@@ -107,20 +97,9 @@ export function CloseCard({
 }
 
 function SummaryFacts({ summary }: { summary: SessionSummary }) {
-  const { topic, kcs } = summary;
+  const { kcs } = summary;
   return (
     <div className="flex flex-col gap-3">
-      {topic && (
-        <p className="flex items-center gap-2">
-          <span className="font-medium">{topic.name}</span>
-          <Badge
-            variant={topic.state === "needs_work" ? "destructive" : "secondary"}
-            aria-label={`Topic state: ${TOPIC_STATE_NAMES[topic.state]}`}
-          >
-            {TOPIC_STATE_NAMES[topic.state]}
-          </Badge>
-        </p>
-      )}
       {kcs.length > 0 && (
         <ul aria-label="KCs practised" className="flex flex-col gap-1.5">
           {kcs.map((kc) => (

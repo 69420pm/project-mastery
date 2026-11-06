@@ -50,21 +50,21 @@ select results_eq(
   $$select alice_session from ids$$,
   'a Student reads only their own session');
 select throws_ok(
-  $$insert into public.study_sessions (owner, course_id, mode)
-    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'learn')$$,
+  $$insert into public.study_sessions (owner, course_id)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001')$$,
   '42501', null, 'a Student cannot start a session themselves');
 
 select lives_ok(
-  $$insert into public.questions (session_id, kind, prompt)
-    select alice_session, 'question', 'What is thrust?' from ids$$,
+  $$insert into public.questions (session_id, prompt)
+    select alice_session, 'What is thrust?' from ids$$,
   'the owner asks a question in their session');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt)
-    select bob_session, 'question', 'Sneaky?' from ids$$,
+  $$insert into public.questions (session_id, prompt)
+    select bob_session, 'Sneaky?' from ids$$,
   '42501', null, 'a question in another Student''s session is refused');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt, exercise_id)
-    select alice_session, 'problem', 'Ex. 9', 'dddddddd-0000-0000-0000-000000000009' from ids$$,
+  $$insert into public.questions (session_id, prompt, exercise_id)
+    select alice_session, 'Ex. 9', 'dddddddd-0000-0000-0000-000000000009' from ids$$,
   '42501', null, 'an Exercise not of the Course is refused');
 
 select lives_ok(

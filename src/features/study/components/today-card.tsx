@@ -9,19 +9,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { MockExamButton } from "@/features/study/components/mock-exam-button";
-import { MODE_LABELS, type SessionMode } from "@/features/study/domain/modes";
 import type { StudyPlan } from "@/features/study/types";
 
 /**
  * The Today card (#177): the due reviews, the next Topic with its central
- * question and a link to its page, the Phase's hint and a button per
- * available mode, each opening a new Chat in it: Learn with a next Topic,
- * Review with reviews due, Practice with a learned in-plan Topic. Without a
- * map or Topics it says to build or update the map. The page passes the
- * links, since the map and the Chat belong to other features; without
- * `startHref`, as in a new Chat, there are no buttons. With `mock`, Mock
- * exam shows under Practice's condition, and Continue mock exam while a mock
- * is open.
+ * question and a link to its page, the Phase's hint and Study, which opens
+ * a new Chat. Without a map or Topics it says to build or update the map.
+ * The page passes the links, since the map and the Chat belong to other
+ * features; without `startHref`, as in a new Chat, there are no buttons.
+ * With `mock`, Mock exam shows once an in-plan Topic is learned, and
+ * Continue mock exam while a mock is open.
  */
 export function TodayCard({
   plan,
@@ -85,15 +82,11 @@ export function TodayCard({
     );
   }
   const ready = plan.hasMap && plan.topics.length > 0;
-  const modes: SessionMode[] = [];
-  if (next) modes.push("learn");
-  if (reviews) modes.push("review");
   const practice = plan.topics.some(
     (t) =>
       t.status === "in_plan" &&
       ["learned", "solid", "needs_work"].includes(t.topicState.state),
   );
-  if (practice) modes.push("practice");
   const showMock = mock && (mock.openHref !== null || practice);
   return (
     <Card
@@ -109,20 +102,11 @@ export function TodayCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2 px-4 text-sm">
         {body}
-        {ready && startHref && (modes.length > 0 || showMock) && (
+        {ready && startHref && (
           <div className="flex flex-wrap gap-2">
-            {modes.map((mode) => (
-              <Button
-                key={mode}
-                asChild
-                size="sm"
-                variant={mode === modes[0] ? "default" : "outline"}
-              >
-                <Link href={`${startHref}?mode=${mode}`}>
-                  {MODE_LABELS[mode]}
-                </Link>
-              </Button>
-            ))}
+            <Button asChild size="sm">
+              <Link href={startHref}>Study</Link>
+            </Button>
             {showMock && (
               <MockExamButton
                 courseId={mock.courseId}

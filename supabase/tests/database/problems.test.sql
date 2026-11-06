@@ -99,20 +99,20 @@ select is(
 
 -- Questions on a Problem.
 select lives_ok(
-  $$insert into public.questions (session_id, kind, prompt, problem_id)
-    values ((select id from ids), 'problem', 'Compute it.', 'ffffffff-0000-0000-0000-000000000004')$$,
+  $$insert into public.questions (session_id, prompt, problem_id)
+    values ((select id from ids), 'Compute it.', 'ffffffff-0000-0000-0000-000000000004')$$,
   'a question poses a ready Problem of its Course');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt, problem_id)
-    values ((select id from ids), 'problem', 'Compute it.', 'ffffffff-0000-0000-0000-000000000002')$$,
+  $$insert into public.questions (session_id, prompt, problem_id)
+    values ((select id from ids), 'Compute it.', 'ffffffff-0000-0000-0000-000000000002')$$,
   '42501', null, 'a question cannot pose a queued Problem');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt, problem_id)
-    values ((select id from ids), 'problem', 'Compute it.', 'ffffffff-0000-0000-0000-000000000003')$$,
+  $$insert into public.questions (session_id, prompt, problem_id)
+    values ((select id from ids), 'Compute it.', 'ffffffff-0000-0000-0000-000000000003')$$,
   '42501', null, 'a question cannot pose a Problem of another Course');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt, exercise_id, problem_id)
-    values ((select id from ids), 'problem', 'Compute it.',
+  $$insert into public.questions (session_id, prompt, exercise_id, problem_id)
+    values ((select id from ids), 'Compute it.',
       'eeeeeeee-0000-0000-0000-000000000001', 'ffffffff-0000-0000-0000-000000000004')$$,
   '23514', null, 'a question poses an Exercise or a Problem, not both');
 reset role;

@@ -6,7 +6,6 @@ export { tutorInstructions } from "./ai/instructions";
 export { CloseCard } from "./components/close-card";
 export { EndSessionButton } from "./components/end-session-button";
 export { ExamResultCard } from "./components/exam-result-card";
-export { MapFindingsCard } from "./components/map-findings-card";
 export { MemoryCard } from "./components/memory-card";
 export { ProgressLine } from "./components/progress-line";
 export { ReadinessLine } from "./components/readiness-line";
@@ -16,16 +15,7 @@ export { mockExamPath } from "./domain/mock-paths";
 export { ProblemFlagControl } from "./components/problem-flag-control";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
-export { getTopicKnowledgeMap } from "./server/actions";
-export { StageBar } from "./components/stage-bar";
 export { PHASE_NAMES, topicBadges } from "./domain/plan";
-export {
-  MODE_LABELS,
-  parseSessionMode,
-  SESSION_MODES,
-  type SessionMode,
-} from "./domain/modes";
-export { isStage, STAGE_NAMES, type Stage } from "./domain/stages";
 export { recallText, scheduleText } from "./domain/schedule-text";
 export { sessionEndedMessage } from "./schemas";
 export type {
@@ -34,12 +24,7 @@ export type {
   MockExamView,
   ProblemFlag,
   ProblemView,
-  QuestionKind,
   StudyPlan,
-  TopicKnowledgeMap,
   TopicView,
-  SessionNoteEntry,
-  TopicNoteEntry,
   TutorContext,
-  TutorToday,
 } from "./types";

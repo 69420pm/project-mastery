@@ -1,14 +1,6 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import {
-  isStage,
-  STAGE_NAMES,
-  type ProblemView,
-  type GradedKc,
-  type QuestionKind,
-  type Stage,
-  type TopicView,
-} from "@/features/study";
+import type { ProblemView, GradedKc, TopicView } from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
@@ -40,14 +32,11 @@ export type ReplyStep = {
   detail: StepDetail | null;
 };
 
-/** A question the AI asked, as its question card shows it. */
-export type AskedQuestion = {
+/** A question the AI asked, as the Chat shows it. */
+type AskedQuestion = {
   id: string;
-  kind: QuestionKind;
   /** Markdown with LaTeX. */
   prompt: string;
-  /** The generated Problem it poses, which the card lets the Student flag. */
-  generatedProblemId?: string;
 };
 
 /** A Reading section the AI opened, as its reading card shows it. */
@@ -69,18 +58,7 @@ export type ReplySegment =
   | { kind: "text"; text: string }
   | { kind: "step"; step: ReplyStep }
   | { kind: "question"; question: AskedQuestion }
-  | { kind: "reading"; reading: ShownReading }
-  | { kind: "knowledgeMap"; knowledgeMap: KnowledgeMapReveal };
-
-/**
- * A graded rebuild, whose Knowledge map card opens the Topic's part of the
- * Knowledge map.
- */
-export type KnowledgeMapReveal = {
-  /** The `grade` call's id, which tells the cards apart. */
-  id: string;
-  topicId: string;
-};
+  | { kind: "reading"; reading: ShownReading };
 
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
@@ -90,31 +68,19 @@ const TOOL_TITLES: Record<string, string> = {
   ask: "Asking a question",
   showReading: "Opening a reading",
   grade: "Grading your answer",
-  setStage: "Moving on",
   compute: "Checking the numbers",
 };
 
 /**
  * An AI reply's parts as the Chat shows them, in order: each run of text as
- * one segment, each tool call as a step. Other parts, such as `step-start`,
+ * one segment, a question it asked and a reading it opened as their own,
+ * and each other tool call as a step. Other parts, such as `step-start`,
  * show nothing. Once the reply is no longer in progress, a call that never
  * returned (the Student stopped the reply) shows as stopped, not running.
- * A `grade` of a question in `rebuilds` is followed by a Knowledge map of
- * `topicId`, when the session has a Topic.
  */
 export function replySegments(
   parts: ChatUIMessage["parts"],
-  {
-    inProgress,
-    rebuilds = new Set(),
-    topicId = null,
-  }: {
-    inProgress: boolean;
-    /** The Chat's rebuild questions (`rebuildQuestions`). */
-    rebuilds?: Set<string>;
-    /** The session's Topic (`sessionTopic`). */
-    topicId?: string | null;
-  },
+  { inProgress }: { inProgress: boolean },
 ): ReplySegment[] {
   const segments: ReplySegment[] = [];
   for (const part of parts) {
@@ -133,13 +99,6 @@ export function replySegments(
             ? { kind: "reading", reading }
             : { kind: "step", step: replyStep(part, inProgress) },
       );
-      const graded = gradedQuestion(part);
-      if (topicId !== null && graded !== null && rebuilds.has(graded)) {
-        segments.push({
-          kind: "knowledgeMap",
-          knowledgeMap: { id: part.toolCallId, topicId },
-        });
-      }
     }
   }
   return segments;
@@ -157,109 +116,7 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
   if (typeof output.questionId !== "string") return null;
   return {
     id: output.questionId,
-    kind: input.kind as QuestionKind,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
-    ...(typeof output.generatedProblemId === "string" && {
-      generatedProblemId: output.generatedProblemId,
-    }),
-  };
-}
-
-/** The question a `grade` call that returned graded; null for any other part. */
-function gradedQuestion(part: ToolPart): string | null {
-  if (getToolName(part) !== "grade" || part.state !== "output-available") {
-    return null;
-  }
-  const { questionId } = asRecord(part.input);
-  return typeof questionId === "string" ? questionId : null;
-}
-
-/** The ids of a Chat's questions of kind `rebuild`. */
-export function rebuildQuestions(messages: ChatUIMessage[]): Set<string> {
-  const ids = new Set<string>();
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (!isToolUIPart(part)) continue;
-      const question = askedQuestion(part);
-      if (question?.kind === "rebuild") ids.add(question.id);
-    }
-  }
-  return ids;
-}
-
-/**
- * A Chat's learn session's Topic, from its latest reply's tutor context: the
- * Topic of today's work while the context has a session. Null without one.
- */
-export function sessionTopic(messages: ChatUIMessage[]): string | null {
-  const context = messages.findLast((message) => message.metadata?.tutorContext)
-    ?.metadata?.tutorContext;
-  return context?.session ? (context.todayPlan.next?.id ?? null) : null;
-}
-
-/**
- * A review session's progress, such as "3 of 5 done": the groups of its latest
- * reply's review queue whose every KC has a first attempt, a group to retry
- * included. The queue is built before that reply grades, so a group whose KCs
- * the reply's own `grade` calls cover counts as done too. Null without a queue
- * or with an empty one.
- */
-export function reviewProgress(messages: ChatUIMessage[]): string | null {
-  const latest = messages.findLast((message) => message.metadata?.tutorContext);
-  const queue = latest?.metadata?.tutorContext?.reviewQueue;
-  if (!latest || !queue?.length) return null;
-  const graded = new Set<string>();
-  for (const part of latest.parts) {
-    if (!isToolUIPart(part) || gradedQuestion(part) === null) continue;
-    const { results } = asRecord(part.input);
-    if (!Array.isArray(results)) continue;
-    for (const result of results) {
-      const { kcId } = asRecord(result);
-      if (typeof kcId === "string") graded.add(kcId);
-    }
-  }
-  const done = queue.filter(
-    ({ status, kcs }) =>
-      status !== "open" || kcs.every(({ id }) => graded.has(id)),
-  ).length;
-  return `${done} of ${queue.length} done`;
-}
-
-/**
- * A practice session's progress, such as "2 Problems answered": its graded
- * questions that posed a Problem. Null without practice KCs in the latest
- * reply's tutor context.
- */
-export function practiceProgress(messages: ChatUIMessage[]): string | null {
-  const kcs = messages.findLast((message) => message.metadata?.tutorContext)
-    ?.metadata?.tutorContext?.practiceKcs;
-  if (!kcs?.length) return null;
-  const problems = new Set<string>();
-  const graded = new Set<string>();
-  for (const message of messages) {
-    for (const part of message.parts) {
-      if (!isToolUIPart(part)) continue;
-      const question = askedQuestion(part);
-      if (question && typeof asRecord(part.input).problemId === "string") {
-        problems.add(question.id);
-      }
-      const gradedId = gradedQuestion(part);
-      if (gradedId !== null) graded.add(gradedId);
-    }
-  }
-  const answered = [...problems].filter((id) => graded.has(id)).length;
-  return `${answered} ${answered === 1 ? "Problem" : "Problems"} answered`;
-}
-
-/**
- * Where a Chat's session stands: its stage, Topic and the progress of a
- * review or practice session.
- */
-export function sessionView(messages: ChatUIMessage[]) {
-  return {
-    stage: sessionStage(messages),
-    topicId: sessionTopic(messages),
-    progress: reviewProgress(messages) ?? practiceProgress(messages),
   };
 }
 
@@ -281,96 +138,6 @@ function shownReading(part: ToolPart): ShownReading | null {
     purpose: typeof input.purpose === "string" ? input.purpose : "",
   };
 }
-
-/**
- * The reading cards of a Chat that are done, by `showReading` call id: a
- * card is done once a later Student message names its section, as Done
- * sends it. A side message leaves it open.
- */
-export function doneReadings(messages: ChatUIMessage[]): Set<string> {
-  const done = new Set<string>();
-  // Open cards by section id.
-  const open = new Map<string, string[]>();
-  for (const message of messages) {
-    const read = message.metadata?.readingSectionId;
-    if (message.role === "user" && read) {
-      for (const id of open.get(read) ?? []) done.add(id);
-      open.delete(read);
-    }
-    for (const part of message.parts) {
-      if (!isToolUIPart(part)) continue;
-      const reading = shownReading(part);
-      if (reading) {
-        open.set(reading.sectionId, [
-          ...(open.get(reading.sectionId) ?? []),
-          reading.id,
-        ]);
-      }
-    }
-  }
-  return done;
-}
-
-/**
- * Where each question of a Chat stands, by question id, read from its
- * messages: submitted once a Student's message answers it from its card
- * (the latest answer counts), graded once a `grade` call returned for it.
- * A question missing here is open.
- */
-export function questionStates(
-  messages: ChatUIMessage[],
-): Map<string, QuestionState> {
-  const states = new Map<string, QuestionState>();
-  for (const message of messages) {
-    const questionId = message.metadata?.questionId;
-    if (message.role === "user" && questionId) {
-      states.set(questionId, { status: "submitted" });
-    }
-    for (const part of message.parts) {
-      if (
-        !isToolUIPart(part) ||
-        getToolName(part) !== "grade" ||
-        part.state !== "output-available"
-      ) {
-        continue;
-      }
-      const graded = asRecord(part.input).questionId;
-      const kcs = asRecord(part.output).kcs;
-      if (typeof graded === "string" && Array.isArray(kcs)) {
-        states.set(graded, { status: "graded", kcs: kcs as GradedKc[] });
-      }
-    }
-  }
-  return states;
-}
-
-/**
- * Where a Chat's learn session stands, read from its messages: the stage of
- * the latest `setStage` call that returned, or else of the latest reply's
- * tutor context. Null for a session without stages.
- */
-export function sessionStage(messages: ChatUIMessage[]): Stage | null {
-  let stage: Stage | null = null;
-  for (const message of messages) {
-    const context = message.metadata?.tutorContext;
-    if (context) stage = context.session?.stage ?? null;
-    for (const part of message.parts) {
-      if (
-        isToolUIPart(part) &&
-        getToolName(part) === "setStage" &&
-        part.state === "output-available"
-      ) {
-        const moved = asRecord(part.output).stage;
-        if (isStage(moved)) stage = moved;
-      }
-    }
-  }
-  return stage;
-}
-
-/** A question's state on its question card, once it is no longer open. */
-export type QuestionState =
-  { status: "submitted" } | { status: "graded"; kcs: GradedKc[] };
 
 /** One tool call as its card shows it. */
 function replyStep(part: ToolPart, inProgress = true): ReplyStep {
@@ -432,12 +199,6 @@ function describeOutput(
     return {
       summary: `Graded: ${kcs.map((kc) => `${kc.name} ${kc.result}`).join(", ")}`,
       detail: { tool: "grade", kcs },
-    };
-  }
-  if (name === "setStage" && isStage(out.stage)) {
-    return {
-      summary: `Moved to ${STAGE_NAMES[out.stage]}`,
-      detail: { tool: "other", input, output },
     };
   }
   if (name === "compute") {

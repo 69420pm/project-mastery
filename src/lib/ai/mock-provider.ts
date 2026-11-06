@@ -170,35 +170,40 @@ function toolCallStream(id: string, toolName: string, input: unknown) {
   });
 }
 
+type ToolPart = {
+  type: string;
+  toolName?: string;
+  input?: unknown;
+  output?: { value?: { questionId?: unknown } };
+};
+
 /**
- * A Student's message that starts with this makes the tutor mock ask a
- * `rebuild` question; once it grades the answer, it moves to `close`.
+ * The question the reply before the Student's last message asked and did
+ * not grade, with its KCs: the one that message answers.
  */
-export const MOCK_REBUILD_REQUEST = "Rebuild with me";
-
-/** The rebuild question the tutor mock asks. */
-export const MOCK_REBUILD_QUESTION =
-  "Mock rebuild: rebuild the Topic from memory.";
-
-type AskInput = { kcIds?: string[]; kind?: string };
-
-/** The input of the latest `ask` call in the prompt, if any. */
-function lastAskInput(prompt: Prompt): AskInput | undefined {
-  for (const message of prompt.toReversed()) {
-    if (message.role !== "assistant" || !Array.isArray(message.content)) {
-      continue;
-    }
-    const call = (
-      message.content as Array<{
-        type: string;
-        toolName?: string;
-        input?: unknown;
-      }>
-    ).findLast((part) => part.type === "tool-call" && part.toolName === "ask");
-    if (call) {
-      return typeof call.input === "string"
-        ? JSON.parse(call.input)
-        : (call.input as AskInput);
+function openQuestion(
+  prompt: Prompt,
+): { questionId: string; kcIds: string[] } | undefined {
+  let questionId: string | undefined;
+  for (const message of prompt.toReversed().slice(1)) {
+    if (message.role === "user") return undefined;
+    if (!Array.isArray(message.content)) continue;
+    for (const part of (message.content as ToolPart[]).toReversed()) {
+      if (part.type === "tool-result" && part.toolName === "grade") {
+        return undefined;
+      }
+      if (part.type === "tool-result" && part.toolName === "ask") {
+        const id = part.output?.value?.questionId;
+        questionId = typeof id === "string" ? id : undefined;
+      }
+      if (part.type === "tool-call" && part.toolName === "ask") {
+        const input = (
+          typeof part.input === "string" ? JSON.parse(part.input) : part.input
+        ) as { kcIds?: string[] };
+        return questionId
+          ? { questionId, kcIds: input.kcIds ?? [] }
+          : undefined;
+      }
     }
   }
   return undefined;
@@ -208,34 +213,27 @@ function lastAskInput(prompt: Prompt): AskInput | undefined {
  * In a Chat, the tutor's questions and readings: a Student message starting
  * with "Quiz me" gets an `ask` call on the first KC id the instructions name,
  * one starting with "Read with me" a `showReading` call on the first Reading
- * section they list, and an answer from a question card, which names its
- * question, a `grade` call with every KC of the asked question full. One
- * starting with "Rebuild with me" gets a `rebuild` question on that KC, and
- * once its grade returns, a `setStage` call to `close`. Each then ends its
- * step.
+ * section they list, and any other message right after an `ask` a `grade`
+ * call with every KC of the asked question full. Each then ends its step.
  */
 function mockTutorQuestions(
   prompt: Prompt,
   tools: ReadonlyArray<{ name: string }> | undefined,
 ) {
   if (!tools?.some(({ name }) => name === "ask")) return null;
-  if (gradedJustNow(prompt) && lastAskInput(prompt)?.kind === "rebuild") {
-    return toolCallStream("mock-set-stage", "setStage", {
-      stage: "close",
-      reason: "The rebuild is done.",
-    });
-  }
   if (prompt.at(-1)?.role !== "user") return null;
   const text = lastUserParts(prompt)
     .filter((part) => part.type === "text")
     .map((part) => part.text ?? "")
     .join(" ");
-  const answered = new RegExp(`card of question (${UUID})`).exec(text)?.[1];
+  const answered =
+    !text.startsWith(MOCK_QUIZ_REQUEST) &&
+    !text.startsWith(MOCK_READING_REQUEST) &&
+    openQuestion(prompt);
   if (answered) {
-    const kcIds = lastAskInput(prompt)?.kcIds ?? [];
     return toolCallStream("mock-grade", "grade", {
-      questionId: answered,
-      results: kcIds.map((kcId) => ({ kcId, result: "full" })),
+      questionId: answered.questionId,
+      results: answered.kcIds.map((kcId) => ({ kcId, result: "full" })),
       help: "none",
     });
   }
@@ -251,8 +249,7 @@ function mockTutorQuestions(
       purpose: MOCK_READING_PURPOSE,
     });
   }
-  const rebuild = text.startsWith(MOCK_REBUILD_REQUEST);
-  if (!rebuild && !text.startsWith(MOCK_QUIZ_REQUEST)) return null;
+  if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId =
     typeof system === "string"
       ? // A KC's id is followed by its state or Topic; a Topic's by a parenthesis.
@@ -260,22 +257,9 @@ function mockTutorQuestions(
       : undefined;
   if (!kcId) return null;
   return toolCallStream("mock-ask", "ask", {
-    kind: rebuild ? "rebuild" : "question",
-    prompt: rebuild ? MOCK_REBUILD_QUESTION : MOCK_QUESTION,
+    prompt: MOCK_QUESTION,
     kcIds: [kcId],
   });
-}
-
-/** Whether the prompt ends with the result of a `grade` call. */
-function gradedJustNow(prompt: Prompt): boolean {
-  const last = prompt.at(-1);
-  return (
-    last?.role === "tool" &&
-    Array.isArray(last.content) &&
-    (last.content as Array<{ type: string; toolName?: string }>).some(
-      (part) => part.type === "tool-result" && part.toolName === "grade",
-    )
-  );
 }
 
 function languageModel(modelId: string) {
