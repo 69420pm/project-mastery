@@ -80,7 +80,7 @@ export const exerciseExtractionSchema = (
     ),
   });
 
-const EXERCISE_INSTRUCTIONS = `You get one unit of a university course's exercises as JSON: the material's name, its outline with the unit's chapter marked, the course language, its subtasks, each with an id, its statement and its printed solution or null, and the knowledge components (KCs) nearest to it, each with an id. Answer for every subtask.
+const EXERCISE_INSTRUCTIONS = `You get one unit of a university course's exercises as JSON: the material's name, its outline with the unit's chapters marked, the course language, its subtasks, each with an id, its statement and its printed solution or null, and the knowledge components (KCs) nearest to it, each with an id. Answer for every subtask.
 
 - Give the ids of the 1 to 6 listed KCs a Student needs to solve it, most important first.
 - Only when no listed KC fits something it needs, propose a new KC: one thing one short exam question can test, with a short name and a one-line description.

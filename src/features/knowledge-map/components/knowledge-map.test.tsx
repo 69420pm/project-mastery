@@ -214,6 +214,8 @@ const withDuplicate = {
     chaptersWithoutKcs: [],
     exercisesWithoutKcs: [],
     duplicates: [{ a: "Nozzles", b: "Jet nozzles", similarity: 0.9 }],
+    unitsBelowCoverage: [],
+    unreadPages: [],
   },
 };
 

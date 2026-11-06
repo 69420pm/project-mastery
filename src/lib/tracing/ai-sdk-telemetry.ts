@@ -1,6 +1,8 @@
 import { LangfuseOtelSpanAttributes } from "@langfuse/tracing";
 import { LangfuseVercelAiSdkIntegration } from "@langfuse/vercel-ai-sdk";
+import { isTimeoutError } from "@/lib/ai/call-timeout";
 import {
+  SpanStatusCode,
   trace,
   type Attributes,
   type Span,
@@ -13,8 +15,8 @@ type CallEnd = Parameters<
 >[0];
 
 /**
- * The AI SDK telemetry integration that sends AI calls to Langfuse, with two
- * additions to what Langfuse's integration records:
+ * The AI SDK telemetry integration that sends AI calls to Langfuse, with
+ * three additions to what Langfuse's integration records:
  *
  * - **Embedding values as input.** `@ai-sdk/otel` writes them only with its
  *   `embedding` option, which Langfuse does not pass, and Langfuse shows the
@@ -32,19 +34,35 @@ type CallEnd = Parameters<
  *   without a reported cost keep the inferred one. Both are set when the
  *   call's span ends, which `@ai-sdk/otel` does synchronously inside
  *   `onLanguageModelCallEnd`.
+ * - **Timed-out calls as errors.** `@ai-sdk/otel` ends the spans of an
+ *   aborted call without a status. When the abort is the call's `timeout`,
+ *   each span it ends synchronously inside `onAbort` gets the level ERROR
+ *   and the timeout's message.
  */
 export function langfuseAiSdkTelemetry(
   tracer: Tracer = trace.getTracer("ai"),
 ): Telemetry {
   let embedding: string[] | undefined;
   let call: CallEnd | undefined;
+  let timedOut: string | undefined;
   const integration = new LangfuseVercelAiSdkIntegration({
-    tracer: withAttributes(
-      tracer,
-      () => embedding,
-      () => call,
-    ),
+    tracer: withAttributes(tracer, {
+      input: () => embedding,
+      ending: () => call,
+      timedOut: () => timedOut,
+    }),
   });
+  const onAbort = integration.onAbort.bind(integration);
+  integration.onAbort = (event) => {
+    timedOut = isTimeoutError(event.reason)
+      ? (event.reason as Error).message
+      : undefined;
+    try {
+      onAbort(event);
+    } finally {
+      timedOut = undefined;
+    }
+  };
   const onEmbedStart = integration.onEmbedStart.bind(integration);
   integration.onEmbedStart = (event) => {
     embedding = event.values;
@@ -68,14 +86,22 @@ export function langfuseAiSdkTelemetry(
 }
 
 /**
- * `tracer`, giving a span started while `input()` has values that input, and
- * a model call's span the usage and cost of the call `ending()` has when it
- * ends.
+ * `tracer`, giving a span started while `input()` has values that input, a
+ * model call's span the usage and cost of the call `ending()` has when it
+ * ends, and any span that ends while `timedOut()` gives a message (a call
+ * aborted by its `timeout`) the level ERROR with that message.
  */
 function withAttributes(
   tracer: Tracer,
-  input: () => string[] | undefined,
-  ending: () => CallEnd | undefined,
+  {
+    input,
+    ending,
+    timedOut,
+  }: {
+    input: () => string[] | undefined;
+    ending: () => CallEnd | undefined;
+    timedOut: () => string | undefined;
+  },
 ): Tracer {
   return {
     startSpan(name, options, context) {
@@ -94,9 +120,19 @@ function withAttributes(
             },
         context,
       );
-      return options?.attributes?.["gen_ai.operation.name"] === "chat"
-        ? withCallAttributes(span, ending)
-        : span;
+      const isCall = options?.attributes?.["gen_ai.operation.name"] === "chat";
+      return withEndAttributes(span, () => {
+        const message = timedOut();
+        if (message !== undefined) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message });
+          return {
+            [LangfuseOtelSpanAttributes.OBSERVATION_LEVEL]: "ERROR",
+            [LangfuseOtelSpanAttributes.OBSERVATION_STATUS_MESSAGE]: message,
+          };
+        }
+        const event = isCall ? ending() : undefined;
+        return event ? callAttributes(event) : undefined;
+      });
     },
     startActiveSpan: tracer.startActiveSpan.bind(
       tracer,
@@ -104,17 +140,17 @@ function withAttributes(
   };
 }
 
-/** `span`, which gets the attributes of the ending call when it ends. */
-function withCallAttributes(
+/** `span`, which gets the attributes `atEnd` gives when it ends. */
+function withEndAttributes(
   span: Span,
-  ending: () => CallEnd | undefined,
+  atEnd: () => Attributes | undefined,
 ): Span {
   return new Proxy(span, {
     get(target, property) {
       if (property === "end") {
         return (endTime?: Parameters<Span["end"]>[0]) => {
-          const event = ending();
-          if (event) target.setAttributes(callAttributes(event));
+          const attributes = atEnd();
+          if (attributes) target.setAttributes(attributes);
           target.end(endTime);
         };
       }

@@ -69,7 +69,7 @@ erDiagram
 | What                  | Table                  | What it holds                                                                                                                                                     | Written by                                                 |
 | --------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
 | Material              | `materials`            | The file's name, place in Storage and Course order (`position`), parse progress, and the `language` and `notes` the Outline found                                 | Upload, then the parse                                     |
-| Page result           | `material_pages`       | One row per page: the **page units** that start on it, or why it was `skipped` (`overlay`, `blank`, `unreadable`). A working table for the parse                  | Parse                                                      |
+| Page result           | `material_pages`       | One row per page: the **page units** that start on it, or why it was `skipped` (`overlay`, `blank`, `unreadable`, `uncovered`). A working table for the parse     | Parse                                                      |
 | Chapter               | `chapters`             | One node of a Material's Outline, with its title as printed. The root Chapter (depth 0) is titled by the Material. `exam_proposed` is the AI's guess              | Parse. The Brief sets `is_exam` and `exam_asked`           |
 | Chunk                 | `chunks`               | A passage of Markdown with its pages, Chapter, vector and `label`: `content`, `exercise`, `solution` or `admin`                                                   | Parse                                                      |
 | Exercise pair         | `exercise_solutions`   | For each exercise chunk of the Course, its solution chunk or "no solution"                                                                                        | Parse. Recomputed for the whole Course                     |
@@ -102,7 +102,7 @@ Paths in this document are relative to `src/features/knowledge-map/` unless they
 The `parseMaterial` workflow in `ingestion/workflows/parse-material.ts` starts when a Material is registered. It moves the Material from `queued` through `parsing` to `parsed` or `failed`.
 
 1. **Prepare pages.** Opens the PDF, records the page count and stores slide overlays (pages whose text the next page repeats) as `skipped`, without a call. An image is one page.
-2. **Read pages.** Up to 20 pages per workflow step, 5 per call. A blank page needs no call. Each batch sends each page's image and text layer, plus the last unit before the batch as context, and gets back ordered page units. Each is stored on the page it starts on. A batch that fails for good is read again page by page, and a page that still fails is stored `unreadable`, so one bad page doesn't stop the parse.
+2. **Read pages.** Up to 20 pages per workflow step, 5 per call. A blank page needs no call. Each batch sends each page's image and text layer, plus the last unit before the batch as context, and gets back ordered page units. Each is stored on the page it starts on. A batch that fails for good is read again page by page, and a page that still fails is stored `unreadable`, so one bad page doesn't stop the parse. A page of an answered batch that no unit covers (by its pages) is read again alone once, and stored `uncovered` when still none does.
 3. **Find the Outline.** One call sees the Material's name, page count, PDF outline, every heading and how each page starts. It answers the Chapters with their levels and where each starts, the Material's language and its unusual notation (`notes`). Code checks each Chapter against the units and drops one it can't place. If the call fails for good, the Chapters come from the PDF outline; without one, there is only the root.
 4. **Cut chunks.** Pure code (`chunksFromUnits`). Each page unit becomes a chunk, cut at every Chapter start. A unit cut off at a batch edge joins its continuation. A Chapter's heading becomes a Markdown heading at the start of the next chunk, and any other heading a bold line. A chunk over 6,000 characters splits between paragraphs. Chapters and chunks are written in one transaction (`replace_material_chunks`).
 5. **Embed.** Every chunk except `admin` ones, 20 per call, as documents.
@@ -131,11 +131,11 @@ The Student's button calls `startKnowledgeMapBuild`, which queues through `queue
 
 `extractChapters` makes one call per teaching unit without a current extraction.
 
-A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 120,000 characters of chunks of one kind is one unit. A bigger one makes units of its children, plus units of its own chunks outside them. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
+A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 25,000 characters of chunks of one kind (`UNIT_CHARS`, about 2 minutes of a call) is one unit. A bigger one makes units of its children, plus units of its own chunks outside them, and packs consecutive children under the cap into one unit, up to the cap. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
 
 A unit's hash covers its Chapter's title and its chunks' Markdown. A unit whose stored extraction has the same hash makes no call: this is why Update map is cheap.
 
-The call answers KCs (name, description, the chunks that teach it, up to 3 things it `assumes`) and Prerequisites among them, by name. `checkExtraction` turns names and short ids into stored references. The result goes into `chapter_extractions`, not yet into `kcs`.
+The call answers KCs (name, description, the chunks that teach it, up to 3 things it `assumes`) and Prerequisites among them, by name. `checkExtraction` turns names and short ids into stored references. **Coverage** (`unitCoverage` in `domain/unit-coverage.ts`) is the share of the unit's characters in chunks some KC cites: below `MIN_UNIT_COVERAGE` (0.5) the call is made once more, and the answer that covers more is kept. The result goes into `chapter_extractions`, not yet into `kcs`.
 
 ### 2. Consolidate
 
@@ -186,7 +186,7 @@ The call sees every Material's Outline with its KC names under each Chapter, plu
 - orders the KCs by first source, with a KC without sources directly before the first KC that builds on it;
 - turns the proposal into Topics (`planTopicTree`, rules below), with each Topic's KCs in teaching order (Prerequisites first);
 - drops redundant Prerequisites (transitive reduction);
-- stores the check report: Chapters with content that no KC cites, Exercises without KCs and KC pairs still alike;
+- stores the check report: Chapters with content that no KC cites, Exercises without KCs, KC pairs still alike, teaching units below the coverage bar and pages read without units (`unreadable` or `uncovered`). The Course map shows the Student one line when pages went unread or Chapters were covered only in part (`checkReportLine`), and the full lists outside production;
 - marks the build `built`.
 
 `planTopicTree` gives the model's proposal the guarantees the tutoring relies on:
@@ -233,7 +233,8 @@ All eight calls follow one pattern, so the prompts stay small and the answers ch
 - **The model sees short ids**, such as `c1`, `k1` or `h3`, never database ids. Code maps each back and drops any it doesn't know.
 - **A wrong id doesn't fail the call** (`offeredId` in `ai/offered-id.ts`). The JSON schema lists the ids as an enum to guide the model, but any string validates, so the check in code decides what to keep.
 - **The answer is structured**, through `Output.object` with a Zod schema, whose `.describe()` texts are part of the prompt.
-- **Build calls retry once.** `buildCall` repeats a call that gives no valid answer, or one that answers empty where that is suspicious, then fails the step.
+- **Calls fit a Vercel function.** Every call of a workflow step ends after `CALL_TIMEOUT_MS` (170 s), and a step starts no call, first or retry, that could run past 290 s (`callFits` in `src/lib/ai/call-timeout.ts`). A timed-out call is a failed answer: its usage is recorded as estimated and its trace marked as an error.
+- **A failed unit waits a step.** A unit whose build call times out or gives no valid answer (`buildCall` answers "failed") is left to the next step; the workflow passes the keys of units that failed once, and a second failure fails the build with "A model call kept failing for <Chapter>", without a throw. The tree call is made twice; when both fail, each Chapter with KCs becomes a Topic of its own.
 - **Every call is metered** (`meteredStream`), so it counts against the Student's Daily limit and stops the job there.
 
 | Call (trace name)               | Job and task      | Reasoning | User message                                                                                               | Answer                                                                    | Prompt in                          |
@@ -272,14 +273,14 @@ A parse never changes a Material's chunks once it has stored them, so a unit's h
 
 ## When things go wrong
 
-| Situation                  | What happens                                                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A step fails after retries | The build is `failed` with a plain reason. What is stored stays, and the next Update map resumes                                                       |
-| The Daily limit is reached | The same, with the reason "Daily limit reached"                                                                                                        |
-| The process dies           | Each step sets `heartbeat_at`. After 30 minutes without one, the page shows the build as failed and `queue_knowledge_map_build` lets a new one through |
-| A step would run too long  | A step takes at most 8 units and starts no call after 150 seconds, so it fits a Vercel function's limit. What it leaves goes to the next step          |
-| A model call answers badly | Code drops unknown ids and unusable items. The check report shows what ended up uncovered                                                              |
-| The parse fails            | The Material is `failed`, and Retry resumes at the first page without a result. Chunks already stored are kept with their vectors                      |
+| Situation                  | What happens                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A step fails after retries | The build is `failed` with a plain reason. What is stored stays, and the next Update map resumes                                                                 |
+| The Daily limit is reached | The same, with the reason "Daily limit reached"                                                                                                                  |
+| The process dies           | Each step sets `heartbeat_at`. After 30 minutes without one, the page shows the build as failed and `queue_knowledge_map_build` lets a new one through           |
+| A step would run too long  | A step takes at most 8 units, each call ends after 170 seconds, and a step starts no call that could end after 290 seconds. What it leaves goes to the next step |
+| A model call answers badly | Code drops unknown ids and unusable items. The check report shows what ended up uncovered                                                                        |
+| The parse fails            | The Material is `failed`, and Retry resumes at the first page without a result. Chunks already stored are kept with their vectors                                |
 
 ## The Course map
 
@@ -311,16 +312,16 @@ The map is the tutoring's only source of what there is to learn. The tutoring re
 
 ## Where the code is
 
-| To change                           | Look in                                                                                                                                                                                             |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| What a model is asked               | `ai/*.ts`, `ingestion/ai/*.ts`                                                                                                                                                                      |
-| How an answer is checked            | `domain/chapter-extraction.ts`, `domain/exercise-extraction.ts`, `ingestion/domain/outline.ts`, `ingestion/domain/exercise-pairing.ts`                                                              |
-| Order and bounds of the steps       | `workflows/build-knowledge-map.ts`, `workflows/*-steps.ts`, `ingestion/workflows/parse-material.ts`                                                                                                 |
-| Limits                              | `UNIT_CHARS`, `UNITS_PER_STEP`, `CALL_WINDOW_MS`, `CANDIDATE_KCS`, `NAMES_PER_CALL`, `CLUSTERS_PER_CALL`, `PAGES_PER_BATCH`, `MAX_PAIRING_CHUNKS`, `MAX_CHUNK_CHARS`, each in the file that uses it |
-| Thresholds for same and revived KCs | `SAME_KC_SIMILARITY`, `REVIVE_SIMILARITY` in `domain/kc-clusters.ts`                                                                                                                                |
-| Tree rules                          | `domain/topic-tree.ts`                                                                                                                                                                              |
-| Anchors and Reading sections        | `domain/topic-reading.ts`                                                                                                                                                                           |
-| What is written in one transaction  | The `store_*`, `arrange_*` and `replace_*` functions in `supabase/migrations/`, newest definition                                                                                                   |
+| To change                           | Look in                                                                                                                                                                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a model is asked               | `ai/*.ts`, `ingestion/ai/*.ts`                                                                                                                                                                                            |
+| How an answer is checked            | `domain/chapter-extraction.ts`, `domain/exercise-extraction.ts`, `ingestion/domain/outline.ts`, `ingestion/domain/exercise-pairing.ts`                                                                                    |
+| Order and bounds of the steps       | `workflows/build-knowledge-map.ts`, `workflows/*-steps.ts`, `ingestion/workflows/parse-material.ts`                                                                                                                       |
+| Limits                              | `UNIT_CHARS`, `UNITS_PER_STEP`, `CALL_TIMEOUT_MS`, `MIN_UNIT_COVERAGE`, `CANDIDATE_KCS`, `NAMES_PER_CALL`, `CLUSTERS_PER_CALL`, `PAGES_PER_BATCH`, `MAX_PAIRING_CHUNKS`, `MAX_CHUNK_CHARS`, each in the file that uses it |
+| Thresholds for same and revived KCs | `SAME_KC_SIMILARITY`, `REVIVE_SIMILARITY` in `domain/kc-clusters.ts`                                                                                                                                                      |
+| Tree rules                          | `domain/topic-tree.ts`                                                                                                                                                                                                    |
+| Anchors and Reading sections        | `domain/topic-reading.ts`                                                                                                                                                                                                 |
+| What is written in one transaction  | The `store_*`, `arrange_*` and `replace_*` functions in `supabase/migrations/`, newest definition                                                                                                                         |
 
 To see it run: `pnpm smoke parse`, `pnpm smoke pair` and `pnpm smoke map` call real models, so read [docs/agents/live-ai.md](../agents/live-ai.md) first. `pnpm gold` loads the [gold course](../../evals/gold/README.md)'s stored output instead of running the pipeline.
 

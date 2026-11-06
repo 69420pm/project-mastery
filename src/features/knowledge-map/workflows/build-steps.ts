@@ -5,10 +5,12 @@ import {
   chapterUnits,
   unitHash,
 } from "@/features/knowledge-map/domain/chapter-units";
+import { keptFailingReason } from "@/features/knowledge-map/domain/build-failure";
 import type { UnitExtraction } from "@/features/knowledge-map/domain/chapter-extraction";
 import { loadCourseLanguage as loadLanguage } from "@/features/ingestion/server";
 import type { StoredExtraction } from "@/features/knowledge-map/schemas";
 import { meteredStream } from "@/features/usage/server";
+import { callFits, CallTimeoutError } from "@/lib/ai/call-timeout";
 import { getAiEnv } from "@/lib/ai/env";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,18 +29,53 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 export const UNITS_PER_STEP = 8;
 
 /**
- * How long after its start a step may still start a model call. Later
- * calls are left to the next step, so a step ends within Vercel Hobby's
- * 300-second limit even at MiMo's pace.
- */
-const CALL_WINDOW_MS = 150_000;
-
-/**
  * What a step did: how many units it left for the next step, or null when
- * the build no longer runs; or why the build stops.
+ * the build no longer runs, and the keys (`unitKey`) of the units whose
+ * call failed, left to the next step; or why the build stops.
  */
 export type StepOutcome =
-  { ok: true; left: number | null } | { ok: false; reason: string };
+  | { ok: true; left: number | null; failed?: string[] }
+  | { ok: false; reason: string };
+
+/**
+ * A step of the build that the workflow calls until it leaves nothing,
+ * passing the keys of the units whose call failed once.
+ */
+export type BuildStep = (
+  courseId: string,
+  failedOnce: readonly string[],
+) => Promise<StepOutcome>;
+
+/**
+ * The outcome of a step that left `left` units, of which those keyed in
+ * `failedKeys` because their call failed. A unit that failed once before
+ * stops the build with a reason naming its Chapter, without a throw, so
+ * the workflow does not retry the step. Nothing is stored for the unit, so
+ * Update map tries it again.
+ */
+export async function stepOutcome(
+  supabase: AdminSupabase,
+  {
+    left,
+    failedKeys,
+    failedOnce,
+  }: {
+    left: number;
+    failedKeys: Iterable<string>;
+    failedOnce: readonly string[];
+  },
+): Promise<StepOutcome> {
+  const keys = [...new Set(failedKeys)];
+  const again = keys.find((key) => failedOnce.includes(key));
+  if (again === undefined) return { ok: true, left, failed: keys };
+  const { data, error } = await supabase
+    .from("chapters")
+    .select("title")
+    .eq("id", again.split("/")[0]!)
+    .maybeSingle();
+  if (error) failed("Loading the Chapter", error);
+  return { ok: false, reason: keptFailingReason(data?.title ?? "a Chapter") };
+}
 
 /**
  * Sets the running build's heartbeat, so `queue_knowledge_map_build` sees
@@ -61,25 +98,20 @@ export async function touchBuild(
 
 /**
  * Runs `call` on each item, at most AI_CONCURRENCY at a time, and starts
- * none after CALL_WINDOW_MS, nor once a call returned "stop". The first
- * always starts, unless `since` (a time from `Date.now()`) starts the
- * window earlier, for the second round of calls of one step.
+ * none once a call returned "stop", nor when one could no longer end in
+ * time for a step that started at `stepStartedAt` (`callFits`).
  */
 export async function runCalls<Item>(
   items: readonly Item[],
   call: (item: Item) => Promise<"stop" | void>,
-  since?: number,
+  stepStartedAt: number,
 ): Promise<void> {
-  const startedAt = since ?? Date.now();
   const queue = [...items];
-  let started = since === undefined ? 0 : 1;
   let stopped = false;
   const worker = async () => {
-    while (!stopped) {
-      if (started > 0 && Date.now() - startedAt > CALL_WINDOW_MS) return;
+    while (!stopped && callFits(stepStartedAt)) {
       const item = queue.shift();
       if (item === undefined) return;
-      started += 1;
       if ((await call(item)) === "stop") stopped = true;
     }
   };
@@ -90,31 +122,30 @@ export async function runCalls<Item>(
 
 /**
  * One structured call of the build, streamed and metered, its answer
- * parsed with `schema`. A call whose answer is missing or no valid output is
- * made once more; a second such answer fails the step. A valid answer that
- * `isEmpty` calls empty is also asked once more, and the second answer is
- * kept as it is. "limit" when the Daily limit is reached.
+ * parsed with `schema`. "failed" when the call timed out or its answer is
+ * no valid output: the caller leaves its unit to the next step. "limit"
+ * when the Daily limit is reached.
  */
 export async function buildCall<Schema extends z.ZodType>(
   supabase: AdminSupabase,
   scope: Parameters<typeof meteredStream>[1],
   call: Parameters<typeof meteredStream>[2],
   schema: Schema,
-  isEmpty: (answer: z.infer<Schema>) => boolean = () => false,
-): Promise<z.infer<Schema> | "limit"> {
-  for (let attempt = 1; ; attempt += 1) {
-    const result = await meteredStream(supabase, scope, call);
-    if (!result) return "limit";
-    let answer: z.infer<Schema>;
-    try {
-      answer = schema.parse(await result.output);
-    } catch (error) {
-      if (attempt >= 2) throw error;
-      console.warn(`The ${scope.traceName} call gave no answer; once more.`);
-      continue;
-    }
-    if (attempt >= 2 || !isEmpty(answer)) return answer;
-    console.warn(`The ${scope.traceName} call answered empty; once more.`);
+): Promise<z.infer<Schema> | "limit" | "failed"> {
+  let result: Awaited<ReturnType<typeof meteredStream>>;
+  try {
+    result = await meteredStream(supabase, scope, call);
+  } catch (error) {
+    if (!(error instanceof CallTimeoutError)) throw error;
+    console.warn(error.message);
+    return "failed";
+  }
+  if (!result) return "limit";
+  try {
+    return schema.parse(await result.output);
+  } catch {
+    console.warn(`The ${scope.traceName} call gave no valid answer.`);
+    return "failed";
   }
 }
 
@@ -123,9 +154,11 @@ export type CourseUnit = {
   chapterId: string;
   kind: "content" | "exercise";
   unit: number;
+  /** Its Chapter's title; a packed unit's Chapters' titles, joined. */
+  title: string;
   contentHash: string;
   materialName: string;
-  /** The Material's Outline, with the unit's Chapter marked. */
+  /** The Material's Outline, with the unit's Chapters marked. */
   outline: string[];
   chunks: Array<{ id: string; markdown: string }>;
 };
@@ -183,18 +216,22 @@ export async function loadCourseUnits(
         const { markdown } = chunkOf.get(id)!;
         return { id, markdown };
       });
+      const title = unit.chapterIds
+        .map((id) => titleOf.get(id) ?? "")
+        .join(", ");
       return {
         chapterId: unit.chapterId,
         kind,
         unit: unit.unit,
+        title,
         contentHash: unitHash(
-          titleOf.get(unit.chapterId) ?? "",
+          title,
           unitChunks.map((chunk) => chunk.markdown),
         ),
         materialName: material.name,
         outline: outline.map(
           (c) =>
-            `${"  ".repeat(c.depth)}${c.title}${c.id === unit.chapterId ? UNIT_MARK : ""}`,
+            `${"  ".repeat(c.depth)}${c.title}${unit.chapterIds.includes(c.id) ? UNIT_MARK : ""}`,
         ),
         chunks: unitChunks,
       };

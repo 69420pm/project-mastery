@@ -35,6 +35,7 @@ export function createBuildDb() {
     tables: {
       courses: [] as FakeRow[],
       materials: [] as FakeRow[],
+      material_pages: [] as FakeRow[],
       chapters: [] as FakeRow[],
       chunks: [] as FakeRow[],
       knowledge_map_builds: [] as FakeRow[],

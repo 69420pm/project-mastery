@@ -6,6 +6,7 @@ import { arrangeKnowledgeMap } from "@/features/knowledge-map/workflows/arrange-
 import {
   failBuild,
   prepareBuild,
+  type BuildStep,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 import { consolidateKcs } from "@/features/knowledge-map/workflows/consolidate-steps";
@@ -23,9 +24,12 @@ import { proposeTopicTree } from "@/features/knowledge-map/workflows/topic-steps
  * Exercises the same way. It matches what the KCs assume to earlier KCs as
  * Prerequisites, or stores it as KCs without sources, groups the Chapters
  * into a Topic tree (one call, only when the Outlines or KCs changed) and
- * puts the map in Course order. A step that fails for good, or a reached
- * Daily limit, fails the build with a reason and loses only that step's
- * calls: the next Update map resumes where the build stopped.
+ * puts the map in Course order. A unit whose call fails (a timeout, or no
+ * valid answer) is left to the next step; when it fails there too, the
+ * build fails with a reason naming its Chapter. A step that fails for
+ * good, or a reached Daily limit, fails the build with a reason and loses
+ * only that step's calls: the next Update map resumes where the build
+ * stopped.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -38,21 +42,25 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
     }
     // Exercises are matched to the KCs the teaching units gave, and their
     // new KCs are consolidated like those.
-    for (const step of [
+    const steps: BuildStep[] = [
       extractChapters,
       consolidateKcs,
       extractExercises,
       consolidateKcs,
       matchAssumptions,
-    ]) {
+    ];
+    for (const step of steps) {
+      // The units whose call failed in an earlier run of this step.
+      let failedOnce: string[] = [];
       for (;;) {
-        const outcome: StepOutcome = await step(courseId);
+        const outcome: StepOutcome = await step(courseId, failedOnce);
         if (!outcome.ok) {
           await failBuild(courseId, outcome.reason);
           return;
         }
         if (outcome.left === null) return;
         if (outcome.left === 0) break;
+        failedOnce = [...new Set([...failedOnce, ...(outcome.failed ?? [])])];
       }
     }
     const proposal = await proposeTopicTree(courseId);

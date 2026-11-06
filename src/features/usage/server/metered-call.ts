@@ -6,7 +6,12 @@ import {
   recordAiUsage,
   type AdminStudentScope,
 } from "@/features/usage/server/usage-store";
-import { estimatedUsage, tokenUsage } from "@/lib/ai/cost";
+import {
+  CALL_TIMEOUT_MS,
+  CallTimeoutError,
+  isTimeoutError,
+} from "@/lib/ai/call-timeout";
+import { estimatedUsage, tokenUsage, type SentFile } from "@/lib/ai/cost";
 import { isDailyQuotaError } from "@/lib/ai/daily-quota";
 import {
   aiTask,
@@ -33,7 +38,9 @@ export const RATE_LIMITED_STEP_RETRIES = 30;
  * One model call a workflow makes for a Student: checks their Daily limit,
  * runs the traced call and records its usage. Null when the Daily limit is
  * reached or the provider's daily quota is used up, so each step maps that
- * to its own outcome.
+ * to its own outcome. A generate or stream call ends after CALL_TIMEOUT_MS
+ * (a call may pass its own `timeout`) with a `CallTimeoutError`, its usage
+ * estimated.
  */
 
 type MeteredScope = {
@@ -81,8 +88,18 @@ export async function meteredGenerate(
 
   const result = await withTraceAttributes(
     { userId: studentId, traceName },
-    () => generateText(call),
-  ).catch((error: unknown) => quotaAsNull(error, callFailed));
+    () => generateText({ timeout: { totalMs: CALL_TIMEOUT_MS }, ...call }),
+  ).catch(async (error: unknown) =>
+    quotaAsNull(
+      await timedOutAsFailed(
+        error,
+        admin,
+        { studentId, task, traceName },
+        call,
+      ),
+      callFailed,
+    ),
+  );
   if (!result) return null;
   await recordAiUsage(
     admin,
@@ -123,6 +140,7 @@ export async function meteredStream(
     async () => {
       let streamError: unknown;
       const stream = streamText({
+        timeout: { totalMs: CALL_TIMEOUT_MS },
         ...call,
         onError: ({ error }) => {
           streamError ??= error;
@@ -141,7 +159,17 @@ export async function meteredStream(
         throw streamError ?? error;
       }
     },
-  ).catch((error: unknown) => quotaAsNull(error, callFailed));
+  ).catch(async (error: unknown) =>
+    quotaAsNull(
+      await timedOutAsFailed(
+        error,
+        admin,
+        { studentId, task, traceName },
+        call,
+      ),
+      callFailed,
+    ),
+  );
   if (!result) return null;
   await recordAiUsage(
     admin,
@@ -238,6 +266,82 @@ export async function meteredEmbed(
     scope,
   );
   return result.embeddings;
+}
+
+/**
+ * A call that ran into CALL_TIMEOUT_MS is a failed answer: its usage, which
+ * the provider never reports, is recorded as estimated from what was sent,
+ * as for a stopped Chat reply, and it becomes a `CallTimeoutError`. Any
+ * other error is returned as it is.
+ */
+async function timedOutAsFailed(
+  error: unknown,
+  admin: AdminSupabase,
+  {
+    studentId,
+    task,
+    traceName,
+  }: { studentId: string; task: AiTask; traceName: string },
+  call: SentCall,
+): Promise<unknown> {
+  if (!isTimeoutError(error)) return error;
+  await recordAiUsage(
+    admin,
+    {
+      task,
+      modelId: answeringModel(call, undefined),
+      usage: estimatedUsage(sentInput(call)),
+      estimated: true,
+    },
+    { studentId },
+  );
+  return new CallTimeoutError(traceName);
+}
+
+/** What a call sends, as far as an estimate of its tokens needs it. */
+type SentCall = {
+  model: string;
+  providerOptions?: { gateway?: { models?: readonly string[] } };
+  instructions?: unknown;
+  system?: unknown;
+  prompt?: unknown;
+  messages?: unknown;
+};
+
+/** The text and files a call sends, for `estimatedUsage`. */
+function sentInput(call: SentCall): {
+  input: string;
+  output: string;
+  files: SentFile[];
+} {
+  const texts: string[] = [];
+  const files: SentFile[] = [];
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      texts.push(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const part = value as Record<string, unknown>;
+    if (part.type === "file" || part.type === "image") {
+      const data = part.data ?? part.image;
+      files.push({
+        mediaType: String(part.mediaType ?? "image/jpeg"),
+        sizeBytes:
+          data instanceof Uint8Array
+            ? data.byteLength
+            : String(data ?? "").length,
+      });
+      return;
+    }
+    visit(part.text ?? part.content);
+  };
+  visit([call.instructions, call.system, call.prompt, call.messages]);
+  return { input: texts.join("\n"), output: "", files };
 }
 
 /**

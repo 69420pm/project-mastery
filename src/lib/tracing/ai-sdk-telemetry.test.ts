@@ -4,7 +4,7 @@ import {
   NodeTracerProvider,
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-node";
-import { embedMany, generateText } from "ai";
+import { embedMany, generateText, streamText } from "ai";
 import { MockEmbeddingModelV4, MockLanguageModelV4 } from "ai/test";
 import { expect, test } from "vitest";
 import { langfuseAiSdkTelemetry } from "./ai-sdk-telemetry";
@@ -123,6 +123,38 @@ test("a model call without a reported cost leaves it for Langfuse to infer", asy
   for (const span of spans) {
     expect(span.attributes[COST_DETAILS]).toBeUndefined();
   }
+});
+
+test("a call that runs into its timeout is marked as an error", async () => {
+  const { exporter, integrations } = tracing();
+  const model = new MockLanguageModelV4({
+    doStream: ({ abortSignal }) =>
+      new Promise((_, reject) => {
+        abortSignal?.addEventListener("abort", () =>
+          reject(abortSignal.reason),
+        );
+      }),
+  });
+
+  const stream = streamText({
+    model,
+    prompt: "Hello",
+    timeout: { totalMs: 20 },
+    telemetry: { integrations },
+  });
+  await stream.consumeStream();
+
+  const spans = exporter.getFinishedSpans();
+  expect(spans.length).toBeGreaterThan(0);
+  expect(
+    spans.some(
+      (span) =>
+        span.attributes["langfuse.observation.level"] === "ERROR" &&
+        String(span.attributes["langfuse.observation.status_message"]).includes(
+          "timeout",
+        ),
+    ),
+  ).toBe(true);
 });
 
 test("other calls get no input from an embedding call", async () => {

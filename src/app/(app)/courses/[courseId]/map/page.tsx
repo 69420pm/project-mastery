@@ -27,6 +27,7 @@ import {
   getTopicStates,
 } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
+import { isProductionDeployment } from "@/lib/deployment-env";
 
 export const metadata: Metadata = {
   title: "Course map",
@@ -83,6 +84,7 @@ export default async function CourseMapPage({
         <ProgressLine plan={plan} briefHref={briefPath(courseId)} />
       }
       readinessLine={<ReadinessLine readiness={readiness} />}
+      checkDetails={!isProductionDeployment()}
       topicBadges={Object.fromEntries(
         plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
       )}

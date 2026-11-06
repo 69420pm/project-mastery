@@ -27,6 +27,7 @@ import {
   buildCall,
   loadCurrentExtractions,
   runCalls,
+  stepOutcome,
   touchBuild,
   UNITS_PER_STEP,
   type StepOutcome,
@@ -56,9 +57,10 @@ const CLUSTERS_PER_CALL = 15;
 /** Parallel `match_kcs` calls. */
 const MATCHES_AT_ONCE = 10;
 
-/** A unit extraction not stored as KCs yet. */
+/** A unit extraction not stored as KCs yet, with its unit's key. */
 type Pending = {
   extractionId: string;
+  key: string;
   extraction: StoredExtraction;
 };
 
@@ -74,11 +76,17 @@ const storedKey = (id: string) => `kc:${id}`;
 
 /**
  * Stores the KCs of up to UNITS_PER_STEP pending unit extractions, in
- * Course order. Merge calls the call window leaves out hold back the units
- * they concern for the next step. A reached Daily limit stops the build.
+ * Course order. Merge calls that fail, or that no longer fit the step,
+ * hold back the units they concern for the next step; a unit held back by
+ * a failed call that failed once before (`failedOnce`) fails the build. A
+ * reached Daily limit stops the build.
  */
-export async function consolidateKcs(courseId: string): Promise<StepOutcome> {
+export async function consolidateKcs(
+  courseId: string,
+  failedOnce: readonly string[] = [],
+): Promise<StepOutcome> {
   "use step";
+  const startedAt = Date.now();
   const supabase = createAdminClient();
   const owner = await touchBuild(supabase, courseId);
   if (!owner) return { ok: true, left: null };
@@ -90,6 +98,7 @@ export async function consolidateKcs(courseId: string): Promise<StepOutcome> {
 
   const batch: Pending[] = pending.slice(0, UNITS_PER_STEP).map((row) => ({
     extractionId: row.id,
+    key: row.key,
     extraction: storedExtractionSchema.parse(row.output),
   }));
   if (!(await embedMissing(supabase, owner, batch))) {
@@ -107,7 +116,13 @@ export async function consolidateKcs(courseId: string): Promise<StepOutcome> {
   const clusters = clusterKcs(pairs).filter((keys) =>
     keys.some((key) => !key.startsWith("kc:")),
   );
-  const merged = await mergeClusters(supabase, owner, fresh, clusters);
+  const merged = await mergeClusters(
+    supabase,
+    owner,
+    fresh,
+    clusters,
+    startedAt,
+  );
   if (merged === "limit") return { ok: false, reason: dailyLimitReason };
 
   const ready = readyParts(batch.length, clusters, merged.decided);
@@ -119,8 +134,20 @@ export async function consolidateKcs(courseId: string): Promise<StepOutcome> {
     targets: merged.targets,
   });
   if (!stored) return { ok: true, left: null };
-  return { ok: true, left: pending.length - ready.size };
+  return stepOutcome(supabase, {
+    left: pending.length - ready.size,
+    failedKeys: [...merged.failed].flatMap((index) =>
+      clusterParts(clusters[index]!).map((part) => batch[part]!.key),
+    ),
+    failedOnce,
+  });
 }
+
+/** The batch's units, by index, with new KCs in a cluster. */
+const clusterParts = (keys: string[]) =>
+  keys.flatMap((key) =>
+    key.startsWith("kc:") ? [] : [Number(key.split(":")[0])],
+  );
 
 consolidateKcs.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
@@ -244,8 +271,9 @@ async function matchStored(
 /**
  * Asks the merge calls (task `map`, trace `merge-kcs`) about the clusters
  * of new KCs by key, and of stored KCs keyed `kc:<id>`: the KC each merged
- * new KC becomes, by key, and the indexes of the clusters decided. `since`
- * goes to `runCalls`. "limit" when the Daily limit is reached.
+ * new KC becomes, by key, the indexes of the clusters decided and of those
+ * whose call failed. `stepStartedAt` goes to `runCalls`. "limit" when the
+ * Daily limit is reached.
  */
 export async function mergeClusters(
   supabase: AdminSupabase,
@@ -255,11 +283,15 @@ export async function mergeClusters(
     kc: { name: string; description: string };
   }>,
   clusters: string[][],
-  since?: number,
-): Promise<{ targets: Map<string, string>; decided: Set<number> } | "limit"> {
+  stepStartedAt: number,
+): Promise<
+  | { targets: Map<string, string>; decided: Set<number>; failed: Set<number> }
+  | "limit"
+> {
   const targets = new Map<string, string>();
   const decided = new Set<number>();
-  if (clusters.length === 0) return { targets, decided };
+  const failedCalls = new Set<number>();
+  if (clusters.length === 0) return { targets, decided, failed: failedCalls };
 
   const storedIds = [
     ...new Set(
@@ -326,6 +358,10 @@ export async function mergeClusters(
         limitReached = true;
         return "stop";
       }
+      if (answer === "failed") {
+        for (const index of indexes) failedCalls.add(index);
+        return;
+      }
       const { same } = answer;
       const groups = same.map((group) =>
         group.kcIds.flatMap((id) => keyOf.get(id) ?? []),
@@ -340,9 +376,9 @@ export async function mergeClusters(
         decided.add(index);
       }
     },
-    since,
+    stepStartedAt,
   );
-  return limitReached ? "limit" : { targets, decided };
+  return limitReached ? "limit" : { targets, decided, failed: failedCalls };
 }
 
 /**
@@ -354,10 +390,7 @@ function readyParts(
   clusters: string[][],
   decided: ReadonlySet<number>,
 ): Set<number> {
-  const partsOf = (keys: string[]) =>
-    keys.flatMap((key) =>
-      key.startsWith("kc:") ? [] : [Number(key.split(":")[0])],
-    );
+  const partsOf = clusterParts;
   const unready = new Set(
     clusters.flatMap((keys, index) =>
       decided.has(index) ? [] : partsOf(keys),

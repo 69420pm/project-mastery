@@ -169,6 +169,66 @@ test("a map whose update stopped before its Topics asks for an update", () => {
   expect(screen.queryByRole("application")).toBeNull();
 });
 
+describe("the map check", () => {
+  const weak = {
+    ...map,
+    checkReport: {
+      chaptersWithoutKcs: ["Preface"],
+      exercisesWithoutKcs: [],
+      duplicates: [],
+      unitsBelowCoverage: [{ chapter: "Bases", coverage: 0.3 }],
+      unreadPages: [{ material: "Notes", pages: [10, 36, 37, 38] }],
+    },
+  };
+  const renderCheck = (view: KnowledgeMapView, checkDetails: boolean) =>
+    render(
+      <CourseMap
+        map={view}
+        topics={[]}
+        learning={{}}
+        topicStates={{}}
+        topicBadges={{}}
+        progressLine={null}
+        checkDetails={checkDetails}
+      />,
+    );
+
+  test("tells the Student in one line what the AI missed, with Update map", () => {
+    renderCheck(weak, false);
+    const note = screen.getByRole("note", { name: "Map check" });
+    expect(note).toHaveTextContent(
+      "The AI couldn't read pp. 10, 36–38 and covered 1 Chapter only in part.",
+    );
+    expect(
+      within(note).getByRole("button", { name: "Update map" }),
+    ).toBeVisible();
+    expect(within(note).queryByText("Check report")).toBeNull();
+  });
+
+  test("shows the full lists outside production", () => {
+    renderCheck(weak, true);
+    const note = screen.getByRole("note", { name: "Map check" });
+    expect(note).toHaveTextContent("Chapters without KCs");
+    expect(note).toHaveTextContent("Preface");
+    expect(note).toHaveTextContent("Bases: 30%");
+  });
+
+  test("says nothing of a full build to the Student", () => {
+    renderCheck(
+      {
+        ...weak,
+        checkReport: {
+          ...weak.checkReport,
+          unitsBelowCoverage: [],
+          unreadPages: [],
+        },
+      },
+      false,
+    );
+    expect(screen.queryByRole("note", { name: "Map check" })).toBeNull();
+  });
+});
+
 test("without a map, the page says so", () => {
   renderMap({ ...map, build: null, kcs: [] }, []);
   expect(screen.getByRole("heading", { name: "No map yet" })).toBeVisible();

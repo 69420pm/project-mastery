@@ -187,6 +187,41 @@ describe("parsing a PDF Material", () => {
     });
   });
 
+  test("reads a page no unit covers again alone, and stores it uncovered when still none does", async () => {
+    seedMaterial("application/pdf", await fixture("seven-page-script.pdf"));
+    const { model, prompts } = pageModel([
+      // Pages 3 and 6 are left without a unit.
+      {
+        units: [
+          unit({ markdown: "One.", pageTo: 2 }),
+          unit({ markdown: "Four.", pageFrom: 4, pageTo: 5 }),
+        ],
+      },
+      // Page 3 alone, now read.
+      { units: [unit({ markdown: "Three.", pageFrom: 3, pageTo: 3 })] },
+      { units: [unit({ markdown: "Seven.", pageFrom: 7, pageTo: 7 })] },
+      // Page 6 alone, still without a unit.
+      { units: [] },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(sentImages(prompts).map((images) => images.length)).toEqual([
+      5, 1, 2, 1,
+    ]);
+    expect(storedPages()).toEqual([
+      [1, null, ["One."]],
+      [2, null, []],
+      [3, null, ["Three."]],
+      [4, null, ["Four."]],
+      [5, null, []],
+      [6, "uncovered", []],
+      [7, null, ["Seven."]],
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+  });
+
   test("skips a slide overlay and a blank page without a call", async () => {
     seedMaterial("application/pdf", await fixture("slides-with-blank.pdf"));
     const { model, prompts } = pageModel([

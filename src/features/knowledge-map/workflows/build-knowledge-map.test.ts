@@ -2,8 +2,10 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   dailyLimitReason,
+  keptFailingReason,
   nothingToMapReason,
 } from "@/features/knowledge-map/domain/build-failure";
+import { UNIT_CHARS } from "@/features/knowledge-map/domain/chapter-units";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import type { Supabase } from "@/lib/supabase/types";
 import {
@@ -48,8 +50,8 @@ const kcPerChunk = {
   ) => unit.chunks.find((chunk) => chunk.markdown === kc)!.id,
 };
 
-/** Text that fills more than half of a unit's 120,000 characters. */
-const halfAUnit = "word ".repeat(13_000);
+/** Text that fills more than half of a unit. */
+const halfAUnit = "word ".repeat(UNIT_CHARS / 10 + 1);
 
 async function update() {
   queueBuild(db);
@@ -139,7 +141,7 @@ describe("Update map", () => {
     ]);
   });
 
-  test("asks once more when a call answers nothing", async () => {
+  test("leaves a unit whose call gives no answer to the next step", async () => {
     seedMaterial(db, { chapters: [{ title: "Vectors" }] });
     const { extractions } = useBuildModels({ blankCalls: 1 });
 
@@ -150,17 +152,65 @@ describe("Update map", () => {
     expect(liveKcs(db)).toEqual(["Material 0"]);
   });
 
-  test("asks once more when a unit's answer has no KCs", async () => {
+  test("leaves a unit whose call times out to the next step, and fails without a throw when it times out there too", async () => {
     seedMaterial(db, { chapters: [{ title: "Vectors" }] });
-    let calls = 0;
+    useBuildModels({ timeoutCalls: 1 });
+
+    await update();
+
+    expect(build()?.status).toBe("built");
+    expect(db.tables.ai_usage).toContainEqual(
+      expect.objectContaining({ task: "map", estimated: true }),
+    );
+
+    seedMaterial(db, { chapters: [{ title: "Sums" }] });
+    useBuildModels({ timeoutCalls: 2 });
+
+    await update();
+
+    expect(build()).toMatchObject({
+      status: "failed",
+      failure_reason: keptFailingReason("Material 1"),
+    });
+    expect(db.tables.chapter_extractions).toHaveLength(1);
+  });
+
+  test("asks once more when a unit's KCs cite less than half of it, and keeps the answer that covers more", async () => {
+    seedMaterial(db, {
+      chapters: [{ title: "Vectors", chunks: ["Short.", halfAUnit] }],
+    });
+    const answers = [["Short"], ["Long"]];
     const { extractions } = useBuildModels({
-      kcsOf: () => (calls++ === 0 ? [] : ["Vectors"]),
+      kcsOf: () => answers.shift() ?? [],
+      chunkIdOf: (kc, unit) => unit.chunks[kc === "Short" ? 0 : 1]!.id,
     });
 
     await update();
 
     expect(extractions).toHaveLength(2);
-    expect(liveKcs(db)).toEqual(["Vectors"]);
+    expect(liveKcs(db)).toEqual(["Long"]);
+    expect(build()?.check_report).toMatchObject({ unitsBelowCoverage: [] });
+  });
+
+  test("stores a unit still below the coverage bar, and reports it", async () => {
+    seedMaterial(db, {
+      chapters: [{ title: "Vectors", chunks: ["Short.", halfAUnit] }],
+    });
+    const { extractions } = useBuildModels({
+      kcsOf: () => ["Short"],
+      chunkIdOf: (_kc, unit) => unit.chunks[0]!.id,
+    });
+
+    await update();
+
+    expect(extractions).toHaveLength(2);
+    expect(build()?.status).toBe("built");
+    expect(liveKcs(db)).toEqual(["Short"]);
+    expect(build()?.check_report).toMatchObject({
+      unitsBelowCoverage: [
+        { chapter: "Material 0", coverage: expect.any(Number) },
+      ],
+    });
   });
 
   test("drops a KC that cites a chunk it was not offered, and builds the rest", async () => {
@@ -451,6 +501,44 @@ describe("Update map", () => {
     expect(db.tables.topics[1]).toMatchObject({
       central_question: "Sums",
       parent_id: null,
+    });
+  });
+
+  test("gives each Chapter a Topic of its own when the tree call fails twice, and calls again on the next update", async () => {
+    seedMaterial(db, { chapters: [{ title: "Vectors" }, { title: "Sums" }] });
+    const { trees } = useBuildModels({
+      ...kcPerChunk,
+      treeOf: () => undefined,
+    });
+
+    await update();
+
+    expect(trees).toHaveLength(2);
+    expect(build()?.status).toBe("built");
+    expect(topicTree(db)).toEqual([
+      "Vectors: About Vectors.",
+      "Sums: About Sums.",
+    ]);
+
+    const again = useBuildModels(kcPerChunk);
+    await update();
+
+    expect(again.trees).toHaveLength(1);
+  });
+
+  test("reports the pages read without units", async () => {
+    const id = seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+    db.tables.material_pages.push(
+      { material_id: id, page_number: 4, skipped: "uncovered" },
+      { material_id: id, page_number: 2, skipped: "unreadable" },
+      { material_id: id, page_number: 3, skipped: "blank" },
+    );
+    useBuildModels();
+
+    await update();
+
+    expect(build()?.check_report).toMatchObject({
+      unreadPages: [{ material: "Material 0", pages: [2, 4] }],
     });
   });
 

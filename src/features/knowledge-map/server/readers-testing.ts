@@ -68,6 +68,8 @@ export function createDb() {
             chaptersWithoutKcs: ["Thrust"],
             exercisesWithoutKcs: [],
             duplicates: [],
+            unitsBelowCoverage: [],
+            unreadPages: [],
           },
         },
       ]),

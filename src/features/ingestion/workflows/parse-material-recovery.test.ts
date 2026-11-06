@@ -82,8 +82,8 @@ function deleteMaterial() {
 }
 
 /** A batch result of one content unit on `page`. */
-const pageResult = (markdown: string, page = 1) => ({
-  units: [unit({ markdown, pageFrom: page, pageTo: page })],
+const pageResult = (markdown: string, page = 1, pageTo = page) => ({
+  units: [unit({ markdown, pageFrom: page, pageTo })],
 });
 
 type Answer = { units: unknown } | Error;
@@ -264,7 +264,7 @@ describe("deleting the Material while it parses", () => {
   test("stops the parse quietly and leaves no rows or files behind", async () => {
     await seedLecture();
     const model = pageModel(
-      [pageResult("Page one"), pageResult("Page two")],
+      [pageResult("Pages one and two", 1, 2), pageResult("Again")],
       (call) => {
         if (call === 1) deleteMaterial();
       },
@@ -367,7 +367,7 @@ describe("a read step", () => {
     vi.spyOn(Date, "now").mockImplementation(() => now);
     // Each batch call takes 200 seconds.
     const model = pageModel(
-      [pageResult("Pages 1 to 5"), pageResult("Pages 6 and 7", 6)],
+      [pageResult("Pages 1 to 5", 1, 5), pageResult("Pages 6 and 7", 6, 7)],
       () => {
         now += 200_000;
       },

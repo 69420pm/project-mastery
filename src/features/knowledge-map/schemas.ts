@@ -91,6 +91,17 @@ export const checkReportSchema = z.object({
   exercisesWithoutKcs: z.array(z.string()),
   /** KC pairs still alike enough to be duplicates after merging, by name. */
   duplicates: z.array(z.object({ a: name, b: name, similarity: z.number() })),
+  /**
+   * Teaching units whose KCs cite less than MIN_UNIT_COVERAGE of them, by
+   * their Chapters' titles, with the share they cite.
+   */
+  unitsBelowCoverage: z.array(
+    z.object({ chapter: z.string(), coverage: z.number() }),
+  ),
+  /** Pages read without units, unreadable or uncovered, per Material. */
+  unreadPages: z.array(
+    z.object({ material: z.string(), pages: z.array(z.number().int()) }),
+  ),
 });
 
 /**

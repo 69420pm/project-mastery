@@ -23,6 +23,7 @@ import {
   buildCall,
   loadCurrentExtractions,
   runCalls,
+  stepOutcome,
   touchBuild,
   UNITS_PER_STEP,
   type StepOutcome,
@@ -75,13 +76,17 @@ const nameKey = (name: string) => name.trim().toLowerCase();
 /**
  * Matches what the KCs of up to UNITS_PER_STEP stored unit extractions
  * assume, in Course order, and stores the new KCs, the Prerequisites and
- * the extractions marked matched in one transaction. Units whose calls the
- * call window leaves out wait for the next step. A reached Daily limit
- * stops the build.
+ * the extractions marked matched in one transaction. Units whose calls
+ * fail or no longer fit the step wait for the next step; one held back by
+ * a failed call that failed once before (`failedOnce`) fails the build. A
+ * reached Daily limit stops the build.
  */
-export async function matchAssumptions(courseId: string): Promise<StepOutcome> {
+export async function matchAssumptions(
+  courseId: string,
+  failedOnce: readonly string[] = [],
+): Promise<StepOutcome> {
   "use step";
-  const since = Date.now();
+  const startedAt = Date.now();
   const supabase = createAdminClient();
   const owner = await touchBuild(supabase, courseId);
   if (!owner) return { ok: true, left: null };
@@ -104,14 +109,20 @@ export async function matchAssumptions(courseId: string): Promise<StepOutcome> {
   const assumed = await embedNames(supabase, owner, named);
   if (assumed === "limit") return { ok: false, reason: dailyLimitReason };
 
-  const checked = await checkNames(supabase, owner, courseId, assumed);
+  const checked = await checkNames(
+    supabase,
+    owner,
+    courseId,
+    assumed,
+    startedAt,
+  );
   const unready = checked.unready;
   const unique = await uniqueKcs(
     supabase,
     owner,
     courseId,
     checked.fresh.filter((item) => !unready.has(item.part)),
-    since,
+    startedAt,
   );
   if (unique === "limit") return { ok: false, reason: dailyLimitReason };
   for (const part of unique.unready) unready.add(part);
@@ -140,7 +151,13 @@ export async function matchAssumptions(courseId: string): Promise<StepOutcome> {
   if (error) failed("Storing the assumed Prerequisites", error);
   if (!data) return { ok: true, left: null };
   if (checked.limitReached) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: pending.length - ready.length };
+  return stepOutcome(supabase, {
+    left: pending.length - ready.length,
+    failedKeys: [...checked.failed, ...unique.failed].map(
+      (part) => batch[part]!.key,
+    ),
+    failedOnce,
+  });
 }
 
 matchAssumptions.maxRetries = RATE_LIMITED_STEP_RETRIES;
@@ -178,18 +195,21 @@ const kcIdOf = new WeakMap<OfferedKc, string>();
 /**
  * Offers each name its candidates and asks the check calls: the
  * Prerequisites on earlier KCs, the names that become new KCs, the units
- * whose calls the call window or the Daily limit left out, and whether
- * the limit was reached.
+ * whose calls failed, no longer fit the step or met the Daily limit
+ * (`unready`), those whose calls failed, and whether the limit was
+ * reached.
  */
 async function checkNames(
   supabase: AdminSupabase,
   owner: string,
   courseId: string,
   assumed: Assumed[],
+  stepStartedAt: number,
 ): Promise<{
   links: Array<Link & { part: number }>;
   fresh: Assumed[];
   unready: Set<number>;
+  failed: Set<number>;
   limitReached: boolean;
 }> {
   const map = await loadMapInput(supabase, courseId);
@@ -253,9 +273,10 @@ async function checkNames(
     calls.push(offered.slice(start, start + NAMES_PER_CALL));
   }
   const done = new Set<OfferedName[]>();
+  const failedCalls = new Set<OfferedName[]>();
   const links: Array<Link & { part: number }> = [];
   let limitReached = false;
-  await runCalls(calls, async (names) => {
+  const runCall = async (names: OfferedName[]) => {
     const answer = await buildCall(
       supabase,
       { studentId: owner, task: "map", traceName: "check-prerequisites" },
@@ -267,7 +288,11 @@ async function checkNames(
     );
     if (answer === "limit") {
       limitReached = true;
-      return "stop";
+      return "stop" as const;
+    }
+    if (answer === "failed") {
+      failedCalls.add(names);
+      return;
     }
     for (const name of names) {
       const item = assumedOf.get(name)!;
@@ -286,14 +311,20 @@ async function checkNames(
       }
     }
     done.add(names);
-  });
+  };
+  await runCalls(calls, runCall, stepStartedAt);
 
-  const unready = new Set(
-    calls
-      .filter((names) => !done.has(names))
-      .flatMap((names) => names.map((name) => assumedOf.get(name)!.part)),
-  );
-  return { links, fresh, unready, limitReached };
+  const partsOf = (names: OfferedName[][]) =>
+    new Set(
+      names.flatMap((call) => call.map((name) => assumedOf.get(name)!.part)),
+    );
+  return {
+    links,
+    fresh,
+    unready: partsOf(calls.filter((names) => !done.has(names))),
+    failed: partsOf([...failedCalls]),
+    limitReached,
+  };
 }
 
 /** A KC row of `store_assumed_prerequisites`: new, or a retired one revived. */
@@ -312,20 +343,21 @@ type AssumedKcRow =
  * key), a retired KC within REVIVE_SIMILARITY revived instead, and those
  * within SAME_KC_SIMILARITY of each other merged as the merge call says.
  * Returns the KC rows, the links from them to the KCs that assume them,
- * and the units whose merge call the call window left out. "limit" when
- * the Daily limit is reached.
+ * the units whose merge call failed or no longer fit the step (`unready`)
+ * and those whose call failed. "limit" when the Daily limit is reached.
  */
 async function uniqueKcs(
   supabase: AdminSupabase,
   owner: string,
   courseId: string,
   fresh: Assumed[],
-  since: number,
+  stepStartedAt: number,
 ): Promise<
   | {
       kcs: AssumedKcRow[];
       links: Array<Link & { part: number }>;
       unready: Set<number>;
+      failed: Set<number>;
     }
   | "limit"
 > {
@@ -366,18 +398,22 @@ async function uniqueKcs(
     owner,
     unrevived,
     clusters,
-    since,
+    stepStartedAt,
   );
   if (merged === "limit") return "limit";
 
-  const undecided = new Set(
-    clusters.flatMap((keys, index) => (merged.decided.has(index) ? [] : keys)),
-  );
-  const unready = new Set(
-    groups.flatMap((group) =>
-      undecided.has(group.key) ? group.items.map((item) => item.part) : [],
-    ),
-  );
+  const partsOf = (indexes: (index: number) => boolean) => {
+    const keys = new Set(
+      clusters.flatMap((cluster, index) => (indexes(index) ? cluster : [])),
+    );
+    return new Set(
+      groups.flatMap((group) =>
+        keys.has(group.key) ? group.items.map((item) => item.part) : [],
+      ),
+    );
+  };
+  const unready = partsOf((index) => !merged.decided.has(index));
+  const failedParts = partsOf((index) => merged.failed.has(index));
   const ids = new Map<string, string>();
   const kcs: AssumedKcRow[] = [];
   for (const group of groups) {
@@ -403,5 +439,5 @@ async function uniqueKcs(
       to: item.kcId,
     })),
   );
-  return { kcs, links, unready };
+  return { kcs, links, unready, failed: failedParts };
 }
