@@ -178,6 +178,39 @@ describe("pairing exercises with solutions", () => {
     expect(storedPairs(db)).toHaveLength(400);
   });
 
+  test("a pass starts no call that could run past the step's limit", async () => {
+    upload(SHEET, "Sheet 7");
+    // Each pairing call takes 200 seconds.
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const { model, pairingPrompts } = pageModel(
+      [
+        {
+          units: [
+            ...Array.from({ length: 399 }, (_, i) => exercise(`Task ${i}.`)),
+            solution("Answer A."),
+            exercise("Task 399."),
+            solution("Answer B."),
+          ],
+        },
+      ],
+      (sent) => (
+        (now += 200_000),
+        pairByText([["Task 0.", "Answer A."]])(sent)
+      ),
+    );
+    useMockModels({ ingest: model });
+
+    await parseMaterial(SHEET);
+
+    expect(pairingPrompts).toHaveLength(1);
+    const pairs = storedPairs(db);
+    expect(pairs).toHaveLength(400);
+    expect(pairs.filter((pair) => pair.solution !== null)).toEqual([
+      { exercise: "Task 0.", solution: "Answer A.", status: "paired" },
+    ]);
+  });
+
   test("with the Daily limit reached, the Course's pass stores no solution, without a call", async () => {
     upload(SHEET, "Sheet 7");
     const { model, pairingPrompts } = pageModel(
