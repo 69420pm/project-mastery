@@ -492,6 +492,19 @@ describe("one Problem's run", () => {
     expect(written().program).toMatch(/^m = 2 kg/);
   });
 
+  test("a failed draft gets no retry that could run past the step's limit", async () => {
+    seedOne();
+    const model = useGenerateModel(unresolved, DRAFT);
+    // The first call takes 150 seconds: a retry could take 170 more.
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const generate = model.doGenerate.bind(model);
+    model.doGenerate = (options) => ((now += 150_000), generate(options));
+    await generateProblems(COURSE);
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(written().failure).toMatch(/Unresolved placeholders/);
+  });
+
   test("a model error fails it without a retry", async () => {
     seedOne();
     vi.spyOn(console, "error").mockImplementation(() => {});
