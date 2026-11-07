@@ -26,6 +26,19 @@ const TOOL_NAMES = [
   "grade",
 ];
 
+/**
+ * Whether `text` names the tool as code: a camelCase name anywhere as a
+ * word, and any name in backticks or called, such as `ask(`. "I'll remember
+ * that" or "a task" names no tool.
+ */
+function namesTool(text: string, name: string): boolean {
+  const asCode = new RegExp(`\`${name}\`|\\b${name}\\(`);
+  return (
+    asCode.test(text) ||
+    (/[A-Z]/.test(name) && new RegExp(`\\b${name}\\b`).test(text))
+  );
+}
+
 /** The Student's wish to read first, in a fourth Chat (#179). */
 const READING_REQUEST =
   "I'd like to read the course's pages on this before we start.";
@@ -345,7 +358,7 @@ export const tutorSmoke: SmokeCheck = {
     const named = [
       ...[...offered].filter((kc) => shown.includes(kc)),
       ...(UUID.test(shown) ? ["a UUID"] : []),
-      ...TOOL_NAMES.filter((name) => shown.includes(name)),
+      ...TOOL_NAMES.filter((name) => namesTool(shown, name)),
     ];
     const describe = (calls: ToolCall[]) =>
       calls.length === 0
