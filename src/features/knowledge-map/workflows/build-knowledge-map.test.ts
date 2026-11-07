@@ -185,41 +185,54 @@ describe("Update map", () => {
     expect(db.tables.chapter_extractions).toHaveLength(1);
   });
 
-  test("asks once more when a unit's KCs cite less than half of it, and keeps the answer that covers more", async () => {
-    seedMaterial(db, {
-      chapters: [{ title: "Vectors", chunks: ["Short.", halfAUnit] }],
-    });
-    const answers = [["Short"], ["Long"]];
-    const { extractions } = useBuildModels({
-      kcsOf: () => answers.shift() ?? [],
-      chunkIdOf: (kc, unit) => unit.chunks[kc === "Short" ? 0 : 1]!.id,
-    });
+  describe("a unit whose KCs cite less than half of it", () => {
+    /** "Short" cites the unit's short chunk, any other KC its long one. */
+    const useAnswers = (
+      answers: string[][],
+      afterCall?: (n: number) => void,
+    ) => {
+      seedMaterial(db, {
+        chapters: [{ title: "Vectors", chunks: ["Short.", halfAUnit] }],
+      });
+      return useBuildModels({
+        kcsOf: () => (answers.length > 1 ? answers.shift()! : answers[0]!),
+        chunkIdOf: (kc, unit) => unit.chunks[kc === "Short" ? 0 : 1]!.id,
+        afterCall,
+      }).extractions;
+    };
 
-    await update();
-
-    expect(extractions).toHaveLength(2);
-    expect(liveKcs(db)).toEqual(["Long"]);
-    expect(build()?.check_report).toMatchObject({ unitsBelowCoverage: [] });
-  });
-
-  test("stores a unit still below the coverage bar, and reports it", async () => {
-    seedMaterial(db, {
-      chapters: [{ title: "Vectors", chunks: ["Short.", halfAUnit] }],
-    });
-    const { extractions } = useBuildModels({
-      kcsOf: () => ["Short"],
-      chunkIdOf: (_kc, unit) => unit.chunks[0]!.id,
+    test("is asked once more, and the answer that covers more is kept", async () => {
+      const extractions = useAnswers([["Short"], ["Long"]]);
+      await update();
+      expect(extractions).toHaveLength(2);
+      expect(liveKcs(db)).toEqual(["Long"]);
+      expect(build()?.check_report).toMatchObject({ unitsBelowCoverage: [] });
     });
 
-    await update();
+    test("is stored still below the bar, and reported", async () => {
+      const extractions = useAnswers([["Short"]]);
+      await update();
+      expect(extractions).toHaveLength(2);
+      expect(build()?.status).toBe("built");
+      expect(liveKcs(db)).toEqual(["Short"]);
+      expect(build()?.check_report).toMatchObject({
+        unitsBelowCoverage: [
+          { chapter: "Material 0", coverage: expect.any(Number) },
+        ],
+      });
+    });
 
-    expect(extractions).toHaveLength(2);
-    expect(build()?.status).toBe("built");
-    expect(liveKcs(db)).toEqual(["Short"]);
-    expect(build()?.check_report).toMatchObject({
-      unitsBelowCoverage: [
-        { chapter: "Material 0", coverage: expect.any(Number) },
-      ],
+    test("keeps its first answer when the Daily limit stops the retry", async () => {
+      vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
+      const created_at = new Date().toISOString();
+      const spend = { owner: STUDENT, task: "chat", cost_usd: 5, created_at };
+      const atFirst = (n: number) => n === 1 && db.tables.ai_usage.push(spend);
+      const extractions = useAnswers([["Short"]], (n) => void atFirst(n));
+      await update();
+      // The limit stops the build once the first answer is stored.
+      expect(extractions).toHaveLength(1);
+      expect(db.tables.chapter_extractions).toHaveLength(1);
+      expect(build()?.failure_reason).toBe(dailyLimitReason);
     });
   });
 

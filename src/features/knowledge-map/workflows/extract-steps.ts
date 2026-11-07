@@ -107,7 +107,7 @@ extractChapters.maxRetries = RATE_LIMITED_STEP_RETRIES;
  * One unit's extraction, checked: asked once more when its KCs cite less
  * than MIN_UNIT_COVERAGE of the unit and a call still fits the step, the
  * answer that covers more kept. "failed" when the first call gives no
- * answer, "limit" when the Daily limit is reached.
+ * answer, "limit" when the Daily limit stops the first call.
  */
 async function extractUnit(
   supabase: AdminSupabase,
@@ -159,8 +159,9 @@ async function extractUnit(
   console.warn(
     `The extract-chapter call covered ${Math.round(coverage(first) * 100)}% of its unit; once more.`,
   );
+  // A second call that fails or meets the Daily limit keeps the first,
+  // valid answer; the limit then stops the build at the next call.
   const second = await call();
-  if (second === "limit") return "limit";
-  if (second === "failed") return first;
+  if (typeof second === "string") return first;
   return coverage(second) > coverage(first) ? second : first;
 }
