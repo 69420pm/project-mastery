@@ -3,66 +3,44 @@
 import { Markdown } from "@/components/markdown";
 import { chatMarkdownComponents } from "@/features/chat/components/citation-link";
 import { StepCard } from "@/features/chat/components/step-card";
-import { QuestionCard } from "@/features/chat/components/question-card";
 import { ReadingCard } from "@/features/chat/components/reading-card";
-import { KnowledgeMapCard } from "@/features/chat/components/knowledge-map-card";
 import {
   replySegments,
-  type QuestionState,
+  type ReplySegment,
 } from "@/features/chat/domain/reply-steps";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type { ProblemFlag } from "@/features/study";
+import { ProblemFlagControl, type ProblemFlag } from "@/features/study";
 
 /**
  * An AI reply's text and tool calls in the order they came: text as
- * Markdown, a question it asked as a question card, a reading it opened as a
- * reading card, a graded rebuild with a Knowledge map card after its step card,
- * and each other tool call as a step card.
+ * Markdown, a question it asked inline as the AI's question, a reading it
+ * opened as a reading card, and, with `showSteps`, each other tool call as
+ * a step card.
  */
 export function ReplyParts({
   parts,
   streaming,
   inProgress,
-  questions,
-  problemFlags,
-  canAnswer,
-  onAnswer,
-  doneReadings,
   arrived,
-  onDoneReading,
-  rebuilds,
-  topicId,
+  showSteps,
+  problemFlags,
 }: {
   parts: ChatUIMessage["parts"];
   /** Whether the reply is still streaming in. */
   streaming: boolean;
   /** Whether the reply is still being made, so its open calls are running. */
   inProgress: boolean;
-  /** Where the Chat's questions stand (`questionStates`). */
-  questions: Map<string, QuestionState>;
-  /** The stored flags of the generated Problems posed, by Problem id. */
-  problemFlags: Record<string, ProblemFlag>;
-  /** Whether the Student can send an answer now. */
-  canAnswer: boolean;
-  onAnswer: (
-    questionId: string,
-    text: string,
-    confidence: number | undefined,
-  ) => void;
-  /** The Chat's reading cards that are done (`doneReadings`). */
-  doneReadings: Set<string>;
   /**
    * Whether the reply arrived while the Chat is open, not with the stored
    * Chat: its reading card then opens the pane on its own.
    */
   arrived: boolean;
-  onDoneReading: (sectionId: string) => void;
-  /** The Chat's rebuild questions (`rebuildQuestions`). */
-  rebuilds: Set<string>;
-  /** The session's Topic (`sessionTopic`), whose map a graded rebuild opens. */
-  topicId: string | null;
+  /** Whether the step cards show, outside production only. */
+  showSteps: boolean;
+  /** The stored flags of the generated Problems posed, by Problem id. */
+  problemFlags: Record<string, ProblemFlag>;
 }) {
-  const segments = replySegments(parts, { inProgress, rebuilds, topicId });
+  const segments = replySegments(parts, { inProgress });
   return segments.map((segment, i) => {
     switch (segment.kind) {
       case "text":
@@ -77,19 +55,10 @@ export function ReplyParts({
         );
       case "question":
         return (
-          <QuestionCard
+          <QuestionView
             key={segment.question.id}
             question={segment.question}
-            state={questions.get(segment.question.id)}
-            problemFlag={
-              segment.question.generatedProblemId
-                ? problemFlags[segment.question.generatedProblemId]
-                : undefined
-            }
-            canAnswer={canAnswer}
-            onAnswer={(text, confidence) =>
-              onAnswer(segment.question.id, text, confidence)
-            }
+            problemFlags={problemFlags}
           />
         );
       case "reading":
@@ -97,22 +66,48 @@ export function ReplyParts({
           <ReadingCard
             key={segment.reading.id}
             reading={segment.reading}
-            done={doneReadings.has(segment.reading.id)}
-            canAnswer={canAnswer}
-            autoOpen={arrived}
-            onDone={() => onDoneReading(segment.reading.sectionId)}
-          />
-        );
-      case "knowledgeMap":
-        return (
-          <KnowledgeMapCard
-            key={`map-${segment.knowledgeMap.id}`}
-            knowledgeMap={segment.knowledgeMap}
             autoOpen={arrived}
           />
         );
       case "step":
-        return <StepCard key={segment.step.id} step={segment.step} />;
+        return showSteps ? (
+          <StepCard key={segment.step.id} step={segment.step} />
+        ) : null;
     }
   });
+}
+
+type Question = Extract<ReplySegment, { kind: "question" }>["question"];
+
+/**
+ * A question as part of the reply, answered in the normal input: its
+ * prompt, or the Problem it poses, with an Exercise's page link, which
+ * opens in the source pane, and a generated Problem's flag control.
+ */
+function QuestionView({
+  question,
+  problemFlags,
+}: {
+  question: Question;
+  problemFlags: Record<string, ProblemFlag>;
+}) {
+  const { problem } = question;
+  return (
+    <div data-testid="question" className="flex flex-col gap-2">
+      <Markdown components={chatMarkdownComponents}>
+        {problem?.statement ?? question.prompt}
+      </Markdown>
+      {problem?.page && (
+        <Markdown components={chatMarkdownComponents}>
+          {`[${problem.page.label}](${problem.page.link})`}
+        </Markdown>
+      )}
+      {problem?.generatedProblemId && (
+        <ProblemFlagControl
+          problemId={problem.generatedProblemId}
+          flag={problemFlags[problem.generatedProblemId]}
+        />
+      )}
+    </div>
+  );
 }

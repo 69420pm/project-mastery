@@ -35,6 +35,7 @@ const map: KnowledgeMapView = {
   ],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
 describe("restrictMapToTopic", () => {

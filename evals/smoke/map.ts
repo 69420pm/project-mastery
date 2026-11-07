@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { buildKnowledgeMap } from "@/features/knowledge-map/server";
+import { exportCourse } from "./gold-export";
+import { GOLD_SLUG } from "./gold-course";
 import {
   createCourse,
   GOLD,
@@ -55,17 +57,16 @@ function keptExercises(exercises: RecordedPage, solutions: RecordedPage) {
  * Update map from the recorded gold pages (#229): the lecture notes' pages
  * 17–24 and Exercises 7–10 with their printed solutions, parsed with their
  * recorded Outlines and without page calls, then built twice with the real
- * workflow in this process. Pinned to MiMo, the model that ships; it may
- * take 10 minutes (`AI_SMOKE_MAX_MINUTES=10`).
+ * workflow in this process. On the default smoke model; pinned to MiMo
+ * with AI_SMOKE_MODEL it may take 10 minutes (`AI_SMOKE_MAX_MINUTES=10`).
  */
 export const mapSmoke: SmokeCheck = {
   name: "map",
-  model: "xiaomi/mimo-v2.6-flash",
   // The parse's chunk embeddings and pairing call, the first build's calls
   // and its KC embeddings.
   maxCalls: MAX_BUILD_CALLS + 8,
-  usage: `pnpm smoke map (Update map from the recorded pages ${LECTURE_PAGES[0]}–${LECTURE_PAGES.at(-1)} of ${GOLD}/lecture-notes.pdf and Exercises ${KEPT.join(", ")}; AI_SMOKE_MAX_MINUTES=10)`,
-  async run({ supabase, studentId }) {
+  usage: `pnpm smoke map [export] (export writes the built Course as the ${GOLD_SLUG} snapshot; Update map from the recorded pages ${LECTURE_PAGES[0]}–${LECTURE_PAGES.at(-1)} of ${GOLD}/lecture-notes.pdf and Exercises ${KEPT.join(", ")}; AI_SMOKE_MAX_MINUTES=10)`,
+  async run({ supabase, studentId, args }) {
     const lecture = await recordedPages("lecture-notes.pdf");
     const exercisePage = await recordedPages("exercises.pdf");
     const courseId = await createCourse(supabase, studentId, "Smoke map");
@@ -103,6 +104,11 @@ export const mapSmoke: SmokeCheck = {
     console.info("Updating the map again…");
     await update(supabase, courseId, studentId);
     const again = await recordedCalls(supabase, studentId);
+    // Without the gold run's snapshot, the checks that need a built Course
+    // seed this one, uncommitted.
+    if (args.includes("export")) {
+      await exportCourse(supabase, courseId, GOLD_SLUG, "Linear Algebra I");
+    }
     return [
       ...results,
       result(
@@ -130,6 +136,8 @@ async function update(supabase: Supabase, courseId: string, owner: string) {
       owner,
       status: "building",
       failure_reason: null,
+      // As the queue sets it: KCs stored since then are this build's.
+      started_at: new Date().toISOString(),
       heartbeat_at: new Date().toISOString(),
     },
     { onConflict: "course_id" },
@@ -217,9 +225,10 @@ async function checkMap(
       )
       .map((kc) => kc.name),
   );
-  // Formulas aside: LaTeX's \le would read as French "le".
+  // Formulas aside: LaTeX's \le would read as French "le". Name and
+  // description together, as a short description may hold no marker word.
   const notEnglish = kcs.data!.filter((kc) => {
-    const prose = kc.description.replace(/\$[^$]*\$/g, " ");
+    const prose = `${kc.name}. ${kc.description}`.replace(/\$[^$]*\$/g, " ");
     return !ENGLISH.test(prose) || NOT_ENGLISH.test(prose);
   });
 
@@ -254,7 +263,7 @@ async function checkMap(
   const answers = new Map(
     exercises.data!.map((exercise) => [
       numberOf.get(exercise.question_chunk_id),
-      ((exercise.final_answers ?? []) as Array<{ value: number }>).map(
+      ((exercise.final_answers ?? []) as Array<{ value: string }>).map(
         (answer) => answer.value,
       ),
     ]),
@@ -302,8 +311,9 @@ async function checkMap(
             .join("; ")}`,
     ),
     result(
-      "Exercise 7's final answer is the printed 8, Exercise 10's the printed dim U = 2",
-      String(answers.get(7)) === "8" && String(answers.get(10)) === "2",
+      // Exercise 10 asks for a basis and the dimension: its basis is a key too.
+      "Exercise 7's final answer is the printed 8, Exercise 10's include the printed dim U = 2",
+      String(answers.get(7)) === "8" && (answers.get(10) ?? []).includes("2"),
       [...answers].map(([n, v]) => `${n}: ${v.join(", ")}`).join("; "),
     ),
   ];

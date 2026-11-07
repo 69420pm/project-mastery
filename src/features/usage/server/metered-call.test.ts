@@ -8,6 +8,7 @@ import {
   mockTextModel,
   useMockModels,
 } from "@/lib/ai/testing";
+import { CallTimeoutError } from "@/lib/ai/call-timeout";
 import { aiTask } from "@/lib/ai/models";
 import { markAdminClient } from "@/lib/supabase/admin-brand";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
@@ -19,7 +20,8 @@ import type {
 
 vi.mock("server-only", () => ({}));
 
-const { meteredEmbed, meteredGenerate } = await import("./metered-call");
+const { meteredEmbed, meteredGenerate, meteredStream } =
+  await import("./metered-call");
 
 const STUDENT = "11111111-1111-1111-1111-111111111111";
 const scope = { studentId: STUDENT, traceName: "test-call" };
@@ -148,6 +150,50 @@ describe("meteredGenerate", () => {
     );
 
     await expect(call).rejects.toThrow("the step's own");
+  });
+});
+
+/** A model whose stream never answers until its call is aborted. */
+function hangingModel() {
+  return new MockLanguageModelV4({
+    doStream: ({ abortSignal }) =>
+      new Promise((_, reject) => {
+        abortSignal?.addEventListener("abort", () =>
+          reject(abortSignal.reason),
+        );
+      }),
+  });
+}
+
+describe("a timed-out call", () => {
+  test("is a CallTimeoutError for callFailed, its usage estimated from what it sent", async () => {
+    useMockModels({ map: hangingModel() });
+    const { db, admin } = adminWith();
+    const callFailed = vi.fn((error: unknown) => {
+      throw error;
+    });
+
+    const failed = await meteredStream(
+      admin,
+      { ...scope, task: "map", callFailed },
+      {
+        ...aiTask("map"),
+        timeout: { totalMs: 20 },
+        instructions: "Answer.",
+        messages: [{ role: "user", content: "a".repeat(400) }],
+      },
+    ).catch((error: unknown) => error);
+
+    expect(failed).toBeInstanceOf(CallTimeoutError);
+    expect(callFailed).toHaveBeenCalledOnce();
+    expect(db.tables.ai_usage).toEqual([
+      expect.objectContaining({
+        task: "map",
+        estimated: true,
+        input_tokens: expect.toSatisfy((tokens: number) => tokens >= 100),
+        output_tokens: 0,
+      }),
+    ]);
   });
 });
 

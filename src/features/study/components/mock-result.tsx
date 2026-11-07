@@ -57,8 +57,8 @@ function GradedTask({ task, number }: { task: MockTask; number: number }) {
 /**
  * A graded Mock exam (#186): the score against the prediction, the points
  * per Topic, the Student's calibration on sure answers, each task's points
- * and reasons, and Go through it with the tutor. The reference solutions
- * stay for the Results session.
+ * and reasons, and Go through it with the tutor, a new Chat whose session
+ * goes through the mock.
  */
 export function MockResultView({
   result,
@@ -67,7 +67,7 @@ export function MockResultView({
 }: {
   result: MockResult;
   tasks: MockTask[];
-  /** A new Chat that goes through the mock. */
+  /** A new Chat whose Study session goes through the mock. */
   tutorHref: string;
 }) {
   return (

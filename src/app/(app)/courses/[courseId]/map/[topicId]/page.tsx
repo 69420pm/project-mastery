@@ -9,12 +9,9 @@ import {
 import { chunkAnchor } from "@/features/ingestion/server";
 import { getPriorities } from "@/features/priorities/server";
 import { TopicChoiceControls, topicBadges } from "@/features/study";
-import {
-  getKcLearning,
-  getPlan,
-  getTopicStates,
-} from "@/features/study/server";
+import { getKcLearning, getStudyState } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
+import { isProductionDeployment } from "@/lib/deployment-env";
 
 export const metadata: Metadata = {
   title: "Topic",
@@ -29,18 +26,16 @@ export default async function TopicPage({
 }: PageProps<"/courses/[courseId]/map/[topicId]">) {
   const { courseId, topicId } = await params;
   await requireUser(topicPath(courseId, topicId));
-  const [map, topics, priorities, learning, topicStates, plan] =
-    await Promise.all([
-      getKnowledgeMap(courseId),
-      loadCourseTopics(courseId),
-      getPriorities(courseId),
-      getKcLearning(courseId),
-      getTopicStates(courseId),
-      getPlan(courseId),
-    ]);
+  const [map, topics, priorities, learning, study] = await Promise.all([
+    getKnowledgeMap(courseId),
+    loadCourseTopics(courseId),
+    getPriorities(courseId),
+    getKcLearning(courseId),
+    getStudyState(courseId),
+  ]);
   const topic = topics.find(({ id }) => id === topicId);
   if (!topic) notFound();
-  const topicPlan = plan.topics.find(({ id }) => id === topicId);
+  const scope = study.scope.find(({ id }) => id === topicId);
 
   return (
     <TopicDetail
@@ -70,21 +65,22 @@ export default async function TopicPage({
       map={map}
       priorities={priorities}
       learning={learning}
+      details={!isProductionDeployment()}
       controls={
         <TopicChoiceControls
           courseId={courseId}
           topicId={topicId}
           choice={
-            topicPlan?.pinned
+            scope?.pinnedAt
               ? "pinned"
-              : topicPlan?.status === "skipped"
+              : scope?.status === "skipped"
                 ? "skipped"
                 : null
           }
         />
       }
-      topicState={topicStates[topic.id]}
-      badges={topicPlan ? topicBadges(topicPlan) : []}
+      study={study.topics[topic.id]}
+      badges={scope ? topicBadges(scope) : []}
     />
   );
 }

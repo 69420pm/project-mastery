@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import type { FocusDepth } from "@/features/knowledge-map/domain/focus";
 import { legendEntries } from "@/features/knowledge-map/domain/encodings";
-import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
+import { BAND_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import { useSavedSettings } from "@/features/knowledge-map/hooks/use-saved-settings";
 import type {
   KnowledgeMapView,
@@ -34,16 +34,19 @@ import { MapGraph } from "./map-graph";
  * from `learning`, its Priority from `priorities` and, for a KC in
  * `leftOut`, the `leftOutBadge`. The selected node is focused on the graph,
  * as far as the focus depth reaches; Esc or a click on the empty canvas
- * clears it. A selection stays while its node exists.
+ * clears it. A selection stays while its node exists. `details` shows a
+ * KC's other stats and Attempts: outside production only.
  */
 export function KnowledgeMap({
   map,
   priorities,
   learning,
+  details = false,
 }: {
   map: KnowledgeMapView;
   priorities: MapPriorities;
   learning: MapKcLearning;
+  details?: boolean;
 }) {
   const isWide = !useIsMobile();
   const [settings, saveSettings] = useSavedSettings();
@@ -57,6 +60,7 @@ export function KnowledgeMap({
     map,
     learning,
     priorities,
+    details,
     onSelect: setSelectedId,
   });
   const panel = selected?.panel ?? null;
@@ -67,7 +71,7 @@ export function KnowledgeMap({
       <div className="flex min-h-96 flex-1 gap-4">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <Legend entries={legendEntries(colorBy, STATE_NAMES)} />
+            <Legend entries={legendEntries(colorBy, BAND_NAMES)} />
             <div className="flex shrink-0 flex-wrap gap-2">
               <FocusDepthMenu depth={depth} onChange={setDepth} />
               <EncodingControls
@@ -153,12 +157,14 @@ function selectedPanel({
   map,
   learning,
   priorities,
+  details,
   onSelect,
 }: {
   id: string | null;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
+  details: boolean;
   onSelect: (id: string) => void;
 }): { label: string; panel: ReactNode } | null {
   if (id === null) return null;
@@ -172,6 +178,7 @@ function selectedPanel({
           map={map}
           learning={learning}
           priorities={priorities}
+          details={details}
           onSelect={onSelect}
         />
       ),

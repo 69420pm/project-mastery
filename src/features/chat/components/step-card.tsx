@@ -81,7 +81,7 @@ function StepDetails({ detail }: { detail: StepDetail }) {
             <li key={kc.id} className="flex flex-col gap-1">
               <p>
                 <span className="font-medium">{kc.name}</span>{" "}
-                <span className="text-muted-foreground">· {kc.state}</span>
+                <span className="text-muted-foreground">· {kc.band}</span>
               </p>
               <p className="text-muted-foreground">{kc.description}</p>
               {kc.sources.map((source, i) => (

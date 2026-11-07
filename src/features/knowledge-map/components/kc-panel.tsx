@@ -22,7 +22,7 @@ import type {
   MapKcLearning,
   MapPriorities,
 } from "@/features/knowledge-map/types";
-import { PriorityBadge, PriorityReasons, StateBadge } from "./kc-priority";
+import { BandBadge, PriorityBadge, PriorityReasons } from "./kc-priority";
 import { Fact, formatDate, NodeButton, None, Section } from "./panel-parts";
 
 /** A KC named in the panel; clicking it selects that KC. */
@@ -37,9 +37,10 @@ function KcButton({
 }
 
 /**
- * Every stat about one KC: what it is, what the Student has learned of it,
- * its Priority, its links, the chunks that teach it, the Exercises that test
- * it and what the checks say about it. Clicking a
+ * One KC: what it is, its recall band, recall today and next review. With
+ * `details` (outside production), every other stat too: its origin and
+ * Attempts, its Priority, its links, the chunks that teach it, the
+ * Exercises that test it and what the checks say about it. Clicking a
  * linked KC or an Exercise calls `onSelect` with its id.
  */
 export function KcPanel({
@@ -47,23 +48,18 @@ export function KcPanel({
   map,
   learning,
   priorities,
+  details,
   onSelect,
 }: {
   kc: KcView;
   map: KnowledgeMapView;
   learning: MapKcLearning;
   priorities: MapPriorities;
+  details: boolean;
   onSelect: (kcId: string) => void;
 }) {
-  const kcs = new Map(map.kcs.map((k) => [k.id, k]));
   const learned = learning[kc.id];
-  const priority = priorities.kcs[kc.id];
   const exerciseName = new Map(map.exercises.map((e) => [e.id, e.name]));
-  const attempted = attemptedExercises(learning);
-  const needs = map.prerequisites.filter((link) => link.to === kc.id);
-  const neededBy = map.prerequisites.filter((link) => link.from === kc.id);
-  const exercises = map.exercises.filter((e) => e.kcs.includes(kc.id));
-  const flags = checkFlags(map.checkReport, kc.name);
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -74,26 +70,28 @@ export function KcPanel({
         <div className="text-sm text-muted-foreground">
           <Markdown>{kc.description}</Markdown>
         </div>
-        <dl className="flex flex-col gap-1">
-          <Fact label="Origin">{ORIGIN_NAMES[kc.origin]}</Fact>
-        </dl>
+        {details && (
+          <dl className="flex flex-col gap-1">
+            <Fact label="Origin">{ORIGIN_NAMES[kc.origin]}</Fact>
+          </dl>
+        )}
       </Section>
 
       <Section title="Learning">
         <dl className="flex flex-col gap-1">
-          <Fact label="State">
-            <StateBadge state={learned} />
+          <Fact label="Recall">
+            <BandBadge learned={learned} />
           </Fact>
-          {learned?.retrievability != null && (
+          {learned?.recallToday != null && (
             <Fact label="Recall today">
-              {Math.round(learned.retrievability * 100)}%
+              {Math.round(learned.recallToday * 100)}%
             </Fact>
           )}
           {learned?.nextReview && (
             <Fact label="Next review">{formatDate(learned.nextReview)}</Fact>
           )}
         </dl>
-        {learned && learned.attempts.length > 0 ? (
+        {!details ? null : learned && learned.attempts.length > 0 ? (
           <ul aria-label="Attempts" className="flex flex-col gap-1 text-sm">
             {learned.attempts.map((attempt, index) => (
               // Attempts are a fixed list per render, newest first.
@@ -118,6 +116,37 @@ export function KcPanel({
         )}
       </Section>
 
+      {details && (
+        <OtherStats
+          kc={kc}
+          map={map}
+          learning={learning}
+          priorities={priorities}
+          onSelect={onSelect}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A KC's Priority, links, sources, Exercises and check flags. */
+function OtherStats({
+  kc,
+  map,
+  learning,
+  priorities,
+  onSelect,
+}: Omit<Parameters<typeof KcPanel>[0], "details">) {
+  const kcs = new Map(map.kcs.map((k) => [k.id, k]));
+  const priority = priorities.kcs[kc.id];
+  const attempted = attemptedExercises(learning);
+  const needs = map.prerequisites.filter((link) => link.to === kc.id);
+  const neededBy = map.prerequisites.filter((link) => link.from === kc.id);
+  const exercises = map.exercises.filter((e) => e.kcs.includes(kc.id));
+  const flags = checkFlags(map.checkReport, kc.name);
+
+  return (
+    <>
       <Section title="Priority">
         {priority ? (
           <>
@@ -153,9 +182,7 @@ export function KcPanel({
 
       <Section title="Sources">
         {kc.sources.length === 0 ? (
-          <None>
-            Not taught in your Materials: the AI teaches it in the Chat.
-          </None>
+          <None>No sources.</None>
         ) : (
           <ul className="flex flex-col gap-1">
             {kc.sources.map((source) => (
@@ -216,7 +243,7 @@ export function KcPanel({
           <None>The checks flag nothing.</None>
         )}
       </Section>
-    </div>
+    </>
   );
 }
 

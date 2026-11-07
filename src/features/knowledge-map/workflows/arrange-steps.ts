@@ -6,18 +6,25 @@ import { redundantLinks } from "@/features/knowledge-map/domain/prerequisite-cyc
 import {
   planTopicTree,
   storedAsProposed,
-  withUnsourced,
 } from "@/features/knowledge-map/domain/topic-tree";
 import { teachingOrder } from "@/features/knowledge-map/domain/topics";
 import type { CheckReport } from "@/features/knowledge-map/schemas";
 import {
+  loadKcVectors,
   loadStoredTree,
   treeKcs,
   type TreeProposal,
 } from "@/features/knowledge-map/workflows/topic-steps";
 import {
+  MIN_UNIT_COVERAGE,
+  unitCoverage,
+} from "@/features/knowledge-map/domain/unit-coverage";
+import {
+  loadCourseUnits,
+  loadStoredUnits,
   retireUnsourcedKcs,
   touchBuild,
+  unitKey,
 } from "@/features/knowledge-map/workflows/build-steps";
 import {
   courseOrder,
@@ -39,8 +46,7 @@ const MAX_DUPLICATES = 100;
 
 /**
  * Ends a build: retires the KCs whose sources went meanwhile, puts the KCs
- * in the order of their first sources, each KC without sources directly
- * before the KC it is placed by, and the Exercises in Course order,
+ * in the order of their first sources and the Exercises in Course order,
  * stores the Topic tree `tree` proposes (or the stored one again) with each
  * Topic's KCs in teaching order, drops redundant Prerequisites, stores the
  * check report and marks the build built.
@@ -54,18 +60,17 @@ export async function arrangeKnowledgeMap(
   if (!(await touchBuild(supabase, courseId))) return;
   await retireUnsourcedKcs(supabase, courseId);
 
-  const [input, stored] = await Promise.all([
+  const [input, stored, vectors] = await Promise.all([
     loadMapInput(supabase, courseId),
     loadStoredTree(supabase, courseId),
+    loadKcVectors(supabase, courseId),
   ]);
-  const { sourced, anchors } = courseOrder(input);
-  const kcs = withUnsourced(sourced, anchors);
+  const kcs = courseOrder(input);
   const topics = planTopicTree({
     proposed: tree.topics ?? storedAsProposed(stored),
     chapters: input.chapters,
-    kcs: treeKcs(input),
-    storedIds: new Set(stored.map((topic) => topic.id)),
-    unsourced: anchors,
+    kcs: treeKcs(input, vectors),
+    stored,
   }).map((topic) => ({
     ...topic,
     kcs: teachingOrder(topic.kcs, input.prerequisites),
@@ -74,7 +79,8 @@ export async function arrangeKnowledgeMap(
     p_course_id: courseId,
     p_kcs: kcs,
     p_topics: topics,
-    p_topic_tree_hash: tree.hash,
+    // Generated types make every argument non-null; the column takes null.
+    p_topic_tree_hash: tree.hash as string,
     p_dropped_prerequisites: redundantLinks(input.prerequisites),
     p_check_report: await checkReport(supabase, courseId, input),
   });
@@ -83,23 +89,45 @@ export async function arrangeKnowledgeMap(
 
 /**
  * What the build checks: Chapters with content of their own that no live
- * KC cites, Exercises without KCs and the KC pairs still alike after
- * merging.
+ * KC cites, Exercises without KCs, the KC pairs still alike after merging,
+ * the teaching units whose KCs cite less than MIN_UNIT_COVERAGE of them,
+ * the pages read without units and the units the build gave up on.
  */
 async function checkReport(
   supabase: AdminSupabase,
   courseId: string,
   input: MapInput,
 ): Promise<CheckReport> {
-  const [exercises, alike] = await Promise.all([
-    exercisesWithoutKcs(supabase, courseId),
-    supabase.rpc("alike_kcs", {
-      p_course_id: courseId,
-      p_similarity: SAME_KC_SIMILARITY,
-      p_count: MAX_DUPLICATES,
-    }),
-  ]);
+  const [exercises, alike, units, exerciseUnits, stored, unreadPages] =
+    await Promise.all([
+      exercisesWithoutKcs(supabase, courseId),
+      supabase.rpc("alike_kcs", {
+        p_course_id: courseId,
+        p_similarity: SAME_KC_SIMILARITY,
+        p_count: MAX_DUPLICATES,
+      }),
+      loadCourseUnits(supabase, courseId, "content"),
+      loadCourseUnits(supabase, courseId, "exercise"),
+      loadStoredUnits(supabase, courseId),
+      loadUnreadPages(supabase, courseId),
+    ]);
   if (alike.error) failed("Finding alike KCs", alike.error);
+  // A unit without an extraction of its content was given up on.
+  const hashOf = new Map(stored.map((row) => [row.key, row.contentHash]));
+  const unitsNotExtracted = [
+    ...new Set(
+      [...units, ...exerciseUnits]
+        .filter((unit) => hashOf.get(unitKey(unit)) !== unit.contentHash)
+        .map((unit) => unit.title),
+    ),
+  ];
+  const citedChunks = input.kcs.flatMap((kc) => kc.sources);
+  const unitsBelowCoverage = units.flatMap((unit) => {
+    const coverage = unitCoverage(unit.chunks, citedChunks);
+    return coverage < MIN_UNIT_COVERAGE
+      ? [{ chapter: unit.title, coverage }]
+      : [];
+  });
 
   const chapterOf = new Map(
     input.chunks.map((chunk) => [chunk.id, chunk.chapterId]),
@@ -115,7 +143,10 @@ async function checkReport(
   const name = new Map(input.kcs.map((kc) => [kc.id, kc.name]));
   return {
     chaptersWithoutKcs: input.chapters
-      .filter((chapter) => teaching.has(chapter.id) && !cited.has(chapter.id))
+      .filter(
+        (chapter) =>
+          !chapter.inExam && teaching.has(chapter.id) && !cited.has(chapter.id),
+      )
       .map((chapter) => chapter.title),
     exercisesWithoutKcs: exercises,
     duplicates: alike.data.flatMap(({ a, b, similarity }) =>
@@ -123,7 +154,47 @@ async function checkReport(
         ? [{ a: name.get(a)!, b: name.get(b)!, similarity }]
         : [],
     ),
+    unitsBelowCoverage,
+    unreadPages,
+    unitsNotExtracted,
   };
+}
+
+/**
+ * The pages of the Course's Materials that were read without units,
+ * `unreadable` or `uncovered`, per Material in Course order.
+ */
+async function loadUnreadPages(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<CheckReport["unreadPages"]> {
+  const materials = await supabase
+    .from("materials")
+    .select("id, name")
+    .eq("course_id", courseId)
+    .order("position");
+  if (materials.error) failed("Loading the Materials", materials.error);
+  const pages = await allRows("Loading the unread pages", (from, to) =>
+    supabase
+      .from("material_pages")
+      .select("material_id, page_number")
+      .in(
+        "material_id",
+        materials.data.map((material) => material.id),
+      )
+      .in("skipped", ["unreadable", "uncovered"])
+      .order("material_id")
+      .order("page_number")
+      .range(from, to),
+  );
+  return materials.data.flatMap((material) => {
+    const unread = pages
+      .filter((page) => page.material_id === material.id)
+      .map((page) => page.page_number);
+    return unread.length > 0
+      ? [{ material: material.name, pages: unread }]
+      : [];
+  });
 }
 
 /** The labels of the Course's Exercises that test no KC, in Course order. */

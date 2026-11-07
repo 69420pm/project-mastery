@@ -48,6 +48,14 @@ export async function saveMockAnswer(
   now: Date,
 ): Promise<MockAnswerSaved> {
   const text = answer.trim() === "" ? null : answer;
+  // A mock task is a Question a mock item poses.
+  const task = await supabase
+    .from("mock_items")
+    .select("id")
+    .eq("question_id", questionId)
+    .maybeSingle();
+  if (task.error) failed("Loading the mock task", task.error);
+  if (!task.data) return "unknown";
   const { data, error } = await supabase
     .from("questions")
     .update({
@@ -56,7 +64,6 @@ export async function saveMockAnswer(
       answered_at: text === null ? null : now.toISOString(),
     })
     .eq("id", questionId)
-    .eq("kind", "mock_item")
     .select("id");
   // Raised by the questions_check_mock_answer trigger.
   if (error?.code === "55000") return "closed";

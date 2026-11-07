@@ -17,11 +17,11 @@ import {
 } from "@/features/knowledge-map/schemas";
 import {
   buildCall,
+  extractAttempts,
   loadCourseLanguage,
   loadCourseUnits,
   loadStoredUnits,
-  runCalls,
-  storeExtraction,
+  planAttempts,
   touchBuild,
   unitKey,
   UNITS_PER_STEP,
@@ -52,11 +52,18 @@ const MATCHES_AT_ONCE = 10;
 
 /**
  * Extracts up to UNITS_PER_STEP exercise units that need it, in Course
- * order, at most AI_CONCURRENCY calls at a time. A reached Daily limit stops
- * the build; what is stored stays.
+ * order, as one round of at most AI_CONCURRENCY calls. A unit whose call
+ * fails is left to the next step and goes last; after its second failure
+ * it is called in pieces until it is given up (`domain/unit-pieces.ts`), so
+ * it never fails the build. A reached Daily limit stops the build; what is
+ * stored stays.
  */
-export async function extractExercises(courseId: string): Promise<StepOutcome> {
+export async function extractExercises(
+  courseId: string,
+  failed: readonly string[] = [],
+): Promise<StepOutcome> {
   "use step";
+  const startedAt = Date.now();
   const supabase = createAdminClient();
   const owner = await touchBuild(supabase, courseId);
   if (!owner) return { ok: true, left: null };
@@ -97,9 +104,10 @@ export async function extractExercises(courseId: string): Promise<StepOutcome> {
       solutionOf,
     ),
   );
-  if (todo.length === 0) return { ok: true, left: 0 };
+  const attempts = planAttempts(todo, stored, failed);
+  if (attempts.length === 0) return { ok: true, left: 0 };
 
-  const batch = todo.slice(0, UNITS_PER_STEP);
+  const batch = attempts.slice(0, UNITS_PER_STEP).map((a) => a.unit);
   const [language, solutions, candidates] = await Promise.all([
     loadCourseLanguage(supabase, courseId),
     loadMarkdowns(
@@ -111,25 +119,22 @@ export async function extractExercises(courseId: string): Promise<StepOutcome> {
     loadCandidates(supabase, courseId, batch),
   ]);
 
-  let done = 0;
-  let limitReached = false;
-  await runCalls(batch, async (unit) => {
-    const extraction = await extractUnit(supabase, owner, {
-      unit,
-      language,
-      solutions,
-      solutionOf,
-      candidates: candidates.get(unitKey(unit)) ?? [],
-    });
-    if (extraction === "limit") {
-      limitReached = true;
-      return "stop";
-    }
-    await storeExtraction(supabase, { owner, courseId, unit }, extraction);
-    done += 1;
-  });
-  if (limitReached) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: todo.length - done };
+  const { done, failedKeys, limit } = await extractAttempts(
+    supabase,
+    { owner, courseId },
+    attempts,
+    (unit, chunks) =>
+      extractUnit(supabase, owner, {
+        unit: { ...unit, chunks },
+        language,
+        solutions,
+        solutionOf,
+        candidates: candidates.get(unitKey(unit)) ?? [],
+      }),
+    startedAt,
+  );
+  if (limit) return { ok: false, reason: dailyLimitReason };
+  return { ok: true, left: attempts.length - done, failed: failedKeys };
 }
 
 extractExercises.maxRetries = RATE_LIMITED_STEP_RETRIES;
@@ -251,7 +256,7 @@ async function extractUnit(
     solutionOf: (chunkId: string) => string | null;
     candidates: Candidate[];
   },
-): Promise<StoredExtraction | "limit"> {
+): Promise<StoredExtraction | "limit" | "failed"> {
   const subtasks = unit.chunks.map((chunk, index): OfferedSubtask => {
     const solutionChunkId = solutionOf(chunk.id);
     return {
@@ -286,7 +291,7 @@ async function extractUnit(
     },
     exerciseExtractionSchema(),
   );
-  if (answer === "limit") return "limit";
+  if (typeof answer === "string") return answer;
   const { kcs, exercises } = checkExerciseAnswer(
     answer,
     subtasks,

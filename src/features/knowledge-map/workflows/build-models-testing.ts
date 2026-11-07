@@ -45,7 +45,7 @@ export type SentExerciseUnit = {
 export type SubtaskAnswer = {
   kcs?: string[];
   newKcs?: string[];
-  finalAnswers?: Array<{ label: string; value: number; unit: string | null }>;
+  finalAnswers?: Array<{ label: string; value: string; anyOrder: boolean }>;
   notAnExercise?: boolean;
 };
 
@@ -146,7 +146,8 @@ export type SentName = {
  * one named after the unit's Chapter), citing its first chunk (or the id
  * `chunkIdOf` gives) and assuming the names `assumesOf` says (by default
  * nothing), each described "About <name>." as a KC of that name is; its
- * first `blankCalls` calls answer nothing. The merge call
+ * first `timeoutCalls` calls time out, and the next `blankCalls` answer
+ * nothing. The merge call
  * calls KCs of one cluster with the same name the same. The Prerequisite
  * check picks the candidate named `meaningOf` the name (by default the name
  * itself). Every KC text gets a one-hot vector of its own, so equal texts
@@ -161,18 +162,23 @@ export function useBuildModels({
   meaningOf = (name) => name.name,
   subtaskOf = () => ({}),
   blankCalls = 0,
+  timeoutCalls = 0,
   afterCall,
   treeOf = flatTree,
 }: {
-  treeOf?: (course: SentCourse) => TreeTopicAnswer[];
+  /** The tree call's Topics; undefined for no valid answer. */
+  treeOf?: (course: SentCourse) => TreeTopicAnswer[] | undefined;
   kcsOf?: (unit: SentUnit) => string[];
   assumesOf?: (kc: string) => string[];
   chunkIdOf?: (kc: string, unit: SentUnit) => string;
   meaningOf?: (name: SentName) => string | null;
   subtaskOf?: (subtask: SentExerciseUnit["subtasks"][number]) => SubtaskAnswer;
   blankCalls?: number;
+  /** Extraction calls that run into their time limit first. */
+  timeoutCalls?: number;
   afterCall?: (count: number) => void;
 } = {}) {
+  const timeouts = Array.from({ length: timeoutCalls }, () => true);
   const extractions: SentUnit[] = [];
   const merges: unknown[] = [];
   const checks: SentName[][] = [];
@@ -209,6 +215,10 @@ export function useBuildModels({
               .map((group) => ({ kcIds: group.map((kc) => kc.id) })),
           ),
         });
+      }
+      if (timeouts.pop()) {
+        // What the AI SDK's `timeout` aborts the call with.
+        throw new DOMException("Total timeout exceeded", "TimeoutError");
       }
       if (blanks.pop()) return answer(undefined);
       const unit = sent as SentUnit;
@@ -251,7 +261,8 @@ export function useBuildModels({
     doStream: async ({ prompt }) => {
       const course = userJson(prompt) as SentCourse;
       trees.push(course);
-      return answer({ topics: treeOf(course) });
+      const topics = treeOf(course);
+      return answer(topics && { topics });
     },
   });
   const exercises: SentExerciseUnit[] = [];

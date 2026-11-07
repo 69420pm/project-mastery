@@ -1,6 +1,6 @@
 import "server-only";
+import { examChapterIds } from "@/features/ingestion/server";
 import type { Link } from "@/features/knowledge-map/domain/prerequisite-cycles";
-import { unsourcedAnchors } from "@/features/knowledge-map/domain/topic-tree";
 import { allRows } from "@/lib/supabase/all-rows";
 import { failed } from "@/lib/supabase/failed";
 import type { AdminSupabase } from "@/lib/supabase/types";
@@ -19,6 +19,8 @@ export type MapInput = {
     materialId: string;
     title: string;
     depth: number;
+    /** Whether it is in an old exam: a confirmed one or below one. */
+    inExam: boolean;
   }>;
   /** The Course's Materials by position. */
   materials: Array<{ id: string; name: string }>;
@@ -48,7 +50,7 @@ export async function loadMapInput(
       allRows("Loading the Chapters", (from, to) =>
         supabase
           .from("chapters")
-          .select("id, material_id, title, depth")
+          .select("id, material_id, parent_id, title, depth, is_exam")
           .eq("course_id", courseId)
           .order("material_id")
           .order("position")
@@ -102,6 +104,13 @@ export async function loadMapInput(
     ]);
   if (materials.error) failed("Loading the Materials", materials.error);
 
+  const exams = examChapterIds(
+    chapters.map((c) => ({
+      id: c.id,
+      parentId: c.parent_id,
+      isExam: c.is_exam === true,
+    })),
+  );
   const sourcesOf = Map.groupBy(sources, (source) => source.kc_id);
   const live = new Set(kcs.map((kc) => kc.id));
   return {
@@ -122,6 +131,7 @@ export async function loadMapInput(
           materialId: chapter.material_id,
           title: chapter.title,
           depth: chapter.depth,
+          inExam: exams.has(chapter.id),
         })),
     ),
     materials: materials.data,
@@ -152,34 +162,11 @@ export function firstSourcePlaces(map: MapInput): Map<string, number> {
   );
 }
 
-/**
- * The live KCs with a first source, in Course order, and the KC each live
- * KC without one is placed by (`unsourcedAnchors`).
- */
-export function courseOrder(map: MapInput): {
-  places: Map<string, number>;
-  sourced: string[];
-  anchors: Map<string, string>;
-} {
+/** The live KCs with a first source, in Course order. */
+export function courseOrder(map: MapInput): string[] {
   const places = firstSourcePlaces(map);
-  const sourced = map.kcs
+  return map.kcs
     .map((kc) => kc.id)
     .filter((id) => places.has(id))
     .toSorted((a, b) => places.get(a)! - places.get(b)!);
-  const anchors = unsourcedAnchors(
-    sourced,
-    map.kcs.flatMap((kc) => (places.has(kc.id) ? [] : [kc.id])),
-    map.prerequisites,
-  );
-  return { places, sourced, anchors };
-}
-
-/**
- * Each live KC's place in Course order: its first source's, or for a KC
- * without sources the place of the KC it is placed by.
- */
-export function kcPlaces(map: MapInput): Map<string, number> {
-  const { places, anchors } = courseOrder(map);
-  for (const [id, anchor] of anchors) places.set(id, places.get(anchor)!);
-  return places;
 }

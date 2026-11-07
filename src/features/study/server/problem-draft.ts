@@ -1,4 +1,5 @@
 import "server-only";
+import type { AnswerKey } from "@/features/knowledge-map/server";
 import type { ProblemDraft } from "@/features/study/ai/generate-call";
 import {
   fillPlaceholders,
@@ -6,21 +7,19 @@ import {
 } from "@/features/study/domain/placeholders";
 import type { MathRunner } from "@/features/study/server/math-runner";
 
-/** A generated Problem's final answer, in the Exercise shape. */
-type FinalAnswer = { label: string; value: number; unit: string | null };
-
 /** A draft that passed: its texts with the program's numbers filled in. */
 export type CheckedProblem = {
   statement: string;
   solution: string;
   program: string | null;
-  /** The program's values of the declared answers; null without any. */
-  finalAnswers: FinalAnswer[] | null;
+  /** The answer keys of the declared answers' values; null without any. */
+  finalAnswers: AnswerKey[] | null;
 };
 
 /**
  * Runs a draft's program with its declared final answers and fills its
- * placeholders from the values, a final answer's in its declared unit. The
+ * placeholders from the values, a final answer's in its declared unit, and
+ * makes each declared answer's value its answer key. The
  * error, for the retry, when the program fails or a placeholder stays
  * unresolved. Without a program, final answers are dropped and any
  * placeholder is unresolved.
@@ -32,16 +31,16 @@ export async function checkDraft(
   { ok: true; problem: CheckedProblem } | { ok: false; error: string }
 > {
   let values: Record<string, PlaceholderValue> = {};
-  let finalAnswers: FinalAnswer[] | null = null;
+  let finalAnswers: AnswerKey[] | null = null;
   if (draft.program !== null) {
     const run = await runner.run(draft.program, draft.finalAnswers);
     if (!run.ok) return { ok: false, error: `Program: ${run.error}` };
     values = { ...run.values };
     for (const answer of run.answers) values[answer.variable] = answer;
-    finalAnswers = run.answers.map(({ variable, value, unit }) => ({
+    finalAnswers = run.answers.map(({ variable, text }) => ({
       label: variable,
-      value,
-      unit,
+      value: text,
+      anyOrder: false,
     }));
   }
   const statement = fillPlaceholders(draft.statement, values);

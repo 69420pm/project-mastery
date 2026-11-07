@@ -4,10 +4,10 @@ import {
   type ExamGrading,
   type GradeExamInput,
 } from "@/features/study/ai/grade-exam-call";
+import { checkEachAnswer, worstCheck } from "@/features/knowledge-map/server";
 import {
   awardedPoints,
   checkedResult,
-  checkMockValue,
   mockScore,
   type MockCheck,
 } from "@/features/study/domain/mock-grading";
@@ -50,8 +50,8 @@ async function loadSubmitted(supabase: Supabase, mockId: string) {
 
 /**
  * Grades one item: a blank answer gets 0 points and every KC `wrong`
- * without a call; an answer one `grade_exam` call, its final value checked
- * against the key. Stores a `mock` attempt per KC with the Question's
+ * without a call; an answer one `grade_exam` call, its final values checked
+ * against the keys. Stores a `mock` attempt per KC with the Question's
  * grading claim, then the item's points, steps and check. Throws when the
  * call fails, so the workflow retries the step.
  */
@@ -82,16 +82,18 @@ export async function gradeMockItem(itemId: string): Promise<void> {
         kcId,
         result: "wrong",
       })),
-      finalValue: null,
+      finalValues: [],
     };
   } else {
     const source = await loadItemSource(supabase, item);
+    const keys = source.keys ?? [];
     const { call, grading: read } = gradeExamCall({
       prompt: item.prompt,
       points: item.points,
       reference: source.reference,
       answer,
       kcs: await loadKcs(supabase, question?.kcIds ?? []),
+      finalResults: keys.map(({ label }) => label),
     });
     const result = await meteredGenerate(
       supabase,
@@ -106,7 +108,8 @@ export async function gradeMockItem(itemId: string): Promise<void> {
     // The provider's daily quota: a later retry may get through.
     if (!result) throw new Error("The grade_exam call got no answer.");
     grading = read(result.output);
-    check = checkMockValue(source.keys, grading.finalValue);
+    // Each key on its own: a value the check can't read hides no other.
+    check = worstCheck(checkEachAnswer(keys, grading.finalValues));
   }
 
   if (question) {
@@ -207,7 +210,6 @@ async function saveMockAttempts(
       question_id: grade.questionId,
       session_id: grade.sessionId,
       kc_id: kcId,
-      kind: "mock",
       result,
       help: "none",
       check: grade.check,

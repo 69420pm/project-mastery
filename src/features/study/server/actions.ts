@@ -4,7 +4,6 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { briefPath } from "@/features/brief";
 import {
-  answerMapFindingSchema,
   endSessionSchema,
   examResultSchema,
   flagProblemSchema,
@@ -14,14 +13,8 @@ import {
   saveMemorySchema,
   saveMockAnswerSchema,
   setTopicChoiceSchema,
-  topicKnowledgeMapSchema,
 } from "@/features/study/schemas";
 import { recordExamResult } from "@/features/study/server/exam-results";
-import {
-  acceptOpenMapFinding,
-  dismissOpenMapFinding,
-} from "@/features/study/server/map-findings";
-import { appendMemory } from "@/features/study/server/memory";
 import {
   saveMockAnswer,
   startMock,
@@ -29,11 +22,7 @@ import {
 } from "@/features/study/server/mock-sheet";
 import { flagReadyProblem } from "@/features/study/server/problems";
 import { closeIdleSession, endSession } from "@/features/study/server/sessions";
-import type {
-  ProblemFlag,
-  SessionSummary,
-  TopicKnowledgeMap,
-} from "@/features/study/types";
+import type { ProblemFlag, SessionSummary } from "@/features/study/types";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 import { parseActionInput, type ActionResult } from "@/lib/validation/action";
@@ -144,30 +133,6 @@ export async function rateStudySession(input: {
     return { ok: false, message: "This Chat has no study session to rate." };
   }
   return { ok: true, data: undefined };
-}
-
-/**
- * A Topic's part of the Knowledge map with the Student's KC states, for the
- * Chat's side slot after a rebuild: the Topic's KCs and anchors
- * (`restrictMapToTopic`).
- */
-export async function getTopicKnowledgeMap(input: {
-  courseId: string;
-  topicId: string;
-}): Promise<ActionResult<TopicKnowledgeMap>> {
-  if (!(await getUser())) {
-    return { ok: false, message: "Sign in again to continue." };
-  }
-  const parsed = parseActionInput(topicKnowledgeMapSchema, input);
-  if (!parsed.ok) return parsed;
-
-  const { loadTopicKnowledgeMap } = await loadReads();
-  const topic = await loadTopicKnowledgeMap(
-    parsed.data.courseId,
-    parsed.data.topicId,
-  );
-  if (!topic) return { ok: false, message: "This Topic was not found." };
-  return { ok: true, data: topic };
 }
 
 /**
@@ -289,24 +254,20 @@ export async function submitMockExam(input: {
 }
 
 /**
- * The session summary and Topic Knowledge map reads, imported on first use:
- * they load the knowledge-map feature's server code, which client modules
- * that import these actions (the close card, the Topic graph) must not pull
- * in when they load, as their tests do.
+ * The session summary reads, imported on first use: they load the
+ * knowledge-map feature's server code, which client modules that import
+ * these actions (the close card) must not pull in when they load, as their
+ * tests do.
  */
 async function loadReads() {
-  const [summary, topicKnowledgeMap] = await Promise.all([
-    import("@/features/study/server/session-summary"),
-    import("@/features/study/server/topic-knowledge-map"),
-  ]);
-  return { ...summary, ...topicKnowledgeMap };
+  return import("@/features/study/server/session-summary");
 }
 
 /**
  * Pins or skips a Topic of the Student's Course, or clears the choice with
  * null. A new choice replaces the old one. A skip's reason goes to the
- * Memory as "Skipped <Topic>: <reason>"; `reasonKept` is false when the
- * Memory is full, and the skip is saved anyway.
+ * Brief's notes as "Skipped <Topic>: <reason>"; `reasonKept` is false when
+ * they are full or there is no Brief, and the skip is saved anyway.
  */
 export async function setTopicChoice(input: {
   courseId: string;
@@ -348,7 +309,11 @@ export async function setTopicChoice(input: {
 
   let reasonKept = true;
   if (choice === "skipped" && reason) {
-    reasonKept = await appendMemory(
+    // Loaded on use: `brief/server` reaches `workflow/api`, which the
+    // component tests that import these actions can't load
+    // (docs/agents/notes/workflow-imports.md).
+    const { noteInBrief } = await import("@/features/brief/server");
+    reasonKept = await noteInBrief(
       supabase,
       courseId,
       `Skipped ${topic.name}: ${reason}`,
@@ -356,33 +321,6 @@ export async function setTopicChoice(input: {
   }
   revalidatePath("/", "layout");
   return { ok: true, data: { reasonKept } };
-}
-
-/**
- * Accept or Dismiss on the Map findings card: answers an open map Finding
- * of the Student's. An accepted one is applied to the map at once, unless
- * the database refuses it (a link that would make a cycle), which leaves it
- * open. A Finding that is no longer open stays as it is, and the page
- * refreshes.
- */
-export async function answerMapFinding(
-  id: string,
-  status: "accepted" | "dismissed",
-): Promise<ActionResult> {
-  if (!(await getUser())) {
-    return { ok: false, message: "Sign in again to continue." };
-  }
-  const parsed = parseActionInput(answerMapFindingSchema, { id, status });
-  if (!parsed.ok) return parsed;
-  const supabase = await createClient();
-  if (parsed.data.status === "dismissed") {
-    await dismissOpenMapFinding(supabase, parsed.data.id);
-  } else {
-    const refusal = await acceptOpenMapFinding(supabase, parsed.data.id);
-    if (refusal) return { ok: false, message: refusal };
-  }
-  revalidatePath("/", "layout");
-  return { ok: true, data: undefined };
 }
 
 /**

@@ -1,11 +1,12 @@
--- The close call's store (#187): `store_session_close` writes the Session
--- note, the Topic note, the condensed Memory (only while the Memory is
--- unchanged since it was read) and the dated Memory lines (skipping one past
--- 4,000 characters) once per session. Run with `pnpm db:test`.
+-- The close call's store (#187, #251): `store_session_close` marks the
+-- session closed, replaces the Topic notes it gets (only of the session's
+-- Course), writes the condensed Memory (only while the Memory is unchanged
+-- since it was read) and the dated Memory lines (skipping one past 4,000
+-- characters) once per session. Run with `pnpm db:test`.
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(13);
 
 insert into auth.users (id, email)
 values ('11111111-1111-1111-1111-111111111111', 'alice@example.com');
@@ -15,13 +16,21 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Jet engines'),
   ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'Rockets');
 
+-- Two Topics of the first Course, one with an old note, and one of the
+-- second Course.
 insert into public.topics (id, owner, course_id, chapter_ids, name, central_question, position)
-values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  'aaaaaaaa-0000-0000-0000-000000000001', '{bbbbbbbb-0000-0000-0000-000000000001}',
-  'Thrust', 'How does an engine make thrust?', 0);
+values
+  ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000001', '{bbbbbbbb-0000-0000-0000-000000000001}', 'Thrust', 'Where does thrust come from?', 0),
+  ('dddddddd-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000001', '{bbbbbbbb-0000-0000-0000-000000000002}', 'Nozzles', 'How does a nozzle work?', 1),
+  ('dddddddd-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-0000-0000-0000-000000000002', '{bbbbbbbb-0000-0000-0000-000000000003}', 'Staging', 'Why stage a rocket?', 0);
+insert into public.topic_notes (topic_id, owner, text)
+values ('dddddddd-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'Old note.');
 
--- Each Chat starts a learn session: 1 with the Topic, 2 review, 3 learn
--- without a Topic, 4 in the Course without a Memory.
+-- Each Chat starts a session: 1 to 3 in the first Course, 4 in the Course
+-- without a Memory.
 insert into public.chats (id, owner, course_id)
 values
   ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001'),
@@ -29,14 +38,10 @@ values
   ('cccccccc-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001'),
   ('cccccccc-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000002');
 update public.study_sessions set ended_at = now();
-update public.study_sessions set topic_id = 'dddddddd-0000-0000-0000-000000000001', stage = 'close'
-where chat_id = 'cccccccc-0000-0000-0000-000000000001';
-update public.study_sessions set mode = 'review'
-where chat_id = 'cccccccc-0000-0000-0000-000000000002';
 
 insert into public.memories (course_id, owner, text)
 values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
-  '!Exam is open book.' || chr(10) || 'Likes short answers.');
+  'Exam is open book.' || chr(10) || 'Likes short answers.');
 
 create temporary table ids on commit drop as
 select chat_id, id from public.study_sessions;
@@ -46,56 +51,63 @@ grant select on ids, day to authenticated, service_role;
 
 set local role service_role;
 
--- Guard on: the Memory is as read, so the condensed text replaces it.
+-- Guard on: the Memory is as read, so the condensed text replaces it. The
+-- notes replace the old one, add a new one and skip the other Course's.
 select is(
   public.store_session_close(
     (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000001'),
-    'Worked through thrust.' || chr(10) || 'Next: nozzles.',
     array['Prefers worked examples.'],
-    'Mixes up mass flow and velocity.',
-    '!Exam is open book.',
+    '[{"topic_id": "dddddddd-0000-0000-0000-000000000001", "text": "Mixes up mass flow and exit speed."},
+      {"topic_id": "dddddddd-0000-0000-0000-000000000002", "text": "The area rule clicked."},
+      {"topic_id": "dddddddd-0000-0000-0000-000000000003", "text": "Another Course."}]',
+    'Exam is open book.',
     (select updated_at from public.memories)),
   true, 'the first store succeeds');
-select is((select session_note from public.study_sessions
+select isnt((select closed_at from public.study_sessions
     where chat_id = 'cccccccc-0000-0000-0000-000000000001'),
-  'Worked through thrust.' || chr(10) || 'Next: nozzles.', 'it stores the Session note');
-select is((select text from public.topic_notes), 'Mixes up mass flow and velocity.',
-  'it stores the Topic note');
-select is((select owner from public.topic_notes), '11111111-1111-1111-1111-111111111111'::uuid,
-  'the Topic note belongs to the session''s Student');
+  null, 'it marks the session closed');
 select is((select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
-  '!Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.',
+  'Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.',
   'it replaces the Memory with the condensed text and appends the dated line');
+select is((select text from public.topic_notes where topic_id = 'dddddddd-0000-0000-0000-000000000001'),
+  'Mixes up mass flow and exit speed.', 'it replaces a Topic''s old note');
+select is(
+  (select owner::text || ' ' || text from public.topic_notes
+    where topic_id = 'dddddddd-0000-0000-0000-000000000002'),
+  '11111111-1111-1111-1111-111111111111 The area rule clicked.',
+  'it writes a new Topic note, owned by the session''s Student');
+select is((select count(*)::int from public.topic_notes where topic_id = 'dddddddd-0000-0000-0000-000000000003'),
+  0, 'it skips a Topic of another Course');
 
 -- A second store of the same session changes nothing.
 select is(
   public.store_session_close(
     (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000001'),
-    'Again.', array['Twice.'], 'Overwritten.'),
+    array['Twice.'],
+    '[{"topic_id": "dddddddd-0000-0000-0000-000000000001", "text": "Twice."}]',
+    'Overwritten.'),
   false, 'a second store of the session is refused');
-select is((select text from public.topic_notes), 'Mixes up mass flow and velocity.',
-  'the second store leaves the Topic note');
-select is((select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
-  '!Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.',
-  'the second store appends no line');
+select is(
+  (select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000001')
+    || ' / ' || (select text from public.topic_notes where topic_id = 'dddddddd-0000-0000-0000-000000000001'),
+  'Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.'
+    || ' / Mixes up mass flow and exit speed.',
+  'the second store changes no Memory and no Topic note');
 
 -- The Memory changed since it was read: the condensed text is dropped, the
--- lines still appended; a review session writes no Topic note.
+-- lines still appended.
 select is(
   public.store_session_close(
     (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000002'),
-    'Reviewed thrust.' || chr(10) || 'Next: more reviews.',
     array['Studies at night.'],
-    'Not for review.',
+    '[]',
     'Dropped.',
     '2000-01-01T00:00:00Z'),
   true, 'a store with a stale Memory read succeeds');
 select is((select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
-  '!Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.'
+  'Exam is open book.' || chr(10) || (select prefix from day) || 'Prefers worked examples.'
     || chr(10) || (select prefix from day) || 'Studies at night.',
   'a changed Memory keeps its text and gets the line');
-select is((select text from public.topic_notes), 'Mixes up mass flow and velocity.',
-  'a review session leaves the Topic note');
 reset role;
 
 -- Guard off, with a nearly full Memory: a line past 4,000 characters is
@@ -105,7 +117,6 @@ where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 set local role service_role;
 select public.store_session_close(
   (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000003'),
-  'Short session.' || chr(10) || 'Next: thrust.',
   array['This line is far too long to still fit.', 'ok']);
 select is((select text from public.memories where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
   repeat('x', 3980) || chr(10) || (select prefix from day) || 'ok',
@@ -114,7 +125,6 @@ select is((select text from public.memories where course_id = 'aaaaaaaa-0000-000
 -- A Course without a Memory gets one, owned by the session's Student.
 select public.store_session_close(
   (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000004'),
-  'First session.' || chr(10) || 'Next: rockets.',
   array['Wants exam-style tasks.']);
 select is(
   (select owner::text || ' ' || text from public.memories
@@ -129,7 +139,7 @@ set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", 
 select throws_ok(
   $$select public.store_session_close(
     (select id from ids where chat_id = 'cccccccc-0000-0000-0000-000000000003'),
-    'Mine.', array[]::text[])$$,
+    array[]::text[])$$,
   '42501', null, 'a Student cannot store a close');
 reset role;
 

@@ -1,31 +1,31 @@
 import Link from "next/link";
-import type { StudyPlan } from "@/features/study/types";
+import type { StudyState } from "@/features/study/types";
 
 const days = (count: number) => `${count} ${count === 1 ? "day" : "days"}`;
 
 /**
- * The plan's Progress as a bar and one line, such as `34 of 120 KCs known ·
- * 12 days in · 30 days left`, leaving out the parts it lacks. Without an exam
+ * The Progress as a bar and one line, such as `34 of 120 KCs learned · 12
+ * days in · 30 days left`, leaving out the parts it lacks. Without an exam
  * date and given `briefHref`, it links to the Brief to add one. Without
  * in-plan KCs, only `empty` if given, else nothing.
  */
 export function ProgressLine({
-  plan,
+  state,
   briefHref,
   empty,
 }: {
-  plan: Pick<StudyPlan, "progress" | "examDate">;
+  state: Pick<StudyState, "progress" | "examDate">;
   /** The Brief, linked to when the Course has no exam date. */
   briefHref?: string;
   /** Shown instead of the line without in-plan KCs. */
   empty?: string;
 }) {
-  const { known, total, daysIn, daysLeft } = plan.progress;
+  const { learned, total, daysIn, daysLeft } = state.progress;
   if (total === 0) {
     return empty ? <p className="text-muted-foreground">{empty}</p> : null;
   }
   const parts = [
-    `${known} of ${total} ${total === 1 ? "KC" : "KCs"} known`,
+    `${learned} of ${total} ${total === 1 ? "KC" : "KCs"} learned`,
     ...(daysIn === null ? [] : [`${days(daysIn)} in`]),
     ...(daysLeft === null
       ? []
@@ -38,16 +38,16 @@ export function ProgressLine({
         aria-label="Progress"
         aria-valuemin={0}
         aria-valuemax={total}
-        aria-valuenow={known}
+        aria-valuenow={learned}
         className="h-1.5 w-24 overflow-hidden rounded-full bg-muted"
       >
         <div
           className="h-full bg-primary"
-          style={{ width: `${(known / total) * 100}%` }}
+          style={{ width: `${(learned / total) * 100}%` }}
         />
       </div>
       <p>{parts.join(" · ")}</p>
-      {briefHref && plan.examDate === null && (
+      {briefHref && state.examDate === null && (
         <Link href={briefHref} className="underline underline-offset-4">
           Add your exam date in the Brief
         </Link>

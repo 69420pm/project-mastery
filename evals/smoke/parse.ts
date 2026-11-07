@@ -45,11 +45,10 @@ async function pageCount(bytes: Uint8Array, mediaType: string) {
 /**
  * Parses one file, or a selection of its pages, as a new Material with the
  * real `parseMaterial` workflow, run in this process, and checks what the
- * parse stored. Pinned to MiMo, the model that ships.
+ * parse stored. On the default smoke model (AI_SMOKE_MODEL pins MiMo).
  */
 export const parseSmoke: SmokeCheck = {
   name: "parse",
-  model: "xiaomi/mimo-v2.6-flash",
   usage: `pnpm smoke parse [file] [${PAGES} 3,5,19-22] [${PAGES_OUT} pages.json] (PDF or image; at most ${MAX_PAGES} pages read; default ${DEFAULT_FILE}; writes the page results to a file)`,
   async run({ supabase, studentId, args }) {
     const { file, pages: selection, pagesOut } = parseArgs(args);

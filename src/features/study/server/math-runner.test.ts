@@ -24,8 +24,27 @@ describe("mathRunner", () => {
         mass_flow: { value: 40, unit: "kg / s" },
         thrust_kN: { value: 14, unit: "kN", text: "14 kN" },
       },
-      answers: [{ variable: "thrust", unit: "kN", value: 14 }],
+      answers: [{ variable: "thrust", unit: "kN", value: 14, text: "14 kN" }],
     });
+  });
+
+  test("returns a vector, matrix or complex answer declared plain as its text", async () => {
+    const result = await run("M = [[1, 2], [0, 1]]\nv = [2, -3]\nz = 3 + 4i", [
+      { variable: "M", unit: null },
+      { variable: "v", unit: null },
+      { variable: "z", unit: null },
+    ]);
+    expect(result).toMatchObject({
+      ok: true,
+      answers: [
+        { variable: "M", value: null, text: "[[1, 2], [0, 1]]" },
+        { variable: "v", value: null, text: "[2, -3]" },
+        { variable: "z", value: null, text: "3 + 4i" },
+      ],
+    });
+    expect((await run('s = "text"', [{ variable: "s", unit: null }])).ok).toBe(
+      false,
+    );
   });
 
   test("fails a program that throws", async () => {

@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  kcAssumesSchema,
   knowledgeMapSchema,
   type KnowledgeMap,
 } from "@/features/knowledge-map/schemas";
@@ -10,6 +11,33 @@ import type { Supabase } from "@/lib/supabase/types";
  * A Course's stored Knowledge map, with stored row ids as its ids. The Chat,
  * the plan and the workflows read it.
  */
+
+/**
+ * What each live KC of the Course assumes from outside it (`kcs.assumes`),
+ * by KC id; KCs that assume nothing are left out.
+ */
+export async function loadKcAssumes(
+  supabase: Supabase,
+  courseId: string,
+): Promise<Map<string, Array<{ name: string; description: string }>>> {
+  const rows = await allRows("Loading what the KCs assume", (from, to) =>
+    supabase
+      .from("kcs")
+      .select("id, assumes")
+      .eq("course_id", courseId)
+      .is("retired_at", null)
+      .order("id")
+      .range(from, to),
+  );
+  return new Map(
+    rows.flatMap((row) => {
+      const assumes = kcAssumesSchema.safeParse(row.assumes);
+      return assumes.success && assumes.data.length > 0
+        ? [[row.id, assumes.data] as const]
+        : [];
+    }),
+  );
+}
 
 /**
  * The Course's stored map, with its rows' ids; empty before the first. Reads

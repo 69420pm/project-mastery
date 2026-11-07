@@ -24,6 +24,22 @@ export function pageBatches(pages: readonly number[]): number[][] {
 }
 
 /**
+ * The pages no unit covers, by its `pageFrom..pageTo`, in order: read
+ * again alone, and stored `uncovered` when still none does.
+ */
+export function uncoveredPages(
+  units: ReadonlyArray<Pick<BatchUnit, "pageFrom" | "pageTo">>,
+  pages: readonly number[],
+): number[] {
+  return pages
+    .filter(
+      (page) =>
+        !units.some((unit) => unit.pageFrom <= page && page <= unit.pageTo),
+    )
+    .toSorted((a, b) => a - b);
+}
+
+/**
  * A batch's units on its pages: each page with the units that start on it,
  * in order, and an empty list for a page where none does. A unit's pages
  * are kept inside the batch: it starts on the last batch page at or before

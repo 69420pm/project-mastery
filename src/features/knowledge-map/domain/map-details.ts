@@ -2,10 +2,6 @@ import type { MapAttempt, MapKcLearning } from "@/features/knowledge-map/types";
 
 /** What the map page's panels count and list about Exercises. */
 
-export type KcState = MapKcLearning[string]["state"];
-
-export const KC_STATES: KcState[] = ["new", "learning", "due", "known"];
-
 /** The ids of the Exercises the Student has attempted. */
 export function attemptedExercises(learning: MapKcLearning): Set<string> {
   return new Set(
@@ -30,19 +26,4 @@ export function exerciseAttempts(
         .map((attempt) => ({ ...attempt, kcId })),
     )
     .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
-
-/** How many of `kcIds` are in each KC state; a KC without learning is new. */
-export function stateCounts(
-  kcIds: string[],
-  learning: MapKcLearning,
-): Record<KcState, number> {
-  const counts: Record<KcState, number> = {
-    new: 0,
-    learning: 0,
-    due: 0,
-    known: 0,
-  };
-  for (const id of kcIds) counts[learning[id]?.state ?? "new"] += 1;
-  return counts;
 }

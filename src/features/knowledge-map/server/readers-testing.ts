@@ -40,6 +40,7 @@ export function createDb() {
     position,
     page_from: pages[0],
     page_to: pages[1],
+    label: "content",
     markdown: `Text of ${chunkId}`,
   });
   const ofCourse = (rows: FakeRow[]) =>
@@ -68,6 +69,8 @@ export function createDb() {
             chaptersWithoutKcs: ["Thrust"],
             exercisesWithoutKcs: [],
             duplicates: [],
+            unitsBelowCoverage: [],
+            unreadPages: [],
           },
         },
       ]),
@@ -93,7 +96,7 @@ export function createDb() {
           origin: "content",
           position: 0,
         },
-        // Retired, without sources: no reader shows it.
+        // Retired with its Material: no reader shows it.
         {
           id: RETIRED_KC,
           name: "Retired",

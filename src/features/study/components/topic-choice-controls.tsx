@@ -9,8 +9,8 @@ import { setTopicChoice } from "@/features/study/server/actions";
 /**
  * Pin and Skip on a Topic's page. `choice` is the Student's current one;
  * choosing the other replaces it, and Unpin or Unskip clears it. A skip
- * takes an optional reason for the AI's Memory, which the page says it
- * didn't keep when the Memory is full.
+ * takes an optional reason for the Brief's notes, which the page says it
+ * didn't keep when they are full.
  */
 export function TopicChoiceControls({
   courseId,
@@ -90,7 +90,8 @@ export function TopicChoiceControls({
       </div>
       {status?.kind === "reason-lost" && (
         <p role="status" className="text-sm text-muted-foreground">
-          Skipped. Your reason wasn&apos;t kept: the Memory is full.
+          Skipped. Your reason wasn&apos;t kept: the Brief&apos;s notes are
+          full.
         </p>
       )}
       {status?.kind === "error" && (

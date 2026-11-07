@@ -23,6 +23,7 @@ import {
   meteredStream,
   RATE_LIMITED_STEP_RETRIES,
 } from "@/features/usage/server";
+import { callFits } from "@/lib/ai/call-timeout";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -93,15 +94,17 @@ const MAX_PASSES = 3;
  * row, the invariant a parse ends with. A pass that a later request
  * outdated writes nothing; when that later pass has not written yet, or
  * never will (its parse failed), this runs a new pass, which is then the
- * latest. Throws after MAX_PASSES, so the step retries.
+ * latest. Throws after MAX_PASSES, so the step retries. No pass starts a
+ * call that could run past the step's limit (`callFits`).
  */
 async function pairExercises(
   supabase: AdminSupabase,
   courseId: string,
   atLimit: AtLimit,
 ): Promise<ParseOutcome> {
+  const startedAt = Date.now();
   for (let pass = 0; pass < MAX_PASSES; pass++) {
-    if ((await runPass(supabase, courseId, atLimit)) === "limit") {
+    if ((await runPass(supabase, courseId, atLimit, startedAt)) === "limit") {
       return { ok: false, reason: dailyLimitReason };
     }
     if (await everyExerciseHasPair(supabase, courseId)) return { ok: true };
@@ -142,11 +145,14 @@ async function everyExerciseHasPair(
 /**
  * One pairing pass; it writes only while it is the latest request. "limit"
  * when the Daily limit stopped it and `atLimit` is "fail": it wrote nothing.
+ * A call that no longer fits the step started at `stepStartedAt` isn't
+ * made: its exercises have no solution until the next pass.
  */
 async function runPass(
   supabase: AdminSupabase,
   courseId: string,
   atLimit: AtLimit,
+  stepStartedAt: number,
 ): Promise<"done" | "limit"> {
   const requested = await supabase.rpc("request_exercise_pairing", {
     p_course_id: courseId,
@@ -162,6 +168,7 @@ async function runPass(
   const solutionOf = new Map<string, string>();
   for (const chunks of pairingCalls(course.chunks)) {
     if (!(await isLatest(supabase, pass))) return "done";
+    if (!callFits(stepStartedAt)) break;
     const pairs = await pairByCall(supabase, course.owner, chunks);
     if (!pairs) {
       if (atLimit === "fail") return "limit";

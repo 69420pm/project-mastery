@@ -4,10 +4,7 @@
  * active time is computed on every read, not stored.
  */
 import { DEFAULT_PACE, type Pace } from "@/features/study/domain/plan";
-import {
-  schedulingAttempts,
-  type ReplayAttempt,
-} from "@/features/study/domain/replay";
+import { kcDays, type ReplayAttempt } from "@/features/study/domain/replay";
 
 /** The longest gap between messages that counts as active, in seconds. */
 const GAP_CAP_SECONDS = 5 * 60;
@@ -15,7 +12,7 @@ const GAP_CAP_SECONDS = 5 * 60;
 /** The longest time to answer a review that counts, in seconds. */
 const REVIEW_CAP_SECONDS = 5 * 60;
 
-/** Ended teaching sessions needed before minutes per KC is measured. */
+/** Teaching sessions needed before minutes per KC is measured. */
 const MIN_TEACHING_SESSIONS = 3;
 
 /** The newest teaching sessions minutes per KC is the median of. */
@@ -31,7 +28,7 @@ export type PaceMessage = {
   createdAt: string;
 };
 
-/** An ended session that first taught KCs, with its reviews. */
+/** A session that holds KCs' first days, with its Reviews. */
 export type TeachingSession = {
   sessionId: string;
   /** How many KCs it taught first. */
@@ -75,23 +72,23 @@ export function activeSeconds(messages: PaceMessage[]): number {
 }
 
 /**
- * The Course's review attempts, the replay's scheduling first attempt in a
- * later session, and its ended sessions that first taught a KC, oldest
- * first. A KC whose first session still runs has neither.
+ * The Course's Reviews, each KC's first Attempt on a later UTC day than its
+ * first (`kcDays`), and the sessions that hold a KC's first day, oldest
+ * first. A KC's first day counts in the session of its first Attempt.
  */
-export function paceEvidence(
-  attempts: ReplayAttempt[],
-  ended: (sessionId: string) => boolean,
-): { reviews: ReplayAttempt[]; teaching: TeachingSession[] } {
+export function paceEvidence(attempts: ReplayAttempt[]): {
+  reviews: ReplayAttempt[];
+  teaching: TeachingSession[];
+} {
   const reviews: ReplayAttempt[] = [];
   const taught = new Map<string, { kcs: number; firstAt: string }>();
   for (const kcAttempts of Map.groupBy(attempts, (a) => a.kcId).values()) {
-    const split = schedulingAttempts(kcAttempts);
-    if (split === null || !ended(split.firstId)) continue;
-    reviews.push(...split.reviews);
-    const firstAt = split.first[0]!.createdAt;
-    const session = taught.get(split.firstId);
-    taught.set(split.firstId, {
+    const days = kcDays(kcAttempts);
+    if (days === null) continue;
+    reviews.push(...days.reviews);
+    const { sessionId, createdAt: firstAt } = days.first[0]!;
+    const session = taught.get(sessionId);
+    taught.set(sessionId, {
       kcs: (session?.kcs ?? 0) + 1,
       firstAt:
         session && Date.parse(session.firstAt) < Date.parse(firstAt)

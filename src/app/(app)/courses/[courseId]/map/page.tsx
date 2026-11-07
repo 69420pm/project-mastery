@@ -10,7 +10,6 @@ import {
 } from "@/features/knowledge-map/server";
 import {
   ExamResultCard,
-  MapFindingsCard,
   mockExamPath,
   ProgressLine,
   ReadinessLine,
@@ -19,14 +18,11 @@ import {
 } from "@/features/study";
 import {
   getExamToReport,
-  getKcLearning,
-  getMapFindings,
   getOpenMockExam,
-  getPlan,
-  getReadiness,
-  getTopicStates,
+  getStudyState,
 } from "@/features/study/server";
 import { requireUser } from "@/lib/auth/user";
+import { isProductionDeployment } from "@/lib/deployment-env";
 
 export const metadata: Metadata = {
   title: "Course map",
@@ -41,29 +37,15 @@ export default async function CourseMapPage({
 }: PageProps<"/courses/[courseId]/map">) {
   const { courseId } = await params;
   await requireUser(courseMapPath(courseId));
-  const [
-    course,
-    map,
-    topics,
-    learning,
-    topicStates,
-    plan,
-    mapFindings,
-    openMock,
-    readiness,
-    examToReport,
-  ] = await Promise.all([
-    getCourse(courseId),
-    getKnowledgeMap(courseId),
-    loadCourseTopics(courseId),
-    getKcLearning(courseId),
-    getTopicStates(courseId),
-    getPlan(courseId),
-    getMapFindings(courseId),
-    getOpenMockExam(courseId),
-    getReadiness(courseId),
-    getExamToReport(courseId),
-  ]);
+  const [course, map, topics, study, openMock, examToReport] =
+    await Promise.all([
+      getCourse(courseId),
+      getKnowledgeMap(courseId),
+      loadCourseTopics(courseId),
+      getStudyState(courseId),
+      getOpenMockExam(courseId),
+      getExamToReport(courseId),
+    ]);
   if (!course) notFound();
 
   return (
@@ -76,25 +58,22 @@ export default async function CourseMapPage({
         centralQuestion,
         kcs,
       }))}
-      learning={learning}
-      topicStates={topicStates}
-      topicReadiness={readiness.topics}
+      topicStudies={study.topics}
       progressLine={
-        <ProgressLine plan={plan} briefHref={briefPath(courseId)} />
+        <ProgressLine state={study} briefHref={briefPath(courseId)} />
       }
-      readinessLine={<ReadinessLine readiness={readiness} />}
+      readinessLine={<ReadinessLine state={study} />}
+      checkDetails={!isProductionDeployment()}
       topicBadges={Object.fromEntries(
-        plan.topics.map((topic) => [topic.id, topicBadges(topic)]),
+        study.scope.map((topic) => [topic.id, topicBadges(topic)]),
       )}
       today={
         <>
           <TodayCard
-            plan={plan}
+            state={study}
             mapHref={courseMapPath(courseId)}
-            topicHref={
-              plan.today.next && topicPath(courseId, plan.today.next.id)
-            }
-            startHref={newChatPath(courseId)}
+            topicHref={(topicId) => topicPath(courseId, topicId)}
+            chatHref={newChatPath(courseId)}
             mock={{
               courseId,
               openHref: openMock && mockExamPath(courseId, openMock),
@@ -103,7 +82,6 @@ export default async function CourseMapPage({
           {examToReport && (
             <ExamResultCard courseId={courseId} examDate={examToReport} />
           )}
-          <MapFindingsCard findings={mapFindings} />
         </>
       }
     />

@@ -12,7 +12,7 @@ import {
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
-import { chatReplySettings } from "@/features/chat/ai/reply";
+import { chatReplySettings, withTutorContext } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
 import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
@@ -52,10 +52,10 @@ import {
   closeIdleSession,
   endIdleSessions,
   endsReply,
-  isAnswerable,
   recordAnswer,
+  renderTutorContext,
   sessionEndedMessage,
-  startSessionMode,
+  setSessionMock,
   startTutoring,
   TutorToolError,
 } from "@/features/study/server";
@@ -81,10 +81,12 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *    the Student owns, or a new Chat in a Course the Student owns, whose
  *    Study session has not ended: a message to an idle one ends it
  * 3. refuse at the Daily limit, before any model call
- * 4. create the Chat on its first message, or mark the new reply as the
- *    Chat's latest, then store the Student's message, and an answer from a
- *    question card on its question, which must still be open
- * 5. stream the reply from the full stored history
+ * 4. create the Chat on its first message, its session going through the
+ *    graded Mock exam the request names, or mark the new reply as the
+ *    Chat's latest, then store the Student's message, also as part of the
+ *    answer to the session's open Question
+ * 5. stream the reply from the full stored history, the tutor context in
+ *    front of the newest message
  * 6. on end, record the call's usage and store the reply with its model,
  *    unless a newer request has started a reply since
  * 7. name an untitled Chat after its reply
@@ -124,7 +126,7 @@ export async function respondInChat({
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, courseId, mode, mockId, message } = parsed.data;
+  const { chatId, courseId, mockId, message } = parsed.data;
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -158,20 +160,6 @@ export async function respondInChat({
   const resent = resentHistory(stored, message);
   if (resent === "refused") return refuse(409, alreadySentMessage);
 
-  // An answer from a question card, for a question still open in this Chat.
-  const answerTo = message.metadata?.questionId;
-  const answerable =
-    !!answerTo &&
-    !!existing &&
-    (await isAnswerable(supabase, existing.id, answerTo));
-  if (answerTo && !resent && !answerable) {
-    return refuse(409, questionClosedMessage);
-  }
-  // A resent answer is recorded again when its first recording failed, and
-  // the question is still open; a resend after grading only regenerates.
-  const questionId =
-    answerable && !resent?.at(-1)?.metadata?.questionId ? answerTo : undefined;
-
   // The reply's id, marked as the Chat's latest before the Student's message
   // is stored, so a stopped reply still ending from an earlier request can
   // never be kept after it.
@@ -182,15 +170,13 @@ export async function respondInChat({
   if (chat === "taken") return refuse(404, chatNotFoundMessage);
   // The Course was deleted since it was checked.
   if (chat === "no course") return refuse(404, courseNotFoundMessage);
-  // Only a new Chat's first request can set the mode; a refusal leaves learn.
-  if (!existing && mode && mode !== "learn") {
-    await startSessionMode(supabase, chat.id, mode, mockId);
-  }
 
   if (existing) await startReply(supabase, chat.id, replyId);
+  // A Chat opened from a graded Mock exam goes through it.
+  else if (mockId) await setSessionMock(supabase, chat.id, mockId);
 
   const history =
-    (resent && withQuestion(resent, questionId)) ??
+    resent ??
     ((await saveStudentMessage(supabase, chat, message, !existing)) && [
       ...stored,
       message,
@@ -204,12 +190,12 @@ export async function respondInChat({
     }
     return refuse(409, alreadySentMessage);
   }
-  if (questionId) {
-    await recordAnswer(supabase, {
-      questionId,
+  // A new message is part of the answer to the open Question; a resent one
+  // is recorded already.
+  if (!resent) {
+    await recordAnswer(supabase, chat.id, {
       messageId: message.id,
       text: messageText(message.parts),
-      confidence: message.metadata?.confidence,
     });
   }
 
@@ -243,47 +229,6 @@ function refuse(status: number, message: string) {
 }
 
 const alreadySentMessage = "This message was already sent.";
-
-const questionClosedMessage =
-  "This question is already graded, so it takes no more answers.";
-
-/**
- * The history as the model reads it: a Student's answer on a question card
- * starts with a line naming the question it answers, so the AI can grade
- * it, and a Done on a reading card with one naming the section read.
- */
-function withAnswerNotes(history: ChatUIMessage[]): ChatUIMessage[] {
-  return history.map((message) => {
-    if (message.role !== "user") return message;
-    const { questionId, readingSectionId } = message.metadata ?? {};
-    const note = questionId
-      ? `[My answer on the card of question ${questionId}:]\n\n`
-      : readingSectionId
-        ? `[Done reading section ${readingSectionId}.]\n\n`
-        : null;
-    if (note === null) return message;
-    return {
-      ...message,
-      parts: [{ type: "text", text: note }, ...message.parts],
-    };
-  });
-}
-
-/**
- * A resent history whose last message, the Student's, answers `questionId`,
- * when given.
- */
-function withQuestion(
-  history: ChatUIMessage[],
-  questionId: string | undefined,
-): ChatUIMessage[] {
-  if (!questionId) return history;
-  const last = history.at(-1)!;
-  return [
-    ...history.slice(0, -1),
-    { ...last, metadata: { ...last.metadata, questionId } },
-  ];
-}
 
 /**
  * The history to answer when the message is already stored: when it is the
@@ -341,15 +286,16 @@ async function streamReply({
     metadataSchema: chatMessageMetadataSchema,
     dataSchemas: { material: materialReferenceSchema },
   });
-  // Read on every reply, so the candidates and dates are always current.
-  // The session's first reply sets its Topic and start stage, and ends the
-  // Course's other sessions gone idle.
+  // Read on every reply, so the context is always current. The session's
+  // first reply ends the Course's other sessions gone idle.
   const firstReply = !history.some(({ role }) => role === "assistant");
   if (firstReply) await endIdleSessions(supabase, chat.courseId, chat.id);
   const tutoring = await startTutoring(supabase, chat.courseId, chat.id, {
+    openedSections: openedSections(history),
     firstReply,
   });
-  const settings = chatReplySettings(tutoring.context);
+  const settings = chatReplySettings();
+  const contextText = renderTutorContext(tutoring.context);
   // What the provider reports when the call completes: its usage over all
   // steps and the model that answered, a gateway fallback when the primary
   // failed. A stopped or failed call reports neither.
@@ -361,10 +307,12 @@ async function streamReply({
     async () =>
       streamText({
         ...settings,
-        messages: await toModelMessages(withAnswerNotes(messages), materials),
+        messages: withTutorContext(
+          await toModelMessages(messages, materials),
+          tutoring.context,
+        ),
         tools: tutoring.tools,
-        // A question card waits for the Student's answer, a reading card
-        // for their Done.
+        // A question and a reading wait for the Student.
         stopWhen: [isStepCount(MAX_STEPS), endsReply],
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
@@ -408,6 +356,7 @@ async function streamReply({
           reported: reportedUsage,
           input: [
             settings.instructions,
+            contextText,
             ...messages.map(({ parts }) => messageText(parts)),
           ].join("\n"),
           output: messageText(responseMessage.parts),
@@ -459,6 +408,17 @@ async function streamReply({
     // Lets `onEnd` run when the client disconnects mid-reply.
     consumeSseStream: consumeStream,
   });
+}
+
+/** The Reading sections the history's `showReading` calls opened, in order. */
+function openedSections(history: ChatUIMessage[]): string[] {
+  return history.flatMap(({ parts }) =>
+    parts.flatMap((part) => {
+      if (part.type !== "tool-showReading") return [];
+      const input = (part as { input?: { sectionId?: unknown } }).input;
+      return typeof input?.sectionId === "string" ? [input.sectionId] : [];
+    }),
+  );
 }
 
 /**

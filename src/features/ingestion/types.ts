@@ -17,7 +17,7 @@ export type UnitLabel = (typeof UNIT_LABELS)[number];
 export const HEADING_STYLES = ["title", "large", "bold"] as const;
 
 /** Why a parse stored a page without reading it (`material_pages.skipped`). */
-export type PageSkip = "blank" | "overlay" | "unreadable";
+export type PageSkip = "blank" | "overlay" | "unreadable" | "uncovered";
 
 /** Where a Material's parse stands. */
 export type ParseStatus =

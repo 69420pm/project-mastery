@@ -26,18 +26,16 @@ import type {
   KnowledgeMapView,
   MapTopic,
   MapTopicBadges,
-  MapTopicReadiness,
-  MapTopicState,
-  MapTopicStates,
+  MapTopicStudies,
+  MapTopicStudy,
 } from "@/features/knowledge-map/types";
-import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
+import { PlanBadges, TopicStudyLine } from "./topic-study";
 import { ZoomControls } from "./zoom-controls";
 
 type TopicNodeData = {
   topic: MapTopic;
   href: string;
-  topicState?: MapTopicState;
-  readiness?: number;
+  study?: MapTopicStudy;
   badges: string[];
 };
 type BoxNodeData = { topic: MapTopic; href: string };
@@ -45,11 +43,11 @@ type TopicNode = Node<TopicNodeData, "topic">;
 type BoxNode = Node<BoxNodeData, "box">;
 
 /**
- * A Topic: its name, central question, Topic state and recall today,
- * opening the Topic page.
+ * A Topic: its name, central question, how many of its KCs are learned
+ * and its Readiness, opening the Topic page.
  */
 function TopicNodeView({ data }: NodeProps<TopicNode>) {
-  const { topic, href, topicState, readiness, badges } = data;
+  const { topic, href, study, badges } = data;
   return (
     <>
       <Handle
@@ -75,12 +73,7 @@ function TopicNodeView({ data }: NodeProps<TopicNode>) {
         </div>
         <div className="mt-auto" />
         <PlanBadges badges={badges} />
-        <div className="flex items-end gap-3">
-          <TopicStateBadge topicState={topicState} />
-          <div className="flex-1">
-            <RecallBar topicState={topicState} readiness={readiness} />
-          </div>
-        </div>
+        <TopicStudyLine study={study} />
       </Link>
       <Handle
         type="source"
@@ -132,14 +125,12 @@ const nodeTypes = { topic: TopicNodeView, box: BoxNodeView };
 export function CourseMapGraph({
   map,
   topics,
-  topicStates,
-  topicReadiness,
+  topicStudies,
   topicBadges,
 }: {
   map: KnowledgeMapView;
   topics: MapTopic[];
-  topicStates: MapTopicStates;
-  topicReadiness: MapTopicReadiness;
+  topicStudies: MapTopicStudies;
   topicBadges: MapTopicBadges;
 }) {
   const graph = useMemo(() => buildTopicGraph(topics, map), [topics, map]);
@@ -183,8 +174,7 @@ export function CourseMapGraph({
               data: {
                 topic: node.topic,
                 href: topicPath(map.courseId, node.id),
-                topicState: topicStates[node.id],
-                readiness: topicReadiness[node.id],
+                study: topicStudies[node.id],
                 badges: topicBadges[node.id] ?? [],
               },
             },
@@ -198,7 +188,7 @@ export function CourseMapGraph({
         markerEnd: { type: MarkerType.ArrowClosed },
       }));
     return { nodes, edges };
-  }, [graph, laidOut, map.courseId, topicStates, topicReadiness, topicBadges]);
+  }, [graph, laidOut, map.courseId, topicStudies, topicBadges]);
 
   if (failed) {
     return (

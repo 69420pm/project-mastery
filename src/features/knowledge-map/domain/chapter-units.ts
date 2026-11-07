@@ -4,13 +4,17 @@ import { createHash } from "node:crypto";
  * The units the build extracts from (#229): a Chapter whose subtree's chunks
  * of one kind total at most UNIT_CHARS characters is one unit. A bigger
  * Chapter makes units of its children, plus units of its own chunks outside
- * them; chunks over the cap split between chunks. The same rule over a
- * Material's `content` chunks gives its teaching units, over its `exercise`
- * chunks its exercise units.
+ * them; chunks over the cap split between chunks. Sibling Chapters are never
+ * packed into one unit. The same rule over a Material's `content` chunks
+ * gives its teaching units, over its `exercise` chunks its exercise units.
  */
 
-/** The most characters of chunks in one unit. */
-export const UNIT_CHARS = 120_000;
+/**
+ * The most characters of chunks in one unit. A call's time follows the KCs
+ * it writes, and a slow model (MiMo) took over 170 s on 25,000 characters,
+ * so a unit asks for about 15 KCs at most.
+ */
+export const UNIT_CHARS = 12_000;
 
 /** A Chapter of one Material's Outline, in reading order. */
 export type UnitChapter = { id: string; parentId: string | null };
@@ -22,10 +26,14 @@ export type UnitChunk = {
   markdown: string;
 };
 
-/** A unit: its Chapter, its index among that Chapter's units, its chunks. */
+/**
+ * A unit: its Chapter, its index among that Chapter's units, its chunks.
+ * `chapterIds` holds its one Chapter.
+ */
 export type ChapterUnit = {
   chapterId: string;
   unit: number;
+  chapterIds: string[];
   chunkIds: string[];
 };
 
@@ -62,11 +70,21 @@ export function chapterUnits(
     const whole = subtree(id);
     if (whole.length === 0) return;
     if (size(whole) <= cap) {
-      units.push({ chapterId: id, unit: 0, chunkIds: whole.map((c) => c.id) });
+      units.push({
+        chapterId: id,
+        unit: 0,
+        chapterIds: [id],
+        chunkIds: whole.map((c) => c.id),
+      });
       return;
     }
     slices(own.get(id) ?? [], cap).forEach((slice, unit) =>
-      units.push({ chapterId: id, unit, chunkIds: slice.map((c) => c.id) }),
+      units.push({
+        chapterId: id,
+        unit,
+        chapterIds: [id],
+        chunkIds: slice.map((c) => c.id),
+      }),
     );
     for (const child of children.get(id) ?? []) visit(child.id);
   };

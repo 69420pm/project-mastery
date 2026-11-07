@@ -15,6 +15,7 @@ import {
   type CheckedProblem,
 } from "@/features/study/server/problem-draft";
 import { meteredGenerate } from "@/features/usage/server";
+import { callFits } from "@/lib/ai/call-timeout";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
@@ -74,6 +75,7 @@ export async function generateProblem(
   problemId: string,
 ): Promise<GenerateOutcome> {
   "use step";
+  const startedAt = Date.now();
   const supabase = createAdminClient();
   const problem = await loadQueuedProblem(supabase, problemId);
   if (!problem) return "gone";
@@ -124,7 +126,9 @@ export async function generateProblem(
   };
 
   let outcome = await attempt(call.messages);
-  if (outcome.kind === "rejected") {
+  // A retry that could run past the step's limit isn't started: the
+  // rejected draft fails the Problem.
+  if (outcome.kind === "rejected" && callFits(startedAt)) {
     outcome = await attempt(
       retryMessages(call.messages, outcome.output, outcome.error),
     );

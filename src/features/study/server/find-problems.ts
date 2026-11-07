@@ -27,8 +27,8 @@ import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
 
-/** How long ago a Problem was last asked for a review session to ask it again. */
-const REVIEW_AGAIN_DAYS = 14;
+/** How long ago a Problem was last asked to be asked again. */
+const ASK_AGAIN_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Never asked. */
@@ -63,17 +63,17 @@ type Candidate =
  * `findProblems` for KCs of the Course (#102, #182, #183): up to 3 of the
  * unseen Exercises and the ready, unflagged generated Problems not yet asked
  * in the Course that test any of them, ranked by `rankProblems` against the
- * last Problem's first KC and one above the last unassisted success. In a
- * review session (`review`), the Problems last asked more than 14 days
- * before `now` follow the unseen ones, ranked the same way. A note, without
- * Problems, tells the model why there are none.
+ * last Problem's first KC and one above the last unassisted success. The
+ * Problems last asked more than 14 days before `now` follow the unseen
+ * ones, ranked the same way. A note, without Problems, tells the model why
+ * there are none.
  */
 export async function findProblems(
   supabase: Supabase,
   courseId: string,
   map: KnowledgeMap,
   kcIds: string[],
-  { review = false, now = new Date() }: { review?: boolean; now?: Date } = {},
+  { now = new Date() }: { now?: Date } = {},
 ): Promise<{ problems: ProblemView[]; note?: string }> {
   const [asked, lastProblem, lastSuccess, generated] = await Promise.all([
     loadAskedProblems(supabase, courseId),
@@ -92,9 +92,9 @@ export async function findProblems(
     kcs.some((id) => kcIds.includes(id));
   const exercises = map.exercises.filter(tests);
   const problems = generated.filter(tests);
-  // Unseen first; in review, then those last asked before the cutoff.
-  const cutoff = new Date(now.getTime() - REVIEW_AGAIN_DAYS * DAY_MS);
-  const tiers = review ? [isUnseen, isStale] : [isUnseen];
+  // Unseen first, then those last asked before the cutoff.
+  const cutoff = new Date(now.getTime() - ASK_AGAIN_DAYS * DAY_MS);
+  const tiers = [isUnseen, isStale];
   const tierOf = (id: string) =>
     tiers.findIndex((inTier) => inTier(asked.get(id), cutoff));
   const askable = exercises.filter(({ id }) => tierOf(id) !== -1);
@@ -105,7 +105,7 @@ export async function findProblems(
       note:
         exercises.length === 0 && problems.length === 0
           ? "This Course has no Exercises for these KCs: pose a problem of your own."
-          : "The Student has tried every Exercise of this Course for these KCs: pose a problem of your own.",
+          : "The Student has tried every Exercise of this Course for these KCs within the last 14 days: pose a problem of your own.",
     };
   }
 

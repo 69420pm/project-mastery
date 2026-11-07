@@ -121,7 +121,6 @@ function answered(exerciseId: string, help: "none" | "some", askedAt: string) {
     question_id: questionId,
     session_id: sessionId,
     kc_id: MAP.thrust,
-    kind: "learn",
     result: "full",
     help,
     check: null,
@@ -219,11 +218,21 @@ describe("ask with a problemId", () => {
       "Go on.",
     );
 
-  test("stores the Problem's Exercise on the question", async () => {
+  test("stores the Problem's Exercise on the question and returns its statement and page", async () => {
     seedExercises();
     useMockModels({ chat: ask("ex-3") });
     await send(firstMessage());
     expect(db.tables.questions).toMatchObject([{ exercise_id: "ex-3" }]);
+    const parts = db.tables.chat_messages.at(-1)!.parts as Array<{
+      type: string;
+      output?: { problem: { statement: string } };
+    }>;
+    const output = parts.find(({ type }) => type === "tool-ask")!.output!;
+    expect(output.problem).toMatchObject({
+      page: { link: expect.stringContaining("#") },
+      generatedProblemId: null,
+    });
+    expect(output.problem.statement).not.toBe("");
   });
 
   test("refuses an unknown problemId, naming findProblems", async () => {
@@ -351,7 +360,13 @@ describe("ask and grade on a generated Problem", () => {
     expect(db.tables.chat_messages.at(-1)!.parts).toContainEqual(
       expect.objectContaining({
         type: "tool-ask",
-        output: expect.objectContaining({ generatedProblemId: problemId(1) }),
+        output: expect.objectContaining({
+          problem: {
+            statement: "Generated statement 1.",
+            page: null,
+            generatedProblemId: problemId(1),
+          },
+        }),
       }),
     );
   });
@@ -367,7 +382,7 @@ describe("ask and grade on a generated Problem", () => {
   test("grade checks the final value against the Problem's key", async () => {
     seedExercises();
     addProblem(1, {
-      final_answers: [{ label: "Thrust", value: 25000, unit: "N" }],
+      final_answers: [{ label: "Thrust", value: "25000 N", anyOrder: false }],
     });
     const chatId = randomUUID();
     useMockModels({ chat: askProblem(problemId(1)) });
@@ -384,7 +399,7 @@ describe("ask and grade on a generated Problem", () => {
                 questionId: question!.id,
                 results: [{ kcId: MAP.thrust, result: "full" }],
                 help: "none",
-                finalValue: "30 kN",
+                finalValues: [{ value: "30 kN" }],
               },
             },
           ],
@@ -448,7 +463,7 @@ describe("findProblems", () => {
     );
   });
 
-  test("in a review session, gives Exercises last asked over 14 days ago after the unseen ones", async () => {
+  test("gives Exercises last asked over 14 days ago after the unseen ones", async () => {
     seedExercises();
     addLectureExercise(4, 2);
     const daysAgo = (days: number) =>
@@ -456,16 +471,12 @@ describe("findProblems", () => {
     answered("ex-1", "none", daysAgo(20));
     answered("ex-3", "none", daysAgo(3));
 
-    const learn = finderModel();
-    useMockModels({ chat: learn });
+    const model = finderModel();
+    useMockModels({ chat: model });
     await send(firstMessage());
-    const review = finderModel();
-    useMockModels({ chat: review });
-    await send({ ...firstMessage(), mode: "review" });
 
-    expect(promptOf(learn, 1)).toContain(ex(4));
-    expect(promptOf(learn, 1)).not.toContain(ex(1));
-    const result = promptOf(review, 1);
+    const result = promptOf(model, 1);
+    expect(result.indexOf(ex(4))).toBeGreaterThan(-1);
     expect(result.indexOf(ex(4))).toBeLessThan(result.indexOf(ex(1)));
     expect(result).not.toContain(ex(3));
   });

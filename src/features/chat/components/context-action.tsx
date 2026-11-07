@@ -15,13 +15,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  dueReviewText,
-  goalLabel,
-  phaseLabel,
-  todayOf,
-} from "@/features/chat/domain/tutor-context";
-import { tutorInstructions, type TutorContext } from "@/features/study";
+import { goalLabel } from "@/features/chat/domain/tutor-context";
+import { renderTutorContext, type TutorContext } from "@/features/study";
 
 /**
  * The Context action of an AI reply: a right-hand Sheet with the tutor
@@ -60,9 +55,6 @@ export function ContextAction({ context }: { context?: TutorContext }) {
 }
 
 function ContextDetails({ context }: { context: TutorContext }) {
-  const { dueReviews } = context;
-  const today = todayOf(context);
-  const next = today?.next ?? null;
   return (
     <>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
@@ -70,7 +62,6 @@ function ContextDetails({ context }: { context: TutorContext }) {
           [
             ["Today", context.today],
             ["Exam date", context.examDate ?? "Not set"],
-            ["Phase", phaseLabel(context.phase)],
             ["Goal", goalLabel(context.goal)],
           ] as const
         ).map(([label, value]) => (
@@ -82,74 +73,21 @@ function ContextDetails({ context }: { context: TutorContext }) {
       </dl>
 
       <Section title="Memory">
-        {context.memory === "" ? (
+        {context.notes.memory === "" ? (
           <Muted>No notes yet.</Muted>
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{context.memory}</p>
+          <p className="text-sm whitespace-pre-wrap">{context.notes.memory}</p>
         )}
-      </Section>
-
-      <Section title="Due reviews">
-        {dueReviews.kcs.length === 0 ? (
-          <Muted>None due.</Muted>
-        ) : (
-          <ul className="flex flex-col gap-1 text-sm">
-            {dueReviews.kcs.map((kc) => (
-              <li key={kc.id}>
-                <span className="font-medium">{kc.name}</span>
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {dueReviewText(kc)}
-                </span>
-              </li>
-            ))}
-            {dueReviews.more > 0 && (
-              <li className="text-muted-foreground">
-                and {dueReviews.more} more
-              </li>
-            )}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="Next Topic">
-        {next === null ? (
-          <Muted>
-            {context.hasMap ? "No next Topic." : "No Knowledge map yet."}
-          </Muted>
-        ) : (
-          <div className="flex flex-col gap-1 text-sm">
-            <h3 className="font-medium">{next.name}</h3>
-            <p className="text-muted-foreground">{next.centralQuestion}</p>
-            <ul className="flex flex-col gap-1">
-              {next.kcs.map((kc) => (
-                <li key={kc.id}>
-                  {kc.name}
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · {kc.taught ? "taught" : "not taught yet"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-muted-foreground">
-              {next.anchors.length === 0
-                ? "No anchors"
-                : `Anchors: ${next.anchors.map(({ name }) => name).join(", ")}`}
-            </p>
-          </div>
-        )}
-        {today?.hint && <Muted>{today.hint}</Muted>}
       </Section>
 
       <Collapsible className="text-sm">
         <CollapsibleTrigger className="group flex items-center gap-1 text-muted-foreground hover:text-foreground">
           <ChevronRightIcon className="size-4 transition-transform group-data-[state=open]:rotate-90" />
-          Rendered with the current instructions
+          As the AI read it
         </CollapsibleTrigger>
         <CollapsibleContent>
           <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">
-            {tutorInstructions(context)}
+            {renderTutorContext(context)}
           </pre>
         </CollapsibleContent>
       </Collapsible>

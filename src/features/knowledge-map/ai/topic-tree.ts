@@ -101,7 +101,7 @@ const TREE_INSTRUCTIONS = `You get the materials of a university course as JSON:
 export function topicTreeSettings(course: OfferedCourse) {
   return {
     ...aiTask("topic"),
-    reasoning: "high" as const,
+    reasoning: "medium" as const,
     instructions: TREE_INSTRUCTIONS,
     output: Output.object({
       schema: topicTreeSchema(

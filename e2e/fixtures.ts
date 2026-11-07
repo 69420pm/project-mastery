@@ -310,8 +310,7 @@ export async function seedKc(
     .from("topic_kcs")
     .insert({ topic_id: topic.data.id, kc_id: kc.data.id, owner, position: 0 });
   if (link.error) throw new Error(link.error.message);
-  // A chunk of the Materials teaches it: a KC without sources has no own
-  // Priority, so the tutor would not offer it.
+  // A chunk of the Materials teaches it, as every live KC's does.
   const material = await seedMaterial(owner, courseId, {
     name: "Lecture notes",
     file: path.join(__dirname, "files", "lecture-notes.pdf"),

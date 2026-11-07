@@ -9,12 +9,7 @@ import {
   loadMessages,
 } from "@/features/chat/server/chat-store";
 import type { ChatListItem, ChatWithMessages } from "@/features/chat/types";
-import type { SessionMode } from "@/features/study";
-import {
-  getSessionEnd,
-  getSessionMode,
-  loadProblemFlags,
-} from "@/features/study/server";
+import { getSessionEnd, loadProblemFlags } from "@/features/study/server";
 import { getUser, requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,10 +28,9 @@ export async function getChat(
   const supabase = await createClient();
   const chat = await findChat(supabase, chatId);
   if (chat?.courseId !== courseId) return null;
-  const [messages, end, mode, problemFlags] = await Promise.all([
+  const [messages, end, problemFlags] = await Promise.all([
     loadMessages(supabase, chat.id),
     getSessionEnd(supabase, chat.id),
-    getSessionMode(supabase, chat.id),
     loadProblemFlags(supabase, chat.id),
   ]);
   return {
@@ -44,7 +38,6 @@ export async function getChat(
     courseId: chat.courseId,
     title: chat.title,
     messages,
-    mode,
     ended: end !== null,
     problemFlags,
   };
@@ -52,23 +45,14 @@ export async function getChat(
 
 /**
  * An unsaved Chat in a Course for the new Chat page. It is stored with its
- * first message, under this id. A results Chat goes through the Mock exam
- * `mockId`; without a well-formed one it is a learn Chat.
+ * first message, under this id.
  */
-export function newChat(
-  courseId: string,
-  mode: SessionMode = "learn",
-  mockId?: unknown,
-): ChatWithMessages {
-  const mock = z.uuid().safeParse(mockId);
-  const results = mode === "results" && mock.success;
+export function newChat(courseId: string): ChatWithMessages {
   return {
     id: randomUUID(),
     courseId,
     title: null,
     messages: [],
-    mode: mode === "results" && !results ? "learn" : mode,
-    ...(results && { mockId: mock.data }),
     ended: false,
     problemFlags: {},
   };
