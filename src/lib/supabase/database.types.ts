@@ -81,7 +81,6 @@ export type Database = {
           question_id: string;
           result: string;
           session_id: string;
-          source: string;
         };
         ComputedFields: never;
         Insert: {
@@ -94,7 +93,6 @@ export type Database = {
           question_id: string;
           result: string;
           session_id: string;
-          source?: string;
         };
         Update: {
           check?: string | null;
@@ -106,7 +104,6 @@ export type Database = {
           question_id?: string;
           result?: string;
           session_id?: string;
-          source?: string;
         };
         Relationships: [
           {

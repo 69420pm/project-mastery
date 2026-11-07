@@ -213,7 +213,6 @@ async function saveMockAttempts(
       question_id: grade.questionId,
       session_id: grade.sessionId,
       kc_id: kcId,
-      source: "mock",
       result,
       help: "none",
       check: grade.check,

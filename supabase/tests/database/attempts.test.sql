@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(23);
 
 insert into auth.users (id, email)
 values
@@ -95,14 +95,9 @@ select lives_ok(
     from public.questions$$,
   'the owner records an attempt on the question''s KC');
 select results_eq(
-  $$select owner, source, result, help, "check", created_at = now() from public.attempts$$,
-  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'chat', 'partial', 'some', 'unchecked', true)$$,
-  'the owner reads it, owned by them, from the Chat and timed by the database');
-select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, source, result, help)
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'mock', 'full', 'none'
-    from public.questions$$,
-  '42501', null, 'only mock grading records a mock attempt');
+  $$select owner, result, help, "check", created_at = now() from public.attempts$$,
+  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'unchecked', true)$$,
+  'the owner reads it, owned by them and timed by the database');
 select throws_ok(
   $$insert into public.attempts (question_id, session_id, kc_id, result, help)
     select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'full', 'none'
