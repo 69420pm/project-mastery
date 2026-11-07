@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkAnswer,
   checkAnswers,
+  checkEachAnswer,
   isReadableAnswer,
   UnreadableAnswerError,
   worstCheck,
@@ -27,7 +28,7 @@ describe("checkAnswer", () => {
     // Units, in the key's unit with the same base
     ["12 kg*m/s^2", "12 N", "match"],
     ["17.5 kN", "17500 N", "match"],
-    ["17.5 kN", "17.5", "match"],
+    ["17.5 kN", "17.5", "mismatch"],
     ["17.5 kN", "17.5 m", "mismatch"],
     ["300 degC", "573.15 K", "match"],
     // Complex numbers
@@ -112,5 +113,31 @@ describe("checkAnswers", () => {
       ]),
     ).toContain('"Speed"');
     expect(failed([{ label: "Speed", value: "(" }])).toContain("mathjs");
+  });
+});
+
+describe("checkEachAnswer", () => {
+  const keys = [
+    { label: "Thrust", value: "17.5 kN", anyOrder: false },
+    { label: "Speed", value: "350 m/s", anyOrder: false },
+  ];
+
+  it("checks each key on its own: an unreadable value hides no mismatch", () => {
+    const checks = checkEachAnswer(keys, [
+      { label: "Thrust", value: "(" },
+      { label: "Speed", value: "200 m/s" },
+    ]);
+    expect(checks).toEqual(["unchecked", "mismatch"]);
+    expect(worstCheck(checks)).toBe("mismatch");
+  });
+
+  it("leaves out unknown labels and second values", () => {
+    expect(
+      checkEachAnswer(keys, [
+        { label: "Mass", value: "1 kg" },
+        { label: "Speed", value: "350 m/s" },
+        { label: "speed", value: "1 m/s" },
+      ]),
+    ).toEqual([null, "match"]);
   });
 });

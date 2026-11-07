@@ -144,7 +144,7 @@ function sameScalar(given: unknown, key: unknown): boolean | null {
   if (!scalar) return null;
   if (math.isUnit(key)) {
     if (key.value === null) return null;
-    if (typeof given === "number") return close(given, key.toNumber());
+    // A number without a unit is in no unit with the key's base.
     if (!math.isUnit(given) || !given.equalBase(key)) return false;
     // In the key's unit, so "17500 N" meets "17.5 kN".
     try {
@@ -290,15 +290,9 @@ export function checkAnswers(
   | { ok: true; checks: Array<AnswerCheck | null> }
   | { ok: false; error: string } {
   if (keys.length === 0) return { ok: true, checks: [] };
-  const valueOf = new Map<number, string>();
   const labels = keys.map((key) => key.label).join(", ");
-  for (const { label, value } of given) {
-    const index =
-      keys.length === 1 && given.length === 1
-        ? 0
-        : keys.findIndex(
-            (key) => label && labelKey(key.label) === labelKey(label),
-          );
+  const valueOf = new Map<number, string>();
+  for (const [at, { label, index }] of keyIndexes(keys, given).entries()) {
     if (index < 0) {
       return {
         ok: false,
@@ -311,17 +305,13 @@ export function checkAnswers(
         error: `Give one value for "${keys[index]!.label}".`,
       };
     }
-    valueOf.set(index, value);
+    valueOf.set(index, given[at]!.value);
   }
   const checks: Array<AnswerCheck | null> = [];
   for (const [index, key] of keys.entries()) {
     const value = valueOf.get(index);
-    if (value === undefined) {
-      checks.push(null);
-      continue;
-    }
     try {
-      checks.push(checkAnswer(key, value));
+      checks.push(value === undefined ? null : checkAnswer(key, value));
     } catch (error) {
       if (!(error instanceof UnreadableAnswerError)) throw error;
       return {
@@ -331,6 +321,53 @@ export function checkAnswers(
     }
   }
   return { ok: true, checks };
+}
+
+/**
+ * Each key's own check, for a grading that cannot ask again: a value whose
+ * label no key has, or a key's second value, is left out, and a value
+ * mathjs cannot read is `unchecked`, so no value hides another key's check.
+ * Null for a key without a value.
+ */
+export function checkEachAnswer(
+  keys: readonly AnswerKey[],
+  given: readonly GivenValue[],
+): Array<AnswerCheck | null> {
+  const valueOf = new Map<number, string>();
+  for (const [at, { index }] of keyIndexes(keys, given).entries()) {
+    if (index >= 0 && !valueOf.has(index)) {
+      valueOf.set(index, given[at]!.value);
+    }
+  }
+  return keys.map((key, index) => {
+    const value = valueOf.get(index);
+    if (value === undefined) return null;
+    try {
+      return checkAnswer(key, value);
+    } catch (error) {
+      if (error instanceof UnreadableAnswerError) return "unchecked";
+      throw error;
+    }
+  });
+}
+
+/**
+ * The key each given value is for, by label, -1 for none; with one key and
+ * one value, the label may be left out.
+ */
+function keyIndexes(
+  keys: readonly AnswerKey[],
+  given: readonly GivenValue[],
+): Array<{ label: string | null | undefined; index: number }> {
+  return given.map(({ label }) => ({
+    label,
+    index:
+      keys.length === 1 && given.length === 1
+        ? 0
+        : keys.findIndex(
+            (key) => label && labelKey(key.label) === labelKey(label),
+          ),
+  }));
 }
 
 /**
