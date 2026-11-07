@@ -34,7 +34,7 @@ describe("chapterUnits", () => {
     ]);
   });
 
-  test("splits a big Chapter into its own chunks and its children, packing children under the cap, in reading order", () => {
+  test("splits a big Chapter into its own chunks and its children, one unit per child, in reading order", () => {
     const chunks = [
       chunk("intro", "vs", 30),
       chunk("b", "4.1", 30),
@@ -52,17 +52,13 @@ describe("chapterUnits", () => {
     ]);
     expect(chapterUnits(chapters, chunks, 60)).toEqual([
       { chapterId: "vs", unit: 0, chapterIds: ["vs"], chunkIds: ["intro"] },
-      {
-        chapterId: "4.1",
-        unit: 0,
-        chapterIds: ["4.1", "4.2"],
-        chunkIds: ["b", "c"],
-      },
+      { chapterId: "4.1", unit: 0, chapterIds: ["4.1"], chunkIds: ["b"] },
+      { chapterId: "4.2", unit: 0, chapterIds: ["4.2"], chunkIds: ["c"] },
       { chapterId: "lm", unit: 0, chapterIds: ["lm"], chunkIds: ["d"] },
     ]);
   });
 
-  test("packs consecutive siblings up to the cap, never across one over it", () => {
+  test("never packs siblings into one unit", () => {
     const flat = [
       { id: "root", parentId: null },
       ...["1", "2", "3", "4", "5"].map((id) => ({ id, parentId: "root" })),
@@ -77,7 +73,7 @@ describe("chapterUnits", () => {
     ];
     expect(
       chapterUnits(flat, chunks, 50).map((unit) => unit.chapterIds),
-    ).toEqual([["1", "2"], ["3"], ["4"], ["4"], ["5"]]);
+    ).toEqual([["1"], ["2"], ["3"], ["4"], ["4"], ["5"]]);
   });
 
   test("splits a leaf over the cap between chunks, and files chunks without a Chapter under the root", () => {

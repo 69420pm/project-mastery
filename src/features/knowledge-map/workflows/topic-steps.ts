@@ -25,7 +25,7 @@ import {
   type MapInput,
 } from "@/features/knowledge-map/workflows/map-input";
 import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
-import { callFits } from "@/lib/ai/call-timeout";
+import { retryTimeoutMs } from "@/lib/ai/call-timeout";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -213,15 +213,17 @@ export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
     return { ok: true, tree: { hash, topics: null } };
   }
 
-  const treeCall = () =>
+  const treeCall = (timeoutMs?: number) =>
     buildCall(
       supabase,
       { studentId: owner, task: "topic", traceName: "topic-tree" },
       { ...topicTreeSettings(course), messages: topicTreeMessages(course) },
       topicTreeSchema(),
+      timeoutMs,
     );
   let answer = await treeCall();
-  if (answer === "failed" && callFits(startedAt)) answer = await treeCall();
+  const retryMs = retryTimeoutMs(startedAt);
+  if (answer === "failed" && retryMs !== null) answer = await treeCall(retryMs);
   if (answer === "limit") return { ok: false, reason: dailyLimitReason };
   if (answer === "failed") {
     // Each Chapter with KCs becomes a Topic of its own (`planTopicTree`);

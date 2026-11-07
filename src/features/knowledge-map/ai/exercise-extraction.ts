@@ -100,7 +100,7 @@ const EXERCISE_INSTRUCTIONS = `You get one unit of a university course's exercis
 export function exerciseExtractionSettings(part: OfferedExerciseUnit) {
   return {
     ...aiTask("exercise"),
-    reasoning: "high" as const,
+    reasoning: "medium" as const,
     instructions: EXERCISE_INSTRUCTIONS,
     output: Output.object({
       schema: exerciseExtractionSchema(

@@ -2,7 +2,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   dailyLimitReason,
-  keptFailingReason,
   nothingToMapReason,
 } from "@/features/knowledge-map/domain/build-failure";
 import { UNIT_CHARS } from "@/features/knowledge-map/domain/chapter-units";
@@ -110,7 +109,7 @@ describe("Update map", () => {
         chunks: [{ id: "c1", markdown: "About Sums." }],
       }),
     ]);
-    expect(reasoning.every((setting) => setting === "high")).toBe(true);
+    expect(reasoning.every((setting) => setting === "medium")).toBe(true);
     expect(liveKcs(db)).toEqual([
       "About Vectors.",
       "About Bases.",
@@ -149,40 +148,6 @@ describe("Update map", () => {
       ["content", 0],
       ["content", 0],
     ]);
-  });
-
-  test("leaves a unit whose call gives no answer to the next step", async () => {
-    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
-    const { extractions } = useBuildModels({ blankCalls: 1 });
-
-    await update();
-
-    expect(extractions).toHaveLength(1);
-    expect(build()?.status).toBe("built");
-    expect(liveKcs(db)).toEqual(["Material 0"]);
-  });
-
-  test("leaves a unit whose call times out to the next step, and fails without a throw when it times out there too", async () => {
-    seedMaterial(db, { chapters: [{ title: "Vectors" }] });
-    useBuildModels({ timeoutCalls: 1 });
-
-    await update();
-
-    expect(build()?.status).toBe("built");
-    expect(db.tables.ai_usage).toContainEqual(
-      expect.objectContaining({ task: "map", estimated: true }),
-    );
-
-    seedMaterial(db, { chapters: [{ title: "Sums" }] });
-    useBuildModels({ timeoutCalls: 2 });
-
-    await update();
-
-    expect(build()).toMatchObject({
-      status: "failed",
-      failure_reason: keptFailingReason("Material 1"),
-    });
-    expect(db.tables.chapter_extractions).toHaveLength(1);
   });
 
   describe("a unit whose KCs cite less than half of it", () => {
@@ -496,7 +461,7 @@ describe("Update map", () => {
       { id: "c3", title: "Subspaces", depth: 2, kcs: ["About Subspaces."] },
       { id: "c4", title: "Bases", depth: 2, kcs: ["About Bases."] },
     ]);
-    expect(reasoning.every((setting) => setting === "high")).toBe(true);
+    expect(reasoning.every((setting) => setting === "medium")).toBe(true);
     expect(topicTree(db)).toEqual([
       "Vector spaces: About Vector spaces.",
       "Subspaces > Vector spaces: About Subspaces.",

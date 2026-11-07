@@ -232,6 +232,7 @@ function MapCheck({
         (unit) => `${unit.chapter}: ${Math.round(unit.coverage * 100)}%`,
       ),
     },
+    { title: "Units the AI gave up on", items: report.unitsNotExtracted },
   ].filter((list) => list.items.length > 0);
   if (!line && !(details && lists.length > 0)) return null;
   return (

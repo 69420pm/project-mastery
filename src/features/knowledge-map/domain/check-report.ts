@@ -2,8 +2,8 @@ import type { CheckReport } from "@/features/knowledge-map/schemas";
 
 /**
  * What the Course map tells the Student about a weak build: one line when
- * the check report has unread pages or teaching units below the coverage
- * bar, null otherwise.
+ * the check report has unread pages, teaching units below the coverage
+ * bar or units the build gave up on, null otherwise.
  */
 export function checkReportLine(report: CheckReport | null): string | null {
   if (!report) return null;
@@ -18,9 +18,10 @@ export function checkReportLine(report: CheckReport | null): string | null {
             .join(", ");
     parts.push(`couldn't read ${pages}`);
   }
-  const chapters = new Set(
-    report.unitsBelowCoverage.map((unit) => unit.chapter),
-  ).size;
+  const chapters = new Set([
+    ...report.unitsBelowCoverage.map((unit) => unit.chapter),
+    ...report.unitsNotExtracted,
+  ]).size;
   if (chapters > 0) {
     parts.push(
       `covered ${chapters} ${chapters === 1 ? "Chapter" : "Chapters"} only in part`,

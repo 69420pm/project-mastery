@@ -50,7 +50,7 @@ export function kcMergeSettings(clusters: readonly OfferedCluster[]) {
   const ids = clusters.flatMap((cluster) => cluster.kcs.map((kc) => kc.id));
   return {
     ...aiTask("map"),
-    reasoning: "high" as const,
+    reasoning: "medium" as const,
     instructions: MERGE_INSTRUCTIONS,
     output: Output.object({ schema: kcMergeSchema(ids) }),
   };

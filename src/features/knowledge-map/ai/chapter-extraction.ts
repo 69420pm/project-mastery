@@ -88,7 +88,7 @@ const EXTRACTION_INSTRUCTIONS = `You get one unit of a university course's mater
 export function chapterExtractionSettings(unit: OfferedUnit) {
   return {
     ...aiTask("map"),
-    reasoning: "high" as const,
+    reasoning: "medium" as const,
     instructions: EXTRACTION_INSTRUCTIONS,
     output: Output.object({
       schema: chapterExtractionSchema(unit.chunks.map((chunk) => chunk.id)),

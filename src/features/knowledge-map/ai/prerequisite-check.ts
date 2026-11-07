@@ -55,7 +55,7 @@ const CHECK_INSTRUCTIONS = `You get things that knowledge components (KCs) of a 
 export function prerequisiteCheckSettings(names: readonly OfferedName[]) {
   return {
     ...aiTask("map"),
-    reasoning: "high" as const,
+    reasoning: "medium" as const,
     instructions: CHECK_INSTRUCTIONS,
     output: Output.object({ schema: prerequisiteCheckSchema(names) }),
   };

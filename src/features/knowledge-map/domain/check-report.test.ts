@@ -8,6 +8,7 @@ const report = (over: Partial<CheckReport>): CheckReport => ({
   duplicates: [],
   unitsBelowCoverage: [],
   unreadPages: [],
+  unitsNotExtracted: [],
   ...over,
 });
 
@@ -41,6 +42,17 @@ test("names unread pages and Chapters covered in part, in one line", () => {
       }),
     ),
   ).toBe("The AI couldn't read Notes p. 3, Sheet 1 pp. 1–2");
+});
+
+test("counts units given up on as Chapters covered in part", () => {
+  expect(
+    checkReportLine(
+      report({
+        unitsBelowCoverage: [{ chapter: "Sums", coverage: 0.3 }],
+        unitsNotExtracted: ["Sums", "Linear maps"],
+      }),
+    ),
+  ).toBe("The AI covered 2 Chapters only in part");
 });
 
 test("says nothing for a full build or no report", () => {

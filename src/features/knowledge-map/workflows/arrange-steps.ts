@@ -21,8 +21,10 @@ import {
 } from "@/features/knowledge-map/domain/unit-coverage";
 import {
   loadCourseUnits,
+  loadStoredUnits,
   retireUnsourcedKcs,
   touchBuild,
+  unitKey,
 } from "@/features/knowledge-map/workflows/build-steps";
 import {
   courseOrder,
@@ -89,24 +91,36 @@ export async function arrangeKnowledgeMap(
  * What the build checks: Chapters with content of their own that no live
  * KC cites, Exercises without KCs, the KC pairs still alike after merging,
  * the teaching units whose KCs cite less than MIN_UNIT_COVERAGE of them,
- * and the pages read without units.
+ * the pages read without units and the units the build gave up on.
  */
 async function checkReport(
   supabase: AdminSupabase,
   courseId: string,
   input: MapInput,
 ): Promise<CheckReport> {
-  const [exercises, alike, units, unreadPages] = await Promise.all([
-    exercisesWithoutKcs(supabase, courseId),
-    supabase.rpc("alike_kcs", {
-      p_course_id: courseId,
-      p_similarity: SAME_KC_SIMILARITY,
-      p_count: MAX_DUPLICATES,
-    }),
-    loadCourseUnits(supabase, courseId, "content"),
-    loadUnreadPages(supabase, courseId),
-  ]);
+  const [exercises, alike, units, exerciseUnits, stored, unreadPages] =
+    await Promise.all([
+      exercisesWithoutKcs(supabase, courseId),
+      supabase.rpc("alike_kcs", {
+        p_course_id: courseId,
+        p_similarity: SAME_KC_SIMILARITY,
+        p_count: MAX_DUPLICATES,
+      }),
+      loadCourseUnits(supabase, courseId, "content"),
+      loadCourseUnits(supabase, courseId, "exercise"),
+      loadStoredUnits(supabase, courseId),
+      loadUnreadPages(supabase, courseId),
+    ]);
   if (alike.error) failed("Finding alike KCs", alike.error);
+  // A unit without an extraction of its content was given up on.
+  const hashOf = new Map(stored.map((row) => [row.key, row.contentHash]));
+  const unitsNotExtracted = [
+    ...new Set(
+      [...units, ...exerciseUnits]
+        .filter((unit) => hashOf.get(unitKey(unit)) !== unit.contentHash)
+        .map((unit) => unit.title),
+    ),
+  ];
   const citedChunks = input.kcs.flatMap((kc) => kc.sources);
   const unitsBelowCoverage = units.flatMap((unit) => {
     const coverage = unitCoverage(unit.chunks, citedChunks);
@@ -142,6 +156,7 @@ async function checkReport(
     ),
     unitsBelowCoverage,
     unreadPages,
+    unitsNotExtracted,
   };
 }
 

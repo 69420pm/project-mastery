@@ -4,17 +4,17 @@ import { createHash } from "node:crypto";
  * The units the build extracts from (#229): a Chapter whose subtree's chunks
  * of one kind total at most UNIT_CHARS characters is one unit. A bigger
  * Chapter makes units of its children, plus units of its own chunks outside
- * them; chunks over the cap split between chunks. Consecutive children
- * under the cap are packed into one unit, up to the cap. The same rule over
- * a Material's `content` chunks gives its teaching units, over its
- * `exercise` chunks its exercise units.
+ * them; chunks over the cap split between chunks. Sibling Chapters are never
+ * packed into one unit. The same rule over a Material's `content` chunks
+ * gives its teaching units, over its `exercise` chunks its exercise units.
  */
 
 /**
- * The most characters of chunks in one unit: about 2 minutes of a call at
- * 4–5 ms per character, well inside CALL_TIMEOUT_MS.
+ * The most characters of chunks in one unit. A call's time follows the KCs
+ * it writes, and a slow model (MiMo) took over 170 s on 25,000 characters,
+ * so a unit asks for about 15 KCs at most.
  */
-export const UNIT_CHARS = 25_000;
+export const UNIT_CHARS = 12_000;
 
 /** A Chapter of one Material's Outline, in reading order. */
 export type UnitChapter = { id: string; parentId: string | null };
@@ -28,8 +28,7 @@ export type UnitChunk = {
 
 /**
  * A unit: its Chapter, its index among that Chapter's units, its chunks.
- * A packed unit's Chapter is the first of the sibling Chapters it holds,
- * all of which are in `chapterIds`.
+ * `chapterIds` holds its one Chapter.
  */
 export type ChapterUnit = {
   chapterId: string;
@@ -87,32 +86,7 @@ export function chapterUnits(
         chunkIds: slice.map((c) => c.id),
       }),
     );
-    // Consecutive children under the cap, packed up to the cap.
-    let pack: { ids: string[]; chunks: UnitChunk[] } | null = null;
-    const flush = () => {
-      if (!pack) return;
-      units.push({
-        chapterId: pack.ids[0]!,
-        unit: 0,
-        chapterIds: pack.ids,
-        chunkIds: pack.chunks.map((c) => c.id),
-      });
-      pack = null;
-    };
-    for (const child of children.get(id) ?? []) {
-      const chunks = subtree(child.id);
-      if (chunks.length === 0) continue;
-      if (size(chunks) > cap) {
-        flush();
-        visit(child.id);
-        continue;
-      }
-      if (pack && size(pack.chunks) + size(chunks) > cap) flush();
-      pack ??= { ids: [], chunks: [] };
-      pack.ids.push(child.id);
-      pack.chunks.push(...chunks);
-    }
-    flush();
+    for (const child of children.get(id) ?? []) visit(child.id);
   };
   visit(root.id);
   return units.toSorted(

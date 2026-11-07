@@ -105,6 +105,11 @@ export const checkReportSchema = z.object({
   unreadPages: z.array(
     z.object({ material: z.string(), pages: z.array(z.number().int()) }),
   ),
+  /**
+   * Units the build gave up on because their calls kept failing, by their
+   * Chapters' titles: only the pieces that were answered are in the map.
+   */
+  unitsNotExtracted: z.array(z.string()).default([]),
 });
 
 /**
@@ -130,9 +135,12 @@ export type ExtractedExercise = z.infer<typeof extractedExerciseSchema>;
  * stored chunk ids, what each assumes (`{ name, description }`) and, until
  * they are stored, their vectors of "name: description"; Prerequisites by
  * index into `kcs`. An exercise
- * unit's also has its subtasks, whose new KCs are its `kcs`.
+ * unit's also has its subtasks, whose new KCs are its `kcs`. A partial
+ * extraction of a split unit (`domain/unit-pieces.ts`) names the chunks its
+ * answered pieces read in `readChunkIds`.
  */
 export const storedExtractionSchema = z.object({
+  readChunkIds: z.array(z.string()).optional(),
   kcs: z.array(
     z.object({
       name,

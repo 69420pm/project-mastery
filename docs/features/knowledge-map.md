@@ -131,7 +131,7 @@ The Student's button calls `startKnowledgeMapBuild`, which queues through `queue
 
 `extractChapters` makes one call per teaching unit without a current extraction.
 
-A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 25,000 characters of chunks of one kind (`UNIT_CHARS`, about 2 minutes of a call) is one unit. A bigger one makes units of its children, plus units of its own chunks outside them, and packs consecutive children under the cap into one unit, up to the cap. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
+A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 12,000 characters of chunks of one kind (`UNIT_CHARS`, about 15 KCs) is one unit. A bigger one makes units of its children, plus units of its own chunks outside them; sibling Chapters are never packed into one unit. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
 
 **Old exams teach nothing.** A Chapter the Student confirmed as an old exam (`is_exam`), and its whole subtree, form no teaching units. Their `exercise` chunks still form exercise units, so the exam's tasks become Exercises. A unit the build no longer forms loses its extraction when the next step loads the current ones. Confirming or withdrawing an old exam marks the map as needing Update map, as a changed Material does (see [The Course map](#the-course-map)).
 
@@ -190,7 +190,7 @@ The call sees every Material's Outline with its KC names under each Chapter, plu
 - orders the KCs by first source;
 - turns the proposal into Topics (`planTopicTree`, rules below), with each Topic's KCs in teaching order (Prerequisites first);
 - drops redundant Prerequisites (transitive reduction);
-- stores the check report: Chapters with content that no KC cites, Exercises without KCs, KC pairs still alike, teaching units below the coverage bar and pages read without units (`unreadable` or `uncovered`). The Course map shows the Student one line when pages went unread or Chapters were covered only in part (`checkReportLine`), and the full lists outside production;
+- stores the check report: Chapters with content that no KC cites, Exercises without KCs, KC pairs still alike, teaching units below the coverage bar, pages read without units (`unreadable` or `uncovered`) and units given up on (`unitsNotExtracted`). The Course map shows the Student one line when pages went unread or Chapters were covered only in part, which includes units given up on (`checkReportLine`), and the full lists outside production;
 - marks the build `built`.
 
 `planTopicTree` gives the model's proposal the guarantees the tutoring relies on:
@@ -237,8 +237,8 @@ All eight calls follow one pattern, so the prompts stay small and the answers ch
 - **The model sees short ids**, such as `c1`, `k1` or `h3`, never database ids. Code maps each back and drops any it doesn't know.
 - **A wrong id doesn't fail the call** (`offeredId` in `ai/offered-id.ts`). The JSON schema lists the ids as an enum to guide the model, but any string validates, so the check in code decides what to keep.
 - **The answer is structured**, through `Output.object` with a Zod schema, whose `.describe()` texts are part of the prompt.
-- **Calls fit a Vercel function.** Every call of a workflow step ends after `CALL_TIMEOUT_MS` (170 s), and a step starts no call, first or retry, that could run past 290 s (`callFits` in `src/lib/ai/call-timeout.ts`). A timed-out call is a failed answer: its usage is recorded as estimated and its trace marked as an error.
-- **A failed unit waits a step.** A unit whose build call times out or gives no valid answer (`buildCall` answers "failed") is left to the next step; the workflow passes the keys of units that failed once, and a second failure fails the build with "A model call kept failing for <Chapter>", without a throw. The tree call is made twice; when both fail, each Chapter with KCs becomes a Topic of its own.
+- **Calls fit a Vercel function.** A build call ends after `BUILD_CALL_TIMEOUT_MS` (260 s), and a step starts no call that could run past 290 s (`callFits` in `src/lib/ai/call-timeout.ts`), so each step makes one round of at most `AI_CONCURRENCY` calls. A retry within a step (the coverage retry, the second tree call) gets what is left of the step, when that is at least 60 s (`retryTimeoutMs`). The parse's calls keep `CALL_TIMEOUT_MS` (170 s). A timed-out call is a failed answer: its usage is recorded as estimated and its trace marked as an error.
+- **A failed unit waits a step, then splits.** A unit whose build call times out or gives no valid answer (`buildCall` answers "failed") is left to the next step; the workflow passes the key of a unit once per failure. An extraction unit (teaching or exercise) that failed goes after the others; from its second failure it is called in pieces, each attempt halving every piece again by characters, between chunks (`domain/unit-pieces.ts`). Answered pieces are stored as a partial extraction (its `content_hash` is `partialHash` of the unit's, and `readChunkIds` names what they read), so only failed pieces are called again, and the unit is stored whole once every piece is answered. Once its split into single chunks failed twice, the unit is given up: its partial extraction is consolidated, and the check report lists it. A merge or match call that fails twice fails the build with "A model call kept failing for <Chapter>", without a throw. The tree call is made twice; when both fail, each Chapter with KCs becomes a Topic of its own.
 - **Every call is metered** (`meteredStream`), so it counts against the Student's Daily limit and stops the job there.
 
 | Call (trace name)               | Job and task      | Reasoning | User message                                                                                               | Answer                                                                    | Prompt in                          |
@@ -246,11 +246,11 @@ All eight calls follow one pattern, so the prompts stay small and the answers ch
 | Page read                       | Parse, `ingest`   | none      | Last unit before the batch, then per page: number, image, text layer                                       | Units: Markdown, label, pages, heading style, continuation flags          | `ingestion/ai/page-units.ts`       |
 | Outline (`parse-outline`)       | Parse, `ingest`   | high      | Name, page count, PDF outline, headings (`h1…`), page starts (80 characters)                               | Language, notes, Chapters: title, level, heading or page, `exam`          | `ingestion/ai/outline.ts`          |
 | Pairing                         | Parse, `ingest`   | high      | Exercises (`e1…`) and solutions (`s1…`): Material, Chapter path, first 300 characters                      | Pairs it is sure of                                                       | `ingestion/ai/exercise-pairing.ts` |
-| Extraction (`extract-chapter`)  | Build, `map`      | high      | Material name, Outline with `<- this unit` marked, Course language, chunks (`c1…`)                         | KCs with `chunkIds` and `assumes`, Prerequisites by name                  | `ai/chapter-extraction.ts`         |
-| Merge (`merge-kcs`)             | Build, `map`      | high      | Clusters of KCs (`k1…`): name, description                                                                 | Groups that are the same KC                                               | `ai/kc-merge.ts`                   |
-| Exercises (`extract-exercises`) | Build, `exercise` | high      | Material name, Outline, Course language, subtasks (`s1…`) with statement and solution, nearest KCs (`k1…`) | Per subtask: KCs, new KCs, final answers, `notAnExercise`                 | `ai/exercise-extraction.ts`        |
-| Check (`check-prerequisites`)   | Build, `map`      | high      | Names (`n1…`): name, description, the KC using it, up to 5 candidates                                      | For each name, the candidate it means or null                             | `ai/prerequisite-check.ts`         |
-| Tree (`topic-tree`)             | Build, `topic`    | high      | Course language, Outlines (`c1…`) with KC names, stored Topics (`t1…`)                                     | Flat Topic list: level, name, `chapterIds`, central question, `continues` | `ai/topic-tree.ts`                 |
+| Extraction (`extract-chapter`)  | Build, `map`      | medium    | Material name, Outline with `<- this unit` marked, Course language, chunks (`c1…`)                         | KCs with `chunkIds` and `assumes`, Prerequisites by name                  | `ai/chapter-extraction.ts`         |
+| Merge (`merge-kcs`)             | Build, `map`      | medium    | Clusters of KCs (`k1…`): name, description                                                                 | Groups that are the same KC                                               | `ai/kc-merge.ts`                   |
+| Exercises (`extract-exercises`) | Build, `exercise` | medium    | Material name, Outline, Course language, subtasks (`s1…`) with statement and solution, nearest KCs (`k1…`) | Per subtask: KCs, new KCs, final answers, `notAnExercise`                 | `ai/exercise-extraction.ts`        |
+| Check (`check-prerequisites`)   | Build, `map`      | medium    | Names (`n1…`): name, description, the KC using it, up to 5 candidates                                      | For each name, the candidate it means or null                             | `ai/prerequisite-check.ts`         |
+| Tree (`topic-tree`)             | Build, `topic`    | medium    | Course language, Outlines (`c1…`) with KC names, stored Topics (`t1…`)                                     | Flat Topic list: level, name, `chapterIds`, central question, `continues` | `ai/topic-tree.ts`                 |
 
 The vectors come from task `embed`: chunks as their Markdown, KCs and assumed names as "name: description". Which model serves each task is set in `src/lib/ai/models.ts`.
 
@@ -278,14 +278,15 @@ A parse never changes a Material's chunks once it has stored them, so a unit's h
 
 ## When things go wrong
 
-| Situation                  | What happens                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A step fails after retries | The build is `failed` with a plain reason. What is stored stays, and the next Update map resumes                                                                 |
-| The Daily limit is reached | The same, with the reason "Daily limit reached"                                                                                                                  |
-| The process dies           | Each step sets `heartbeat_at`. After 30 minutes without one, the page shows the build as failed and `queue_knowledge_map_build` lets a new one through           |
-| A step would run too long  | A step takes at most 8 units, each call ends after 170 seconds, and a step starts no call that could end after 290 seconds. What it leaves goes to the next step |
-| A model call answers badly | Code drops unknown ids and unusable items. The check report shows what ended up uncovered                                                                        |
-| The parse fails            | The Material is `failed`, and Retry resumes at the first page without a result. Chunks already stored are kept with their vectors                                |
+| Situation                  | What happens                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A step fails after retries | The build is `failed` with a plain reason. What is stored stays, and the next Update map resumes                                                                       |
+| The Daily limit is reached | The same, with the reason "Daily limit reached"                                                                                                                        |
+| The process dies           | Each step sets `heartbeat_at`. After 30 minutes without one, the page shows the build as failed and `queue_knowledge_map_build` lets a new one through                 |
+| A step would run too long  | A step takes at most 8 units, each build call ends after 260 seconds, and a step starts no call that could end after 290 seconds. What it leaves goes to the next step |
+| A unit keeps failing       | It is called in ever smaller pieces, and given up with what its pieces gave; the check report lists it, and the next Update map tries it whole again                   |
+| A model call answers badly | Code drops unknown ids and unusable items. The check report shows what ended up uncovered                                                                              |
+| The parse fails            | The Material is `failed`, and Retry resumes at the first page without a result. Chunks already stored are kept with their vectors                                      |
 
 ## The Course map
 

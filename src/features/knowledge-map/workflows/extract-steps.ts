@@ -16,20 +16,18 @@ import {
 } from "@/features/knowledge-map/domain/unit-coverage";
 import {
   buildCall,
+  extractAttempts,
   loadCourseLanguage,
   loadCourseUnits,
   loadStoredUnits,
-  runCalls,
-  stepOutcome,
-  storeExtraction,
+  planAttempts,
   touchBuild,
   unitKey,
-  UNITS_PER_STEP,
   type CourseUnit,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
 import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
-import { callFits } from "@/lib/ai/call-timeout";
+import { retryTimeoutMs } from "@/lib/ai/call-timeout";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminSupabase } from "@/lib/supabase/types";
 
@@ -41,16 +39,18 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 
 /**
  * Extracts up to UNITS_PER_STEP teaching units without a current
- * extraction, in Course order, at most AI_CONCURRENCY calls at a time. An
- * answer whose KCs cite less than MIN_UNIT_COVERAGE of the unit is asked
- * once more, and the answer that covers more is stored. A unit whose call
- * fails is left to the next step, and fails the build when it failed once
- * before (`failedOnce`). A reached Daily limit stops the build; what is
- * stored stays.
+ * extraction, in Course order, as one round of at most AI_CONCURRENCY calls.
+ * An answer whose KCs cite less than MIN_UNIT_COVERAGE of the unit is asked
+ * once more with what is left of the step, and the answer that covers more
+ * is stored. A unit whose call fails is left to the next step and goes
+ * last; after its second failure it is called in pieces, halved again on
+ * each failure, until it is given up (`domain/unit-pieces.ts`). So a failing
+ * unit never fails the build. A reached Daily limit stops the build; what
+ * is stored stays.
  */
 export async function extractChapters(
   courseId: string,
-  failedOnce: readonly string[] = [],
+  failed: readonly string[] = [],
 ): Promise<StepOutcome> {
   "use step";
   const startedAt = Date.now();
@@ -66,58 +66,47 @@ export async function extractChapters(
   const todo = units.filter(
     (unit) => hashOf.get(unitKey(unit)) !== unit.contentHash,
   );
-  if (todo.length === 0) return { ok: true, left: 0 };
+  const attempts = planAttempts(todo, stored, failed);
+  if (attempts.length === 0) return { ok: true, left: 0 };
 
   const language = await loadCourseLanguage(supabase, courseId);
-  let done = 0;
-  let limitReached = false;
-  const failedKeys: string[] = [];
-  await runCalls(
-    todo.slice(0, UNITS_PER_STEP),
-    async (unit) => {
-      const extraction = await extractUnit(supabase, owner, {
-        unit,
-        language,
-        startedAt,
-      });
-      if (extraction === "limit") {
-        limitReached = true;
-        return "stop";
-      }
-      if (extraction === "failed") {
-        failedKeys.push(unitKey(unit));
-        return;
-      }
-      await storeExtraction(supabase, { owner, courseId, unit }, extraction);
-      done += 1;
-    },
+  const { done, failedKeys, limit } = await extractAttempts(
+    supabase,
+    { owner, courseId },
+    attempts,
+    (unit, chunks) =>
+      extractUnit(supabase, owner, { unit, chunks, language, startedAt }),
     startedAt,
   );
-  if (limitReached) return { ok: false, reason: dailyLimitReason };
-  return stepOutcome(supabase, {
-    left: todo.length - done,
-    failedKeys,
-    failedOnce,
-  });
+  if (limit) return { ok: false, reason: dailyLimitReason };
+  return { ok: true, left: attempts.length - done, failed: failedKeys };
 }
 
 extractChapters.maxRetries = RATE_LIMITED_STEP_RETRIES;
 
 /**
- * One unit's extraction, checked: asked once more when its KCs cite less
- * than MIN_UNIT_COVERAGE of the unit and a call still fits the step, the
- * answer that covers more kept. "failed" when the first call gives no
- * answer, "limit" when the Daily limit stops the first call.
+ * The extraction of a unit's chunks, all or a piece, checked: asked once
+ * more when its KCs cite less than MIN_UNIT_COVERAGE of them and enough of
+ * the step is left (`retryTimeoutMs`), the answer that covers more kept.
+ * "failed" when the first call gives no answer, "limit" when the Daily
+ * limit stops the first call.
  */
 async function extractUnit(
   supabase: AdminSupabase,
   owner: string,
   {
-    unit,
+    unit: whole,
+    chunks,
     language,
     startedAt,
-  }: { unit: CourseUnit; language: string; startedAt: number },
+  }: {
+    unit: CourseUnit;
+    chunks: CourseUnit["chunks"];
+    language: string;
+    startedAt: number;
+  },
 ): Promise<UnitExtraction | "limit" | "failed"> {
+  const unit = { ...whole, chunks };
   const offered = unit.chunks.map((chunk, index): OfferedChunk => ({
     id: `c${index + 1}`,
     markdown: chunk.markdown,
@@ -131,7 +120,7 @@ async function extractUnit(
   const storedId = new Map(
     unit.chunks.map((chunk, index) => [offered[index]!.id, chunk.id]),
   );
-  const call = async () => {
+  const call = async (timeoutMs?: number) => {
     const answer = await buildCall(
       supabase,
       { studentId: owner, task: "map", traceName: "extract-chapter" },
@@ -140,6 +129,7 @@ async function extractUnit(
         messages: chapterExtractionMessages(offeredUnit),
       },
       chapterExtractionSchema(),
+      timeoutMs,
     );
     return typeof answer === "string"
       ? answer
@@ -153,7 +143,8 @@ async function extractUnit(
 
   const first = await call();
   if (typeof first === "string") return first;
-  if (coverage(first) >= MIN_UNIT_COVERAGE || !callFits(startedAt)) {
+  const retryMs = retryTimeoutMs(startedAt);
+  if (coverage(first) >= MIN_UNIT_COVERAGE || retryMs === null) {
     return first;
   }
   console.warn(
@@ -161,7 +152,7 @@ async function extractUnit(
   );
   // A second call that fails or meets the Daily limit keeps the first,
   // valid answer; the limit then stops the build at the next call.
-  const second = await call();
+  const second = await call(retryMs);
   if (typeof second === "string") return first;
   return coverage(second) > coverage(first) ? second : first;
 }
