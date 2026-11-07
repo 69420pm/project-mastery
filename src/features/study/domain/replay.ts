@@ -19,9 +19,6 @@ export type AttemptHelp = "none" | "some" | "solution_shown";
 /** How the AI graded the Student's answer on a KC. */
 export type AttemptResult = "full" | "partial" | "wrong";
 
-/** Where an Attempt was made; read only for analytics, never to schedule. */
-export type AttemptSource = "chat" | "mock";
-
 /** The Brief's goal, which sets the desired retention. */
 export type Goal = "pass" | "good_grade" | "master_everything" | null;
 
@@ -178,8 +175,17 @@ export function retrievability(card: Card, at: Date): number {
 }
 
 /**
+ * How far under retention today's recall sits for a KC whose newest Attempt
+ * is today and rated Again: FSRS gives a card answered wrong late in the day
+ * a recall above retention at the day's end.
+ */
+const AGAIN_TODAY_MARGIN = 0.01;
+
+/**
  * Replays the Course's Attempts into each taught KC's recall at `now`, by
- * KC id. KCs without an Attempt are missing (`UNTAUGHT`).
+ * KC id. KCs without an Attempt are missing (`UNTAUGHT`). A KC whose newest
+ * Attempt is today and rated Again recalls below retention today, so it is
+ * never `strong` the day it was answered wrong.
  */
 export function replayCourse(
   attempts: ReplayAttempt[],
@@ -192,7 +198,18 @@ export function replayCourse(
   for (const [kcId, kcAttempts] of Map.groupBy(attempts, (a) => a.kcId)) {
     const card = replayCard(kcAttempts, retention);
     if (card === null) continue;
-    const recallToday = retrievability(card, endOfToday);
+    const newest = kcAttempts.reduce((a, b) =>
+      Date.parse(b.createdAt) > Date.parse(a.createdAt) ? b : a,
+    );
+    const againToday =
+      utcDay(newest.createdAt) === today &&
+      rateAttempt(newest) === Rating.Again;
+    const recallToday = againToday
+      ? Math.min(
+          retrievability(card, endOfToday),
+          retention - AGAIN_TODAY_MARGIN,
+        )
+      : retrievability(card, endOfToday);
     recall.set(kcId, {
       taught: true,
       learned: kcAttempts.some((a) => a.result === "full" && a.help === "none"),

@@ -88,6 +88,19 @@ describe("paceEvidence", () => {
       },
     ]);
   });
+
+  test("a session across UTC midnight teaches before it and reviews after", () => {
+    // Day 0 at 23:50 and day 1 at 00:10, in one session.
+    const before = attempt("a", "s1", 0.993);
+    const after = attempt("a", "s1", 1.007, 30);
+
+    const { reviews, teaching } = paceEvidence([before, after]);
+
+    expect(reviews).toEqual([after]);
+    expect(teaching).toEqual([
+      { sessionId: "s1", kcsTaught: 1, reviews: 1, firstAt: before.createdAt },
+    ]);
+  });
 });
 
 describe("measurePace", () => {

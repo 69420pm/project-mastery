@@ -46,7 +46,7 @@ flowchart TD
 | Chat and its messages | `chats`, `chat_messages`    | The history. Each AI reply also stores the `tutor_context` it was given, its parts (with tool calls) and its model                                                                                                                                                                      | Chat handler                             |
 | Study session         | `study_sessions`            | One per Chat, created by a database trigger: `started_at`, `ended_at`, `close_started_at`, `closed_at`, `rating`, `rating_note` and `mock_id` for a Chat that goes through a graded Mock exam                                                                                           | Trigger, then security-definer functions |
 | Question              | `questions`, `question_kcs` | One graded ask: `prompt`, the KCs it tests, the Student's `answer_text` (every message between its `ask` and its `grade`, joined) and `answer_message_id` (the first), timestamps, and the Exercise or generated Problem it poses, if any. `confidence` (1 to 4) is for Mock exams only | `ask`, then the answer, then `grade`     |
-| Attempt               | `attempts`                  | One KC of one Question: `result` (`full`, `partial`, `wrong`), `help` (`none`, `some`, `solution_shown`), `source` (`chat`, `mock`) and the answer `check`. **The only stored learning state**                                                                                          | `grade`, or Mock exam grading            |
+| Attempt               | `attempts`                  | One KC of one Question: `result` (`full`, `partial`, `wrong`), `help` (`none`, `some`, `solution_shown`) and the answer `check`. **The only stored learning state**                                                                                                                     | `grade`, or Mock exam grading            |
 | Memory                | `memories`                  | One text per Course, at most 4,000 characters, about the Student and never mastery                                                                                                                                                                                                      | `remember`, the close call, the Student  |
 | Topic note            | `topic_notes`               | What clicked and what kept going wrong on one Topic, at most 1,500 characters                                                                                                                                                                                                           | Close call                               |
 | Topic choice          | `topic_choices`             | A pin or skip of a Topic                                                                                                                                                                                                                                                                | The Student, on the Topic page           |
@@ -108,7 +108,7 @@ The shares are the KC's old-exam Exercises and all its Exercises, over the Cours
 | `partial`, or `full` with `some` help | Hard        |
 | `full` without help                   | Good        |
 
-Replay gives each KC `taught` (it has a card), `learned` (a `full` Attempt without help), `recallToday` (at the end of today's UTC day, so an answer just given counts), `recallOnExamDay` (today's without a future exam date), `due` (its due day is today or earlier) and `nextReview`.
+Replay gives each KC `taught` (it has a card), `learned` (a `full` Attempt without help), `recallToday` (at the end of today's UTC day, so an answer just given counts; just under retention at most when the newest Attempt is today and rated Again, so a KC answered wrong is not `strong` that day), `recallOnExamDay` (today's without a future exam date), `due` (its due day is today or earlier) and `nextReview`.
 
 **Recall band** (`study/domain/recall-band.ts`), what the Student sees of a KC, on `recallToday`: `new` (untaught), `strong` (at or above the goal's retention), `fading` (0.7 or more), `weak`.
 
@@ -177,7 +177,7 @@ Changing the instructions means running `pnpm smoke tutor`.
 
 **The Reserved exam stays out of everything.** Before the context is built, `withoutReserved` removes its Exercises from the map and `withoutReservedSections` its Reading sections, and `getTopic` and `searchMaterials` filter its chunks.
 
-**The context is stored** with each reply in `chat_messages.tutor_context` and sent on the stream's `start` part. Outside production, a reply's Context sheet shows it, rendered by today's code. Old rows stay readable, so a new `TutorContext` field must be optional. The mock models read ids from the block and never echo it.
+**The context is stored** with each reply in `chat_messages.tutor_context` and sent on the stream's `start` part. Outside production, a reply's Context sheet shows it, rendered by today's code. The mock models read ids from the block and never echo it.
 
 ### Messages
 
@@ -226,8 +226,6 @@ An older unanswered Question stays ungraded for good. `grade` always takes the n
 
 **The answer check.** A Question that poses an Exercise or generated Problem with `final_answers` has answer keys `{ label, value, anyOrder }`, each value a mathjs expression. `grade` takes the Student's `finalValues` as `[{ label, value }]`, the label optional with one key, and `checkAnswer` in `knowledge-map/domain/answer-keys.ts` checks each key: `match`, `mismatch` or `unchecked`. Numbers, units and complex numbers match within 1% (plus 1e-9 for zero) in the key's unit; vectors and matrices element by element; `anyOrder` lists as multisets; expressions with free symbols at 5 fixed points, of which 3 must evaluate. Any other value is `unchecked`, and one mathjs cannot parse is refused. A mismatch turns every `full` into `partial`, and a `full` while a key has no value is refused. The worst check (`mismatch`, then `unchecked`, then `match`) goes on each Attempt as `check`; it is null without keys.
 
-**The `source` of an Attempt** is `chat`, the default, or `mock`, which only Mock exam grading writes. It is read only for analytics.
-
 ## Problems
 
 A **Problem** is an Exercise from the Materials, or a generated variant or new Problem.
@@ -249,7 +247,7 @@ A Mock exam is a timed session without the AI: the Student answers on the mock p
 
 1. **Assemble** (`assembleMock`). A 90-minute blueprint shares its time among in-plan Topics by Priority, split 30/50/20 by difficulty. Unseen Exercises and Problems fill the slots, and at most 6 empty ones are generated. The final mock is the Reserved exam itself.
 2. **Submit.** `submit_mock_exam`, then the `gradeMock` workflow.
-3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final values, by the labels of the item's keys, go through the answer check: a mismatch also caps the points one below full. Each item stores its points and steps, and a `mock` Attempt per KC, which does schedule. An item that still fails after retries is left out of the score.
+3. **Grade.** One step per item. A blank answer scores 0 with every KC `wrong` and no call. An answer gets one `grade_exam` call, whose final values, by the labels of the item's keys, go through the answer check: a mismatch also caps the points one below full. Each item stores its points and steps, and an Attempt per KC in the mock's session, which does schedule. An item that still fails after retries is left out of the score.
 4. **Finish.** The mock stores its score and its Brier score (the mean squared gap between each item's predicted success and its share of points), and the result page links to a Chat that goes through it.
 
 ## When a session ends

@@ -80,6 +80,20 @@ describe("the per-day rule", () => {
     expect(replay([first, review], now)?.nextReview).toBe("2026-10-18");
   });
 
+  test("a mock and a Chat Attempt on the same day: the first reviews, whichever it is", () => {
+    const first = attempt("chat-1", "2026-10-01T10:00:00Z");
+    // A Mock exam's Attempt sits in the mock's session.
+    const mock = attempt("mock-1", "2026-10-04T09:00:00Z", "wrong");
+    const chat = attempt("chat-2", "2026-10-04T15:00:00Z");
+    const now = "2026-10-05T12:00:00Z";
+
+    const card = replayCard([first, chat, mock], 0.9)!;
+    expect(card.lapses).toBe(1);
+    expect(replay([first, mock, chat], now)?.nextReview).toBe(
+      replay([first, mock], now)?.nextReview,
+    );
+  });
+
   test("a session across UTC midnight reviews on the new day", () => {
     const before = attempt("s1", "2026-10-01T23:50:00Z");
     const after = attempt("s1", "2026-10-02T00:10:00Z", "wrong");
@@ -161,6 +175,18 @@ describe("a KC's recall", () => {
     expect(recall.recallToday).toBeLessThan(0.9);
     expect(recall).toMatchObject({ taught: true, learned: false, due: false });
   });
+
+  test.each([
+    ["a new KC", [] as ReplayAttempt[]],
+    ["a long-learned KC", [attempt("s0", "2026-09-01T10:00:00Z")]],
+  ])(
+    "is under retention after %s is answered wrong late in the day",
+    (_, earlier) => {
+      const wrong = attempt("s1", "2026-10-01T23:00:00Z", "wrong");
+      const recall = replay([...earlier, wrong], "2026-10-01T23:30:00Z")!;
+      expect(recall.recallToday).toBeLessThan(desiredRetention(null));
+    },
+  );
 
   test("is due from its due day on", () => {
     expect(replay(taught, "2026-10-03T23:00:00Z")?.due).toBe(false);
