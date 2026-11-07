@@ -297,16 +297,17 @@ A card opens the Topic page (`map/[topicId]`): its detail, anchors, KCs, Reading
 
 The map is the tutoring's only source of what there is to learn. The tutoring reads it through `knowledge-map/server.ts` and never writes to it.
 
-| The tutoring needs                              | It reads                                                   | Used for                                                                    |
-| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| KCs, Prerequisites, Exercises, sources          | `loadStoredMap`: live KCs only, and links between live KCs | Every Attempt and FSRS card is per KC. Priority, due reviews and `getTopic` |
-| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The plan scope, the Ranking and the Today card                              |
-| The whole Topic tree                            | `loadTopicTree`                                            | Exam scopes inherited down the tree, the Course map                         |
-| Anchors                                         | `topicAnchors`                                             | `getTopic`: what a Topic builds on                                          |
-| Reading sections                                | `loadReadingSections`                                      | `getTopic` and the `showReading` tool                                       |
-| Chunks, through `ingestion/server.ts`           | `loadChunkSources`, `match_chunks`                         | `getTopic` sources and `searchMaterials`: what the AI cites                 |
-| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the answer check in `grade`, variants, Mock exams           |
-| `materials.notes`                               | `loadMaterialNotes` in `study`                             | The instructions tell the AI each Material's notation                       |
+| The tutoring needs                              | It reads                                                   | Used for                                                                                                                   |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| KCs, Prerequisites, Exercises, sources          | `loadStoredMap`: live KCs only, and links between live KCs | Every Attempt and FSRS card is per KC. Priority, due reviews and `getTopic`                                                |
+| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The plan scope, the Ranking and the Today card                                                                             |
+| The whole Topic tree                            | `loadTopicTree`                                            | Exam scopes inherited down the tree, the Course map                                                                        |
+| Anchors                                         | `topicAnchors`                                             | `getTopic`: what a Topic builds on                                                                                         |
+| Reading sections                                | `loadReadingSections`                                      | `getTopic` and the `showReading` tool                                                                                      |
+| Chunks, through `ingestion/server.ts`           | `loadChunkSources`, `match_chunks`                         | `getTopic` sources and `searchMaterials`: what the AI cites                                                                |
+| Exercises with `final_answers`                  | `loadStoredMap`                                            | `findProblems`, the answer check in `grade`, variants, Mock exams                                                          |
+| What each KC assumes (`kcs.assumes`)            | `loadKcAssumes`                                            | The tutor context's proposed Topic and `getTopic`: texts the AI checks and teaches briefly, marked as beyond the Materials |
+| `materials.notes`                               | `loadMaterialNotes` in `study`                             | The tutor context gives the AI each Material's notation                                                                    |
 
 **Rebuilding while a Student studies.** Tutoring reads the map fresh on every reply, so an update takes effect on the next one. Attempts stay valid because KC ids hold.
 

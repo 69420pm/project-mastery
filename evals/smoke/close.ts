@@ -19,6 +19,9 @@ function longMemory(): string {
   return lines.join("\n");
 }
 
+/** The longest Topic note the close call may write. */
+const MAX_TOPIC_NOTE_LENGTH = 1_500;
+
 const WRONG_ANSWER = "I'm not sure, I think it is just a name to memorise.";
 
 /** Six messages of a short session on `topic`, built from its first KC. */
@@ -41,9 +44,10 @@ function messages(
 
 /**
  * The gold course with a short ended session (six messages, one Question
- * on two KCs, graded wrong) and a Memory of about 3,100 characters. The
- * real `closeStudySession` runs in process once (one model call). Checks
- * that the session is closed and its Memory condensed.
+ * on two KCs of the first Topic, graded wrong) and a Memory of about 3,100
+ * characters. The real `closeStudySession` runs in process once (one model
+ * call). Checks that the session is closed, that it wrote a Topic note for
+ * the touched Topic only, and that its Memory is condensed.
  */
 export const closeSmoke: SmokeCheck = {
   name: "close",
@@ -128,7 +132,7 @@ export const closeSmoke: SmokeCheck = {
 
     await closeStudySession(sessionId);
 
-    const [closed, stored, usage] = await Promise.all([
+    const [closed, stored, usage, topicNotes] = await Promise.all([
       supabase
         .from("study_sessions")
         .select("closed_at")
@@ -144,7 +148,12 @@ export const closeSmoke: SmokeCheck = {
         .select("id")
         .eq("owner", studentId)
         .eq("task", "close"),
+      supabase
+        .from("topic_notes")
+        .select("topic_id, text")
+        .eq("owner", studentId),
     ]);
+    if (topicNotes.error) throw new Error(topicNotes.error.message);
     if (closed.error) throw new Error(closed.error.message);
     if (stored.error) throw new Error(stored.error.message);
     if (usage.error) throw new Error(usage.error.message);
@@ -152,8 +161,22 @@ export const closeSmoke: SmokeCheck = {
     console.info(
       `\nMemory: ${memory.length} -> ${stored.data.text.length} characters\n${stored.data.text}`,
     );
+    const note = topicNotes.data.find(({ topic_id }) => topic_id === topic.id);
+    console.info(`Topic note: ${note?.text ?? "none"}`);
     return [
       result("one close call", usage.data.length === 1, `${usage.data.length}`),
+      result(
+        "a Topic note for the touched Topic",
+        note !== undefined &&
+          note.text.length > 0 &&
+          note.text.length <= MAX_TOPIC_NOTE_LENGTH,
+        note ? `${note.text.length} characters` : "none",
+      ),
+      result(
+        "no Topic note for a Topic the session did not touch",
+        topicNotes.data.every(({ topic_id }) => topic_id === topic.id),
+        `${topicNotes.data.length} notes`,
+      ),
       result(
         "the session is closed",
         closed.data.closed_at !== null,

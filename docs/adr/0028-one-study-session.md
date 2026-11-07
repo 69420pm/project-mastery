@@ -1,0 +1,18 @@
+# One Study session
+
+> Supersedes the session parts of [ADR 0018](0018-questions-as-first-class-objects.md): the modes, Topic and stages of a Study session, and the `kind` of an Attempt and of a Question.
+
+**Context.** The Chat tutored in four modes (learn, review, practice, results). A learn session had a Topic fixed at its first reply and eight Stages the AI moved through with `setStage`, and the instructions were rebuilt per mode and Stage, so they changed from reply to reply and could not be cached. Code made the decisions (the Topic, the review queue, the practice KCs, the Stage) and the AI mostly followed them, which cost prompts, tools, tables and tests for little teaching value: a Student who wanted something else had to fight the plan. Map Findings, Session notes and pinned Memory lines grew around the same structure.
+
+**Decision.** Every Chat is one kind of Study session (#251).
+
+- **Facts, not a script.** On every reply code derives a tutor context from the attempts log, the Ranking and the notes: dates, this session, a proposal (the head of the Ranking), practice candidates, every Topic, the notes, and for a Chat opened from a graded Mock exam its tasks. It goes in front of the newest Student message, never into the stored history, so the instructions and earlier turns stay cacheable. The AI proposes and the Student's wish wins.
+- **Static instructions.** About four blocks of principles (how to tutor, evidence, grounding, scope and format) with no steps and no per-session variation.
+- **Eight tools.** `getTopic`, `searchMaterials`, `findProblems`, `ask`, `grade`, `showReading`, `compute` and `remember`. `grade` grades the session's newest Question, with `noAnswer: true` for a Student who moved on, so it takes no id. `ask` is refused while the newest Question is answered but ungraded. `setStage` and `flagMap` are gone.
+- **Questions are conversation.** There is no question card and no `questions.kind`. A Question renders inline, and the Student's messages between its `ask` and its `grade` are its answer, joined. `questions.confidence` stays for Mock exams. An Attempt has a `source` (`chat` or `mock`) instead of a `kind` ([ADR 0027](0027-per-day-scheduling-and-one-ranking.md)).
+- **A Chat that goes through a Mock exam** sets `study_sessions.mock_id` on its first request through `set_session_mock`, which accepts only the caller's own graded mock of the same Course, while the session has no Question.
+- **Four kinds of notes.** The Brief's notes (a Topic skip's reason joins them), the Memory (no pinned lines), Topic notes and Material notes. The close call writes a Topic note per Topic its session's Attempts touched, 0 to 3 Memory lines and, once the Memory is long, a condensed Memory. There are no Session notes.
+- **Cost.** An attached Material goes to the model as a file only with its own message. A tool result older than the third-newest Student message is replaced by its one-line step summary in the history the model receives.
+- **Removed.** Modes, Stages, Map Findings, Session notes, the question card, reading Done, the review queue, practice selection, step cards and the Context sheet in production.
+
+**Consequences.** The migrations delete the Chats, sessions, Questions, Attempts and Topic notes of the time before, which were test data. A Student can go anywhere from the first message, and the plan only shapes the proposal. Because nothing in code forces a teaching order any more, the quality of a session depends on the instructions and on how well the context shows the Student's state, so changing either means running `pnpm smoke tutor` and judging by hand. A map error is not flagged from the Chat any more; the Student rebuilds the map from the Course map.

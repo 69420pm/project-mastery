@@ -18,10 +18,9 @@ Project Mastery is an AI tutor that helps university students master their cours
 2. **Brief:** the student tells the AI about the exam in a conversation: its date, format, their goal and what to skip. The AI keeps what else they say as notes that the tutor reads in every Chat.
 3. **Knowledge map:** the AI builds a map of what the Materials teach, with nested Topics, Knowledge components, Prerequisites and the Exercises that test them, drawn as a graph.
 4. **Plan:** code, not a model, ranks what is worth doing next from the exam date, the goal, Priority, recall and the student's measured pace, and shows its head on a Today card beside Progress, Readiness and the latest mock score.
-5. **Tutor:** a Chat answers from the course, cites Material and page, asks the student to produce answers before it gives solutions, remembers the student, and schedules reviews with [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) replayed from the student's attempts by one per-day rule.
+5. **Tutor:** a Chat answers from the course, cites Material and page, asks the student to produce answers before it gives solutions, remembers the student, and schedules reviews with [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) replayed from the student's attempts by one per-day rule. It gets the facts and a proposal from the ranking and teaches freely, so the student can go anywhere ([ADR 0028](docs/adr/0028-one-study-session.md)).
 6. **Read:** every Topic has Reading sections with a source pane that shows the original page.
-
-Still to come ([epic #170](https://github.com/69420pm/project-mastery/issues/170)): Learn sessions, a problem pool with verified generated problems, review and practice sessions, mock exams with a readiness estimate, and an evaluation of the whole tutor with simulated students.
+7. **Practice:** a pool of verified generated problems, and mock exams with a readiness estimate.
 
 ## How it is built
 

@@ -101,7 +101,7 @@ A Topic the Student's goal leaves out of the study plan, which the Student studi
 _Avoid_: Optional, left out, out of scope
 
 **Topic choice**:
-A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Memory.
+A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Brief's notes.
 _Avoid_: Favourite, hide, exclude (an excluded Material is something else)
 
 **Today card**:
@@ -113,7 +113,7 @@ The tutoring intelligence a Student studies with: it explains, asks and gives fe
 _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.
 
 **Chat**:
-One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map.
+One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map: it gets the facts of their study and a proposal of what to do next, teaches freely, and follows the Student when they want something else.
 _Avoid_: Conversation, thread
 
 **Source pane**:
@@ -121,7 +121,7 @@ The pane beside a Chat that shows a Material's own pages, at a Reading section o
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:
-One sitting of study with a start and an end: a Chat, or a Mock exam.
+One sitting of study with a start and an end: a Chat, or a Mock exam. Every Chat is one kind of session, ended by the Student, a Session rating or 2 idle hours, and then closed by one model call that writes its notes.
 _Avoid_: Lesson, sitting, session alone when a Chat is meant
 
 **Session rating**:
@@ -129,7 +129,7 @@ The Student's verdict on a Study session at its close: 1 to 5, with an optional 
 _Avoid_: Feedback, score, review (a Review asks about a due KC)
 
 **Question**:
-One graded ask the AI puts to a Student in a Study session, such as a recall question or a Problem, with the KCs it tests. The Student's messages after it are its answer. Grading its answer gives Attempts.
+One graded ask the AI puts to a Student in a Study session, such as a recall question or a Problem, with the KCs it tests. It shows inline in the Chat. The Student's messages after it, until it is graded, are its answer. Grading its answer gives Attempts.
 _Avoid_: Quiz, prompt, task
 
 **Mock exam**:
@@ -141,11 +141,11 @@ An old exam the Student chose in the Brief to keep unseen for their final Mock e
 _Avoid_: Held-back exam, hidden exam, final exam
 
 **Memory**:
-What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The Student can edit it on the Brief page.
+What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The AI adds to it while it tutors and when a session closes; the Student can edit it on the Brief page.
 _Avoid_: Profile, notes (the Brief's notes are something else)
 
 **Topic note**:
-What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. The tutor reads it as a hint.
+What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. The close call writes one for each Topic a session's Attempts touched, replacing the old one. The tutor reads it as a hint.
 _Avoid_: Topic summary, Topic memory
 
 **Daily limit**:

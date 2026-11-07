@@ -16,15 +16,15 @@ import { result, type SmokeCheck } from "./smoke-check";
 /**
  * The gold course with the first Topic whose first KC an Exercise tests,
  * that Exercise asked in an earlier session (so the Topic stock's first KC
- * gets its variant). A Learn session then starts on that Topic, queues the
- * Topic stock as the tutor's first reply does, and the real
+ * gets its variant). The Topic's stock is then queued as a session's first
+ * reply does for the Ranking's next Topic, and the real
  * `generateProblems` runs in process: one `generate` call per Problem, two
  * with the retry, at most 4 Problems.
  */
 export const generateSmoke: SmokeCheck = {
   name: "generate",
   usage:
-    "pnpm smoke generate (the gold course, a Learn session on a Topic with an Exercise of its first KC seen, then one generate run)",
+    "pnpm smoke generate (the gold course, a Topic with an Exercise of its first KC seen, then one generate run)",
   maxCalls: 10,
   async run({ supabase, studentId }) {
     const gold = await seedGoldCourse(supabase, studentId);
@@ -51,34 +51,21 @@ export const generateSmoke: SmokeCheck = {
       {
         ...owned,
         ...session,
-        mode: "learn",
-        topic_id: null,
-        stage: null,
         started_at: earlier.toISOString(),
         ended_at: earlier.toISOString(),
-      },
-      {
-        ...owned,
-        id: randomUUID(),
-        mode: "learn",
-        topic_id: topic.id,
-        stage: "orient",
-        started_at: new Date().toISOString(),
-        ended_at: null,
       },
     ]);
     await insertRows(supabase, "questions", [
       {
         owner: studentId,
         session_id: session.id,
-        kind: "question",
         exercise_id: exercise.id,
         prompt: exercise.markdown,
         asked_at: earlier.toISOString(),
       },
     ]);
 
-    // The Learn session's start queues the Topic stock as the Student.
+    // A session's first reply queues the Topic stock as the Student.
     const client = await signInAsUser(supabase, studentId);
     const queued = await client.rpc("queue_problem_run", {
       p_course_id: courseId,
