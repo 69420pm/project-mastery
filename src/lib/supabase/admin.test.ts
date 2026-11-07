@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { isAdminClient } from "./admin-brand";
+import { fetchWithoutNul } from "./without-nul";
 
 vi.mock("server-only", () => ({}));
 const createClient = vi.fn(() => ({}));
@@ -29,6 +30,7 @@ describe("createAdminClient", () => {
           persistSession: false,
           detectSessionInUrl: false,
         },
+        global: { fetch: fetchWithoutNul },
       },
     );
     expect(isAdminClient(client)).toBe(true);

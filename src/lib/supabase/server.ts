@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "./database.types";
 import { getSupabasePublicEnv } from "./env";
+import { fetchWithoutNul } from "./without-nul";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.
@@ -19,6 +20,7 @@ export async function createClient() {
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      global: { fetch: fetchWithoutNul },
       cookies: {
         getAll() {
           return cookieStore.getAll();
