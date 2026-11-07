@@ -27,8 +27,13 @@ select pg_temp.upload('aaaaaaaa-1111-0000-0000-000000000010', 'Lecture 10');
 select pg_temp.upload('aaaaaaaa-1111-0000-0000-000000000099', 'Formulas');
 select pg_temp.upload('aaaaaaaa-1111-0000-0000-000000000002', 'Lecture 2');
 
+-- Every read is scoped to this test's Course: the database may hold others.
+create function pg_temp.course() returns uuid language sql as $$
+  select 'aaaaaaaa-0000-0000-0000-000000000001'::uuid
+$$;
+
 select results_eq(
-  $$select name from public.materials order by position$$,
+  $$select name from public.materials where course_id = pg_temp.course() order by position$$,
   $$values ('Lecture 2'), ('Lecture 10'), ('Formulas')$$,
   'an upload is placed by the numbers in its name, unnumbered Materials last');
 
@@ -45,7 +50,7 @@ select is(public.move_material('aaaaaaaa-1111-0000-0000-000000000099', 'down'), 
   'the last Material moves no further down');
 reset role;
 select results_eq(
-  $$select name from public.materials order by position$$,
+  $$select name from public.materials where course_id = pg_temp.course() order by position$$,
   $$values ('Lecture 2'), ('Lecture 10'), ('Formulas')$$,
   'the moves swap neighbours');
 
@@ -63,7 +68,7 @@ create function pg_temp.chunk(p_position int) returns uuid language sql as $$
   where material_id = 'aaaaaaaa-1111-0000-0000-000000000002' and position = p_position
 $$;
 create function pg_temp.chapter() returns uuid language sql as $$
-  select id from public.chapters where title = 'Vector spaces'
+  select id from public.chapters where course_id = pg_temp.course() and title = 'Vector spaces'
 $$;
 
 insert into public.chapter_extractions (id, chapter_id, owner, course_id, kind, unit, content_hash, output)
@@ -131,19 +136,22 @@ select is(
           'finalAnswers', '[{"label": "dim U", "value": "2", "anyOrder": false}]'::jsonb, 'difficulty', 1))))),
   true, 'the running build stores KCs');
 select results_eq(
-  $$select name, origin from public.kcs order by position$$,
+  $$select name, origin from public.kcs where course_id = pg_temp.course() order by position$$,
   $$values ('Vector space'::text, 'content'::text), ('Subspace', 'exercise')$$,
   'new KCs are stored with their origin');
 select results_eq(
   $$select e.final_answers, k.name from public.exercises e
-    join public.exercise_kcs x on x.exercise_id = e.id join public.kcs k on k.id = x.kc_id$$,
+    join public.exercise_kcs x on x.exercise_id = e.id join public.kcs k on k.id = x.kc_id
+    where e.course_id = pg_temp.course()$$,
   $$values ('[{"label": "dim U", "value": "2", "anyOrder": false}]'::jsonb, 'Subspace'::text)$$,
   'the exercise unit stores its Exercise with its KCs');
 select results_eq(
-  $$select unit, kc_ids, output -> 'kcs' -> 0 ? 'embedding' from public.chapter_extractions where kind = 'content'$$,
+  $$select unit, kc_ids, output -> 'kcs' -> 0 ? 'embedding' from public.chapter_extractions
+    where course_id = pg_temp.course() and kind = 'content'$$,
   $$values (0, array['bbbbbbbb-0000-0000-0000-000000000001'::uuid], false)$$,
   'the extraction is marked stored and loses its embeddings');
-select is((select count(*)::int from public.prerequisite_links), 1, 'the Prerequisite is stored');
+select is((select count(*)::int from public.prerequisite_links where course_id = pg_temp.course()), 1,
+  'the Prerequisite is stored');
 
 select results_eq(
   $$select id, round(similarity::numeric, 3) from public.match_kcs('aaaaaaaa-0000-0000-0000-000000000001', pg_temp.vec(1), 5)$$,
@@ -155,18 +163,19 @@ insert into public.chats (id, owner, course_id)
 values ('cccccccc-1111-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001');
 insert into public.questions (id, session_id, prompt)
 select 'dddddddd-0000-0000-0000-000000000001', id, 'What is a subspace?'
-from public.study_sessions;
+from public.study_sessions where course_id = pg_temp.course();
 insert into public.question_kcs (question_id, kc_id)
 values ('dddddddd-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002');
 insert into public.attempts (question_id, session_id, kc_id, result, help)
 select 'dddddddd-0000-0000-0000-000000000001', id, 'bbbbbbbb-0000-0000-0000-000000000002', 'full', 'none'
-from public.study_sessions;
+from public.study_sessions where course_id = pg_temp.course();
 
 -- Subspace loses its source and retires.
 delete from public.kc_sources where kc_id = 'bbbbbbbb-0000-0000-0000-000000000002';
 select is(public.retire_unsourced_kcs('aaaaaaaa-0000-0000-0000-000000000001'), 1,
   'a KC whose sources are gone retires');
-select is((select count(*)::int from public.attempts), 1, 'the retired KC keeps its Attempts');
+select is((select count(*)::int from public.attempts where kc_id = 'bbbbbbbb-0000-0000-0000-000000000002'), 1,
+  'the retired KC keeps its Attempts');
 select results_eq(
   $$select id from public.match_kcs('aaaaaaaa-0000-0000-0000-000000000001', pg_temp.vec(2), 5, true)$$,
   $$values ('bbbbbbbb-0000-0000-0000-000000000002'::uuid)$$,
@@ -175,11 +184,13 @@ select is(
   public.arrange_knowledge_map('aaaaaaaa-0000-0000-0000-000000000001',
     '["bbbbbbbb-0000-0000-0000-000000000001"]', '[]', repeat('a', 64)),
   true, 'the build ends');
-select is((select status from public.knowledge_map_builds), 'built', 'the build is built');
+select is((select status from public.knowledge_map_builds where course_id = pg_temp.course()), 'built',
+  'the build is built');
 
 -- The lease ----------------------------------------------------------------------
 
-update public.knowledge_map_builds set status = 'building', heartbeat_at = now() - interval '31 minutes';
+update public.knowledge_map_builds set status = 'building', heartbeat_at = now() - interval '31 minutes'
+where course_id = pg_temp.course();
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
 select is(public.queue_knowledge_map_build('aaaaaaaa-0000-0000-0000-000000000001'), true,
