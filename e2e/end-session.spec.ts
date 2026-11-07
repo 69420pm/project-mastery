@@ -25,6 +25,8 @@ test("a session from the Today card: a question answered in the input is graded,
   await message.fill("Quiz me");
   await message.press("Enter");
   await expect(page.getByTestId("question")).toContainText("what is");
+  // The composer sends nothing while a reply streams: wait for its end.
+  await expect(page.getByRole("button", { name: "Regenerate" })).toBeVisible();
   await message.fill("4");
   await message.press("Enter");
   await expect(
