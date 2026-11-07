@@ -11,6 +11,7 @@ export { topicAnchors } from "./domain/topic-reading";
 export {
   checkAnswer,
   checkAnswers,
+  checkEachAnswer,
   worstCheck,
   type AnswerCheck,
   type AnswerKey,

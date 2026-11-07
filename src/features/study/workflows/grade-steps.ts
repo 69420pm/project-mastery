@@ -4,7 +4,7 @@ import {
   type ExamGrading,
   type GradeExamInput,
 } from "@/features/study/ai/grade-exam-call";
-import { checkAnswers, worstCheck } from "@/features/knowledge-map/server";
+import { checkEachAnswer, worstCheck } from "@/features/knowledge-map/server";
 import {
   awardedPoints,
   checkedResult,
@@ -108,11 +108,8 @@ export async function gradeMockItem(itemId: string): Promise<void> {
     // The provider's daily quota: a later retry may get through.
     if (!result) throw new Error("The grade_exam call got no answer.");
     grading = read(result.output);
-    // A label or value the checks can't read checks nothing.
-    const checked = checkAnswers(keys, grading.finalValues);
-    check = checked.ok
-      ? worstCheck(checked.checks)
-      : worstCheck(keys.map(() => "unchecked"));
+    // Each key on its own: a value the check can't read hides no other.
+    check = worstCheck(checkEachAnswer(keys, grading.finalValues));
   }
 
   if (question) {
