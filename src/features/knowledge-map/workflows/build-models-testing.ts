@@ -163,9 +163,12 @@ export function useBuildModels({
   subtaskOf = () => ({}),
   blankCalls = 0,
   timeoutCalls = 0,
+  blankChecks = 0,
   afterCall,
   treeOf = flatTree,
 }: {
+  /** Prerequisite check calls that answer nothing first. */
+  blankChecks?: number;
   /** The tree call's Topics; undefined for no valid answer. */
   treeOf?: (course: SentCourse) => TreeTopicAnswer[] | undefined;
   kcsOf?: (unit: SentUnit) => string[];
@@ -186,6 +189,7 @@ export function useBuildModels({
   /** Each `map` call's reasoning setting. */
   const reasoning: unknown[] = [];
   const blanks = Array.from({ length: blankCalls }, () => true);
+  const failedChecks = Array.from({ length: blankChecks }, () => true);
   const map = new MockLanguageModelV4({
     doStream: async (options) => {
       reasoning.push(options.reasoning);
@@ -193,6 +197,7 @@ export function useBuildModels({
       if ("names" in sent) {
         const names = sent.names as SentName[];
         checks.push(names);
+        if (failedChecks.pop()) return answer(undefined);
         return answer({
           meanings: Object.fromEntries(
             names.map((name) => [

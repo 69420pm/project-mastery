@@ -19,7 +19,6 @@ import {
   buildCall,
   loadCurrentExtractions,
   runCalls,
-  stepOutcome,
   touchBuild,
   UNITS_PER_STEP,
   type StepOutcome,
@@ -48,8 +47,13 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * when a later build stores KCs near it.
  */
 
-/** The most names one check call is asked about. */
+/**
+ * The most names one check call is asked about. Each failure of a unit's
+ * call halves it for that unit's names.
+ */
 const NAMES_PER_CALL = 25;
+/** The tries a unit's check calls get before its names stay as text. */
+const MATCH_TRIES = 4;
 /** The KCs a name is offered. */
 const CANDIDATES = 5;
 /** Parallel `match_kcs` calls. */
@@ -75,12 +79,15 @@ const nameKey = (name: string) => name.trim().toLowerCase();
  * assume, in Course order, and stores the Prerequisites, the names no KC
  * means as text on their KCs and the extractions marked matched in one
  * transaction. Units whose calls fail or no longer fit the step wait for
- * the next step; one held back by a failed call that failed once before
- * (`failedOnce`) fails the build. A reached Daily limit stops the build.
+ * the next step, which asks a failed unit's names in calls half as large
+ * per failure (`failedKeys`, a key per failure). On its MATCH_TRIES-th failed
+ * try, the names a unit's calls left unanswered stay on their KCs as text,
+ * as if no KC meant them, so a failing call never fails the build. A
+ * reached Daily limit stops the build.
  */
 export async function matchAssumptions(
   courseId: string,
-  failedOnce: readonly string[] = [],
+  failedKeys: readonly string[] = [],
 ): Promise<StepOutcome> {
   "use step";
   const startedAt = Date.now();
@@ -106,16 +113,38 @@ export async function matchAssumptions(
   const assumed = await embedNames(supabase, owner, named);
   if (assumed === "limit") return { ok: false, reason: dailyLimitReason };
 
+  const failures = batch.map(
+    (row) => failedKeys.filter((key) => key === row.key).length,
+  );
   const checked = await checkNames(
     supabase,
     owner,
     courseId,
     assumed,
     startedAt,
+    undefined,
+    (index) => Math.max(1, NAMES_PER_CALL >> failures[named[index]!.part]!),
   );
-  const partsOf = (indexes: Set<number>) =>
+  const partsOf = (indexes: Iterable<number>) =>
     new Set([...indexes].map((index) => named[index]!.part));
-  const unready = partsOf(new Set([...checked.unasked, ...checked.failed]));
+  // A unit on its last try keeps the names its calls left unanswered as text.
+  const lastTry = (part: number) => failures[part]! + 1 >= MATCH_TRIES;
+  const givenUp = partsOf(
+    [...checked.failed].filter((index) => lastTry(named[index]!.part)),
+  );
+  for (const index of checked.failed) {
+    if (givenUp.has(named[index]!.part)) checked.meanings.set(index, "none");
+  }
+  if (givenUp.size > 0) {
+    console.warn(
+      "Matching kept failing; names stay as text for units:",
+      [...givenUp].map((part) => batch[part]!.key),
+    );
+  }
+  const stillFailed = partsOf(
+    [...checked.failed].filter((index) => !givenUp.has(named[index]!.part)),
+  );
+  const unready = new Set([...partsOf(checked.unasked), ...stillFailed]);
   const answered = [...checked.meanings].filter(
     ([index]) => !unready.has(named[index]!.part),
   );
@@ -139,11 +168,11 @@ export async function matchAssumptions(
   if (error) failed("Storing the assumed Prerequisites", error);
   if (!data) return { ok: true, left: null };
   if (checked.limitReached) return { ok: false, reason: dailyLimitReason };
-  return stepOutcome(supabase, {
+  return {
+    ok: true,
     left: pending.length - ready.length,
-    failedKeys: [...partsOf(checked.failed)].map((part) => batch[part]!.key),
-    failedOnce,
-  });
+    failed: [...stillFailed].map((part) => batch[part]!.key),
+  };
 }
 
 matchAssumptions.maxRetries = RATE_LIMITED_STEP_RETRIES;
@@ -324,7 +353,8 @@ const kcIdOf = new WeakMap<OfferedKc, string>();
 
 /**
  * Offers each name its candidates, those `offer` accepts (all by
- * default), and asks the check calls. Returns what each name means, by its
+ * default), and asks the check calls, each holding names of one
+ * `callSize` (NAMES_PER_CALL by default), at most that many. Returns what each name means, by its
  * index: a name without candidates means none without a call, and a name
  * not offered is left out. Also the names whose call never started or met
  * the Daily limit (`unasked`), those whose call failed, and whether the
@@ -337,6 +367,7 @@ async function checkNames(
   assumed: readonly Assumed[],
   stepStartedAt: number,
   offer: (candidates: string[]) => boolean = () => true,
+  callSize: (index: number) => number = () => NAMES_PER_CALL,
 ): Promise<{
   meanings: Map<number, Meaning>;
   unasked: Set<number>;
@@ -408,8 +439,11 @@ async function checkNames(
   });
 
   const calls: OfferedName[][] = [];
-  for (let start = 0; start < offered.length; start += NAMES_PER_CALL) {
-    calls.push(offered.slice(start, start + NAMES_PER_CALL));
+  const sizes = Map.groupBy(offered, (name) => callSize(indexOf.get(name)!));
+  for (const [size, names] of sizes) {
+    for (let start = 0; start < names.length; start += size) {
+      calls.push(names.slice(start, start + size));
+    }
   }
   const started = new Set<OfferedName[]>();
   const failedCalls = new Set<OfferedName[]>();

@@ -30,9 +30,10 @@ import { proposeTopicTree } from "@/features/knowledge-map/workflows/topic-steps
  * into a Topic tree (one call, only when the Outlines or KCs changed) and
  * puts the map in Course order. A unit whose call fails (a timeout, or no
  * valid answer) is left to the next step. An extraction unit is then split
- * into pieces until it is given up, and the check report lists it; a merge
- * or match call that fails twice fails the build with a reason naming its
- * Chapter. A step that fails for
+ * into pieces until it is given up, and the check report lists it. A match
+ * call is asked again in halved calls, and after four failed tries its
+ * names stay as text. A merge call that fails twice fails the build with a
+ * reason naming its Chapter. A step that fails for
  * good, or a reached Daily limit, fails the build with a reason and loses
  * only that step's calls: the next Update map resumes where the build
  * stopped.

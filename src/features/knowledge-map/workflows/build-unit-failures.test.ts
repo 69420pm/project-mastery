@@ -14,6 +14,8 @@ import {
 /**
  * Update map with extraction calls that fail: a failed unit waits a step,
  * is then called in pieces, and is given up rather than failing the build.
+ * A failed Prerequisite check is asked again in halved calls, and its
+ * names stay as text after four failed tries.
  */
 
 vi.mock("server-only", () => ({}));
@@ -70,6 +72,53 @@ test("leaves a unit whose call times out to the next step, and gives a single ch
     }),
   });
   expect(db.tables.chapter_extractions).toHaveLength(1);
+});
+
+/** The Chapter titles 0…n-1, each KC assuming the 30 names "N0"…"N29". */
+function seedAssumingUnit() {
+  seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+  const users = Array.from({ length: 10 }, (_, i) => `A${i}`);
+  const names = Array.from({ length: 30 }, (_, i) => `N${i}`);
+  return {
+    kcsOf: () => [...users, ...names],
+    // A KC assumes up to 3 names.
+    assumesOf: (kc: string) =>
+      users.includes(kc)
+        ? names.slice(3 * Number(kc.slice(1)), 3 * Number(kc.slice(1)) + 3)
+        : [],
+  };
+}
+
+test("asks a unit's names in halved calls after each failure, and answers them on the last try", async () => {
+  const { checks } = useBuildModels({
+    ...seedAssumingUnit(),
+    blankChecks: 2 + 3 + 5,
+  });
+
+  await update();
+
+  // 30 names: 25 + 5, then 12 + 12 + 6, then 6 × 5, then 3 × 10 answered.
+  expect(checks.map((names) => names.length)).toEqual([
+    25, 5, 12, 12, 6, 6, 6, 6, 6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+  ]);
+  expect(build()?.status).toBe("built");
+  expect(db.tables.prerequisite_links).toHaveLength(0);
+});
+
+test("keeps a unit's names as text when its calls fail on every try", async () => {
+  seedMaterial(db, { chapters: [{ title: "Vectors" }] });
+  useBuildModels({
+    kcsOf: () => ["A0", "N0"],
+    assumesOf: (kc) => (kc === "A0" ? ["N0"] : []),
+    blankChecks: 4,
+  });
+
+  await update();
+
+  expect(build()?.status).toBe("built");
+  expect(db.tables.kcs.find((kc) => kc.name === "A0")!.assumes).toEqual([
+    expect.objectContaining({ name: "N0" }),
+  ]);
 });
 
 test("calls a unit that failed twice in halves, and keeps the halves answered", async () => {
