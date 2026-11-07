@@ -7,6 +7,8 @@ evals/gold/<slug>/
   snapshot.json.gz     the Course's built content (tables in evals/gold-snapshot.ts)
   materials/<id>.pdf   the uploaded files the snapshot's Materials point at
   pages.json           recorded page results of some pages, by file (linear-algebra-I)
+  reference-map.json   the map Opus extracts in one pass, the bar for judging a run (linear-algebra-I)
+  runs/<date>-<where>.json  one judged pipeline run: its map, Exercises and keys, aligned to the reference map
 ```
 
 ## Commands
@@ -39,3 +41,5 @@ The gold course of the Knowledge map pipeline v2 (#222). `pages.json` holds the 
 | `lecture-notes.pdf` | 1–38                | Course information (admission, exam format and dates) and Chapters 1–7                       |
 | `exercises.pdf`     | 39–44               | Exercises 1–25; solutions to the 11 marked (S); printed results for Exercises 7 and 17       |
 | `past-exams.pdf`    | 45–55               | Final and Resit exam of winter term 2025/26, 6 problems each, each followed by its solutions |
+
+**Judging a run.** `reference-map.json` is the Knowledge map Claude Opus 5.5 extracted from the unsplit 55-page script in one pass, with the extraction prompt's KC rule: 113 KCs (107 taught by the lecture notes, 6 only by Exercises and old exams), 204 Prerequisites, 16 Topics, the pages that teach nothing, what the script assumes from outside, and each Exercise and exam problem with the KCs it tests and its unique printed results as answer keys. Page numbers are those of the unsplit script. A run is judged against it on coverage (reference KCs matched, same or one step finer or coarser), non-KCs and duplicates, Prerequisite precision and recall, the Topic tree, Exercise tagging and answer keys. Each judged run is kept in `runs/` with its alignment (`referenceToRun` maps reference KC ids to the run's KC positions), so the next run can be compared without staging access.

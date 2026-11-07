@@ -1,0 +1,1589 @@
+{
+  "about": "Reference Knowledge map of the gold course, written by Claude Opus 5.5 in one pass over material.pdf (55 pages, uploaded to staging as Linear_Algebra_I_Script_WS2026-27), with the extraction prompt's KC rule: one thing an exam task could test on its own and a Student could learn in one sitting. It is the bar a pipeline run is judged against (coverage, granularity, Prerequisites, Topics, Exercises and answer keys). Pages are PDF pages. Written 2026-11-07 for PR #252.",
+  "granularity": "107 KCs taught by the lecture notes (pp. 10-38, 29 pages: about 37 per 10 pages) and 6 KCs taught only by the Exercises and old exams. A judge counts a pipeline KC as matching when it is the same, or one step finer or coarser.",
+  "notKcs": [
+    {
+      "pages": [1, 2],
+      "what": "Title page and 'About this script'; the cover figure (parallelogram) illustrates Remark 6.4.6 and is no KC by itself"
+    },
+    {
+      "pages": [3, 4, 5],
+      "what": "Course information: welcome, organisation, admission, exam format and dates, grading, schedule, literature, advice (admin)"
+    },
+    {
+      "pages": [6],
+      "what": "Notation and conventions; its one exam-relevant fact is that statements marked (*) are not relevant for the exam"
+    },
+    { "pages": [7, 8], "what": "Table of contents" },
+    { "pages": [9, 39, 45], "what": "Part title pages" },
+    {
+      "pages": [18],
+      "what": "Remark 3.3.4 (cost of elimination vs. Leibniz) is a side remark, not a KC"
+    },
+    {
+      "pages": [37],
+      "what": "Section 7.5 Outlook: Linear Algebra II material (triangularisation, Cayley-Hamilton in general, Jordan form, spectral theorem)"
+    },
+    {
+      "pages": [40],
+      "what": "Exercise collection intro and 'How to write up a proof' (admin)"
+    },
+    { "pages": [46, 51], "what": "Exam cover sheets and instructions (admin)" }
+  ],
+  "notForExam": ["Q1", "Q2"],
+  "assumedFromOutside": [
+    "Integer divisibility, primes and division with remainder (Z/nZ, Theorem 2.2.4)",
+    "Polynomials: degree, roots, polynomial division (fundamental theorem of algebra, characteristic polynomial)",
+    "Analysis I: continuity, derivatives, integrals; sin, cos, exp (function spaces, Ex. 9, Resit P4)",
+    "Countability of Q and R (dim_Q R is infinite)",
+    "Axiom of choice and Zorn's lemma (right inverses, Remark 4.3.9*)",
+    "Cardinality of finite sets (Corollary 1.3.4)",
+    "Binomial theorem (Ex. 23)",
+    "Plane geometry: area, volume, rotation by an angle (Examples 5.1.2, 7.2.3, Remark 6.4.6)",
+    "Proof of the fundamental theorem of algebra (Complex Analysis)"
+  ],
+  "topics": [
+    {
+      "id": "T1",
+      "name": "Logic and proof",
+      "centralQuestion": "How are statements combined, negated and proved?",
+      "sections": ["1.1"],
+      "kcs": ["L1", "L2", "L3", "L4"]
+    },
+    {
+      "id": "T2",
+      "name": "Sets and maps",
+      "centralQuestion": "When is a map injective, surjective or invertible?",
+      "sections": ["1.2", "1.3"],
+      "kcs": ["S1", "S2", "M1", "M2", "M3", "M4", "M5"]
+    },
+    {
+      "id": "T3",
+      "name": "Relations and induction",
+      "centralQuestion": "How do equivalence relations partition a set, and how does induction prove statements for all n?",
+      "sections": ["1.4"],
+      "kcs": ["R1", "R2", "R3"]
+    },
+    {
+      "id": "T4",
+      "name": "Groups",
+      "centralQuestion": "What is a group, and what do homomorphisms and their kernels tell us?",
+      "sections": ["2.1"],
+      "kcs": ["G1", "G2", "G3", "G4"]
+    },
+    {
+      "id": "T5",
+      "name": "Rings, fields and complex numbers",
+      "centralQuestion": "Which number systems are fields, and how do we compute in F_p and C?",
+      "sections": ["2.2", "2.3"],
+      "kcs": ["F1", "F2", "F3", "F4", "F5", "F6"]
+    },
+    {
+      "id": "T6",
+      "name": "Linear systems and Gaussian elimination",
+      "centralQuestion": "How do we decide whether Ax = b is solvable and describe all its solutions?",
+      "sections": ["3.1", "3.2", "3.3"],
+      "kcs": ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8"]
+    },
+    {
+      "id": "T7",
+      "name": "Vector spaces and subspaces",
+      "centralQuestion": "What is a vector space, and which subsets are subspaces?",
+      "sections": ["4.1", "4.2"],
+      "kcs": ["V1", "V2", "V3", "V4", "V5"]
+    },
+    {
+      "id": "T8",
+      "name": "Independence, bases and dimension",
+      "centralQuestion": "What is a basis, and why do all bases have the same size?",
+      "sections": ["4.3", "4.4"],
+      "kcs": ["V6", "V7", "V8", "V9", "V10", "V11", "V12", "V13", "V14", "V15"]
+    },
+    {
+      "id": "T9",
+      "name": "Sums of subspaces and computing in K^n",
+      "centralQuestion": "How do subspaces combine, and how do we compute bases, sums and intersections in K^n?",
+      "sections": ["4.5", "4.6"],
+      "kcs": ["V16", "V17", "V18", "V19", "V20", "V21", "V22", "X6"]
+    },
+    {
+      "id": "T10",
+      "name": "Linear maps and rank-nullity",
+      "centralQuestion": "How do kernel and image of a linear map relate to the dimension of its domain?",
+      "sections": ["5.1", "5.2"],
+      "kcs": ["LM1", "LM2", "LM3", "LM4", "LM5", "LM6", "LM7", "LM8", "X3"]
+    },
+    {
+      "id": "T11",
+      "name": "Matrices of linear maps, change of basis and rank",
+      "centralQuestion": "How does a matrix describe a linear map, and how does it change with the bases?",
+      "sections": ["5.3", "5.4", "5.5"],
+      "kcs": [
+        "MX1",
+        "MX2",
+        "MX3",
+        "MX4",
+        "CB1",
+        "CB2",
+        "CB3",
+        "RK1",
+        "RK2",
+        "RK3",
+        "X4"
+      ]
+    },
+    {
+      "id": "T12",
+      "name": "Quotient spaces, elementary matrices and the dual space",
+      "centralQuestion": "How do quotients, elementary matrices and linear forms extend the theory of linear maps?",
+      "sections": ["5.6*", "5.7", "5.8"],
+      "kcs": ["Q1", "Q2", "EM1", "EM2", "EM3", "D1", "D2", "D3"]
+    },
+    {
+      "id": "T13",
+      "name": "Permutations and the determinant",
+      "centralQuestion": "What is the determinant, and how do we compute it?",
+      "sections": ["6.1", "6.2", "6.3"],
+      "kcs": [
+        "P1",
+        "P2",
+        "P3",
+        "DT1",
+        "DT2",
+        "DT3",
+        "DT4",
+        "DT5",
+        "DT6",
+        "DT7",
+        "DT8"
+      ]
+    },
+    {
+      "id": "T14",
+      "name": "Laplace expansion, adjugate and Cramer's rule",
+      "centralQuestion": "How do minors give the determinant, the inverse and the solution of Ax = b?",
+      "sections": ["6.4"],
+      "kcs": ["DT9", "DT10", "DT11", "DT12", "DT13"]
+    },
+    {
+      "id": "T15",
+      "name": "Eigenvalues and the characteristic polynomial",
+      "centralQuestion": "How do we find the eigenvalues and eigenvectors of a matrix?",
+      "sections": ["7.1", "7.2"],
+      "kcs": ["EV1", "EV3", "EV4", "EV5", "EV6", "EV10", "X5"]
+    },
+    {
+      "id": "T16",
+      "name": "Diagonalisation and its applications",
+      "centralQuestion": "When is a matrix diagonalisable, and what does diagonalising it buy us?",
+      "sections": ["7.3", "7.4", "Supplement"],
+      "kcs": ["EV2", "EV7", "EV8", "EV9", "INV", "X1", "X2"]
+    }
+  ],
+  "kcs": [
+    {
+      "id": "L1",
+      "name": "Logical connectives and truth tables",
+      "description": "Negation, and, or, implication, equivalence; an implication is false only when A is true and B false (ex falso quodlibet).",
+      "pages": [10],
+      "section": "1.1",
+      "prerequisites": [],
+      "assumes": []
+    },
+    {
+      "id": "L2",
+      "name": "Tautologies: contraposition and De Morgan",
+      "description": "(A => B) <=> (not B => not A); De Morgan's laws; an equivalence is two implications (Lemma 1.1.1).",
+      "pages": [10],
+      "section": "1.1",
+      "prerequisites": ["L1"],
+      "assumes": []
+    },
+    {
+      "id": "L3",
+      "name": "Quantifiers and their negation",
+      "description": "For all / there exists / exists exactly one; negation swaps the quantifiers; their order matters.",
+      "pages": [10],
+      "section": "1.1",
+      "prerequisites": ["L1"],
+      "assumes": []
+    },
+    {
+      "id": "L4",
+      "name": "Proof techniques",
+      "description": "Direct proof, contraposition, contradiction, proving equivalences and a cycle of implications; sqrt(2) is irrational (Remark 1.1.2, Example 1.1.3).",
+      "pages": [10],
+      "section": "1.1",
+      "prerequisites": ["L2", "L3"],
+      "assumes": ["Parity of integers"]
+    },
+    {
+      "id": "S1",
+      "name": "Sets and set operations",
+      "description": "Elements, equality of sets, union, intersection, difference, disjoint sets, power set, families, Cartesian products and tuples.",
+      "pages": [10, 11],
+      "section": "1.2",
+      "prerequisites": ["L1"],
+      "assumes": []
+    },
+    {
+      "id": "S2",
+      "name": "Double inclusion",
+      "description": "Prove A = B by showing A subset B and B subset A.",
+      "pages": [11],
+      "section": "1.2",
+      "prerequisites": ["S1", "L4"],
+      "assumes": []
+    },
+    {
+      "id": "M1",
+      "name": "Maps, image and preimage",
+      "description": "Domain, codomain, equality of maps, image f(A) and preimage f^-1(B), Map(X, Y).",
+      "pages": [11],
+      "section": "1.3",
+      "prerequisites": ["S1"],
+      "assumes": []
+    },
+    {
+      "id": "M2",
+      "name": "Injective, surjective, bijective",
+      "description": "Definitions (Definition 1.3.2) and how to prove or refute each property.",
+      "pages": [11],
+      "section": "1.3",
+      "prerequisites": ["M1"],
+      "assumes": []
+    },
+    {
+      "id": "M3",
+      "name": "Composition and identity",
+      "description": "g o f, associativity of composition, the identity map.",
+      "pages": [11],
+      "section": "1.3",
+      "prerequisites": ["M1"],
+      "assumes": []
+    },
+    {
+      "id": "M4",
+      "name": "Left and right inverses and the inverse map",
+      "description": "Injective iff left inverse, surjective iff right inverse, bijective iff two-sided inverse, which is unique (Proposition 1.3.3).",
+      "pages": [11],
+      "section": "1.3",
+      "prerequisites": ["M2", "M3"],
+      "assumes": ["Axiom of choice"]
+    },
+    {
+      "id": "M5",
+      "name": "Maps between finite sets of equal size",
+      "description": "For |X| = |Y| finite, injective <=> surjective <=> bijective (Corollary 1.3.4).",
+      "pages": [11, 12],
+      "section": "1.3",
+      "prerequisites": ["M2"],
+      "assumes": ["Cardinality of finite sets"]
+    },
+    {
+      "id": "R1",
+      "name": "Equivalence relations and quotient sets",
+      "description": "Reflexive, symmetric, transitive; equivalence classes; M/~ is a partition (Proposition 1.4.2).",
+      "pages": [12],
+      "section": "1.4",
+      "prerequisites": ["S1"],
+      "assumes": []
+    },
+    {
+      "id": "R2",
+      "name": "Congruence modulo n and Z/nZ as a set",
+      "description": "a = b mod n is an equivalence relation with n classes [0], ..., [n-1].",
+      "pages": [12],
+      "section": "1.4",
+      "prerequisites": ["R1"],
+      "assumes": ["Divisibility and division with remainder"]
+    },
+    {
+      "id": "R3",
+      "name": "Proof by induction",
+      "description": "Base case and induction step, strong induction; e.g. the sum 0 + ... + n.",
+      "pages": [12],
+      "section": "1.4",
+      "prerequisites": ["L4"],
+      "assumes": []
+    },
+    {
+      "id": "G1",
+      "name": "Groups: axioms and examples",
+      "description": "Associativity, neutral element, inverses, abelian groups; examples and non-examples, S(X) and S_n, invertible matrices.",
+      "pages": [13],
+      "section": "2.1",
+      "prerequisites": ["M3", "M4"],
+      "assumes": []
+    },
+    {
+      "id": "G2",
+      "name": "Rules in a group",
+      "description": "Uniqueness of neutral element and inverses, (ab)^-1 = b^-1 a^-1, cancellation, unique solution of ax = b (Lemma 2.1.2).",
+      "pages": [13],
+      "section": "2.1",
+      "prerequisites": ["G1"],
+      "assumes": []
+    },
+    {
+      "id": "G3",
+      "name": "Subgroups",
+      "description": "Definition 2.1.4 and checking it.",
+      "pages": [13],
+      "section": "2.1",
+      "prerequisites": ["G1"],
+      "assumes": []
+    },
+    {
+      "id": "G4",
+      "name": "Group homomorphisms and kernel",
+      "description": "phi(ab) = phi(a)phi(b); phi(e) = e', kernel is a subgroup, injective iff trivial kernel (Lemma 2.1.5).",
+      "pages": [13, 14],
+      "section": "2.1",
+      "prerequisites": ["G2", "G3", "M2"],
+      "assumes": []
+    },
+    {
+      "id": "F1",
+      "name": "Rings and fields",
+      "description": "Ring and field axioms, 0a = 0, no zero divisors in a field; Q, R, C, Z, K[x], 2x2 matrices with zero divisors.",
+      "pages": [14],
+      "section": "2.2",
+      "prerequisites": ["G1"],
+      "assumes": []
+    },
+    {
+      "id": "F2",
+      "name": "The ring Z/nZ",
+      "description": "Addition and multiplication of classes are well defined; Z/nZ is a commutative ring with n elements.",
+      "pages": [14],
+      "section": "2.2",
+      "prerequisites": ["R2", "F1"],
+      "assumes": []
+    },
+    {
+      "id": "F3",
+      "name": "Z/nZ is a field iff n is prime; computing in F_p",
+      "description": "Theorem 2.2.4 and its proof via Corollary 1.3.4; inverses in F_p such as 2^-1 = 3 in F_5.",
+      "pages": [14],
+      "section": "2.2",
+      "prerequisites": ["F2", "M5"],
+      "assumes": ["Primes"]
+    },
+    {
+      "id": "F4",
+      "name": "Characteristic of a field",
+      "description": "char K is 0 or a prime; in characteristic 2, 1 + 1 = 0 and one cannot divide by 2.",
+      "pages": [14],
+      "section": "2.2",
+      "prerequisites": ["F1", "F3"],
+      "assumes": []
+    },
+    {
+      "id": "F5",
+      "name": "Complex numbers",
+      "description": "C as a field on R^2, a + bi, real and imaginary part, conjugate, modulus, inverse.",
+      "pages": [15],
+      "section": "2.3",
+      "prerequisites": ["F1"],
+      "assumes": []
+    },
+    {
+      "id": "F6",
+      "name": "Fundamental theorem of algebra",
+      "description": "Every non-constant complex polynomial has a root and splits into linear factors.",
+      "pages": [15],
+      "section": "2.3",
+      "prerequisites": ["F5", "R3"],
+      "assumes": [
+        "Polynomial division",
+        "Proof of the fundamental theorem of algebra (Complex Analysis)"
+      ]
+    },
+    {
+      "id": "E1",
+      "name": "Matrices and linear systems",
+      "description": "K^{m x n}, the product Ax, a system Ax = b, homogeneous systems, solution set L(A, b), augmented matrix.",
+      "pages": [16],
+      "section": "3.1",
+      "prerequisites": ["F1"],
+      "assumes": []
+    },
+    {
+      "id": "E2",
+      "name": "Structure of the solution set",
+      "description": "x -> Ax is additive and homogeneous; L(A, b) = x0 + L(A, 0) (Lemma 3.1.2).",
+      "pages": [16],
+      "section": "3.1",
+      "prerequisites": ["E1"],
+      "assumes": []
+    },
+    {
+      "id": "E3",
+      "name": "Elementary row operations",
+      "description": "(R1)-(R3) and why they do not change the solution set (Lemma 3.2.2).",
+      "pages": [16, 17],
+      "section": "3.2",
+      "prerequisites": ["E1"],
+      "assumes": []
+    },
+    {
+      "id": "E4",
+      "name": "Row echelon and reduced row echelon form",
+      "description": "Pivots, pivot columns, zero rows (Definition 3.2.3).",
+      "pages": [17],
+      "section": "3.2",
+      "prerequisites": ["E1"],
+      "assumes": []
+    },
+    {
+      "id": "E5",
+      "name": "Gaussian elimination",
+      "description": "Bringing any matrix to reduced row echelon form by row operations (Theorem 3.2.4).",
+      "pages": [17],
+      "section": "3.2",
+      "prerequisites": ["E3", "E4"],
+      "assumes": []
+    },
+    {
+      "id": "E6",
+      "name": "Reading off the solution",
+      "description": "Solvability condition, pivot and free variables, general solution, uniqueness iff r = n (Theorem 3.3.1, Example 3.3.2).",
+      "pages": [17, 18],
+      "section": "3.3",
+      "prerequisites": ["E5", "E2"],
+      "assumes": []
+    },
+    {
+      "id": "E7",
+      "name": "More unknowns than equations",
+      "description": "A homogeneous system with m < n has a non-zero solution (Theorem 3.3.1(c)).",
+      "pages": [17, 18],
+      "section": "3.3",
+      "prerequisites": ["E6"],
+      "assumes": []
+    },
+    {
+      "id": "E8",
+      "name": "Linear systems over finite fields",
+      "description": "Elimination over F_p; a solvable system with n - r free variables has p^(n-r) solutions (Remark 3.3.3).",
+      "pages": [18],
+      "section": "3.3",
+      "prerequisites": ["E6", "F3"],
+      "assumes": []
+    },
+    {
+      "id": "V1",
+      "name": "Vector spaces: axioms and examples",
+      "description": "Definition 4.1.1; K^n, K^{m x n}, K^X, K[x], K[x]_<=d, field extensions, function spaces, the zero space.",
+      "pages": [19],
+      "section": "4.1",
+      "prerequisites": ["G1", "F1"],
+      "assumes": ["Continuous and smooth functions (Analysis I)"]
+    },
+    {
+      "id": "V2",
+      "name": "Calculation rules in vector spaces",
+      "description": "0v = 0, lambda 0 = 0, (-1)v = -v, lambda v = 0 implies lambda = 0 or v = 0 (Lemma 4.1.2).",
+      "pages": [19],
+      "section": "4.1",
+      "prerequisites": ["V1"],
+      "assumes": []
+    },
+    {
+      "id": "V3",
+      "name": "Subspaces",
+      "description": "Criterion (U1)-(U3), examples and non-examples, L(A, 0) is a subspace and L(A, b) with b != 0 is not.",
+      "pages": [19, 20],
+      "section": "4.2",
+      "prerequisites": ["V1", "E2"],
+      "assumes": []
+    },
+    {
+      "id": "V4",
+      "name": "Intersections and unions of subspaces",
+      "description": "Intersections are subspaces; U1 u U2 is one iff one contains the other (Lemma 4.2.3).",
+      "pages": [20],
+      "section": "4.2",
+      "prerequisites": ["V3"],
+      "assumes": []
+    },
+    {
+      "id": "V5",
+      "name": "Linear combinations and span",
+      "description": "span(S) as the set of linear combinations and the smallest subspace containing S; generating families.",
+      "pages": [20],
+      "section": "4.2",
+      "prerequisites": ["V3"],
+      "assumes": []
+    },
+    {
+      "id": "V6",
+      "name": "Linear independence",
+      "description": "Definition 4.3.1, families versus sets, a family with 0 or a repeated vector is dependent.",
+      "pages": [20],
+      "section": "4.3",
+      "prerequisites": ["V5"],
+      "assumes": []
+    },
+    {
+      "id": "V7",
+      "name": "Dependence lemma",
+      "description": "Dependent iff some vector lies in the span of the others (Lemma 4.3.3).",
+      "pages": [20],
+      "section": "4.3",
+      "prerequisites": ["V6"],
+      "assumes": []
+    },
+    {
+      "id": "V8",
+      "name": "Testing independence in K^m",
+      "description": "v1, ..., vn independent iff Ax = 0 has only the trivial solution for A = (v1|...|vn); more than m vectors in K^m are dependent (Example 4.3.4).",
+      "pages": [20],
+      "section": "4.3",
+      "prerequisites": ["V6", "E7"],
+      "assumes": []
+    },
+    {
+      "id": "V9",
+      "name": "Bases and standard bases",
+      "description": "A basis is an independent generating family; standard bases of K^n, K[x], K[x]_<=d, C over R, K^{m x n}.",
+      "pages": [21],
+      "section": "4.3",
+      "prerequisites": ["V6", "V5"],
+      "assumes": []
+    },
+    {
+      "id": "V10",
+      "name": "Characterisation of bases and coordinates",
+      "description": "Basis <=> minimal generating <=> maximal independent <=> unique representation; coordinates depend on the order (Theorem 4.3.7).",
+      "pages": [21],
+      "section": "4.3",
+      "prerequisites": ["V9", "V7"],
+      "assumes": []
+    },
+    {
+      "id": "V11",
+      "name": "A finite generating family contains a basis",
+      "description": "Every finitely generated space has a finite basis (Corollary 4.3.8).",
+      "pages": [21],
+      "section": "4.3",
+      "prerequisites": ["V10"],
+      "assumes": []
+    },
+    {
+      "id": "V12",
+      "name": "Steinitz exchange lemma",
+      "description": "An independent family is no longer than a generating family and can be exchanged into it (Theorem 4.4.1).",
+      "pages": [21, 22],
+      "section": "4.4",
+      "prerequisites": ["V7", "V10", "R3"],
+      "assumes": []
+    },
+    {
+      "id": "V13",
+      "name": "Dimension",
+      "description": "All bases have the same size; dim V; dim K^n, K^{m x n}, K[x]_<=d, C over R and over C; infinite dimension.",
+      "pages": [22],
+      "section": "4.4",
+      "prerequisites": ["V12", "V11"],
+      "assumes": ["Countability of Q and R"]
+    },
+    {
+      "id": "V14",
+      "name": "Basis extension theorem",
+      "description": "Independent families extend to a basis; with n = dim V, n vectors form a basis iff independent iff generating (Theorem 4.4.5).",
+      "pages": [22],
+      "section": "4.4",
+      "prerequisites": ["V13"],
+      "assumes": []
+    },
+    {
+      "id": "V15",
+      "name": "Dimension of subspaces",
+      "description": "dim U <= dim V with equality iff U = V, in finite dimension only (Theorem 4.4.6, Caution 4.4.7).",
+      "pages": [22],
+      "section": "4.4",
+      "prerequisites": ["V14"],
+      "assumes": []
+    },
+    {
+      "id": "V16",
+      "name": "Sums and direct sums of subspaces",
+      "description": "U1 + ... + Uk, direct sums, the criterion via representations of 0, U n W = {0} for two summands, and why pairwise trivial intersections are not enough (Lemma 4.5.2, Caution 4.5.3).",
+      "pages": [23],
+      "section": "4.5",
+      "prerequisites": ["V5", "V4", "V10"],
+      "assumes": []
+    },
+    {
+      "id": "V17",
+      "name": "Dimension formula for sums",
+      "description": "dim(U + W) + dim(U n W) = dim U + dim W (Theorem 4.5.4).",
+      "pages": [23],
+      "section": "4.5",
+      "prerequisites": ["V16", "V14"],
+      "assumes": []
+    },
+    {
+      "id": "V18",
+      "name": "Complements",
+      "description": "Every subspace of a finite-dimensional space has a complement of dimension dim V - dim U; complements are not unique (Corollary 4.5.6).",
+      "pages": [23],
+      "section": "4.5",
+      "prerequisites": ["V17"],
+      "assumes": []
+    },
+    {
+      "id": "V19",
+      "name": "Basis of a span by row reduction",
+      "description": "Write the vectors as rows, reduce, keep the non-zero rows (Task 1).",
+      "pages": [24],
+      "section": "4.6",
+      "prerequisites": ["V13", "E5"],
+      "assumes": []
+    },
+    {
+      "id": "V20",
+      "name": "Basis of a solution space L(A, 0)",
+      "description": "One basis vector per free variable from the reduced row echelon form (Task 2).",
+      "pages": [24],
+      "section": "4.6",
+      "prerequisites": ["E6", "V13"],
+      "assumes": []
+    },
+    {
+      "id": "V21",
+      "name": "From explicit to implicit description",
+      "description": "Turn a span into a system of linear equations by elimination with a symbolic right-hand side (Task 3).",
+      "pages": [24],
+      "section": "4.6",
+      "prerequisites": ["V19", "E6"],
+      "assumes": []
+    },
+    {
+      "id": "V22",
+      "name": "Computing sums and intersections of subspaces",
+      "description": "U + W from the union of spanning sets, U n W from the combined implicit equations (Task 4, Example 4.6.1).",
+      "pages": [24],
+      "section": "4.6",
+      "prerequisites": ["V21", "V20", "V17"],
+      "assumes": []
+    },
+    {
+      "id": "LM1",
+      "name": "Linear maps and examples",
+      "description": "Definition 5.1.1, isomorphisms, endomorphisms, Hom and End; f_A, rotations, differentiation, evaluation, transposition; non-examples.",
+      "pages": [25],
+      "section": "5.1",
+      "prerequisites": ["V1", "G4"],
+      "assumes": [
+        "Derivatives and integrals (Analysis I)",
+        "Rotation by an angle"
+      ]
+    },
+    {
+      "id": "LM2",
+      "name": "Composition, inverse and Hom(V, W)",
+      "description": "Compositions and inverses of linear maps are linear; Hom(V, W) is a vector space (Lemma 5.1.3).",
+      "pages": [25],
+      "section": "5.1",
+      "prerequisites": ["LM1", "M4"],
+      "assumes": []
+    },
+    {
+      "id": "LM3",
+      "name": "Kernel, image and rank of a linear map",
+      "description": "ker f and im f are subspaces, rank f = dim im f, injective iff ker f = 0; for f_A the kernel is L(A, 0) and the image is the column span.",
+      "pages": [25],
+      "section": "5.1",
+      "prerequisites": ["LM1", "V3", "V5"],
+      "assumes": []
+    },
+    {
+      "id": "LM4",
+      "name": "Linear maps are determined by a basis",
+      "description": "A linear map is fixed by the images of a basis, which can be prescribed freely; injective iff the images are independent, isomorphism iff they form a basis (Theorem 5.1.5).",
+      "pages": [25, 26],
+      "section": "5.1",
+      "prerequisites": ["LM3", "V10"],
+      "assumes": []
+    },
+    {
+      "id": "LM5",
+      "name": "Coordinate isomorphism",
+      "description": "Phi_B: K^n -> V; finite-dimensional spaces are isomorphic iff they have the same dimension, but not canonically (Corollary 5.1.6).",
+      "pages": [26],
+      "section": "5.1",
+      "prerequisites": ["LM4", "V13"],
+      "assumes": []
+    },
+    {
+      "id": "LM6",
+      "name": "Rank-nullity theorem",
+      "description": "dim V = dim ker f + dim im f, with its proof by basis extension (Theorem 5.2.1).",
+      "pages": [26],
+      "section": "5.2",
+      "prerequisites": ["LM3", "V14"],
+      "assumes": []
+    },
+    {
+      "id": "LM7",
+      "name": "Injective iff surjective in equal finite dimension",
+      "description": "For dim V = dim W < infinity, injective <=> surjective <=> bijective; fails in infinite dimension (Corollary 5.2.2, Caution 5.2.3).",
+      "pages": [26],
+      "section": "5.2",
+      "prerequisites": ["LM6", "V15"],
+      "assumes": []
+    },
+    {
+      "id": "LM8",
+      "name": "Number of free variables",
+      "description": "dim L(A, 0) = n - rank, so the number of free variables does not depend on the elimination (Corollary 5.2.4).",
+      "pages": [26],
+      "section": "5.2",
+      "prerequisites": ["LM6", "E6"],
+      "assumes": []
+    },
+    {
+      "id": "MX1",
+      "name": "Matrix of a linear map",
+      "description": "M^B_C(f): column j holds the C-coordinates of f(v_j); Hom(V, W) is isomorphic to K^{m x n}; M times coordinates of v gives coordinates of f(v) (Definition 5.3.1, Theorem 5.3.2).",
+      "pages": [26, 27],
+      "section": "5.3",
+      "prerequisites": ["LM4", "LM5"],
+      "assumes": []
+    },
+    {
+      "id": "MX2",
+      "name": "Matrix product and composition",
+      "description": "Definition of AB; the matrix of g o f is the product; associativity and distributivity; K^{n x n} is a non-commutative ring (Theorem 5.3.4, Corollary 5.3.5).",
+      "pages": [27],
+      "section": "5.3",
+      "prerequisites": ["MX1", "LM2"],
+      "assumes": []
+    },
+    {
+      "id": "MX3",
+      "name": "Invertible matrices",
+      "description": "GL_n(K); invertible <=> f_A isomorphism <=> Ax = 0 only trivially <=> columns a basis <=> one-sided inverse (Proposition 5.3.7).",
+      "pages": [27],
+      "section": "5.3",
+      "prerequisites": ["MX2", "LM7"],
+      "assumes": []
+    },
+    {
+      "id": "MX4",
+      "name": "Computing the inverse by Gauss-Jordan",
+      "description": "Row-reduce (A | I) to (I | A^-1), or find that A is not invertible (Example 5.3.8).",
+      "pages": [27],
+      "section": "5.3",
+      "prerequisites": ["MX3", "E5"],
+      "assumes": []
+    },
+    {
+      "id": "CB1",
+      "name": "Transition matrices",
+      "description": "T^{B'}_B = M^{B'}_B(id) converts B'-coordinates into B-coordinates; its inverse goes back.",
+      "pages": [28],
+      "section": "5.4",
+      "prerequisites": ["MX2", "MX3"],
+      "assumes": []
+    },
+    {
+      "id": "CB2",
+      "name": "Transformation formula and similar matrices",
+      "description": "M^{B'}_{C'}(f) = T M^B_C(f) T', and S^-1 A S for endomorphisms; similar and equivalent matrices (Theorem 5.4.1, Definition 5.4.2).",
+      "pages": [28],
+      "section": "5.4",
+      "prerequisites": ["CB1"],
+      "assumes": []
+    },
+    {
+      "id": "CB3",
+      "name": "Normal form under equivalence",
+      "description": "Bases in which f has the matrix (I_r 0; 0 0); matrices are equivalent iff they have the same rank (Theorem 5.4.3).",
+      "pages": [28],
+      "section": "5.4",
+      "prerequisites": ["CB2", "LM6"],
+      "assumes": []
+    },
+    {
+      "id": "RK1",
+      "name": "Row rank equals column rank",
+      "description": "rank A = rank A^T (Theorem 5.5.2).",
+      "pages": [28],
+      "section": "5.5",
+      "prerequisites": ["CB3"],
+      "assumes": []
+    },
+    {
+      "id": "RK2",
+      "name": "Computing the rank by elimination",
+      "description": "rank A is the number of non-zero rows of a row echelon form (Remark 5.5.3).",
+      "pages": [28],
+      "section": "5.5",
+      "prerequisites": ["RK1", "E5"],
+      "assumes": []
+    },
+    {
+      "id": "RK3",
+      "name": "Solvability criterion",
+      "description": "Ax = b is solvable iff rank A = rank (A | b); uniquely solvable for all b iff A is invertible (Corollary 5.5.4).",
+      "pages": [28],
+      "section": "5.5",
+      "prerequisites": ["RK1", "E6", "MX3"],
+      "assumes": []
+    },
+    {
+      "id": "Q1",
+      "name": "Quotient spaces (*)",
+      "description": "V/U as cosets v + U, well-defined operations, canonical projection, dim V/U = dim V - dim U. Marked (*): not exam-relevant.",
+      "pages": [29],
+      "section": "5.6",
+      "prerequisites": ["R1", "V3", "LM6"],
+      "assumes": []
+    },
+    {
+      "id": "Q2",
+      "name": "Homomorphism theorem (*)",
+      "description": "V / ker f is isomorphic to im f via v + ker f -> f(v) (Theorem 5.6.1). Marked (*).",
+      "pages": [29],
+      "section": "5.6",
+      "prerequisites": ["Q1", "LM3"],
+      "assumes": []
+    },
+    {
+      "id": "EM1",
+      "name": "Elementary matrices",
+      "description": "P_ik, D_i(lambda), T_ik(lambda) perform row operations from the left and column operations from the right; their inverses and determinants.",
+      "pages": [29],
+      "section": "5.7",
+      "prerequisites": ["MX2", "E3"],
+      "assumes": []
+    },
+    {
+      "id": "EM2",
+      "name": "Invertible matrices as products of elementary matrices",
+      "description": "EA is in reduced row echelon form for a product E of elementary matrices; A invertible iff EA = I (Theorem 5.7.1).",
+      "pages": [29],
+      "section": "5.7",
+      "prerequisites": ["EM1", "E5", "MX3"],
+      "assumes": []
+    },
+    {
+      "id": "EM3",
+      "name": "LR decomposition",
+      "description": "A = LR (PA = LR with row swaps) from elimination; solving by forward and backward substitution (Remark 5.7.2).",
+      "pages": [29],
+      "section": "5.7",
+      "prerequisites": ["EM1"],
+      "assumes": []
+    },
+    {
+      "id": "D1",
+      "name": "Dual space and dual map",
+      "description": "V* = Hom(V, K), linear forms and examples, f*: W* -> V*, phi -> phi o f.",
+      "pages": [30],
+      "section": "5.8",
+      "prerequisites": ["LM2"],
+      "assumes": []
+    },
+    {
+      "id": "D2",
+      "name": "Dual basis",
+      "description": "v_i*(v_j) = delta_ij gives a basis of V*; v_i* reads off the i-th coordinate; V and V* are isomorphic but not canonically (Proposition 5.8.2, Caution 5.8.4).",
+      "pages": [30],
+      "section": "5.8",
+      "prerequisites": ["D1", "LM4"],
+      "assumes": []
+    },
+    {
+      "id": "D3",
+      "name": "Matrix of the dual map is the transpose",
+      "description": "M^{C*}_{B*}(f*) = M^B_C(f)^T (Proposition 5.8.3).",
+      "pages": [30],
+      "section": "5.8",
+      "prerequisites": ["D2", "MX1"],
+      "assumes": []
+    },
+    {
+      "id": "P1",
+      "name": "Permutations and transpositions",
+      "description": "S_n, two-row notation, transpositions; every permutation is a product of transpositions (Lemma 6.1.1).",
+      "pages": [31],
+      "section": "6.1",
+      "prerequisites": ["G1", "R3"],
+      "assumes": []
+    },
+    {
+      "id": "P2",
+      "name": "Inversions and the sign",
+      "description": "Counting inversions, sgn = (-1)^N, even and odd permutations, the product formula (Definition 6.1.2, Lemma 6.1.3).",
+      "pages": [31],
+      "section": "6.1",
+      "prerequisites": ["P1"],
+      "assumes": []
+    },
+    {
+      "id": "P3",
+      "name": "The sign is a homomorphism",
+      "description": "sgn(sigma rho) = sgn sigma sgn rho, transpositions are odd, the parity of a factorisation is fixed, A_n = ker sgn (Theorem 6.1.4).",
+      "pages": [31],
+      "section": "6.1",
+      "prerequisites": ["P2", "G4"],
+      "assumes": []
+    },
+    {
+      "id": "DT1",
+      "name": "Determinant functions and their rules",
+      "description": "Multilinear, alternating, normalised; swapping columns changes the sign, adding a multiple of a column changes nothing, dependent columns give 0 (Definition 6.2.1, Lemma 6.2.2).",
+      "pages": [32],
+      "section": "6.2",
+      "prerequisites": ["P3", "V7"],
+      "assumes": []
+    },
+    {
+      "id": "DT2",
+      "name": "Leibniz formula, 2x2, Sarrus and triangular matrices",
+      "description": "Existence and uniqueness of det, the Leibniz formula, ad - bc, the rule of Sarrus, det of a triangular matrix (Theorem 6.2.3, Examples 6.2.4).",
+      "pages": [32, 33],
+      "section": "6.2",
+      "prerequisites": ["DT1"],
+      "assumes": []
+    },
+    {
+      "id": "DT3",
+      "name": "Multiplicativity of the determinant",
+      "description": "det(AB) = det A det B (Theorem 6.3.1(a)).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT2", "MX2"],
+      "assumes": []
+    },
+    {
+      "id": "DT4",
+      "name": "Invertible iff det is non-zero",
+      "description": "A invertible <=> det A != 0, and det(A^-1) = (det A)^-1 (Theorem 6.3.1(b)).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT3", "MX3"],
+      "assumes": []
+    },
+    {
+      "id": "DT5",
+      "name": "Determinant of the transpose",
+      "description": "det A^T = det A, so every column rule holds for rows (Theorem 6.3.1(c)).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT2"],
+      "assumes": []
+    },
+    {
+      "id": "DT6",
+      "name": "Determinant of an endomorphism and scaling",
+      "description": "Similar matrices have the same determinant, so det f is defined; det(lambda A) = lambda^n det A, det is not additive (Theorem 6.3.1(d), Remark 6.3.2).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT3", "CB2"],
+      "assumes": []
+    },
+    {
+      "id": "DT7",
+      "name": "Computing determinants by row reduction",
+      "description": "Reduce to triangular form, tracking sign changes and factors (Example 6.3.3).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT5", "DT2", "E5"],
+      "assumes": []
+    },
+    {
+      "id": "DT8",
+      "name": "Block triangular matrices",
+      "description": "det (A B; 0 C) = det A det C (Proposition 6.3.4).",
+      "pages": [33],
+      "section": "6.3",
+      "prerequisites": ["DT2"],
+      "assumes": []
+    },
+    {
+      "id": "DT9",
+      "name": "Laplace expansion",
+      "description": "Expansion along any row or column with signs (-1)^(i+j) and minors (Theorem 6.4.1).",
+      "pages": [34],
+      "section": "6.4",
+      "prerequisites": ["DT8", "DT5"],
+      "assumes": []
+    },
+    {
+      "id": "DT10",
+      "name": "Vandermonde determinant and interpolation",
+      "description": "V(x1, ..., xn) = product of (xj - xi); unique interpolation polynomial for distinct nodes (Example 6.4.2).",
+      "pages": [34],
+      "section": "6.4",
+      "prerequisites": ["DT9", "DT7", "R3"],
+      "assumes": []
+    },
+    {
+      "id": "DT11",
+      "name": "Adjugate and the inverse formula",
+      "description": "A adj(A) = det(A) I, so A^-1 = adj(A)/det A (Theorem 6.4.4).",
+      "pages": [34],
+      "section": "6.4",
+      "prerequisites": ["DT9", "DT4"],
+      "assumes": []
+    },
+    {
+      "id": "DT12",
+      "name": "Cramer's rule",
+      "description": "x_j = det(A with column j replaced by b) / det A (Corollary 6.4.5).",
+      "pages": [34],
+      "section": "6.4",
+      "prerequisites": ["DT1", "DT4"],
+      "assumes": []
+    },
+    {
+      "id": "DT13",
+      "name": "Geometric meaning of the determinant",
+      "description": "|det A| scales areas and volumes, its sign records orientation (chapter intro, Remark 6.4.6).",
+      "pages": [31, 34],
+      "section": "6.4",
+      "prerequisites": ["DT2"],
+      "assumes": ["Area, volume and orientation in plane geometry"]
+    },
+    {
+      "id": "EV1",
+      "name": "Eigenvalues, eigenvectors and eigenspaces",
+      "description": "f(v) = lambda v with v != 0, Eig(f, lambda) = ker(f - lambda id); reflection, rotation, the Jordan block J, differentiation (Definition 7.1.1, Examples 7.1.3).",
+      "pages": [35],
+      "section": "7.1",
+      "prerequisites": ["LM3", "LM1"],
+      "assumes": []
+    },
+    {
+      "id": "EV2",
+      "name": "Diagonalisability",
+      "description": "A basis of eigenvectors; A is diagonalisable iff S^-1 A S is diagonal, with eigenvectors as the columns of S (Lemma 7.1.2).",
+      "pages": [35],
+      "section": "7.1",
+      "prerequisites": ["EV1", "CB2"],
+      "assumes": []
+    },
+    {
+      "id": "EV3",
+      "name": "Eigenvectors for distinct eigenvalues are independent",
+      "description": "The sum of eigenspaces is direct; at most n eigenvalues; n distinct eigenvalues imply diagonalisable (Theorem 7.1.4, Corollary 7.1.5).",
+      "pages": [35],
+      "section": "7.1",
+      "prerequisites": ["EV1", "V16", "R3"],
+      "assumes": []
+    },
+    {
+      "id": "EV4",
+      "name": "Characteristic polynomial",
+      "description": "chi_A = det(xI - A); the eigenvalues are its roots in K; chi for 2x2 matrices (Definition 7.2.1, Proposition 7.2.2(c), Example 7.2.3).",
+      "pages": [35, 36],
+      "section": "7.2",
+      "prerequisites": ["EV1", "DT4", "DT2"],
+      "assumes": ["Polynomial roots"]
+    },
+    {
+      "id": "EV5",
+      "name": "Trace and determinant in the characteristic polynomial",
+      "description": "chi_A = x^n - tr(A) x^(n-1) + ... + (-1)^n det A; chi, tr and det are similarity invariants (Proposition 7.2.2(a, b)).",
+      "pages": [36],
+      "section": "7.2",
+      "prerequisites": ["EV4", "DT6"],
+      "assumes": []
+    },
+    {
+      "id": "EV6",
+      "name": "Algebraic and geometric multiplicity",
+      "description": "mu_a as root multiplicity, mu_g = dim Eig; 1 <= mu_g <= mu_a (Definition 7.2.4, Lemma 7.2.5).",
+      "pages": [36],
+      "section": "7.2",
+      "prerequisites": ["EV4", "DT8", "V14"],
+      "assumes": ["Multiplicity of a polynomial root"]
+    },
+    {
+      "id": "EV7",
+      "name": "Diagonalisability criterion",
+      "description": "Diagonalisable <=> V is the direct sum of the eigenspaces <=> chi splits and mu_g = mu_a for every eigenvalue (Theorem 7.3.1, Example 7.3.3).",
+      "pages": [36, 37],
+      "section": "7.3",
+      "prerequisites": ["EV6", "EV3", "EV2"],
+      "assumes": []
+    },
+    {
+      "id": "EV8",
+      "name": "Diagonalising a matrix",
+      "description": "Compute chi and its roots, a basis of each eigenspace by elimination, and S with S^-1 A S diagonal (Algorithm, Example 7.3.2).",
+      "pages": [37],
+      "section": "7.3",
+      "prerequisites": ["EV7", "V20"],
+      "assumes": []
+    },
+    {
+      "id": "EV9",
+      "name": "Matrix powers and linear recursions",
+      "description": "A^k = S D^k S^-1; Fibonacci numbers and Binet's formula (Section 7.4).",
+      "pages": [37],
+      "section": "7.4",
+      "prerequisites": ["EV8"],
+      "assumes": []
+    },
+    {
+      "id": "EV10",
+      "name": "Real and complex eigenvalues",
+      "description": "A rotation has no real eigenvalue but e^(+-i phi) over C; every complex matrix has an eigenvalue (Example 7.2.3).",
+      "pages": [36],
+      "section": "7.2",
+      "prerequisites": ["EV4", "F6"],
+      "assumes": []
+    },
+    {
+      "id": "INV",
+      "name": "Invariant subspaces",
+      "description": "f-invariant subspaces give a block triangular matrix, chi of the restriction divides chi_f, and invariant complements give block diagonal form (Supplement).",
+      "pages": [38],
+      "section": "Supplement",
+      "prerequisites": ["EV1", "DT8", "MX1"],
+      "assumes": []
+    },
+    {
+      "id": "X1",
+      "name": "Projections",
+      "description": "f o f = f implies V = ker f (+) im f, f is diagonalisable with eigenvalues in {0, 1}, and tr f = rank f (Final exam Problem 5).",
+      "pages": [47, 50],
+      "origin": "exercise",
+      "prerequisites": ["V16", "EV7", "EV5"],
+      "assumes": []
+    },
+    {
+      "id": "X2",
+      "name": "Nilpotent matrices",
+      "description": "A^k = 0: only eigenvalue 0, I - A invertible with the geometric series, diagonalisable only if A = 0, and A^n = 0 (Resit Problem 6).",
+      "pages": [52, 55],
+      "origin": "exercise",
+      "prerequisites": ["EV1", "MX3", "X3"],
+      "assumes": []
+    },
+    {
+      "id": "X3",
+      "name": "Kernel chains of powers",
+      "description": "ker f subset ker f^2 subset ..., which becomes stationary at the latest at n (Exercise 18).",
+      "pages": [42, 43],
+      "origin": "exercise",
+      "prerequisites": ["LM3", "V15"],
+      "assumes": []
+    },
+    {
+      "id": "X4",
+      "name": "Rank of sums and products",
+      "description": "rank(A + B) <= rank A + rank B and rank(AB) <= min(rank A, rank B) (Exercise 16, Final exam Problem 6(b)).",
+      "pages": [41, 47],
+      "origin": "exercise",
+      "prerequisites": ["RK1", "V17"],
+      "assumes": []
+    },
+    {
+      "id": "X5",
+      "name": "Cayley-Hamilton for 2x2 matrices",
+      "description": "A^2 - tr(A) A + det(A) I = 0, and the inverse formula from it (Exercise 24, Final exam Problem 1(d)).",
+      "pages": [42, 48],
+      "origin": "exercise",
+      "prerequisites": ["EV5", "MX3"],
+      "assumes": []
+    },
+    {
+      "id": "X6",
+      "name": "Symmetric and skew-symmetric matrices",
+      "description": "K^{n x n} = Sym_n (+) Skew_n when char K != 2, with dimensions n(n+1)/2 and n(n-1)/2 (Exercise 12).",
+      "pages": [41],
+      "origin": "exercise",
+      "prerequisites": ["V16", "V13", "F4"],
+      "assumes": []
+    }
+  ],
+  "exercises": [
+    {
+      "id": "Ex1",
+      "pages": [40],
+      "solutionPages": [42],
+      "kcs": ["M2", "M3"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex2",
+      "pages": [40],
+      "solutionPages": [],
+      "kcs": ["M1", "M2", "S2"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex3",
+      "pages": [40],
+      "solutionPages": [43],
+      "kcs": ["F3", "F4", "V6"],
+      "finalAnswers": [
+        { "label": "3^-1 in F_7", "value": "5", "printed": true },
+        { "label": "x with 3x + 4 = 1 in F_7", "value": "6", "printed": true }
+      ]
+    },
+    {
+      "id": "Ex4",
+      "pages": [40],
+      "solutionPages": [],
+      "kcs": ["G1", "G2"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex5",
+      "pages": [40],
+      "solutionPages": [],
+      "kcs": ["G3", "G4", "M1"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex6",
+      "pages": [40, 41],
+      "solutionPages": [43],
+      "kcs": ["E5", "E6"],
+      "finalAnswers": [
+        { "label": "a without solution", "value": "1", "printed": true },
+        {
+          "label": "solution for a != 1",
+          "value": "[(a-4)/(a-1), 1/(a-1), 2/(a-1)]",
+          "printed": true
+        }
+      ]
+    },
+    {
+      "id": "Ex7",
+      "pages": [41],
+      "solutionPages": [],
+      "kcs": ["E8"],
+      "finalAnswers": [
+        { "label": "number of solutions", "value": "8", "printed": true }
+      ]
+    },
+    {
+      "id": "Ex8",
+      "pages": [41],
+      "solutionPages": [43],
+      "kcs": ["V3"],
+      "finalAnswers": [],
+      "note": "Yes / no with proof: (a) yes, (b) no, (c) yes, (d) no"
+    },
+    {
+      "id": "Ex9",
+      "pages": [41],
+      "solutionPages": [43],
+      "kcs": ["V6"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex10",
+      "pages": [41],
+      "solutionPages": [43],
+      "kcs": ["V3", "LM6", "V14"],
+      "finalAnswers": [{ "label": "dim U", "value": "2", "printed": true }],
+      "note": "The basis ((x-1)^2, x(x-1)^2) is not unique: no key"
+    },
+    {
+      "id": "Ex11",
+      "pages": [41],
+      "solutionPages": [],
+      "kcs": ["V22", "V17"],
+      "finalAnswers": [
+        { "label": "dim(U + W)", "value": "3", "printed": false }
+      ],
+      "note": "U n W = span((1,-1,1,-1)), computed, not printed"
+    },
+    {
+      "id": "Ex12",
+      "pages": [41],
+      "solutionPages": [],
+      "kcs": ["X6"],
+      "finalAnswers": [
+        { "label": "dim Sym_n", "value": "n*(n+1)/2", "printed": false },
+        { "label": "dim Skew_n", "value": "n*(n-1)/2", "printed": false }
+      ]
+    },
+    {
+      "id": "Ex13",
+      "pages": [41],
+      "solutionPages": [],
+      "kcs": ["V4", "V3"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex14",
+      "pages": [41],
+      "solutionPages": [43],
+      "kcs": ["MX1", "LM3", "LM6", "V20", "CB2"],
+      "finalAnswers": [
+        {
+          "label": "matrix of f in the standard bases",
+          "value": "[[1, -1, 2], [2, 1, 1]]",
+          "printed": true
+        },
+        {
+          "label": "M^B_C(f)",
+          "value": "[[3/2, 3/2, 3], [-1/2, -3/2, -1]]",
+          "printed": true
+        }
+      ],
+      "note": "ker f = span((-1,1,1)) and im f = R^2: a basis is only up to scalars"
+    },
+    {
+      "id": "Ex15",
+      "pages": [41],
+      "solutionPages": [43],
+      "kcs": ["LM6", "LM4"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex16",
+      "pages": [41],
+      "solutionPages": [],
+      "kcs": ["X4", "RK1"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex17",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["MX4"],
+      "finalAnswers": [
+        {
+          "label": "A^-1",
+          "value": "[[-24, 18, 5], [20, -15, -4], [-5, 4, 1]]",
+          "printed": true
+        }
+      ]
+    },
+    {
+      "id": "Ex18",
+      "pages": [42],
+      "solutionPages": [43],
+      "kcs": ["X3"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex19",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["LM7", "LM3", "DT10"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex20",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["P2", "P1", "P3"],
+      "finalAnswers": [
+        { "label": "number of inversions", "value": "6", "printed": false },
+        { "label": "sign", "value": "1", "printed": false }
+      ]
+    },
+    {
+      "id": "Ex21",
+      "pages": [42],
+      "solutionPages": [43],
+      "kcs": ["DT9", "R3"],
+      "finalAnswers": [{ "label": "D_n", "value": "n + 1", "printed": true }]
+    },
+    {
+      "id": "Ex22",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["DT11", "DT4", "DT3"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex23",
+      "pages": [42],
+      "solutionPages": [44],
+      "kcs": ["EV8", "EV9", "EV4"],
+      "finalAnswers": [
+        {
+          "label": "eigenvalues",
+          "value": "[1, 4]",
+          "anyOrder": true,
+          "printed": true
+        },
+        { "label": "chi_A", "value": "(x-1)^2*(x-4)", "printed": true },
+        {
+          "label": "S^-1 A S",
+          "value": "[[1, 0, 0], [0, 1, 0], [0, 0, 4]]",
+          "printed": true
+        },
+        { "label": "A^k", "value": "I + (4^k - 1)/3 * J", "printed": true }
+      ],
+      "note": "Eigenspace bases and S are only up to a choice: no key"
+    },
+    {
+      "id": "Ex24",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["X5"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Ex25",
+      "pages": [42],
+      "solutionPages": [],
+      "kcs": ["EV5", "DT5", "DT3"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Final P1",
+      "pages": [46],
+      "solutionPages": [48],
+      "kcs": ["V6", "F4", "LM6", "DT6", "X5"],
+      "finalAnswers": [],
+      "note": "True / false: (a) true, (b) false, (c) false, (d) true"
+    },
+    {
+      "id": "Final P2",
+      "pages": [46, 47],
+      "solutionPages": [48],
+      "kcs": ["E6", "E5", "RK3"],
+      "finalAnswers": [
+        { "label": "t without solution", "value": "-2", "printed": true },
+        {
+          "label": "t with infinitely many solutions",
+          "value": "1",
+          "printed": true
+        },
+        {
+          "label": "unique solution otherwise",
+          "value": "[1/(t+2), 1/(t+2), 1/(t+2)]",
+          "printed": true
+        }
+      ]
+    },
+    {
+      "id": "Final P3",
+      "pages": [47],
+      "solutionPages": [48, 49],
+      "kcs": ["LM3", "RK2", "LM6", "MX1", "CB2", "RK3"],
+      "finalAnswers": [
+        { "label": "rank f", "value": "2", "printed": true },
+        {
+          "label": "M^B_B(f)",
+          "value": "[[0, 0, -1], [0, 1, 2], [0, 1, 3]]",
+          "printed": true
+        }
+      ],
+      "note": "Bases of ker f and im f only up to a choice; (c) answer: no"
+    },
+    {
+      "id": "Final P4",
+      "pages": [47],
+      "solutionPages": [49, 50],
+      "kcs": ["EV4", "EV8", "EV7", "EV9", "DT9"],
+      "finalAnswers": [
+        { "label": "chi_A", "value": "(x-3)^2*(x-5)", "printed": true },
+        {
+          "label": "eigenvalues",
+          "value": "[3, 5]",
+          "anyOrder": true,
+          "printed": true
+        },
+        {
+          "label": "A^n",
+          "value": "3^n * I + (5^n - 3^n)/2 * [[1, 1, -1], [2, 2, -2], [1, 1, -1]]",
+          "printed": true
+        }
+      ],
+      "note": "Eigenspace bases and S only up to a choice"
+    },
+    {
+      "id": "Final P5",
+      "pages": [47],
+      "solutionPages": [50],
+      "kcs": ["X1", "V16", "EV7", "EV5"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Final P6",
+      "pages": [47],
+      "solutionPages": [50],
+      "kcs": ["DT6", "DT5", "X4", "MX3", "EV1"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Resit P1",
+      "pages": [51],
+      "solutionPages": [53],
+      "kcs": ["V9", "LM6", "EV10", "V16"],
+      "finalAnswers": [],
+      "note": "Definitions, a statement and examples: no unique result"
+    },
+    {
+      "id": "Resit P2",
+      "pages": [51, 52],
+      "solutionPages": [53],
+      "kcs": ["DT9", "DT4", "V8", "E8", "F3"],
+      "finalAnswers": [
+        { "label": "det T", "value": "-10", "printed": true },
+        {
+          "label": "number of solutions in F_5^3",
+          "value": "5",
+          "printed": true
+        }
+      ],
+      "note": "The relation v1 + 3v2 + 3v3 = 0 holds up to a non-zero scalar and the solution set's parametrisation is not unique: no key for either"
+    },
+    {
+      "id": "Resit P3",
+      "pages": [52],
+      "solutionPages": [54],
+      "kcs": ["DT7", "DT1", "DT4"],
+      "finalAnswers": [
+        { "label": "determinant in (a)", "value": "-11", "printed": true },
+        {
+          "label": "det A_n(x)",
+          "value": "(x-1)^(n-1)*(x+n-1)",
+          "printed": true
+        }
+      ]
+    },
+    {
+      "id": "Resit P4",
+      "pages": [52],
+      "solutionPages": [54],
+      "kcs": ["LM1", "MX1", "EV8", "LM3", "LM6", "V15"],
+      "finalAnswers": [
+        {
+          "label": "matrix A in B = (1, x, x^2)",
+          "value": "[[0, 1, 0], [0, 1, 2], [0, 0, 2]]",
+          "printed": true
+        },
+        {
+          "label": "eigenvalues",
+          "value": "[0, 1, 2]",
+          "anyOrder": true,
+          "printed": true
+        }
+      ],
+      "note": "Eigenvectors 1, 1 + x, (1 + x)^2 are up to scalars"
+    },
+    {
+      "id": "Resit P5",
+      "pages": [52],
+      "solutionPages": [55],
+      "kcs": ["LM3", "V6", "LM6", "M1"],
+      "finalAnswers": []
+    },
+    {
+      "id": "Resit P6",
+      "pages": [52],
+      "solutionPages": [55],
+      "kcs": ["X2", "X3", "EV2", "MX3"],
+      "finalAnswers": []
+    }
+  ]
+}
