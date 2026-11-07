@@ -1037,6 +1037,7 @@ export type Database = {
           failure_reason: string | null;
           finished_at: string | null;
           heartbeat_at: string;
+          needs_update: boolean;
           owner: string;
           started_at: string;
           status: string;
@@ -1049,6 +1050,7 @@ export type Database = {
           failure_reason?: string | null;
           finished_at?: string | null;
           heartbeat_at?: string;
+          needs_update?: boolean;
           owner: string;
           started_at?: string;
           status: string;
@@ -1060,6 +1062,7 @@ export type Database = {
           failure_reason?: string | null;
           finished_at?: string | null;
           heartbeat_at?: string;
+          needs_update?: boolean;
           owner?: string;
           started_at?: string;
           status?: string;

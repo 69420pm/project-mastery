@@ -171,4 +171,9 @@ export type KnowledgeMapView = {
   checkReport: CheckReportView | null;
   /** Whether Build may start: a Material is parsed and none waits or parses. */
   canBuild: boolean;
+  /**
+   * Whether a Material finished parsing or was deleted, or an old exam was
+   * confirmed or withdrawn, since the last build began.
+   */
+  needsUpdate: boolean;
 };

@@ -389,6 +389,13 @@ export async function prepareBuild(
   "use step";
   const supabase = createAdminClient();
   if (!(await touchBuild(supabase, courseId))) return "stopped";
+  // This build reads the Course as it is now; a change from here on marks
+  // the map again.
+  const cleared = await supabase
+    .from("knowledge_map_builds")
+    .update({ needs_update: false })
+    .eq("course_id", courseId);
+  if (cleared.error) failed("Clearing the map's update mark", cleared.error);
   const chunks = await supabase
     .from("chunks")
     .select("id")

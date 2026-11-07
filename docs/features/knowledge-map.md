@@ -81,7 +81,7 @@ erDiagram
 | KCs an Exercise tests | `exercise_kcs`         | At most 6 per Exercise                                                                                                                                                                | Build                                            |
 | Topic                 | `topics`               | Name, parent, tree order, `central_question`, and the `chapter_ids` it covers                                                                                                         | Build                                            |
 | A Topic's own KCs     | `topic_kcs`            | Each KC in one Topic, in teaching order                                                                                                                                               | Build                                            |
-| Build state           | `knowledge_map_builds` | One row per Course: status, failure reason, heartbeat, `check_report`, and `topic_tree_hash`                                                                                          | Build                                            |
+| Build state           | `knowledge_map_builds` | One row per Course: status, failure reason, heartbeat, `check_report`, `topic_tree_hash`, and `needs_update`                                                                          | Build                                            |
 
 **"Unit" means two things**, one in each job. A _page unit_ is a run of one label under one heading, as a page read returns it. A _Chapter unit_ is the piece of a Chapter one extraction call reads. They never meet: page units become chunks, and chunks are grouped into Chapter units.
 
@@ -133,7 +133,7 @@ The Student's button calls `startKnowledgeMapBuild`, which queues through `queue
 
 A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Chapter whose subtree holds at most 25,000 characters of chunks of one kind (`UNIT_CHARS`, about 2 minutes of a call) is one unit. A bigger one makes units of its children, plus units of its own chunks outside them, and packs consecutive children under the cap into one unit, up to the cap. The same rule over `content` chunks gives teaching units, and over `exercise` chunks gives exercise units.
 
-**Old exams teach nothing.** A Chapter the Student confirmed as an old exam (`is_exam`), and its whole subtree, form no teaching units. Their `exercise` chunks still form exercise units, so the exam's tasks become Exercises. A unit the build no longer forms loses its extraction when the next step loads the current ones. Nothing marks the map as needing Update map after the Student confirms or withdraws an exam: the button is always there, and the units that change are the ones whose hash or existence changed.
+**Old exams teach nothing.** A Chapter the Student confirmed as an old exam (`is_exam`), and its whole subtree, form no teaching units. Their `exercise` chunks still form exercise units, so the exam's tasks become Exercises. A unit the build no longer forms loses its extraction when the next step loads the current ones. Confirming or withdrawing an old exam marks the map as needing Update map, as a changed Material does (see [The Course map](#the-course-map)).
 
 A unit's hash covers its Chapter's title and its chunks' Markdown. A unit whose stored extraction has the same hash makes no call: this is why Update map is cheap.
 
@@ -292,6 +292,8 @@ A parse never changes a Material's chunks once it has stored them, so a unit's h
 The Course map (`/courses/[courseId]/map`, where the Course's home redirects) polls while a build is `building`. It draws the Topics as nested boxes of Topic cards with arrows between Topics ([ADR 0017](../adr/0017-react-flow-and-elk-for-the-knowledge-map-graph.md)): `domain/` computes the graph, and ELK lays it out in a web worker only when it changes.
 
 A card opens the Topic page (`map/[topicId]`): its detail, anchors, KCs, Reading sections and neighbours in Course order, above a KC graph of the Topic's KCs, its anchors and the Exercises that test them. Clicking a KC opens a panel with every stat about it.
+
+**What changes the map.** A Material that finished parsing or was deleted, and an old exam the Student confirmed or withdrew, set `knowledge_map_builds.needs_update` (database triggers, `mark_map_needs_update`). While it is set and no build runs, the Course map shows "Your Materials changed since the map was last built." with Update map. `prepareBuild` clears it before the build reads the Course, so a change during a build marks the map again.
 
 ## How the two connect
 

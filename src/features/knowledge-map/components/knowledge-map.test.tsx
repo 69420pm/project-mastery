@@ -91,6 +91,7 @@ const map: KnowledgeMapView = {
   ],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
 const renderMap = (learning: MapKcLearning = {}, details = true) =>

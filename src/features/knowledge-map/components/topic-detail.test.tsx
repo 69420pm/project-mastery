@@ -85,6 +85,7 @@ const map: KnowledgeMapView = {
   exercises: [],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
 // Basics holds a KC of its own and the Topic Nozzle flow.

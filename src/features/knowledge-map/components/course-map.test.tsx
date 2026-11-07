@@ -74,6 +74,7 @@ const map: KnowledgeMapView = {
   exercises: [],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
 const topics: MapTopic[] = [
@@ -222,6 +223,15 @@ describe("the map check", () => {
     );
     expect(screen.queryByRole("note", { name: "Map check" })).toBeNull();
   });
+});
+
+test("a map whose Materials or old exams changed since its build asks for Update map", () => {
+  renderMap({ ...map, needsUpdate: true }, topics);
+  const note = screen.getByRole("note", { name: "Map update" });
+  expect(note).toHaveTextContent("Your Materials changed");
+  expect(
+    within(note).getByRole("button", { name: "Update map" }),
+  ).toBeVisible();
 });
 
 test("without a map, the page says so", () => {

@@ -94,6 +94,22 @@ export function CourseMap({
             </>
           )}
         </div>
+        {!building && map.needsUpdate && map.build?.finishedAt && (
+          <div
+            role="note"
+            aria-label="Map update"
+            className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
+          >
+            <p>Your Materials changed since the map was last built.</p>
+            <BuildButton
+              courseId={map.courseId}
+              hasMap
+              disabled={!map.canBuild}
+              size="sm"
+              variant="outline"
+            />
+          </div>
+        )}
         {!building && (
           <MapCheck
             report={map.checkReport}
