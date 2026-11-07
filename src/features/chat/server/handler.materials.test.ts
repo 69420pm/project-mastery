@@ -253,37 +253,27 @@ describe("attached Materials", () => {
     ]);
   });
 
-  test("are sent again on later turns, and a deleted one as a note", async () => {
+  test("are sent as files only with their own message, and later as a line naming them", async () => {
     const model = mockTextModel("Sure.");
     useMockModels({ chat: model });
     const lecture = seedMaterial({ name: "Lecture 3" });
-    const removed = seedMaterial({ name: "Old exam" });
     const chatId = seedChat(STUDENT, [
-      {
-        role: "user",
-        parts: [materialPart(lecture), materialPart(removed)],
-      },
+      { role: "user", parts: [materialPart(lecture)] },
       {
         role: "assistant",
-        parts: [{ type: "text", text: "What about them?" }],
+        parts: [{ type: "text", text: "What about it?" }],
       },
     ]);
-    db.tables.materials = db.tables.materials.filter(
-      (material) => material.id !== removed.id,
-    );
 
     await send({ chatId, message: userMessage("Page 2, please") });
 
     const firstMessage = model.doStreamCalls[0]!.prompt[1]!;
     expect(firstMessage.role).toBe("user");
-    expect(JSON.stringify(firstMessage.content)).toContain(
-      '"filename":"Lecture 3"',
-    );
-    expect(JSON.stringify(firstMessage.content)).toContain(
-      'The attached file \\"Old exam\\" was deleted.',
-    );
-    expect(JSON.stringify(firstMessage.content)).not.toContain(
-      '"filename":"Old exam"',
+    expect(firstMessage.content).toEqual([
+      { type: "text", text: "[Attached: Lecture 3]" },
+    ]);
+    expect(JSON.stringify(model.doStreamCalls[0]!.prompt)).not.toContain(
+      '"type":"file"',
     );
   });
 
@@ -372,6 +362,7 @@ describe("attached Materials", () => {
     const model = mockTextModel("Never sent.");
     useMockModels({ chat: model });
     const big = seedMaterial({ name: "Script", sizeBytes: 12 * 1024 * 1024 });
+    const other = seedMaterial({ name: "Notes", sizeBytes: 12 * 1024 * 1024 });
     const chatId = seedChat(STUDENT, [
       { role: "user", parts: [materialPart(big)] },
       { role: "assistant", parts: [{ type: "text", text: "Got it." }] },
@@ -379,13 +370,13 @@ describe("attached Materials", () => {
 
     const reply = await send({
       chatId,
-      message: messageWith("And again", [big]),
+      message: messageWith("And again", [big, other]),
     });
 
     expect(reply).toEqual({
       status: 413,
       refusal:
-        "The materials in this chat are too large for the AI together. Start a new chat or attach fewer materials.",
+        "The materials attached to this message are too large for the AI together. Attach fewer materials.",
     });
     expect(model.doStreamCalls).toHaveLength(0);
     expect(storedMessages(chatId).map(({ text }) => text)).toEqual([

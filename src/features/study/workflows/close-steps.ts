@@ -4,6 +4,7 @@ import {
   buildCloseInput,
   type CloseNotes,
   type CloseSource,
+  type TouchedTopic,
 } from "@/features/study/domain/close";
 import { meteredGenerate } from "@/features/usage/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -102,10 +103,11 @@ async function loadCloseSource(supabase: Supabase, sessionId: string) {
     failed("Loading the session's Questions", questions.error);
   if (attempts.error) failed("Loading the session's attempts", attempts.error);
   if (memory.error) failed("Loading the Memory", memory.error);
-  const kcNames = await loadKcNames(
-    supabase,
-    attempts.data.map(({ kc_id }) => kc_id),
-  );
+  const kcIds = [...new Set(attempts.data.map(({ kc_id }) => kc_id))];
+  const [kcNames, topics] = await Promise.all([
+    loadKcNames(supabase, kcIds),
+    loadTouchedTopics(supabase, kcIds),
+  ]);
   const source: CloseSource = {
     messages: messages.data,
     questions: questions.data.map((question) => ({
@@ -119,6 +121,7 @@ async function loadCloseSource(supabase: Supabase, sessionId: string) {
           help,
         })),
     })),
+    topics,
     memory: memory.data?.text ?? "",
   };
   return {
@@ -132,14 +135,44 @@ async function loadKcNames(
   supabase: Supabase,
   kcIds: string[],
 ): Promise<Map<string, string>> {
-  const ids = [...new Set(kcIds)];
-  if (ids.length === 0) return new Map();
+  if (kcIds.length === 0) return new Map();
   const { data, error } = await supabase
     .from("kcs")
     .select("id, name")
-    .in("id", ids);
+    .in("id", kcIds);
   if (error) failed("Loading the attempts' KCs", error);
   return new Map(data.map(({ id, name }) => [id, name]));
+}
+
+/** The Topics of the KCs, in Course order, each with its note so far. */
+async function loadTouchedTopics(
+  supabase: Supabase,
+  kcIds: string[],
+): Promise<TouchedTopic[]> {
+  if (kcIds.length === 0) return [];
+  const { data: links, error } = await supabase
+    .from("topic_kcs")
+    .select("topic_id")
+    .in("kc_id", kcIds);
+  if (error) failed("Loading the attempts' Topics", error);
+  const ids = [...new Set(links.map(({ topic_id }) => topic_id))];
+  if (ids.length === 0) return [];
+  const [topics, notes] = await Promise.all([
+    supabase
+      .from("topics")
+      .select("id, name")
+      .in("id", ids)
+      .order("position", { ascending: true }),
+    supabase.from("topic_notes").select("topic_id, text").in("topic_id", ids),
+  ]);
+  if (topics.error) failed("Loading the attempts' Topics", topics.error);
+  if (notes.error) failed("Loading the Topic notes", notes.error);
+  const note = new Map(notes.data.map((row) => [row.topic_id, row.text]));
+  return topics.data.map(({ id, name }) => ({
+    id,
+    name,
+    note: note.get(id) ?? null,
+  }));
 }
 
 /**
@@ -154,6 +187,10 @@ export async function storeSessionClose(
   const { error } = await createAdminClient().rpc("store_session_close", {
     p_session_id: sessionId,
     p_memory_lines: close.memoryLines,
+    p_topic_notes: close.topicNotes.map(({ topicId, text }) => ({
+      topic_id: topicId,
+      text,
+    })),
     ...(close.condensedMemory !== null &&
       close.memoryReadAt !== null && {
         p_condensed_memory: close.condensedMemory,

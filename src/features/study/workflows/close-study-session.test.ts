@@ -17,6 +17,9 @@ const TABLES = [
   "questions",
   "attempts",
   "kcs",
+  "topic_kcs",
+  "topics",
+  "topic_notes",
   "memories",
   "ai_usage",
 ] as const;
@@ -111,6 +114,12 @@ function seedSession(overrides: FakeRow = {}) {
     asked_at: "2026-10-26T09:02:00Z",
   });
   t.kcs.push({ id: "k1", name: "Momentum thrust" });
+  t.topic_kcs.push({ topic_id: "t1", kc_id: "k1" });
+  t.topics.push(
+    { id: "t1", name: "Thrust", position: 0 },
+    { id: "t2", name: "Nozzles", position: 1 },
+  );
+  t.topic_notes.push({ topic_id: "t1", text: "Mixes up mass flow." });
   t.attempts.push({
     question_id: "q1",
     session_id: "s1",
@@ -128,6 +137,10 @@ function seedSession(overrides: FakeRow = {}) {
 const session = () => db.tables.study_sessions[0]!;
 
 const ANSWER = {
+  topicNotes: [
+    { topicId: "t1", text: "Needed a hint on Δv." },
+    { topicId: "t2", text: "Not touched." },
+  ],
   memoryLines: ["Prefers worked examples."],
   condensedLines: ["Likes short answers."],
 };
@@ -146,19 +159,38 @@ test("a claimed session closes once with one call, and a second start stops at t
 
   expect(model.doGenerateCalls).toHaveLength(1);
   const input = JSON.stringify(model.doGenerateCalls[0]!.prompt);
-  for (const part of ["Thrust is ṁ Δv.", "Momentum thrust", "Velocity."]) {
+  for (const part of [
+    "Thrust is ṁ Δv.",
+    "Momentum thrust",
+    "Velocity.",
+    "Mixes up mass flow.",
+  ]) {
     expect(input).toContain(part);
   }
+  expect(input).not.toContain("Nozzles");
   expect(session().close_started_at).not.toBeNull();
   expect(stored).toEqual([
     {
       p_session_id: "s1",
       p_memory_lines: ANSWER.memoryLines,
+      p_topic_notes: [{ topic_id: "t1", text: "Needed a hint on Δv." }],
       p_condensed_memory: "Likes short answers.",
       p_memory_read_at: "2026-10-25T08:00:00.123456+00:00",
     },
   ]);
   expect(db.tables.ai_usage).toHaveLength(1);
+});
+
+test("a session without Attempts writes Memory lines only", async () => {
+  useCloseModel(ANSWER);
+  seedSession();
+  db.tables.attempts = [];
+
+  await closeStudySession("s1");
+
+  expect(stored).toMatchObject([
+    { p_memory_lines: ANSWER.memoryLines, p_topic_notes: [] },
+  ]);
 });
 
 test("a session claimed already or still running gets no call", async () => {

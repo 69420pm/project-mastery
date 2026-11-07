@@ -64,7 +64,7 @@ describe("TopicChoiceControls", () => {
     ).toBeNull();
   });
 
-  test("says the reason wasn't kept when the Memory is full", async () => {
+  test("says the reason wasn't kept when the Brief's notes are full", async () => {
     setTopicChoice.mockResolvedValue({ ok: true, data: { reasonKept: false } });
     renderControls(null);
     fireEvent.change(screen.getByLabelText("Reason for skipping (optional)"), {

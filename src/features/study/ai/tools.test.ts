@@ -17,7 +17,7 @@ const noActions = {
   getTopic: async () => null,
   findProblems: async () => ({ problems: [] }),
   remember: async () => {},
-  ask: async () => ({ questionId: "q-1", generatedProblemId: null }),
+  ask: async () => ({ questionId: "q-1", problem: null }),
   findQuestion: async () => null,
   saveGrade: async () => null,
   closeQuestion: async () => false,
@@ -362,24 +362,26 @@ describe("showReading", () => {
 });
 
 describe("ask", () => {
+  const problem = {
+    statement: "Compute it.",
+    page: null,
+    generatedProblemId: "p-1",
+  };
   const askWith = (
-    generatedProblemId: string | null,
+    posed: typeof problem | null,
     newest: QuestionToGrade | null = null,
   ) =>
     tutorTools({
       ...noActions,
       findQuestion: async () => newest,
-      ask: async () => ({ questionId: "q-2", generatedProblemId }),
+      ask: async () => ({ questionId: "q-2", problem: posed }),
     }).ask.execute!({ prompt: "Go.", kcIds: ["k1"], problemId: "p-1" }, {
       toolCallId: "1",
       messages: [],
     } as never);
 
-  test("names the generated Problem it poses", async () => {
-    expect(await askWith("p-1")).toEqual({
-      questionId: "q-2",
-      generatedProblemId: "p-1",
-    });
+  test("returns the Problem it poses", async () => {
+    expect(await askWith(problem)).toEqual({ questionId: "q-2", problem });
     expect(await askWith(null)).toEqual({ questionId: "q-2" });
   });
 

@@ -409,3 +409,21 @@ export async function addBriefNote(
   if (data === null) throw new Error("Saving the note failed: no Brief");
   return data;
 }
+
+/**
+ * `addBriefNote` from outside the Brief, such as a Topic skip's reason.
+ * False, changing nothing, when the notes would grow too long or the
+ * Course has no Brief yet.
+ */
+export async function noteInBrief(
+  supabase: Supabase,
+  courseId: string,
+  text: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("add_brief_note", {
+    course_id: courseId,
+    text,
+  });
+  if (error) failed("Saving the note", error);
+  return data === true;
+}

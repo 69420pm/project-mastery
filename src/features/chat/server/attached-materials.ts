@@ -1,5 +1,6 @@
 import "server-only";
 import { convertToModelMessages, type ModelMessage } from "ai";
+import { modelHistory } from "@/features/chat/domain/model-history";
 import type { ChatUIMessage } from "@/features/chat/types";
 import type { Supabase } from "@/lib/supabase/types";
 import {
@@ -10,14 +11,13 @@ import {
 
 /**
  * The most bytes of Materials sent to the model in one request: 20 MB,
- * Google's limit for inline request data. Every Material referenced in the
- * history counts, each time it is referenced, because the whole history is
- * sent on every turn (ADR 0007).
+ * Google's limit for inline request data. Only the newest Student message
+ * sends its Materials as files (ADR 0007); each counts once per reference.
  */
 const MAX_MATERIAL_BYTES_PER_REQUEST = 20 * 1024 * 1024;
 
 export const materialsTooLargeMessage =
-  "The materials in this chat are too large for the AI together. Start a new chat or attach fewer materials.";
+  "The materials attached to this message are too large for the AI together. Attach fewer materials.";
 
 export const materialsUnavailableMessage =
   "Your materials could not be loaded. Please try again.";
@@ -50,6 +50,12 @@ function materialParts(messages: ChatUIMessage[]): MaterialPart[] {
   );
 }
 
+/** The Materials of the history's newest Student message, sent as files. */
+function sentParts(history: ChatUIMessage[]): MaterialPart[] {
+  const newest = history.findLast(({ role }) => role === "user");
+  return newest ? materialParts([newest]) : [];
+}
+
 /**
  * Why a new Student message may not attach its Materials, or null when it
  * may: each must be the Student's own and in the Chat's Course.
@@ -71,16 +77,16 @@ export async function attachmentRefusal(
 }
 
 /**
- * Reads the files of every Material the history references, by id. Deleted
- * Materials are left out. Refuses with "too large" when the files sent would
- * exceed `MAX_MATERIAL_BYTES_PER_REQUEST`, before reading any, and with
- * "failed" when Storage fails.
+ * Reads the files of the Materials the newest Student message attaches, by
+ * id. Deleted Materials are left out. Refuses with "too large" when the
+ * files sent would exceed `MAX_MATERIAL_BYTES_PER_REQUEST`, before reading
+ * any, and with "failed" when Storage fails.
  */
 export async function loadAttachedMaterials(
   supabase: Supabase,
   history: ChatUIMessage[],
 ): Promise<Map<string, LoadedMaterial> | "too large" | "failed"> {
-  const parts = materialParts(history);
+  const parts = sentParts(history);
   if (parts.length === 0) return new Map();
   const materials = new Map(
     (
@@ -124,14 +130,15 @@ function toLoaded(material: StoredMaterial, bytes: Uint8Array): LoadedMaterial {
 }
 
 /**
- * The model messages for a history: each attached Material becomes a file
- * with its current name, and a deleted one a note that it was deleted.
+ * The model messages for a history, cut down as `modelHistory` says: a
+ * Material of the newest Student message becomes a file with its current
+ * name, and a deleted one a note that it was deleted.
  */
 export function toModelMessages(
   history: ChatUIMessage[],
   materials: Map<string, LoadedMaterial>,
 ): Promise<ModelMessage[]> {
-  return convertToModelMessages<ChatUIMessage>(history, {
+  return convertToModelMessages<ChatUIMessage>(modelHistory(history), {
     convertDataPart: (part) => {
       if (part.type !== "data-material") return undefined;
       const material = materials.get(part.data.materialId);
@@ -155,7 +162,7 @@ export function sentMaterials(
   history: ChatUIMessage[],
   materials: Map<string, LoadedMaterial>,
 ): LoadedMaterial[] {
-  return materialParts(history).flatMap((part) => {
+  return sentParts(history).flatMap((part) => {
     const material = materials.get(part.data.materialId);
     return material ? [material] : [];
   });

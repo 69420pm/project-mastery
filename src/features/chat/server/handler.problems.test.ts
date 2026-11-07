@@ -218,11 +218,21 @@ describe("ask with a problemId", () => {
       "Go on.",
     );
 
-  test("stores the Problem's Exercise on the question", async () => {
+  test("stores the Problem's Exercise on the question and returns its statement and page", async () => {
     seedExercises();
     useMockModels({ chat: ask("ex-3") });
     await send(firstMessage());
     expect(db.tables.questions).toMatchObject([{ exercise_id: "ex-3" }]);
+    const parts = db.tables.chat_messages.at(-1)!.parts as Array<{
+      type: string;
+      output?: { problem: { statement: string } };
+    }>;
+    const output = parts.find(({ type }) => type === "tool-ask")!.output!;
+    expect(output.problem).toMatchObject({
+      page: { link: expect.stringContaining("#") },
+      generatedProblemId: null,
+    });
+    expect(output.problem.statement).not.toBe("");
   });
 
   test("refuses an unknown problemId, naming findProblems", async () => {
@@ -350,7 +360,13 @@ describe("ask and grade on a generated Problem", () => {
     expect(db.tables.chat_messages.at(-1)!.parts).toContainEqual(
       expect.objectContaining({
         type: "tool-ask",
-        output: expect.objectContaining({ generatedProblemId: problemId(1) }),
+        output: expect.objectContaining({
+          problem: {
+            statement: "Generated statement 1.",
+            page: null,
+            generatedProblemId: problemId(1),
+          },
+        }),
       }),
     );
   });

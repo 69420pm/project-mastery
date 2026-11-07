@@ -232,7 +232,7 @@ The model gets the full stored history on every reply (`toModelMessages`), with 
 - An answer on a card starts with `[My answer on the card of question <id>:]`, so the AI can grade it.
 - A Done on a reading card starts with `[Done reading section <id>.]`.
 
-A Material the Student attached in the Chat is sent as its file, up to 20 MB per request.
+A Material the Student attached in the Chat is sent as its file only with its own message, up to 20 MB per request; later turns carry "[Attached: <name>]". In the history the model rereads, a tool result older than the third-newest Student message is replaced by its one-line step summary (`modelHistory` in `chat/domain/model-history.ts`); the stored messages are unchanged.
 
 ### Tools
 

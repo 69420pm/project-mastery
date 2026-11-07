@@ -33,6 +33,10 @@ import { MessageActionRow } from "@/features/chat/components/message-action-row"
 import { ReplyFooter } from "@/features/chat/components/reply-footer";
 import { ReplyParts } from "@/features/chat/components/reply-parts";
 import { chatLabel } from "@/features/chat/domain/chat-label";
+import {
+  checkedToday,
+  checkedTodayText,
+} from "@/features/chat/domain/checked-today";
 import { chatPath, newChatPath } from "@/features/chat/domain/chat-paths";
 import {
   CloseCard,
@@ -235,6 +239,7 @@ export function Chat({
   const ended =
     chat.ended || endedHere || error?.message === sessionEndedMessage;
   const lastMessage = messages.at(-1);
+  const checked = checkedToday(messages);
   // The replies loaded with the Chat; any other arrived while it was open.
   const storedIds = useMemo(
     () => new Set(chat.messages.map(({ id }) => id)),
@@ -270,17 +275,25 @@ export function Chat({
     <WithSourcePane courseId={chat.courseId}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-4 pb-4">
         {/* Once the first message is sent, the Chat's session can be ended. */}
-        {messages.length > 0 && !ended && (
-          <div className="mx-auto -mb-2 flex w-full max-w-3xl justify-end pt-2">
-            <EndSessionButton
-              chatId={chatId}
-              disabled={isBusy}
-              onEnded={() => {
-                setInputError(null);
-                setEndedHere(true);
-              }}
-              onError={setInputError}
-            />
+        {messages.length > 0 && (checked !== null || !ended) && (
+          <div className="mx-auto -mb-2 flex min-h-10 w-full max-w-3xl items-center justify-between gap-2 pt-2">
+            <p
+              data-testid="checked-today"
+              className="text-sm text-muted-foreground"
+            >
+              {checked !== null && checkedTodayText(checked)}
+            </p>
+            {!ended && (
+              <EndSessionButton
+                chatId={chatId}
+                disabled={isBusy}
+                onEnded={() => {
+                  setInputError(null);
+                  setEndedHere(true);
+                }}
+                onError={setInputError}
+              />
+            )}
           </div>
         )}
         <Conversation className="min-h-0">
@@ -313,6 +326,7 @@ export function Chat({
                             inProgress={isStreaming}
                             arrived={!storedIds.has(message.id)}
                             showSteps={showDetails}
+                            problemFlags={chat.problemFlags}
                           />
                           {activity !== null && (
                             <Shimmer className="text-sm">{activity}</Shimmer>

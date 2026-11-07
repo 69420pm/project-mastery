@@ -1,18 +1,17 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
-import { recallBand } from "@/features/study/domain/recall-band";
-import { desiredRetention, replayCourse } from "@/features/study/domain/replay";
+import { replayCourse } from "@/features/study/domain/replay";
 import { sessionEnd } from "@/features/study/domain/session-end";
 import { loadCourseAttempts } from "@/features/study/server/attempts";
-import type { SessionSummary } from "@/features/study/types";
+import type { AttemptResult, SessionSummary } from "@/features/study/types";
 import { failed } from "@/lib/supabase/failed";
 import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * What the close card shows of a Chat's Study session at `now`: each KC
- * with attempts in it with its recall band and next review. Null without a
- * session.
+ * checked in it with its latest result there and its next review. Null
+ * without a session.
  */
 export async function loadSessionSummary(
   supabase: Supabase,
@@ -46,16 +45,18 @@ export async function loadSessionSummary(
     now,
   });
   const kcName = new Map(map.kcs.map((kc) => [kc.id, kc.name]));
-  const practised = new Set(
-    attempts
-      .filter((attempt) => attempt.sessionId === session.id)
-      .map((attempt) => attempt.kcId),
-  );
+  // Each KC's latest result in the session, in the order first checked.
+  const results = new Map<string, AttemptResult>();
+  for (const attempt of attempts
+    .filter(({ sessionId }) => sessionId === session.id)
+    .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+    results.set(attempt.kcId, attempt.result);
+  }
   return {
-    kcs: [...practised].map((id) => ({
+    kcs: [...results].map(([id, result]) => ({
       id,
       name: kcName.get(id) ?? id,
-      band: recallBand(recall.get(id), desiredRetention(exam.goal)),
+      result,
       nextReview: recall.get(id)?.nextReview ?? null,
     })),
     ended:

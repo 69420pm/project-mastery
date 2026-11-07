@@ -1,6 +1,11 @@
 import { getToolName, isToolUIPart } from "ai";
 import type { ChatUIMessage } from "@/features/chat/types";
-import type { ProblemView, GradedKc, TopicView } from "@/features/study";
+import type {
+  AskedProblem,
+  GradedKc,
+  ProblemView,
+  TopicView,
+} from "@/features/study";
 
 type Part = ChatUIMessage["parts"][number];
 
@@ -37,6 +42,8 @@ type AskedQuestion = {
   id: string;
   /** Markdown with LaTeX. */
   prompt: string;
+  /** The Problem it poses, shown in place of the prompt; null for none. */
+  problem: AskedProblem | null;
 };
 
 /** A Reading section the AI opened, as its reading card shows it. */
@@ -63,6 +70,7 @@ export type ReplySegment =
 /** What each tutor tool does, as a running or failed card names it. */
 const TOOL_TITLES: Record<string, string> = {
   getTopic: "Reading the Topic",
+  searchMaterials: "Searching the Materials",
   findProblems: "Finding Problems",
   remember: "Making a note",
   ask: "Asking a question",
@@ -104,7 +112,7 @@ export function replySegments(
   return segments;
 }
 
-type ToolPart = Extract<Part, { toolCallId: string }>;
+export type ToolPart = Extract<Part, { toolCallId: string }>;
 
 /** The question of an `ask` call that stored it; null for any other part. */
 function askedQuestion(part: ToolPart): AskedQuestion | null {
@@ -114,9 +122,14 @@ function askedQuestion(part: ToolPart): AskedQuestion | null {
   const input = asRecord(part.input);
   const output = asRecord(part.output);
   if (typeof output.questionId !== "string") return null;
+  const problem = asRecord(output.problem);
   return {
     id: output.questionId,
     prompt: typeof input.prompt === "string" ? input.prompt : "",
+    problem:
+      typeof problem.statement === "string"
+        ? (problem as unknown as AskedProblem)
+        : null,
   };
 }
 
@@ -168,6 +181,14 @@ function replyStep(part: ToolPart, inProgress = true): ReplyStep {
   return { ...base, state: "done", summary, detail };
 }
 
+/**
+ * The one line a step card shows for a tool call that returned, which the
+ * history the model rereads keeps in place of an old result.
+ */
+export function stepSummary(part: ToolPart): string {
+  return describeOutput(getToolName(part), part.input, part.output).summary;
+}
+
 function describeOutput(
   name: string,
   input: unknown,
@@ -175,6 +196,24 @@ function describeOutput(
 ): { summary: string; detail: StepDetail } {
   const out = asRecord(output);
   const args = asRecord(input);
+  if (name === "ask" && typeof out.questionId === "string") {
+    return {
+      summary: `Asked question ${out.questionId}`,
+      detail: { tool: "other", input, output },
+    };
+  }
+  if (name === "showReading" && typeof out.label === "string") {
+    return {
+      summary: `Opened the reading ${out.label}`,
+      detail: { tool: "other", input, output },
+    };
+  }
+  if (name === "searchMaterials" && Array.isArray(out.chunks)) {
+    return {
+      summary: `Found ${count(out.chunks.length, "chunk")}`,
+      detail: { tool: "other", input, output },
+    };
+  }
   if (name === "getTopic" && Array.isArray(out.kcs)) {
     const topic = out as unknown as TopicView;
     return {

@@ -19,7 +19,7 @@ import { loadRecall } from "@/features/study/server/attempts";
 import { findProblems } from "@/features/study/server/find-problems";
 import { mathRunner } from "@/features/study/server/math-runner";
 import { appendMemory } from "@/features/study/server/memory";
-import { isReadyProblem } from "@/features/study/server/problems";
+import { loadReadyStatement } from "@/features/study/server/problems";
 import {
   closeQuestion,
   findNewestQuestion,
@@ -31,7 +31,7 @@ import { searchChunks } from "@/features/study/server/search";
 import { getSessionEnd } from "@/features/study/server/sessions";
 import { readingLabel, sourceView } from "@/features/study/server/source-view";
 import { loadTutorContext } from "@/features/study/server/tutor-context";
-import type { TutorContext } from "@/features/study/types";
+import type { AskedProblem, TutorContext } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
@@ -126,6 +126,31 @@ function tutorToolActions(
   };
   const sourceOf = (chunk: Parameters<typeof sourceView>[1]) =>
     sourceView(courseId, chunk);
+  /** An Exercise of the map, or else a ready generated Problem; null for neither. */
+  const posedProblem = async (
+    problemId: string,
+  ): Promise<AskedProblem | null> => {
+    const exercise = map.exercises.find(({ id }) => id === problemId);
+    if (exercise) {
+      const [chunk] = await loadChunkSources(supabase, [
+        exercise.questionChunk,
+      ]);
+      if (!chunk) return null;
+      const source = sourceOf(chunk);
+      return {
+        statement: chunk.markdown,
+        page: {
+          label: `${source.material}, ${source.pages}`,
+          link: source.link,
+        },
+        generatedProblemId: null,
+      };
+    }
+    const statement = await loadReadyStatement(supabase, courseId, problemId);
+    return statement === null
+      ? null
+      : { statement, page: null, generatedProblemId: problemId };
+  };
   const retention = desiredRetention(facts.goal);
   return {
     async searchMaterials(query) {
@@ -139,18 +164,8 @@ function tutorToolActions(
     },
     async ask({ kcIds, problemId, ...question }) {
       requireKnown(kcIds);
-      // An Exercise of the map, or else a ready generated Problem.
-      const exerciseId =
-        problemId !== null && map.exercises.some(({ id }) => id === problemId)
-          ? problemId
-          : null;
-      const generatedProblemId =
-        problemId !== null &&
-        exerciseId === null &&
-        (await isReadyProblem(supabase, courseId, problemId))
-          ? problemId
-          : null;
-      if (problemId !== null && exerciseId === null && !generatedProblemId) {
+      const problem = problemId === null ? null : await posedProblem(problemId);
+      if (problemId !== null && !problem) {
         throw new TutorToolError(
           `${problemId} is no Problem id of this Course: use an id from findProblems, or omit it.`,
         );
@@ -159,10 +174,10 @@ function tutorToolActions(
         ...question,
         sessionId: session(),
         kcIds,
-        exerciseId,
-        problemId: generatedProblemId,
+        exerciseId: problem?.generatedProblemId === null ? problemId : null,
+        problemId: problem?.generatedProblemId ?? null,
       });
-      return { questionId, generatedProblemId };
+      return { questionId, problem };
     },
     async findQuestion() {
       const [question, end] = await Promise.all([

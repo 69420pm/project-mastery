@@ -33,12 +33,18 @@ test("a session from the Today card: a question answered in the input is graded,
   await expect(
     page.getByText('Mock reply to "4"', { exact: false }),
   ).toBeVisible();
+  await expect(page.getByTestId("checked-today")).toHaveText(
+    "Checked today: 1 KC",
+  );
 
   await page.getByRole("button", { name: "End session" }).click();
-  const practised = page
+  const checked = page
     .getByRole("region", { name: "Session summary" })
-    .getByRole("list", { name: "KCs practised" });
-  await expect(practised.getByText("Thrust equation")).toBeVisible();
+    .getByRole("list", { name: "KCs checked" })
+    .getByRole("listitem");
+  await expect(checked).toHaveCount(1);
+  await expect(checked).toContainText("Thrust equation");
+  await expect(checked).toContainText("Full");
 });
 
 test("End session makes the Chat read-only, and Start new session opens a new one", async ({

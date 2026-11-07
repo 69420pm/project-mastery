@@ -10,6 +10,7 @@ import {
 import { computeTool } from "@/features/study/ai/compute-tool";
 import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
+  AskedProblem,
   AttemptHelp,
   AttemptResult,
   ProblemView,
@@ -203,13 +204,14 @@ export type TutorToolActions = {
   remember: (text: string) => Promise<void>;
   /**
    * Stores a question in the Chat's Study session; returns its id, and the
-   * generated Problem it poses, which the Student can flag.
+   * Problem it poses, which the Chat shows. Throws a `TutorToolError` for a
+   * `problemId` that is no Problem of the Course.
    */
   ask: (question: {
     prompt: string;
     kcIds: string[];
     problemId: string | null;
-  }) => Promise<{ questionId: string; generatedProblemId: string | null }>;
+  }) => Promise<{ questionId: string; problem: AskedProblem | null }>;
   /** The newest Question of the Chat's Study session; null without one. */
   findQuestion: () => Promise<QuestionToGrade | null>;
   /**
@@ -292,7 +294,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     ask: tool({
       description:
-        "Ask the Student a graded question: it shows in the Chat, and ends your reply. The Student's next messages are their answer, which you grade with grade. Write any lead-in before calling it, and don't repeat the question in your text. Refused while the open Question is answered but not graded: grade it first.",
+        "Ask the Student a graded question: it shows in the Chat, and ends your reply. The Student's next messages are their answer, which you grade with grade. With a problemId, the Chat shows the Problem's own statement and page in place of your prompt. Write any lead-in before calling it, and don't repeat the question in your text. Refused while the open Question is answered but not graded: grade it first.",
       inputSchema: askInputSchema,
       execute: async ({ problemId, ...question }) => {
         const open = await actions.findQuestion();
@@ -301,13 +303,11 @@ export function tutorTools(actions: TutorToolActions) {
             "The Student answered the open Question: grade it first, with noAnswer when they moved on.",
           );
         }
-        const { questionId, generatedProblemId } = await actions.ask({
+        const { questionId, problem } = await actions.ask({
           ...question,
           problemId: problemId ?? null,
         });
-        return generatedProblemId === null
-          ? { questionId }
-          : { questionId, generatedProblemId };
+        return problem === null ? { questionId } : { questionId, problem };
       },
     }),
     showReading: tool({

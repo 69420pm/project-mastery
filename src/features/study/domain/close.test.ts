@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildCloseInput, type CloseSource } from "./close";
+import { buildCloseInput, touchedTopicNotes, type CloseSource } from "./close";
 
 describe("buildCloseInput", () => {
   const source: CloseSource = {
@@ -22,6 +22,7 @@ describe("buildCloseInput", () => {
         attempts: [{ kcName: "Thrust", result: "partial", help: "hint" }],
       },
     ],
+    topics: [{ id: "t1", name: "Thrust", note: null }],
     memory: "x".repeat(3_001),
   };
 
@@ -32,6 +33,7 @@ describe("buildCloseInput", () => {
         { role: "tutor", text: "Let's start." },
       ],
       questions: source.questions,
+      topics: source.topics,
       memory: source.memory,
       condensesMemory: true,
     });
@@ -47,5 +49,26 @@ describe("buildCloseInput", () => {
     expect(
       buildCloseInput({ ...source, messages: source.messages.slice(1) }),
     ).toBeNull();
+  });
+});
+
+describe("touchedTopicNotes", () => {
+  test("keeps the first note of each touched Topic and drops any other", () => {
+    const input = buildCloseInput({
+      messages: [{ role: "user", parts: [{ type: "text", text: "Hi" }] }],
+      questions: [],
+      topics: [
+        { id: "t1", name: "Thrust", note: "Old." },
+        { id: "t2", name: "Nozzles", note: null },
+      ],
+      memory: "",
+    })!;
+    expect(
+      touchedTopicNotes(input, [
+        { topicId: "t1", text: "New." },
+        { topicId: "t9", text: "Not touched." },
+        { topicId: "t1", text: "Again." },
+      ]),
+    ).toEqual([{ topicId: "t1", text: "New." }]);
   });
 });

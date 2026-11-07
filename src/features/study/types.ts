@@ -225,6 +225,19 @@ export type SourceChunkView = {
   markdown: string;
 };
 
+/**
+ * The Problem a Question poses, as `ask` returns it for the Chat to show in
+ * place of the prompt.
+ */
+export type AskedProblem = {
+  /** Markdown with LaTeX. */
+  statement: string;
+  /** An Exercise's page, such as "Sheet 2, p. 3"; null for a generated one. */
+  page: { label: string; link: string } | null;
+  /** The generated Problem, which the Student can flag; null for an Exercise. */
+  generatedProblemId: string | null;
+};
+
 /** A Problem as `findProblems` returns it. */
 export type ProblemView = {
   /** The Problem's id, which a question on it names. */
@@ -282,11 +295,14 @@ export type ReadingView = {
  * (`loadSessionSummary`).
  */
 export type SessionSummary = {
-  /** Each KC with attempts in the session, with its band and next review. */
+  /**
+   * Each KC checked in the session, in the order first checked, with its
+   * latest result there and its next review.
+   */
   kcs: Array<{
     id: string;
     name: string;
-    band: RecallBand;
+    result: AttemptResult;
     /** As YYYY-MM-DD; null without a card. */
     nextReview: string | null;
   }>;

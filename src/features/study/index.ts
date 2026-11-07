@@ -21,6 +21,7 @@ export { recallText, scheduleText } from "./domain/schedule-text";
 export { isTodayMessage, MOCK_REVIEW_MESSAGE } from "./domain/today-messages";
 export { sessionEndedMessage } from "./schemas";
 export type {
+  AskedProblem,
   GradedKc,
   MockExamView,
   ProblemFlag,

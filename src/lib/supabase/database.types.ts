@@ -2213,6 +2213,7 @@ export type Database = {
           p_memory_lines: string[];
           p_memory_read_at?: string;
           p_session_id: string;
+          p_topic_notes?: Json;
         };
         Returns: boolean;
       };

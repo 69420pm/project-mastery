@@ -15,7 +15,6 @@ import {
   setTopicChoiceSchema,
 } from "@/features/study/schemas";
 import { recordExamResult } from "@/features/study/server/exam-results";
-import { appendMemory } from "@/features/study/server/memory";
 import {
   saveMockAnswer,
   startMock,
@@ -267,8 +266,8 @@ async function loadReads() {
 /**
  * Pins or skips a Topic of the Student's Course, or clears the choice with
  * null. A new choice replaces the old one. A skip's reason goes to the
- * Memory as "Skipped <Topic>: <reason>"; `reasonKept` is false when the
- * Memory is full, and the skip is saved anyway.
+ * Brief's notes as "Skipped <Topic>: <reason>"; `reasonKept` is false when
+ * they are full or there is no Brief, and the skip is saved anyway.
  */
 export async function setTopicChoice(input: {
   courseId: string;
@@ -310,7 +309,11 @@ export async function setTopicChoice(input: {
 
   let reasonKept = true;
   if (choice === "skipped" && reason) {
-    reasonKept = await appendMemory(
+    // Loaded on use: `brief/server` reaches `workflow/api`, which the
+    // component tests that import these actions can't load
+    // (docs/agents/notes/workflow-imports.md).
+    const { noteInBrief } = await import("@/features/brief/server");
+    reasonKept = await noteInBrief(
       supabase,
       courseId,
       `Skipped ${topic.name}: ${reason}`,

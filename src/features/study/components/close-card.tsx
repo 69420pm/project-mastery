@@ -12,12 +12,23 @@ import {
   getSessionSummary,
   rateStudySession,
 } from "@/features/study/server/actions";
-import { BAND_NAMES } from "@/features/study/domain/recall-band";
-import type { SessionSummary } from "@/features/study/types";
+import type { AttemptResult, SessionSummary } from "@/features/study/types";
+
+const RESULT_NAMES: Record<AttemptResult, string> = {
+  full: "Full",
+  partial: "Partial",
+  wrong: "Wrong",
+};
+
+const RESULT_VARIANTS = {
+  full: "default",
+  partial: "secondary",
+  wrong: "destructive",
+} as const satisfies Record<AttemptResult, string>;
 
 /**
- * Where a session's composer was, once it has ended: each KC practised
- * with its recall band and next review, then a rating from 1 to 5 with an
+ * Where a session's composer was, once it has ended: each KC checked with
+ * its result and next review, then the Session rating from 1 to 5 with an
  * optional note, and Start new session. Saving the rating ends the session.
  */
 export function CloseCard({
@@ -95,11 +106,13 @@ function SummaryFacts({ summary }: { summary: SessionSummary }) {
   return (
     <div className="flex flex-col gap-3">
       {kcs.length > 0 && (
-        <ul aria-label="KCs practised" className="flex flex-col gap-1.5">
+        <ul aria-label="KCs checked" className="flex flex-col gap-1.5">
           {kcs.map((kc) => (
             <li key={kc.id} className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{kc.name}</span>
-              <Badge variant="outline">{BAND_NAMES[kc.band]}</Badge>
+              <Badge variant={RESULT_VARIANTS[kc.result]}>
+                {RESULT_NAMES[kc.result]}
+              </Badge>
               <span className="text-muted-foreground">
                 {kc.nextReview
                   ? `Next review ${kc.nextReview}`
