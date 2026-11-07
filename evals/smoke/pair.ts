@@ -30,11 +30,10 @@ type Supabase = Smoke["supabase"];
  * Pairing on the recorded gold exercise pages, through the real parse
  * workflow run in this process with the page results and the Outline
  * seeded, so the only calls are the embeddings and the Course's one pairing
- * call. Pinned to MiMo, the model that ships.
+ * call. On the default smoke model (AI_SMOKE_MODEL pins MiMo).
  */
 export const pairSmoke: SmokeCheck = {
   name: "pair",
-  model: "xiaomi/mimo-v2.6-flash",
   // 1 or 2 embedding calls (20 chunks each) and 1 pairing call.
   maxCalls: 3,
   usage: `pnpm smoke pair (the recorded pages ${EXERCISE_PAGE} and ${SOLUTION_PAGE} of ${PDF})`,
