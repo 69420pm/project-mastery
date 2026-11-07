@@ -129,6 +129,27 @@ describe("parsing a PDF Material", () => {
     expect(db.files.paths(BUCKET)).toEqual([STORAGE_PATH]);
   });
 
+  test("stores a unit's text without the NUL characters Postgres rejects in jsonb", async () => {
+    seedMaterial("application/pdf", await fixture("two-page-lecture.pdf"));
+    const { model } = pageModel([
+      {
+        units: [
+          unit({ markdown: "Grenz\u0000wert $a_n$", pageTo: 2 }),
+          unit({ markdown: "\u0000Zeige $1/n$.", pageFrom: 2, pageTo: 2 }),
+        ],
+      },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(storedPages()).toEqual([
+      [1, null, ["Grenzwert $a_n$"]],
+      [2, null, ["Zeige $1/n$."]],
+    ]);
+    expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
+  });
+
   test("reads 7 pages in batches of 5 and 2, gives the second the first's last unit, and joins a unit across the batch edge", async () => {
     seedMaterial("application/pdf", await fixture("seven-page-script.pdf"));
     const { model, prompts } = pageModel([

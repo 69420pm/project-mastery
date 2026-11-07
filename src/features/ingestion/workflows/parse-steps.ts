@@ -144,6 +144,18 @@ type PageRow =
   | { pageNumber: number; skipped: PageSkip };
 
 /**
+ * The units without NUL characters. A model can emit one (a garbled text
+ * layer's glyph), and Postgres rejects it in jsonb ("unsupported Unicode
+ * escape sequence"), which failed the whole read step.
+ */
+function withoutNul(units: PageUnit[]): PageUnit[] {
+  return units.map((unit) => ({
+    ...unit,
+    markdown: unit.markdown.replaceAll("\u0000", ""),
+  }));
+}
+
+/**
  * Stores a page's result. False when the Material was deleted meanwhile;
  * a page stored already, by an earlier attempt, stays as it is.
  */
@@ -158,7 +170,7 @@ async function storePage(
     page_number: page.pageNumber,
     ...("skipped" in page
       ? { units: [], skipped: page.skipped }
-      : { units: page.units }),
+      : { units: withoutNul(page.units) }),
   });
   if (stored.error?.code === FOREIGN_KEY_VIOLATION) return false;
   if (stored.error && stored.error.code !== UNIQUE_VIOLATION) {
