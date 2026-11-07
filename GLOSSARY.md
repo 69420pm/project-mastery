@@ -52,10 +52,6 @@ _Avoid_: Skill, learning objective, concept, node
 A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call, or else the new Topic holding most of its Chapters, continues it.
 _Avoid_: Big idea, chapter, unit, lesson, module
 
-**Topic state**:
-Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS card has lapsed 3 or more times), solid (every KC has a card whose recall on the exam date, or today without an exam ahead, reaches the goal's retention), learned (every KC is taught), in progress (some KC is taught) or new.
-_Avoid_: Topic status, Topic progress
-
 **Reading section**:
 A part of a Topic's source pages, about one to three pages in Material order, cut when read from the chunks its KCs cite. The Student reads the pages as they are.
 _Avoid_: Passage, excerpt, reading
@@ -77,28 +73,28 @@ How much a KC matters for this Student's exam, computed when read from how many 
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
-The evidence for one KC from one Question: whether the Student got it right and how much help they needed. The log of attempts is the only stored learning state.
+The evidence for one KC from one Question, in a Chat or a Mock exam: whether the Student got it right and how much help they needed. The log of attempts is the only stored learning state. A KC's first UTC day with an Attempt teaches it; on each later day its first Attempt is a Review.
 _Avoid_: Answer, result, score
 
 **Review**:
-Asking about a due KC again, to schedule its next one further out when the Student remembers it.
+A due KC's first Attempt of a later UTC day, which schedules its next one further out when the Student remembers it. Due Reviews come first in the Ranking.
 _Avoid_: Revision, repetition, quiz
 
-**KC state**:
-Where a KC stands for a Student, from its FSRS card replayed from its attempts: _new_ (no attempts besides prequestions), _learning_ (its first Study session is still open, or its card's stability is under 7 days and it isn't due), _due_ (its next review is today or earlier) or _known_ (any other KC with a card).
-_Avoid_: Mastered, mastery level, status
+**Recall band**:
+What the Student sees of a KC, from its recall at the end of the current UTC day: _new_ (not taught), _strong_ (at or above the goal's retention), _fading_ (0.7 or more) or _weak_ (below 0.7).
+_Avoid_: KC state, mastery level, status
+
+**Ranking**:
+The one ordered list of what is worth doing next in a Course, derived on every read from the map, Priority, the replayed recall, the pace and the plan: due Reviews, the plan's Topics with untaught KCs, refreshes of taught KCs, then the Topics that are _if time allows_; in the final stretch (the exam day and the 7 days before it) everything by value per minute. A Topic never comes before an untaught Topic it builds on.
+_Avoid_: Plan order, queue, schedule
 
 **Readiness**:
-How much of a Course's exam weight a Student is likely to recall on the exam day, from the projected recall of the KCs that matter weighted by Priority, and checked against graded Mock exams. It is never a grade.
+How much of a Course's exam weight a Student is likely to recall on the exam day: the Priority-weighted recall of its KCs on that day, with 0 for an untaught KC, per Topic and per Course. It shows beside the latest graded Mock exam's score and is never a grade.
 _Avoid_: Score, grade, prediction
 
 **Progress**:
-How many of the KCs in the study plan a Student knows, kept conservative: a KC counts only while it is _known_ and has had a Review after its teaching, so the count can fall when one comes due. Shown as a bar with the days since the first Attempt and the days to the exam, on the Course map and in the Brief's panel.
+How many of the KCs in the study plan a Student has learned (answered fully without help at least once), with the days since the first Attempt and the days to the exam, such as "34 of 120 KCs learned · 12 days in · 30 days left". It falls only when the plan or the map changes. Shown on the Course map and in the Brief's panel.
 _Avoid_: Mastery, completion
-
-**Phase**:
-Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
-_Avoid_: Period
 
 **If time allows**:
 A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
@@ -109,7 +105,7 @@ A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always 
 _Avoid_: Favourite, hide, exclude (an excluded Material is something else)
 
 **Today card**:
-What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and a Study button that starts a Study session.
+The head of the Ranking, on the Course map and in a new Chat: the due Reviews with their minutes, then the next Topic with its minutes, or the first 5 items in the final stretch. Its buttons open a new Chat that sends a first message as the Student: "Let's start.", "Let's review." when Reviews are due and "Exam problems please." once a KC is taught.
 _Avoid_: Dashboard, daily plan, agenda
 
 **AI**:

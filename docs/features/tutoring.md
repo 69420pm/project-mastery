@@ -10,7 +10,7 @@ Domain words are defined in [GLOSSARY.md](../../GLOSSARY.md); the choices behind
 
 Three ideas explain most of the design:
 
-1. **The attempts log is the only stored learning state.** No table says what a Student knows. Each graded answer adds one `attempts` row per KC, and everything else (FSRS cards, KC states, Topic states, the study plan, Readiness) is recomputed from it on every read. A changed exam date or goal applies on the next read.
+1. **The attempts log is the only stored learning state.** No table says what a Student knows. Each graded answer adds one `attempts` row per KC, and everything else (FSRS cards, recall bands, the Ranking, Progress, Readiness) is recomputed from it on every read. A changed exam date or goal applies on the next read.
 2. **Code decides what to do; the AI decides how to teach it.** Code picks the Topic, the due reviews, the Phase and the order. It hands these over as a **tutor context**, written into the AI's instructions, and it is rebuilt for every single reply.
 3. **The AI acts through tools.** A question that shows what the Student knows goes through `ask` and is graded through `grade`. A question written as plain text grades nothing.
 
@@ -68,16 +68,15 @@ flowchart LR
   log[("Attempts")] --> cards["FSRS cards<br/>per KC"]
   brief --> cards
   priority --> cards
-  cards --> kc["KC state"]
-  cards --> topic["Topic state"]
-  cards --> due["Due reviews"]
-  priority --> due
-  topic --> plan["Study plan<br/>Phase, order"]
-  priority --> plan
+  cards --> band["Recall band<br/>per KC"]
+  priority --> scope["Plan scope"]
   log --> pace["Pace"]
-  pace --> plan
-  plan --> today["Today<br/>next Topic, hint"]
-  cards --> ready["Readiness"]
+  cards --> rank["Ranking"]
+  priority --> rank
+  scope --> rank
+  pace --> rank
+  rank --> today["Today card"]
+  cards --> ready["Readiness, Progress"]
   priority --> ready
 ```
 
@@ -103,19 +102,23 @@ The shares are the KC's old-exam Exercises and all its Exercises, over the Cours
 
 Replay gives each KC `taught` (it has a card), `learned` (a `full` Attempt without help), `recallToday` (at the end of today's UTC day, so an answer just given counts), `recallOnExamDay` (today's without a future exam date), `due` (its due day is today or earlier) and `nextReview`.
 
-**KC state,** until recall bands replace it: `new` (untaught), `due`, `known` (learned), `learning` (anything else).
+**Recall band** (`study/domain/recall-band.ts`), what the Student sees of a KC, on `recallToday`: `new` (untaught), `strong` (at or above the goal's retention), `fading` (0.7 or more), `weak`.
 
-**Topic state,** the first that holds: `solid` (every KC's recall on the exam day reaches the retention), `learned` (every KC taught), `in_progress` (some KC taught), `new`.
+**Plan scope** (`study/domain/plan.ts`): _to pass_ takes the highest-Priority Topics up to 80% of the total, _a good grade_ every Topic above 0, _master everything_ all of them. A pin always adds one, a skip always removes one, and the rest are _if time allows_.
 
-**Study plan** (`study/domain/plan.ts`):
+**Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own Attempts. Minutes per KC: the active time of each session that holds a KC's first Attempt, from the gaps between its messages, less its Reviews, over the KCs it taught. Minutes per review: the time to answer each Review (a KC's first Attempt on a later day), from its Question's `asked_at` and `answered_at`.
 
-- **Which Topics:** _to pass_ takes the highest-Priority Topics up to 80% of the total, _a good grade_ every Topic above 0, _master everything_ all of them. A pin always adds one, a skip always removes one, and the rest are _if time allows_.
-- **Phase:** `final_week` on the exam day and the 7 days before it, `deepen` once every in-plan Topic is taught, otherwise `build`. None without a future exam date.
-- **Progress** (`planProgress`): the in-plan Topics' KCs, and how many are `learned`. Days in count UTC days since the Course's first Attempt, the first as 1; days left run to the exam date. `getPlan` adds it on every read; nothing is stored.
-- **Order of untaught work:** pinned first, then in progress, then Priority per estimated minute, never before a Topic it builds on.
-- **Pace** (`study/domain/pace.ts`) starts at 30 minutes per KC and 2 per review, then is measured from the Student's own Attempts. Minutes per KC: the active time of each session that holds a KC's first Attempt, from the gaps between its messages, less its Reviews, over the KCs it taught. Minutes per review: the time to answer each Review (a KC's first Attempt on a later day), from its Question's `asked_at` and `answered_at`.
+**Ranking** (`rankNext` in `study/domain/ranking.ts`, [ADR 0027](../adr/0027-per-day-scheduling-and-one-ranking.md)): one list of what is worth doing next, over the Topics in the plan or _if time allows_. Each candidate's value is Priority × (1 − recall), with minutes from pace:
 
-**Today** (`study/domain/today.ts`) picks the next Topic: in build, the first of the order; in deepen, a learned in-plan Topic, then a solid one, lowest recall first; in the final week, the taught Topic with the highest Priority × (1 − recall on the exam day), never a new one.
+| Candidate                               | Recall            | Minutes                   |
+| --------------------------------------- | ----------------- | ------------------------- |
+| A due KC (a Review)                     | `recallToday`     | Per Review                |
+| A Topic with untaught KCs               | 0, summed         | Per KC × the untaught KCs |
+| A taught KC that is not due (a refresh) | `recallOnExamDay` | Per Review                |
+
+Value 0 drops a candidate, except a due Review; ties go in Course order. Normally: due Reviews by value, then in-plan Topics (a started one, then pinned ones by pin time, then by value per minute), then refreshes once no in-plan Topic has untaught KCs, then _if time allows_ Topics. In the final stretch (the exam day and the 7 days before it) everything ranks by value per minute. A Topic never comes before an untaught Topic it builds on; that anchor moves just before it.
+
+**Study state** (`getStudyState` in `study/server/study-state.ts`): the Ranking with names and minutes, the plan scope, each Topic's learned count and Readiness, Progress (in-plan KCs that are `learned`; days in since the first Attempt, days left to the exam), Course Readiness and the latest graded mock score. The Course map, the Topic page, the Brief panel and the new Chat read it; nothing is stored.
 
 **Readiness** is the Priority-weighted mean of each KC's recall on the exam day, with 0 for an untaught KC.
 
@@ -385,17 +388,17 @@ The AI's order of trust is: the Course's sources, then the map, then its own kno
 
 ## What the Student sees
 
-| Where                  | What                                                                                                                                                                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state. Progress and Readiness in the map header, Readiness on Topic cards, Progress in the Brief's panel        |
-| Above the messages     | The stage bar in a learn session, read from the stored context and `setStage` results. The session bar: a review's groups done or a practice's Problems answered                       |
-| In a reply             | Each tool call as a collapsed step card with a one-line summary written by code. A call that never returned shows as stopped once the reply is done                                    |
-| Question card          | The answer and confidence. A generated Problem's card lets the Student flag it once, which takes it out of the pool                                                                    |
-| After a graded rebuild | A Knowledge map card that opens the Topic's part of the map with its KC states (`getTopicKnowledgeMap`)                                                                                |
-| Close card             | At `close` or once the session has ended: `getSessionSummary` gives the Topic's state and each KC's state and next review, and `rateStudySession` saves the Session rating             |
-| Context sheet          | A reply's stored tutor context, with its instructions re-rendered by today's code, plus its model, tokens and cost (`ai_usage.reply_id`, no foreign key since usage is recorded first) |
-| Mock exam result page  | Score per Topic, calibration on sure answers and each task's points ordered by points lost, without the reference solution                                                             |
-| After the exam date    | The map asks "How did the exam go?", and `exam_results` stores the grade once per exam date                                                                                            |
+| Where                  | What                                                                                                                                                                                                                                                                                          |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Course map, new Chat   | The Today card, at the top of the Course map and in a new Chat's empty state; its buttons open a new Chat with `?say=` and send that first message. Progress, Readiness and the last mock score in the map header, learned counts and Readiness on Topic cards, Progress in the Brief's panel |
+| Above the messages     | The stage bar in a learn session, read from the stored context and `setStage` results. The session bar: a review's groups done or a practice's Problems answered                                                                                                                              |
+| In a reply             | Each tool call as a collapsed step card with a one-line summary written by code. A call that never returned shows as stopped once the reply is done                                                                                                                                           |
+| Question card          | The answer and confidence. A generated Problem's card lets the Student flag it once, which takes it out of the pool                                                                                                                                                                           |
+| After a graded rebuild | A Knowledge map card that opens the Topic's part of the map with its KC states (`getTopicKnowledgeMap`)                                                                                                                                                                                       |
+| Close card             | At `close` or once the session has ended: `getSessionSummary` gives the Topic's state and each KC's state and next review, and `rateStudySession` saves the Session rating                                                                                                                    |
+| Context sheet          | A reply's stored tutor context, with its instructions re-rendered by today's code, plus its model, tokens and cost (`ai_usage.reply_id`, no foreign key since usage is recorded first)                                                                                                        |
+| Mock exam result page  | Score per Topic, calibration on sure answers and each task's points ordered by points lost, without the reference solution                                                                                                                                                                    |
+| After the exam date    | The map asks "How did the exam go?", and `exam_results` stores the grade once per exam date                                                                                                                                                                                                   |
 
 The Student edits the whole Memory on the Brief page, whose own AI doesn't read it. A Topic page's pin or skip goes through `setTopicChoice`, and a skip's reason goes into the Memory.
 
@@ -410,7 +413,7 @@ Paths are relative to `src/features/`.
 | A tool's input, description or rules      | `study/ai/tools.ts`; what it does in `tutorToolActions` in `study/server/tutoring.ts`                             |
 | The request itself and stored replies     | `chat/server/handler.ts`, `chat/server/chat-store.ts`                                                             |
 | Scheduling                                | `study/domain/replay.ts`                                                                                          |
-| The plan, Phases and Today                | `study/domain/plan.ts`, `study/domain/today.ts`                                                                   |
+| Plan scope, Ranking, bands, study state   | `study/domain/plan.ts`, `study/domain/ranking.ts`, `study/domain/recall-band.ts`, `study/server/study-state.ts`   |
 | Stages                                    | `study/domain/stages.ts`, `study/server/session-stage.ts`                                                         |
 | Review and practice selection             | `study/domain/review-queue.ts`, `study/domain/practice.ts`                                                        |
 | Priority                                  | `priorities/domain/priority.ts`                                                                                   |

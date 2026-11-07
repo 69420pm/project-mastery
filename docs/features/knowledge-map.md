@@ -300,7 +300,7 @@ The map is the tutoring's only source of what there is to learn. The tutoring re
 | The tutoring needs                              | It reads                                                   | Used for                                                                    |
 | ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
 | KCs, Prerequisites, Exercises, sources          | `loadStoredMap`: live KCs only, and links between live KCs | Every Attempt and FSRS card is per KC. Priority, due reviews and `getTopic` |
-| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The study plan and Today card                                               |
+| Topics with KCs of their own, in teaching order | `loadStoredTopics`                                         | The plan scope, the Ranking and the Today card                              |
 | The whole Topic tree                            | `loadTopicTree`                                            | Exam scopes inherited down the tree, the Course map                         |
 | Anchors                                         | `topicAnchors`                                             | `getTopic`: what a Topic builds on                                          |
 | Reading sections                                | `loadReadingSections`                                      | `getTopic` and the `showReading` tool                                       |
@@ -310,7 +310,7 @@ The map is the tutoring's only source of what there is to learn. The tutoring re
 
 **Rebuilding while a Student studies.** Tutoring reads the map fresh on every reply, so an update takes effect on the next one. Attempts stay valid because KC ids hold.
 
-**Dependency direction.** `study` and `priorities` import `knowledge-map`. `knowledge-map` never imports either, so the Course map's pages pass Topic states, Priorities and KC learning in as props.
+**Dependency direction.** `study` and `priorities` import `knowledge-map`. `knowledge-map` never imports either, so the Course map's pages pass each Topic's learned count and Readiness, Priorities and KC learning (recall bands) in as props.
 
 ## Where the code is
 
