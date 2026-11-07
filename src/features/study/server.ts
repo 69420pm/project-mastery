@@ -2,16 +2,15 @@
 // tutor a Student in a Chat. It reads the Knowledge map through the
 // knowledge-map feature, Priorities through priorities, the exam facts
 // through brief and chunks through ingestion. It owns the attempts log, the
-// FSRS cards replayed from it, the study plan (Phase and pacing)
-// derived on read, and the Memory the AI keeps per Course. The instructions, which are
-// pure, live in `index.ts`.
+// FSRS cards replayed from it, the ranking and plan scope derived on read,
+// and the Memory the AI keeps per Course. The instructions, which are pure,
+// live in `index.ts`.
 import "server-only";
 
 // Also here for the Chat's reply settings: `index.ts` loads the Memory card,
 // whose React components fail to import outside Next.js (smoke checks).
 export { tutorInstructions } from "./ai/instructions";
 export { endsReply, TutorToolError, type TutorTools } from "./ai/tools";
-export { getKcStates } from "./server/attempts";
 export { getKcLearning } from "./server/learning";
 export { getExamToReport } from "./server/exam-to-report";
 export {
@@ -22,8 +21,6 @@ export {
 } from "./server/math-runner";
 export { getMemory } from "./server/memory";
 export { getMockExam, getOpenMockExam } from "./server/mock-exams";
-export { getPlan } from "./server/plan";
-export { getReadiness } from "./server/readiness";
 export { loadProblemFlags } from "./server/problems";
 export { recordAnswer } from "./server/questions";
 export { sessionEndedMessage } from "./schemas";
@@ -32,7 +29,7 @@ export {
   endIdleSessions,
   getSessionEnd,
 } from "./server/sessions";
-export { getTopicStates } from "./server/topic-states";
+export { getStudyState } from "./server/study-state";
 export { startTutoring } from "./server/tutoring";
 // For the `generate` smoke check, which runs a queued run in process and
 // looks the variant up as the tutor would.
@@ -47,9 +44,8 @@ export { closeStudySession } from "./workflows/close-study-session";
 export type { CloseNotes, CloseSource } from "./domain/close";
 export type {
   GradedKc,
-  KcState,
-  KcStateName,
-  Phase,
-  StudyPlan,
+  KcBand,
+  RecallBand,
+  StudyState,
   TutorContext,
 } from "./types";

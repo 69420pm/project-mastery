@@ -1,7 +1,4 @@
 import "server-only";
-import { z } from "zod";
-import { getExamFacts } from "@/features/brief/server";
-import { kcState } from "@/features/study/domain/kc-state";
 import {
   replayCourse,
   type AttemptHelp,
@@ -10,11 +7,8 @@ import {
   type KcRecall,
   type ReplayAttempt,
 } from "@/features/study/domain/replay";
-import type { KcState } from "@/features/study/types";
-import { getUser } from "@/lib/auth/user";
 import { allRows } from "@/lib/supabase/all-rows";
 import { failed } from "@/lib/supabase/failed";
-import { createClient } from "@/lib/supabase/server";
 import type { Supabase } from "@/lib/supabase/types";
 
 /** A Course's attempt as the replay and the map page read it, oldest first. */
@@ -69,24 +63,6 @@ export async function loadRecall(
 ): Promise<Map<string, KcRecall>> {
   const attempts = await loadCourseAttempts(supabase, courseId);
   return replayCourse(attempts, { ...facts, now });
-}
-
-/**
- * When the Course's first Attempt was made, as an ISO timestamp, read with
- * `supabase`; null without one.
- */
-export async function loadFirstAttemptAt(
-  supabase: Supabase,
-  courseId: string,
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from("attempts")
-    .select("created_at, study_sessions!inner(course_id)")
-    .eq("study_sessions.course_id", courseId)
-    .order("created_at")
-    .limit(1);
-  if (error) failed("Loading the first attempt", error);
-  return data[0]?.created_at ?? null;
 }
 
 /**
@@ -201,21 +177,4 @@ export async function loadLastUnassistedSuccess(
     .filter((row) => row !== null)
     .toSorted((a, b) => b.created_at.localeCompare(a.created_at))[0];
   return last ? posed(last.questions) : null;
-}
-
-/**
- * The signed-in Student's KC states of a Course by KC id, replayed now with
- * the Brief's exam date and goal. Only taught KCs are listed: a missing KC
- * is new. An unknown or another Student's Course has none.
- */
-export async function getKcStates(
-  courseId: string,
-): Promise<Record<string, KcState>> {
-  if (!z.uuid().safeParse(courseId).success || !(await getUser())) return {};
-  const supabase = await createClient();
-  const exam = await getExamFacts(supabase, courseId);
-  const recall = await loadRecall(supabase, courseId, exam, new Date());
-  return Object.fromEntries(
-    [...recall].map(([kcId, kc]) => [kcId, kcState(kc)]),
-  );
 }

@@ -15,16 +15,16 @@ export { mockExamPath } from "./domain/mock-paths";
 export { ProblemFlagControl } from "./components/problem-flag-control";
 export { TopicChoiceControls } from "./components/topic-choice-controls";
 export { TodayCard } from "./components/today-card";
-export { PHASE_NAMES, topicBadges } from "./domain/plan";
+export { topicBadges } from "./domain/plan";
 export { recallText, scheduleText } from "./domain/schedule-text";
+export { isTodayMessage } from "./domain/today-messages";
 export { sessionEndedMessage } from "./schemas";
 export type {
-  CourseReadiness,
   GradedKc,
   MockExamView,
   ProblemFlag,
   ProblemView,
-  StudyPlan,
+  StudyState,
   TopicView,
   TutorContext,
 } from "./types";

@@ -111,9 +111,9 @@ describe("getTopic", () => {
     expect(result).toContain("How does an engine make thrust?");
     // Efficiency is in the Topic, but its sources were not asked for.
     expect(result).toContain("Propulsive efficiency");
-    // The anchor, with its state.
+    // The anchor, with its recall band.
     expect(result).toContain("Newton's second law");
-    expect(result).toContain('"state":"new"');
+    expect(result).toContain('"band":"new"');
     expect(result).toContain("Lecture 7");
     expect(result).toContain("p. 3");
     expect(result).toContain("pp. 4–5");

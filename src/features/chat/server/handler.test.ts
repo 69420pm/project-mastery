@@ -485,11 +485,13 @@ describe("a question", () => {
       kcs: [
         {
           id: MAP.thrust,
-          state: "learning",
+          // Recall is read at the end of today, so the band hangs on the
+          // hour the test runs.
+          band: expect.stringMatching(/^(strong|fading)$/),
           nextReview: new Date(Date.now() + 2 * 86_400_000)
             .toISOString()
             .slice(0, 10),
-          retrievability: expect.any(Number),
+          recallToday: expect.any(Number),
         },
       ],
     });

@@ -26,11 +26,11 @@ const brief: Props["brief"] = {
   reservedExam: null,
 };
 
-type Plan = ComponentProps<typeof ProgressLine>["plan"];
+type Plan = ComponentProps<typeof ProgressLine>["state"];
 
 const noProgress: Plan = {
   examDate: null,
-  progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
+  progress: { learned: 0, total: 0, daysIn: null, daysLeft: null },
 };
 
 const renderPanel = (
@@ -41,7 +41,7 @@ const renderPanel = (
       brief={{ ...brief, ...overrides.brief }}
       progress={
         <ProgressLine
-          plan={overrides.plan ?? noProgress}
+          state={overrides.plan ?? noProgress}
           empty="No KCs in the plan yet"
         />
       }
@@ -56,14 +56,14 @@ describe("the Progress section", () => {
     renderPanel({
       plan: {
         examDate: "2026-12-03",
-        progress: { known: 3, total: 10, daysIn: null, daysLeft: 1 },
+        progress: { learned: 3, total: 10, daysIn: null, daysLeft: 1 },
       },
     });
     expect(
       within(section()).getByRole("progressbar", { name: "Progress" }),
     ).toHaveAttribute("aria-valuenow", "3");
     expect(
-      within(section()).getByText("3 of 10 KCs known · 1 day left"),
+      within(section()).getByText("3 of 10 KCs learned · 1 day left"),
     ).toBeVisible();
     expect(screen.queryByRole("region", { name: "Study plan" })).toBeNull();
   });

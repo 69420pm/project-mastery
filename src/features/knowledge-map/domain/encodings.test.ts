@@ -7,7 +7,7 @@ import {
   priorityFractions,
   sizeScale,
 } from "./encodings";
-import { STATE_NAMES } from "./kc-labels";
+import { BAND_NAMES } from "./kc-labels";
 
 const priority = (level: "high" | "excluded", value: number) => ({
   level,
@@ -34,8 +34,9 @@ test("size scale shrinks a KC to 70% at the lowest Priority and none at all", ()
 });
 
 test("colours follow the chosen attribute", () => {
-  const kc = { state: "due" as const, fraction: 1 };
-  expect(kcColor("state", kc)).toBe("var(--warning)");
+  const kc = { band: "fading" as const, fraction: 1 };
+  expect(kcColor("band", kc)).toBe("var(--warning)");
+  expect(kcColor("band", { ...kc, band: "weak" })).toBe("var(--destructive)");
   expect(kcColor("priority", kc)).toBe("var(--chart-5)");
   expect(kcColor("priority", { ...kc, fraction: 0 })).toBe("var(--chart-1)");
   expect(kcColor("priority", { ...kc, fraction: undefined })).toBe(
@@ -44,8 +45,8 @@ test("colours follow the chosen attribute", () => {
 });
 
 test("the legend lists one entry per colour", () => {
-  expect(legendEntries("state", STATE_NAMES)).toHaveLength(4);
-  expect(legendEntries("priority", STATE_NAMES)).toHaveLength(4);
+  expect(legendEntries("band", BAND_NAMES)).toHaveLength(4);
+  expect(legendEntries("priority", BAND_NAMES)).toHaveLength(4);
 });
 
 test("saved settings fall back to the defaults when missing or invalid", () => {
@@ -59,7 +60,7 @@ test("saved settings fall back to the defaults when missing or invalid", () => {
       layers: { exercises: false },
     }),
   );
-  expect(parsed.colorBy).toBe("state");
+  expect(parsed.colorBy).toBe("band");
   expect(parsed.sizeByPriority).toBe(true);
   expect(parsed.layers.exercises).toBe(false);
   expect(parsed.layers.prerequisites).toBe(true);

@@ -131,7 +131,7 @@ const renderTopic = (detail: MapTopicDetail) =>
       map={map}
       priorities={{ kcs: {} }}
       learning={{}}
-      topicState={{ state: "solid", recall: 0.91 }}
+      study={{ learned: 2, total: 3, readiness: 0.91 }}
       badges={["pinned", "skipped"]}
       controls={<button type="button">Pin</button>}
     />,
@@ -185,10 +185,11 @@ describe("TopicDetail", () => {
     expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
   });
 
-  test("shows the Topic state and recall today", () => {
+  test("shows how many of its KCs are learned and its Readiness", () => {
     renderTopic(topic);
-    expect(screen.getByLabelText("Topic state: Solid")).toBeInTheDocument();
-    expect(screen.getByText("Recall today 91%")).toBeInTheDocument();
+    expect(
+      screen.getByText("2 of 3 learned · Readiness 91%"),
+    ).toBeInTheDocument();
   });
 
   test("links an anchor to its Topic and shows one in no Topic as text", () => {

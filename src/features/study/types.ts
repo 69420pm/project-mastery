@@ -1,20 +1,19 @@
-import type { KcState, KcStateName } from "@/features/study/domain/kc-state";
 import type {
   AttemptHelp,
   AttemptResult,
 } from "@/features/study/domain/replay";
 import type { MockStatus } from "@/features/study/domain/mock-paths";
-import type { Pace, Phase, Plan, Progress } from "@/features/study/domain/plan";
+import type { Pace, Progress, TopicScope } from "@/features/study/domain/plan";
 import type { ProblemSource } from "@/features/study/domain/exercises";
-import type { TodayPlan } from "@/features/study/domain/today";
+import type { KcBand, RecallBand } from "@/features/study/domain/recall-band";
 
 export type {
   AttemptHelp,
   AttemptResult,
-  KcState,
-  KcStateName,
-  Phase,
+  KcBand,
   ProblemSource,
+  RecallBand,
+  TopicScope,
 };
 
 /** Why a Student flags a generated Problem. */
@@ -49,18 +48,53 @@ export type MaterialNoteEntry = {
   text: string;
 };
 
+/** An item of the ranking (`rankNext`) as the Today card shows it. */
+export type NextItem = {
+  /** A due KC, a Topic with untaught KCs, or a taught KC to refresh. */
+  kind: "review" | "topic" | "refresh";
+  /** The KC's id, or the Topic's. */
+  id: string;
+  name: string;
+  /** The Topic's central question; null for a KC. */
+  centralQuestion: string | null;
+  /** At the Student's pace. */
+  minutes: number;
+};
+
+/** Where the Student stands on a Topic with KCs of its own. */
+export type TopicStudy = {
+  /** Its KCs that are learned, of all of them. */
+  learned: number;
+  total: number;
+  /** 0 to 1; null without weighted KCs. */
+  readiness: number | null;
+};
+
 /**
- * A Course's study plan over its Topics as the map and the Brief show it
- * (`planStudy`), with the measured pace it used, whether the Course has a
- * map, today's work (`planToday`), the Brief's exam date and the Progress
- * (`planProgress`).
+ * Where a Course's study stands, derived on every read (`getStudyState`):
+ * the ranking, the plan scope, Progress, Readiness and the latest graded
+ * mock's score.
  */
-export type StudyPlan = Plan & {
-  pace: Pace;
+export type StudyState = {
   hasMap: boolean;
-  today: TodayPlan;
+  /** Whether the stored map has Topics; false before a build stored them. */
+  hasTopics: boolean;
   examDate: string | null;
+  /** The exam day and the 7 days before it. */
+  finalStretch: boolean;
+  /** What is worth doing next, best first. */
+  ranking: NextItem[];
+  /** Each stored Topic's place in the plan, in Course order. */
+  scope: TopicScope[];
+  /** By Topic id; only Topics with KCs of their own. */
+  topics: Record<string, TopicStudy>;
   progress: Progress;
+  readiness: CourseReadiness;
+  /** The latest graded Mock exam's score, 0 to 100; null without one. */
+  lastMockPercent: number | null;
+  /** Whether any KC is taught. */
+  taught: boolean;
+  pace: Pace;
 };
 
 /** A source chunk as `getTopic` and `searchMaterials` return it. */
@@ -104,13 +138,13 @@ export type ProblemView = {
 };
 
 /**
- * A KC of a graded Question as `grade` returns it, with its new state.
+ * A KC of a graded Question as `grade` returns it, with its new band.
  */
 export type GradedKc = {
   id: string;
   name: string;
   result: AttemptResult;
-} & KcState;
+} & KcBand;
 
 /** A Reading section as the AI is told of it. */
 export type ReadingSectionView = {
@@ -131,11 +165,11 @@ export type ReadingView = {
  * (`loadSessionSummary`).
  */
 export type SessionSummary = {
-  /** Each KC with attempts in the session, with its state and next review. */
+  /** Each KC with attempts in the session, with its band and next review. */
   kcs: Array<{
     id: string;
     name: string;
-    state: KcStateName;
+    band: RecallBand;
     /** As YYYY-MM-DD; null without a card. */
     nextReview: string | null;
   }>;
@@ -159,11 +193,11 @@ export type TopicView = {
     id: string;
     name: string;
     description: string;
-    state: KcStateName;
+    band: RecallBand;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
   }>;
-  anchors: Array<{ id: string; name: string; state: KcStateName }> | null;
+  anchors: Array<{ id: string; name: string; band: RecallBand }> | null;
   /** In order. */
   readingSections: ReadingSectionView[] | null;
 };
@@ -227,14 +261,10 @@ export type MockTask = {
   grade: MockTaskGrade | null;
 };
 
-/** A Course's Readiness for the map (see `readiness`). */
+/** A Course's Readiness (see `readiness`). */
 export type CourseReadiness = {
   /** Over every KC with a Priority, 0 to 1; null without Priorities. */
   course: number | null;
-  /** Per Topic id, 0 to 1; a Topic without weighted KCs is missing. */
-  topics: Record<string, number>;
-  /** How many graded mocks check it; 0 means untested. */
-  mocks: number;
   /** Whether it is projected to an exam date still ahead. */
   onTheDay: boolean;
 };

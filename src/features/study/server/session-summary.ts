@@ -1,8 +1,8 @@
 import "server-only";
 import { getExamFacts } from "@/features/brief/server";
 import { loadStoredMap } from "@/features/knowledge-map/server";
-import { kcState } from "@/features/study/domain/kc-state";
-import { replayCourse } from "@/features/study/domain/replay";
+import { recallBand } from "@/features/study/domain/recall-band";
+import { desiredRetention, replayCourse } from "@/features/study/domain/replay";
 import { sessionEnd } from "@/features/study/domain/session-end";
 import { loadCourseAttempts } from "@/features/study/server/attempts";
 import type { SessionSummary } from "@/features/study/types";
@@ -11,7 +11,7 @@ import type { Supabase } from "@/lib/supabase/types";
 
 /**
  * What the close card shows of a Chat's Study session at `now`: each KC
- * with attempts in it with its state and next review. Null without a
+ * with attempts in it with its recall band and next review. Null without a
  * session.
  */
 export async function loadSessionSummary(
@@ -52,10 +52,12 @@ export async function loadSessionSummary(
       .map((attempt) => attempt.kcId),
   );
   return {
-    kcs: [...practised].map((id) => {
-      const { state, nextReview } = kcState(recall.get(id));
-      return { id, name: kcName.get(id) ?? id, state, nextReview };
-    }),
+    kcs: [...practised].map((id) => ({
+      id,
+      name: kcName.get(id) ?? id,
+      band: recallBand(recall.get(id), desiredRetention(exam.goal)),
+      nextReview: recall.get(id)?.nextReview ?? null,
+    })),
     ended:
       sessionEnd(
         {

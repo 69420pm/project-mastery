@@ -2,7 +2,7 @@ import type {
   CheckReportView,
   KcView,
   MapAttempt,
-  MapKcLearning,
+  MapRecallBand,
 } from "@/features/knowledge-map/types";
 
 /** How the map page names a KC's facts. */
@@ -24,11 +24,11 @@ export const HELP_NAMES: Record<MapAttempt["help"], string> = {
   solution_shown: "solution shown",
 };
 
-export const STATE_NAMES: Record<MapKcLearning[string]["state"], string> = {
+export const BAND_NAMES: Record<MapRecallBand, string> = {
   new: "New",
-  learning: "Learning",
-  due: "Due",
-  known: "Known",
+  strong: "Strong",
+  fading: "Fading",
+  weak: "Weak",
 };
 
 export const DIFFICULTY_NAMES: Record<1 | 2 | 3, string> = {

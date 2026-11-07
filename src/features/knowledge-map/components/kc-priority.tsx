@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { STATE_NAMES } from "@/features/knowledge-map/domain/kc-labels";
+import { BAND_NAMES } from "@/features/knowledge-map/domain/kc-labels";
 import type {
   MapKcLearning,
   MapPriorities,
@@ -17,15 +17,15 @@ const LEVELS: Record<
   excluded: { name: "Excluded", variant: "outline" },
 };
 
-/** A KC's state badge; a KC without attempts is new. */
-export function StateBadge({ state }: { state?: MapKcLearning[string] }) {
-  const name = state?.state ?? "new";
+/** A KC's recall band badge; a KC without attempts is new. */
+export function BandBadge({ learned }: { learned?: MapKcLearning[string] }) {
+  const band = learned?.band ?? "new";
   return (
     <Badge
-      variant={name === "due" ? "default" : "outline"}
-      aria-label={`State: ${STATE_NAMES[name]}`}
+      variant={band === "weak" ? "default" : "outline"}
+      aria-label={`Recall: ${BAND_NAMES[band]}`}
     >
-      {STATE_NAMES[name]}
+      {BAND_NAMES[band]}
     </Badge>
   );
 }

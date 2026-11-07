@@ -12,18 +12,12 @@ import {
   getSessionSummary,
   rateStudySession,
 } from "@/features/study/server/actions";
-import type { KcStateName, SessionSummary } from "@/features/study/types";
-
-const KC_STATE_NAMES: Record<KcStateName, string> = {
-  new: "New",
-  learning: "Learning",
-  due: "Due",
-  known: "Known",
-};
+import { BAND_NAMES } from "@/features/study/domain/recall-band";
+import type { SessionSummary } from "@/features/study/types";
 
 /**
  * Where a session's composer was, once it has ended: each KC practised
- * with its state and next review, then a rating from 1 to 5 with an
+ * with its recall band and next review, then a rating from 1 to 5 with an
  * optional note, and Start new session. Saving the rating ends the session.
  */
 export function CloseCard({
@@ -105,7 +99,7 @@ function SummaryFacts({ summary }: { summary: SessionSummary }) {
           {kcs.map((kc) => (
             <li key={kc.id} className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1">{kc.name}</span>
-              <Badge variant="outline">{KC_STATE_NAMES[kc.state]}</Badge>
+              <Badge variant="outline">{BAND_NAMES[kc.band]}</Badge>
               <span className="text-muted-foreground">
                 {kc.nextReview
                   ? `Next review ${kc.nextReview}`

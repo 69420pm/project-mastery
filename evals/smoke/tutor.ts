@@ -368,18 +368,10 @@ export const tutorSmoke: SmokeCheck = {
     // The KCs the question tests show what it was about, so a reply that
     // reads a due KC and then asks about a new one fails.
     const dueAsked = askedKcs.filter((kc) => due.has(kc));
-    // While its session is open, a KC first taught in it has no card yet; a
-    // review of one taught before gets its next review at once.
-    const earlier = new Set(taught);
-    const states = [second, fifth].flatMap(({ graded }) => {
-      const checked = graded.map((kc) =>
-        earlier.has(kc.id)
-          ? kc.nextReview !== null
-          : kc.state === "learning" && kc.nextReview === null,
-      );
-      for (const kc of graded) earlier.add(kc.id);
-      return checked;
-    });
+    // Under the per-day rule every graded KC has a card at once.
+    const states = [second, fifth].flatMap(({ graded }) =>
+      graded.map((kc) => kc.band !== "new" && kc.nextReview !== null),
+    );
     const knownIds = new Set([
       ...offered,
       ...replies.flatMap((reply) => reply.returned),
@@ -421,11 +413,11 @@ export const tutorSmoke: SmokeCheck = {
         `${recorded.length} attempts for ${askedKcs.length} KCs; ${describe(second.calls)}`,
       ),
       result(
-        "grade gave a new KC learning without a next review, a review one",
+        "grade gave every KC a recall band and a next review",
         states.length > 0 && states.every(Boolean),
         JSON.stringify(
           [...second.graded, ...fifth.graded].map(
-            ({ id, state, nextReview }) => ({ id, state, nextReview }),
+            ({ id, band, nextReview }) => ({ id, band, nextReview }),
           ),
         ),
       ),

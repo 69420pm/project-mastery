@@ -88,6 +88,11 @@ type ChatProps = {
    * feature's Today card, which the page passes in.
    */
   emptyState?: ReactNode;
+  /**
+   * A new Chat's first message, sent as the Student once it opens, such as
+   * a Today card button's.
+   */
+  initialMessage?: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
   /**
@@ -107,6 +112,7 @@ export function Chat({
   materials: courseMaterials,
   ownerId,
   emptyState,
+  initialMessage,
   dailyLimit: initialDailyLimit,
   showDetails,
 }: ChatProps) {
@@ -209,6 +215,16 @@ export function Chat({
       label: chatLabel({ title: null, firstMessage }),
     });
   }, [isNew, status, path, chatId, firstMessage, noteChatActivity]);
+
+  // Sent once, also under Strict Mode's second effect run.
+  const initialSent = useRef(false);
+  useEffect(() => {
+    if (!isNew || !initialMessage || limitReached || initialSent.current) {
+      return;
+    }
+    initialSent.current = true;
+    void sendMessage({ parts: [{ type: "text", text: initialMessage }] });
+  }, [isNew, initialMessage, limitReached, sendMessage]);
 
   const isBusy = status === "submitted" || status === "streaming";
   // Ended on the server, here with End session, or found idle by the

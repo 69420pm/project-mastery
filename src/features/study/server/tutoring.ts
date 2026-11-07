@@ -16,8 +16,8 @@ import {
 import { loadRecall } from "@/features/study/server/attempts";
 import { findProblems } from "@/features/study/server/find-problems";
 import { isReadyProblem } from "@/features/study/server/problems";
-import { kcState } from "@/features/study/domain/kc-state";
-import { utcDay } from "@/features/study/domain/replay";
+import { kcBand } from "@/features/study/domain/recall-band";
+import { desiredRetention, utcDay } from "@/features/study/domain/replay";
 import { mathRunner } from "@/features/study/server/math-runner";
 import { appendMemory, loadMemory } from "@/features/study/server/memory";
 import {
@@ -198,7 +198,7 @@ function tutorToolActions(
         id: kcId,
         name: kcById.get(kcId)?.name ?? kcId,
         result,
-        ...kcState(recall.get(kcId)),
+        ...kcBand(recall.get(kcId), desiredRetention(facts.goal)),
       }));
     },
     compute: (program) => mathRunner.run(program),
@@ -233,7 +233,8 @@ function tutorToolActions(
         );
       }
       const recall = await loadRecall(supabase, courseId, facts, new Date());
-      const stateOf = (id: string) => kcState(recall.get(id)).state;
+      const bandOf = (id: string) =>
+        kcBand(recall.get(id), desiredRetention(facts.goal)).band;
       const wanted = new Set(kcIds ?? topic?.kcs);
       const ids = topic?.kcs ?? [...wanted];
       const kcs = ids.flatMap((id) => kcById.get(id) ?? []);
@@ -252,7 +253,7 @@ function tutorToolActions(
           id: kc.id,
           name: kc.name,
           description: kc.description,
-          state: stateOf(kc.id),
+          band: bandOf(kc.id),
           sources: wanted.has(kc.id)
             ? chunks
                 .filter((chunk) => kc.sources.includes(chunk.id))
@@ -264,7 +265,7 @@ function tutorToolActions(
           topic &&
           topicAnchors(topic.kcs, map).map((kc) => ({
             ...kc,
-            state: stateOf(kc.id),
+            band: bandOf(kc.id),
           })),
         readingSections:
           topic &&

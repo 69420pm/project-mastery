@@ -21,6 +21,6 @@ export type {
   MapPriorities,
   MapTopic,
   MapTopicDetail,
-  MapTopicState,
-  MapTopicStates,
+  MapTopicStudies,
+  MapTopicStudy,
 } from "./types";

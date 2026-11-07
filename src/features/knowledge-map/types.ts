@@ -93,19 +93,22 @@ export type MapAttempt = {
   exerciseId: string | null;
 };
 
+/** A KC's recall band: untaught, or its recall at the end of today. */
+export type MapRecallBand = "new" | "strong" | "fading" | "weak";
+
 /**
  * What the Student has learned of each KC, which the page passes in, by KC
- * id: its state, next review and today's recall, and its attempts newest
- * first. A KC missing here is new, without attempts.
+ * id: its recall band, recall today and next review, and its attempts
+ * newest first. A KC missing here is new, without attempts.
  */
 export type MapKcLearning = Record<
   string,
   {
-    state: "new" | "learning" | "due" | "known";
+    band: MapRecallBand;
+    /** 0 to 1; null without an FSRS card. */
+    recallToday: number | null;
     /** As YYYY-MM-DD; null without an FSRS card. */
     nextReview: string | null;
-    /** Today's FSRS recall, 0 to 1; null without an FSRS card. */
-    retrievability: number | null;
     attempts: MapAttempt[];
   }
 >;
@@ -126,25 +129,20 @@ export type MapTopic = {
 };
 
 /**
- * Where the Student stands on a Topic: its Topic state and the mean of its
- * KCs' recall today, 0 to 1.
+ * Where the Student stands on a Topic with KCs of its own: how many of its
+ * KCs are learned, and its Readiness, 0 to 1 (null without weighted KCs).
  */
-export type MapTopicState = {
-  state: "new" | "in_progress" | "learned" | "solid";
-  recall: number;
+export type MapTopicStudy = {
+  learned: number;
+  total: number;
+  readiness: number | null;
 };
 
 /**
- * Each Topic's `MapTopicState`, which the page passes in, by Topic id. A
- * Topic missing here is new, with no recall.
- */
-export type MapTopicStates = Record<string, MapTopicState>;
-
-/**
- * Each Topic's Readiness, 0 to 1, which the page passes in, by Topic id. A
+ * Each Topic's `MapTopicStudy`, which the page passes in, by Topic id. A
  * Topic missing here shows none.
  */
-export type MapTopicReadiness = Record<string, number>;
+export type MapTopicStudies = Record<string, MapTopicStudy>;
 
 /**
  * The study plan's badges of each Topic, such as "pinned", which the

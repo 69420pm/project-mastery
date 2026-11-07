@@ -18,10 +18,10 @@ const summary: SessionSummary = {
     {
       id: "k1",
       name: "Thrust equation",
-      state: "learning",
+      band: "fading",
       nextReview: "2026-10-27",
     },
-    { id: "k2", name: "Mass flow", state: "new", nextReview: null },
+    { id: "k2", name: "Mass flow", band: "new", nextReview: null },
   ],
   ended: false,
   rating: null,
@@ -56,7 +56,7 @@ test("shows each KC practised with its next review", async () => {
       .getAllByRole("listitem")
       .map((li) => li.textContent),
   ).toEqual([
-    "Thrust equationLearningNext review 2026-10-27",
+    "Thrust equationFadingNext review 2026-10-27",
     "Mass flowNewNo review planned",
   ]);
   expect(

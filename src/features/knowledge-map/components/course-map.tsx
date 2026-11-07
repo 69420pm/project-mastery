@@ -18,11 +18,9 @@ import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions"
 import type {
   KnowledgeMapView,
   MapBuild,
-  MapKcLearning,
   MapTopic,
   MapTopicBadges,
-  MapTopicReadiness,
-  MapTopicStates,
+  MapTopicStudies,
 } from "@/features/knowledge-map/types";
 import { CourseMapGraph } from "./course-map-graph";
 
@@ -36,20 +34,18 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's home, the Course map: the build's state with Build or Update
- * map, the reviews due and the Progress line (`progressLine`, a slot,
- * since the study feature that owns the plan depends on this one), the
- * Today card (`today`, a slot too), then its Topic tree as a graph of
- * nested boxes filling the rest of the page, each with its Topic state and recall
- * today from `topicStates` and its plan badges from `topicBadges`, which the
- * page passes in since the study feature computes them. The page refreshes
- * itself while a build runs.
+ * map, the Progress and Readiness lines (`progressLine` and
+ * `readinessLine`, slots, since the study feature that owns them depends
+ * on this one), the Today card (`today`, a slot too), then its Topic tree
+ * as a graph of nested boxes filling the rest of the page, each with how
+ * many of its KCs are learned and its Readiness from `topicStudies` and its
+ * plan badges from `topicBadges`, which the page passes in since the study
+ * feature computes them. The page refreshes itself while a build runs.
  */
 export function CourseMap({
   map,
   topics,
-  learning,
-  topicStates,
-  topicReadiness = {},
+  topicStudies,
   topicBadges,
   progressLine,
   readinessLine,
@@ -59,9 +55,7 @@ export function CourseMap({
   map: KnowledgeMapView;
   /** The Topic tree in tree order; empty before a build stored Topics. */
   topics: MapTopic[];
-  learning: MapKcLearning;
-  topicStates: MapTopicStates;
-  topicReadiness?: MapTopicReadiness;
+  topicStudies: MapTopicStudies;
   topicBadges: MapTopicBadges;
   /** The study feature's Progress line, shown in the header. */
   progressLine: ReactNode;
@@ -73,7 +67,6 @@ export function CourseMap({
   checkDetails?: boolean;
 }) {
   const { kcs } = map;
-  const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building);
   const buildButton = (
@@ -96,9 +89,6 @@ export function CourseMap({
           <BuildStatus build={map.build} />
           {kcs.length > 0 && (
             <>
-              <p>
-                {dueCount} {dueCount === 1 ? "review" : "reviews"} due
-              </p>
               {progressLine}
               {readinessLine}
             </>
@@ -141,8 +131,7 @@ export function CourseMap({
             <CourseMapGraph
               map={map}
               topics={topics}
-              topicStates={topicStates}
-              topicReadiness={topicReadiness}
+              topicStudies={topicStudies}
               topicBadges={topicBadges}
             />
           </div>
