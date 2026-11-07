@@ -89,26 +89,42 @@ async function withinTimeLimit(run: Promise<SmokeResult[]>) {
  */
 const GEMINI_RPM = Number(process.env.AI_SMOKE_RPM || 14);
 
-/** Whether `url` is a Gemini API request; false for a non-URL. */
-function isGeminiApi(url: string) {
+/**
+ * AI Gateway's free credit: 5 requests per minute per provider, for
+ * `cohere/embed-v5.0-fast` as for MiMo (docs/agents/live-ai.md). A build's
+ * embeddings come faster, so the runner holds those requests too.
+ */
+const GATEWAY_RPM = 5;
+
+/** The request limit per minute of `url`'s host; null when unpaced. */
+function limitOf(url: string): { host: string; rpm: number } | null {
+  let host: string;
   try {
-    return new URL(url).hostname === "generativelanguage.googleapis.com";
+    host = new URL(url).hostname;
   } catch {
-    return false;
+    return null;
   }
+  if (host === "generativelanguage.googleapis.com") {
+    return { host, rpm: GEMINI_RPM };
+  }
+  if (host === "ai-gateway.vercel.sh") return { host, rpm: GATEWAY_RPM };
+  return null;
 }
 
-/** Wraps `fetch` so Gemini API requests keep within GEMINI_RPM. */
-function paceGeminiRequests() {
-  const sent: number[] = [];
+/** Wraps `fetch` so Gemini and AI Gateway requests keep within their limits. */
+function paceModelRequests() {
+  const sentBy = new Map<string, number[]>();
   const fetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
-    if (isGeminiApi(url)) {
+    const limit = limitOf(url);
+    if (limit) {
+      const sent = sentBy.get(limit.host) ?? [];
+      sentBy.set(limit.host, sent);
       for (;;) {
         const now = Date.now();
         while (sent.length > 0 && sent[0]! <= now - 60_000) sent.shift();
-        if (sent.length < GEMINI_RPM) break;
+        if (sent.length < limit.rpm) break;
         await new Promise((resolve) =>
           setTimeout(resolve, sent[0]! + 60_000 - now + 100),
         );
@@ -217,7 +233,7 @@ async function main() {
   for (const override of GENERATING_TASK_OVERRIDES) {
     process.env[override] = model;
   }
-  paceGeminiRequests();
+  paceModelRequests();
 
   const supabase = createAdminClient();
   const studentId = await createStudent(supabase);
