@@ -11,7 +11,9 @@ const description = z.string().trim().min(1).max(1000);
 /**
  * A knowledge component that its `sources` chunks teach. It comes from the
  * content, or from an exercise that needs it when the content does not
- * teach it. A KC the Materials assume but never teach has no sources.
+ * teach it. What the Materials assume but never teach is no KC: it is text
+ * on the KC that assumes it (`kcs.assumes`), and a KC whose sources are
+ * gone is retired.
  */
 const kcSchema = z.object({
   id,
