@@ -244,10 +244,31 @@ test.describe("signed in", () => {
         tutor_context: {
           today: "2026-10-16",
           examDate: "2026-12-03",
+          daysLeft: 48,
           goal: "pass",
-          memory: "2026-10-01: Likes worked examples.",
-          briefNotes: null,
-          materialNotes: [],
+          session: {
+            minutes: 0,
+            checkedToday: [],
+            openQuestion: null,
+            minutesSinceGraded: null,
+            readings: [],
+          },
+          proposal: {
+            finalStretch: false,
+            reviews: [],
+            moreReviews: 0,
+            topic: null,
+          },
+          practice: [],
+          topics: [],
+          notes: {
+            topics: [],
+            memory: "2026-10-01: Likes worked examples.",
+            briefNotes: null,
+            materialNotes: [],
+            lastSession: null,
+          },
+          mock: null,
         },
       });
     expect(error).toBeNull();

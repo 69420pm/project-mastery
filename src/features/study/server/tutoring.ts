@@ -1,11 +1,11 @@
 import "server-only";
-import { getBriefNotes, getExamFacts } from "@/features/brief/server";
 import { loadChunkSources } from "@/features/ingestion/server";
 import {
-  loadReadingSections,
-  loadStoredMap,
-  loadStoredTopics,
+  loadKcAssumes,
   topicAnchors,
+  type loadReadingSections,
+  type loadStoredMap,
+  type loadStoredTopics,
 } from "@/features/knowledge-map/server";
 import {
   TutorToolError,
@@ -13,86 +13,74 @@ import {
   type TutorToolActions,
   type TutorTools,
 } from "@/features/study/ai/tools";
+import { kcBand } from "@/features/study/domain/recall-band";
+import { desiredRetention } from "@/features/study/domain/replay";
 import { loadRecall } from "@/features/study/server/attempts";
 import { findProblems } from "@/features/study/server/find-problems";
-import { isReadyProblem } from "@/features/study/server/problems";
-import { kcBand } from "@/features/study/domain/recall-band";
-import { desiredRetention, utcDay } from "@/features/study/domain/replay";
 import { mathRunner } from "@/features/study/server/math-runner";
-import { appendMemory, loadMemory } from "@/features/study/server/memory";
+import { appendMemory } from "@/features/study/server/memory";
+import { isReadyProblem } from "@/features/study/server/problems";
 import {
-  findSessionQuestion,
+  closeQuestion,
+  findNewestQuestion,
   insertQuestion,
-  loadSessionId,
+  loadTutorSession,
   saveAttempts,
 } from "@/features/study/server/questions";
-import { loadMaterialNotes } from "@/features/study/server/notes";
-import { getSessionEnd } from "@/features/study/server/sessions";
-import type { TutorContext } from "@/features/study/types";
 import { searchChunks } from "@/features/study/server/search";
-import {
-  loadReservedChunks,
-  withoutReserved,
-  withoutReservedSections,
-} from "@/features/study/server/reserved-exam";
+import { getSessionEnd } from "@/features/study/server/sessions";
 import { readingLabel, sourceView } from "@/features/study/server/source-view";
+import { loadTutorContext } from "@/features/study/server/tutor-context";
+import type { TutorContext } from "@/features/study/types";
 import type { Supabase } from "@/lib/supabase/types";
 
 type KnowledgeMap = Awaited<ReturnType<typeof loadStoredMap>>;
 
 /** The most source chunks `getTopic` gives per KC. */
 const SOURCES_PER_KC = 3;
+
 /**
  * What the AI tutors a reply in a Course's Chat with, read with `supabase`,
- * the Student's session client: the tutor context for its instructions and
- * its tools, which ask and grade questions in the Chat's Study session.
- * Read on every reply, so both are current.
+ * the Student's session client: the tutor context (#251) and the tools,
+ * which ask and grade Questions in the Chat's Study session. Read on every
+ * reply, so both are current. `openedSections` are the Reading sections
+ * the Chat's `showReading` calls opened. On the session's first reply it
+ * tops up the Problem stock of the ranking's next Topic.
  */
 export async function startTutoring(
   supabase: Supabase,
   courseId: string,
   chatId: string,
+  {
+    openedSections,
+    firstReply,
+  }: { openedSections: string[]; firstReply: boolean },
 ): Promise<{ context: TutorContext; tools: TutorTools }> {
-  const [
-    storedMap,
-    memory,
-    exam,
-    storedReadings,
-    topics,
-    reserved,
-    briefNotes,
-    materialNotes,
-  ] = await Promise.all([
-    loadStoredMap(supabase, courseId),
-    loadMemory(supabase, courseId),
-    getExamFacts(supabase, courseId),
-    loadReadingSections(supabase, courseId),
-    loadStoredTopics(supabase, courseId),
-    loadReservedChunks(supabase, courseId),
-    getBriefNotes(supabase, courseId),
-    loadMaterialNotes(supabase, courseId),
-  ]);
-  // The reserved exam stays unseen: the tutor never gets its chunks.
-  const map = withoutReserved(storedMap, reserved);
-  const readings = withoutReservedSections(storedReadings, reserved);
+  const session = await loadTutorSession(supabase, chatId);
+  const loaded = await loadTutorContext(
+    supabase,
+    { courseId, session, openedSections },
+    new Date(),
+  );
+  if (firstReply && loaded.nextTopicId !== null) {
+    // Loaded on use: `workflow/api` fails to import in the component tests
+    // (docs/agents/notes/workflow-imports.md).
+    const { queueProblemGeneration } =
+      await import("@/features/study/server/problem-generation");
+    await queueProblemGeneration(supabase, courseId, loaded.nextTopicId);
+  }
   return {
-    context: {
-      today: utcDay(new Date()),
-      examDate: exam.examDate,
-      goal: exam.goal,
-      memory,
-      briefNotes: briefNotes === null ? null : briefNotes.slice(-4000),
-      materialNotes,
-    },
+    context: loaded.context,
     tools: tutorTools(
       tutorToolActions(supabase, {
         courseId,
         chatId,
-        facts: { examDate: exam.examDate, goal: exam.goal },
-        map,
-        topics,
-        readings,
-        reserved,
+        sessionId: session?.id ?? null,
+        facts: loaded.exam,
+        map: loaded.map,
+        topics: loaded.topics,
+        readings: loaded.readings,
+        reserved: loaded.reserved,
       }),
     ),
   };
@@ -103,6 +91,7 @@ function tutorToolActions(
   {
     courseId,
     chatId,
+    sessionId,
     facts,
     map,
     topics,
@@ -111,6 +100,7 @@ function tutorToolActions(
   }: {
     courseId: string;
     chatId: string;
+    sessionId: string | null;
     facts: Parameters<typeof loadRecall>[2];
     map: KnowledgeMap;
     topics: Awaited<ReturnType<typeof loadStoredTopics>>;
@@ -120,26 +110,23 @@ function tutorToolActions(
   },
 ): TutorToolActions {
   const kcById = new Map(map.kcs.map((kc) => [kc.id, kc]));
-  // The Chat's session, read once per reply when a question needs it.
-  let sessionId: Promise<string | null> | undefined;
-  const session = async () => {
-    sessionId ??= loadSessionId(supabase, chatId);
-    const id = await sessionId;
-    if (id === null) {
+  const session = () => {
+    if (sessionId === null) {
       throw new TutorToolError("This Chat has no Study session yet.");
     }
-    return id;
+    return sessionId;
   };
   const requireKnown = (kcIds: string[]) => {
     const unknown = kcIds.filter((id) => !kcById.has(id));
     if (unknown.length > 0) {
       throw new TutorToolError(
-        `These are no KC ids of this Course: ${unknown.join(", ")}. Use the KC ids that getTopic returns.`,
+        `These are no KC ids of this Course: ${unknown.join(", ")}. Use the KC ids of the context or of getTopic.`,
       );
     }
   };
   const sourceOf = (chunk: Parameters<typeof sourceView>[1]) =>
     sourceView(courseId, chunk);
+  const retention = desiredRetention(facts.goal);
   return {
     async searchMaterials(query) {
       return (await searchChunks(supabase, courseId, query, reserved)).map(
@@ -170,24 +157,31 @@ function tutorToolActions(
       }
       const questionId = await insertQuestion(supabase, {
         ...question,
-        sessionId: await session(),
+        sessionId: session(),
         kcIds,
         exerciseId,
         problemId: generatedProblemId,
       });
       return { questionId, generatedProblemId };
     },
-    async findQuestion(questionId) {
+    async findQuestion() {
       const [question, end] = await Promise.all([
-        findSessionQuestion(supabase, await session(), questionId),
+        findNewestQuestion(supabase, session()),
         getSessionEnd(supabase, chatId),
       ]);
-      return question && { ...question, sessionEnded: end !== null };
+      if (!question) return null;
+      return {
+        ...question,
+        // A KC retired since the ask is out of the map.
+        kcIds: question.kcIds.filter((id) => kcById.has(id)),
+        retiredKcIds: question.kcIds.filter((id) => !kcById.has(id)),
+        sessionEnded: end !== null,
+      };
     },
     async saveGrade({ questionId, help, results, check }) {
       const saved = await saveAttempts(supabase, {
         questionId,
-        sessionId: await session(),
+        sessionId: session(),
         help,
         results,
         check,
@@ -198,9 +192,10 @@ function tutorToolActions(
         id: kcId,
         name: kcById.get(kcId)?.name ?? kcId,
         result,
-        ...kcBand(recall.get(kcId), desiredRetention(facts.goal)),
+        ...kcBand(recall.get(kcId), retention),
       }));
     },
+    closeQuestion: (questionId) => closeQuestion(supabase, questionId),
     compute: (program) => mathRunner.run(program),
     async findReading(sectionId) {
       // `readings` leaves out the reserved exam's sections.
@@ -232,9 +227,11 @@ function tutorToolActions(
           `These KCs are not in this Topic: ${foreign.join(", ")}. Use the ids of its KCs.`,
         );
       }
-      const recall = await loadRecall(supabase, courseId, facts, new Date());
-      const bandOf = (id: string) =>
-        kcBand(recall.get(id), desiredRetention(facts.goal)).band;
+      const [recall, assumes] = await Promise.all([
+        loadRecall(supabase, courseId, facts, new Date()),
+        loadKcAssumes(supabase, courseId),
+      ]);
+      const bandOf = (id: string) => kcBand(recall.get(id), retention);
       const wanted = new Set(kcIds ?? topic?.kcs);
       const ids = topic?.kcs ?? [...wanted];
       const kcs = ids.flatMap((id) => kcById.get(id) ?? []);
@@ -249,23 +246,28 @@ function tutorToolActions(
         id: topic?.id ?? null,
         name: topic?.name ?? null,
         centralQuestion: topic?.centralQuestion ?? null,
-        kcs: kcs.map((kc) => ({
-          id: kc.id,
-          name: kc.name,
-          description: kc.description,
-          band: bandOf(kc.id),
-          sources: wanted.has(kc.id)
-            ? chunks
-                .filter((chunk) => kc.sources.includes(chunk.id))
-                .slice(0, SOURCES_PER_KC)
-                .map(sourceOf)
-            : [],
-        })),
+        kcs: kcs.map((kc) => {
+          const { band, recallToday } = bandOf(kc.id);
+          return {
+            id: kc.id,
+            name: kc.name,
+            description: kc.description,
+            band,
+            recallToday,
+            assumes: assumes.get(kc.id) ?? [],
+            sources: wanted.has(kc.id)
+              ? chunks
+                  .filter((chunk) => kc.sources.includes(chunk.id))
+                  .slice(0, SOURCES_PER_KC)
+                  .map(sourceOf)
+              : [],
+          };
+        }),
         anchors:
           topic &&
           topicAnchors(topic.kcs, map).map((kc) => ({
             ...kc,
-            band: bandOf(kc.id),
+            band: bandOf(kc.id).band,
           })),
         readingSections:
           topic &&

@@ -24,7 +24,7 @@ export {
 } from "./server/course-topics";
 export { getKnowledgeMap } from "./server/queries";
 export { getTopicNames } from "./server/topic-names";
-export { loadStoredMap } from "./server/stored-map";
+export { loadKcAssumes, loadStoredMap } from "./server/stored-map";
 export {
   loadStoredTopics,
   loadTopicTree,

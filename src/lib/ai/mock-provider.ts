@@ -37,13 +37,32 @@ type Part = {
   mediaType?: string;
 };
 
-function lastUserParts(prompt: Prompt): Part[] {
+/**
+ * The block a Chat's handler puts in front of the newest Student message:
+ * the tutor context, which the mock reads ids from but never echoes.
+ */
+const CONTEXT_START = "<tutor-context>";
+
+const isContext = (part: Part) =>
+  part.type === "text" && (part.text ?? "").startsWith(CONTEXT_START);
+
+function lastUserContent(prompt: Prompt): Part[] {
   const message = prompt.findLast((m) => m.role === "user");
   if (!message) return [];
   if (typeof message.content === "string") {
     return [{ type: "text", text: message.content }];
   }
   return Array.isArray(message.content) ? (message.content as Part[]) : [];
+}
+
+/** The newest Student message's parts, without the tutor context. */
+function lastUserParts(prompt: Prompt): Part[] {
+  return lastUserContent(prompt).filter((part) => !isContext(part));
+}
+
+/** The tutor context in front of the newest Student message, or "". */
+function tutorContextText(prompt: Prompt): string {
+  return lastUserContent(prompt).find(isContext)?.text ?? "";
 }
 
 const MOCK_REPLY_START = 'Mock reply to "';
@@ -174,17 +193,16 @@ type ToolPart = {
   type: string;
   toolName?: string;
   input?: unknown;
-  output?: { value?: { questionId?: unknown } };
+  output?: { type?: string };
 };
 
 /**
- * The question the reply before the Student's last message asked and did
- * not grade, with its KCs: the one that message answers.
+ * The KCs of the question the reply before the Student's last message
+ * asked, when the ask succeeded and no grade followed: the one that message
+ * answers.
  */
-function openQuestion(
-  prompt: Prompt,
-): { questionId: string; kcIds: string[] } | undefined {
-  let questionId: string | undefined;
+function openQuestion(prompt: Prompt): { kcIds: string[] } | undefined {
+  let asked = false;
   for (const message of prompt.toReversed().slice(1)) {
     if (message.role === "user") return undefined;
     if (!Array.isArray(message.content)) continue;
@@ -193,16 +211,13 @@ function openQuestion(
         return undefined;
       }
       if (part.type === "tool-result" && part.toolName === "ask") {
-        const id = part.output?.value?.questionId;
-        questionId = typeof id === "string" ? id : undefined;
+        asked = part.output?.type !== "error-text";
       }
       if (part.type === "tool-call" && part.toolName === "ask") {
         const input = (
           typeof part.input === "string" ? JSON.parse(part.input) : part.input
         ) as { kcIds?: string[] };
-        return questionId
-          ? { questionId, kcIds: input.kcIds ?? [] }
-          : undefined;
+        return asked ? { kcIds: input.kcIds ?? [] } : undefined;
       }
     }
   }
@@ -211,10 +226,11 @@ function openQuestion(
 
 /**
  * In a Chat, the tutor's questions and readings: a Student message starting
- * with "Quiz me" gets an `ask` call on the first KC id the instructions name,
- * one starting with "Read with me" a `showReading` call on the first Reading
- * section they list, and any other message right after an `ask` a `grade`
- * call with every KC of the asked question full. Each then ends its step.
+ * with "Quiz me" gets an `ask` call on the first KC id the tutor context
+ * names, one starting with "Read with me" a `showReading` call on the first
+ * Reading section it names, and any other message right after an `ask` a
+ * `grade` call with every KC of the asked question full. Each then ends its
+ * step.
  */
 function mockTutorQuestions(
   prompt: Prompt,
@@ -232,17 +248,13 @@ function mockTutorQuestions(
     openQuestion(prompt);
   if (answered) {
     return toolCallStream("mock-grade", "grade", {
-      questionId: answered.questionId,
       results: answered.kcIds.map((kcId) => ({ kcId, result: "full" })),
       help: "none",
     });
   }
-  const system = prompt.find(({ role }) => role === "system")?.content;
+  const context = tutorContextText(prompt);
   if (text.startsWith(MOCK_READING_REQUEST)) {
-    const sectionId =
-      typeof system === "string"
-        ? new RegExp(`section id (${UUID})`).exec(system)?.[1]
-        : undefined;
+    const sectionId = new RegExp(`section id (${UUID})`).exec(context)?.[1];
     if (!sectionId) return null;
     return toolCallStream("mock-show-reading", "showReading", {
       sectionId,
@@ -250,11 +262,7 @@ function mockTutorQuestions(
     });
   }
   if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
-  const kcId =
-    typeof system === "string"
-      ? // A KC's id is followed by its state or Topic; a Topic's by a parenthesis.
-        new RegExp(`\\(id (${UUID})[;,]`).exec(system)?.[1]
-      : undefined;
+  const kcId = new RegExp(`KC id (${UUID})`).exec(context)?.[1];
   if (!kcId) return null;
   return toolCallStream("mock-ask", "ask", {
     prompt: MOCK_QUESTION,

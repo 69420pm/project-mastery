@@ -5,6 +5,7 @@ import type {
   FinalValueCheck,
   QuestionToGrade,
 } from "@/features/study/ai/tools";
+import { joinAnswer } from "@/features/study/domain/answers";
 import type {
   AttemptHelp,
   AttemptResult,
@@ -17,23 +18,55 @@ import type { Supabase } from "@/lib/supabase/types";
  * the Chat, and the attempts their grading stores (ADR 0018).
  */
 
-const isUuid = (value: string) => z.uuid().safeParse(value).success;
+/** A Chat's Study session as the tutor reads it. */
+export type TutorSession = {
+  id: string;
+  startedAt: string;
+  /** The graded Mock exam it goes through; null for none. */
+  mockId: string | null;
+};
 
-/** The most characters `questions.answer_text` holds. */
-const MAX_ANSWER_TEXT = 20_000;
-
-/** The id of the Chat's Study session, or null without one. */
-export async function loadSessionId(
+/** The Chat's Study session, or null without one. */
+export async function loadTutorSession(
   supabase: Supabase,
   chatId: string,
-): Promise<string | null> {
+): Promise<TutorSession | null> {
   const { data, error } = await supabase
     .from("study_sessions")
-    .select("id")
+    .select("id, started_at, mock_id")
     .eq("chat_id", chatId)
     .maybeSingle();
   if (error) failed("Loading the Study session", error);
-  return data?.id ?? null;
+  return (
+    data && { id: data.id, startedAt: data.started_at, mockId: data.mock_id }
+  );
+}
+
+/** The session's Questions, oldest first, as the tutor context reads them. */
+export async function loadSessionQuestions(
+  supabase: Supabase,
+  sessionId: string,
+): Promise<
+  Array<{
+    prompt: string;
+    kcIds: string[];
+    answered: boolean;
+    gradedAt: string | null;
+  }>
+> {
+  const { data, error } = await supabase
+    .from("questions")
+    .select("prompt, answered_at, graded_at, question_kcs(kc_id)")
+    .eq("session_id", sessionId)
+    .order("asked_at")
+    .order("id");
+  if (error) failed("Loading the session's Questions", error);
+  return data.map((row) => ({
+    prompt: row.prompt,
+    kcIds: row.question_kcs.map(({ kc_id }) => kc_id),
+    answered: row.answered_at !== null,
+    gradedAt: row.graded_at,
+  }));
 }
 
 /** Stores a question with its KCs in a session; returns its id. */
@@ -71,22 +104,23 @@ export async function insertQuestion(
 }
 
 /**
- * A question of the session, as `grade` checks it, but for whether the
- * session has ended; null for any other id.
+ * The session's newest Question, as `ask` and `grade` check it, but for
+ * whether the session has ended and which of its KCs are live: `kcIds` holds
+ * all it tests. Null without one.
  */
-export async function findSessionQuestion(
+export async function findNewestQuestion(
   supabase: Supabase,
   sessionId: string,
-  questionId: string,
-): Promise<Omit<QuestionToGrade, "sessionEnded"> | null> {
-  if (!isUuid(questionId)) return null;
+): Promise<Omit<QuestionToGrade, "sessionEnded" | "retiredKcIds"> | null> {
   const { data, error } = await supabase
     .from("questions")
     .select(
-      "answered_at, graded_at, question_kcs(kc_id), exercises(final_answers), problems(final_answers)",
+      "id, answered_at, graded_at, question_kcs(kc_id), exercises(final_answers), problems(final_answers)",
     )
-    .eq("id", questionId)
     .eq("session_id", sessionId)
+    .order("asked_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) failed("Loading the question", error);
   if (!data) return null;
@@ -98,6 +132,7 @@ export async function findSessionQuestion(
       data.exercises?.final_answers ?? data.problems?.final_answers ?? null,
     );
   return {
+    id: data.id,
     kcIds: data.question_kcs.map(({ kc_id }) => kc_id),
     answered: data.answered_at !== null,
     graded: data.graded_at !== null,
@@ -153,6 +188,24 @@ export async function saveAttempts(
 }
 
 /**
+ * Marks an ungraded question graded without attempts, as `grade` does when
+ * the Student moved on. False when it was graded in the meantime.
+ */
+export async function closeQuestion(
+  supabase: Supabase,
+  questionId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("questions")
+    .update({ graded_at: new Date().toISOString() })
+    .eq("id", questionId)
+    .is("graded_at", null)
+    .select("id");
+  if (error) failed("Closing the question", error);
+  return data.length > 0;
+}
+
+/**
  * Adds the Student's Chat message `messageId` to the answer of the open
  * Question: the newest Question of the Chat's session, while it is
  * ungraded. Every message until its grade is part of the answer, joined in
@@ -179,16 +232,11 @@ export async function recordAnswer(
     .update(
       newest.answer_text === null
         ? {
-            answer_text: answer.text,
+            answer_text: joinAnswer(null, answer.text),
             answer_message_id: answer.messageId,
             answered_at: new Date().toISOString(),
           }
-        : {
-            answer_text: `${newest.answer_text}\n\n${answer.text}`.slice(
-              0,
-              MAX_ANSWER_TEXT,
-            ),
-          },
+        : { answer_text: joinAnswer(newest.answer_text, answer.text) },
     )
     .eq("id", newest.id)
     .is("graded_at", null);

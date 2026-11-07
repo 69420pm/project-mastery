@@ -93,6 +93,8 @@ type ChatProps = {
    * a Today card button's.
    */
   initialMessage?: string;
+  /** A new Chat's graded Mock exam, which its Study session goes through. */
+  mockId?: string;
   /** The Student's Daily limit status when the page loaded. */
   dailyLimit: DailyLimitStatus;
   /**
@@ -113,6 +115,7 @@ export function Chat({
   ownerId,
   emptyState,
   initialMessage,
+  mockId,
   dailyLimit: initialDailyLimit,
   showDetails,
 }: ChatProps) {
@@ -193,7 +196,7 @@ export function Chat({
         body: {
           ...body,
           chatId,
-          ...(isNew && { courseId: chat.courseId }),
+          ...(isNew && { courseId: chat.courseId, mockId }),
           message: messages.at(-1),
         },
       }),

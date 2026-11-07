@@ -20,16 +20,112 @@ export type {
 export type ProblemFlag = "unclear" | "wrong" | "too_easy" | "off_topic";
 
 /**
- * What code tells the AI on every reply in a Chat, so it is always current:
- * the dates, the goal and the notes about the Student and the Materials.
+ * The facts code gives the AI on every reply in a Chat (#251), rebuilt for
+ * each reply: the dates, this session, the ranking's proposal, every Topic,
+ * the notes and, in a session that goes through a Mock exam, its tasks. It
+ * goes in front of the newest Student message (`renderTutorContext`).
  */
 export type TutorContext = {
   /** As YYYY-MM-DD. */
   today: string;
   /** As YYYY-MM-DD; null when the Brief has none. */
   examDate: string | null;
+  /** From today to the exam date; null without one. */
+  daysLeft: number | null;
   /** The Student's goal from the Brief; null until answered. */
   goal: "pass" | "good_grade" | "master_everything" | null;
+  session: SessionFacts;
+  proposal: Proposal;
+  /** The first 8 refreshes of the ranking. */
+  practice: ContextKc[];
+  /** Every Topic with KCs of its own, in Course order. */
+  topics: ContextTopic[];
+  notes: ContextNotes;
+  /** The graded mock's tasks, most points lost first; null otherwise. */
+  mock: ContextMockTask[] | null;
+};
+
+/** A KC as the tutor context names it. */
+export type ContextKc = {
+  id: string;
+  name: string;
+  band: RecallBand;
+  /** 0 to 1; null untaught. */
+  recallToday: number | null;
+};
+
+/** What this Study session has done so far. */
+export type SessionFacts = {
+  minutes: number;
+  /** The Course's Attempts of today, oldest first. */
+  checkedToday: Array<{
+    id: string;
+    name: string;
+    result: AttemptResult;
+    help: AttemptHelp;
+  }>;
+  /** The session's newest Question while it is ungraded; null otherwise. */
+  openQuestion: {
+    prompt: string;
+    kcs: Array<{ id: string; name: string }>;
+    answered: boolean;
+  } | null;
+  /** Since the session's last graded Question; null without one. */
+  minutesSinceGraded: number | null;
+  /** The Reading sections this session's `showReading` calls opened. */
+  readings: ReadingSectionView[];
+};
+
+/**
+ * The head of the ranking: due Reviews and the next Topic or, in the final
+ * stretch, the first items, as everything ranks together then.
+ */
+export type Proposal =
+  | {
+      finalStretch: false;
+      /** The first 10 due Reviews. */
+      reviews: ContextKc[];
+      /** How many more are due. */
+      moreReviews: number;
+      topic: ProposedTopic | null;
+    }
+  | {
+      finalStretch: true;
+      items: Array<{
+        kind: "review" | "topic" | "refresh";
+        id: string;
+        name: string;
+      }>;
+    };
+
+/** The Topic the ranking proposes to teach next. */
+export type ProposedTopic = {
+  id: string;
+  name: string;
+  centralQuestion: string;
+  /** In teaching order. */
+  kcs: ContextKc[];
+  anchors: ContextKc[];
+  /** What its KCs assume from outside the Materials, by KC name. */
+  assumes: Array<{ kc: string; name: string; description: string }>;
+  readings: ReadingSectionView[];
+  /** The unseen Problems that test any of its KCs. */
+  unseenProblems: number;
+};
+
+/** A Topic as one line of the tutor context. */
+export type ContextTopic = {
+  id: string;
+  name: string;
+  status: TopicScope["status"];
+  learned: number;
+  total: number;
+};
+
+/** The notes the AI reads on every reply. */
+export type ContextNotes = {
+  /** Of the proposed Topic and the Topics touched today. */
+  topics: Array<{ topic: string; text: string }>;
   /** What the AI noted about the Student in this Course; "" without notes. */
   memory: string;
   /** The last 4,000 characters of the Brief's notes; null without notes. */
@@ -39,6 +135,27 @@ export type TutorContext = {
    * order, Materials without notes left out.
    */
   materialNotes: MaterialNoteEntry[];
+  /** The latest earlier session with Attempts; null without one. */
+  lastSession: {
+    /** As YYYY-MM-DD. */
+    date: string;
+    topics: string[];
+    /** KCs checked, and how many of them had an Attempt below `full`. */
+    kcs: number;
+    belowFull: number;
+  } | null;
+};
+
+/** A task of the graded Mock exam a session goes through. */
+export type ContextMockTask = {
+  prompt: string;
+  answer: string | null;
+  points: number;
+  /** Null when grading failed. */
+  awarded: number | null;
+  reasons: string[];
+  /** The Exercise or generated Problem it posed; null for neither. */
+  problemId: string | null;
 };
 
 /** A Material's notation and conventions as the AI is told of them. */
@@ -194,6 +311,10 @@ export type TopicView = {
     name: string;
     description: string;
     band: RecallBand;
+    /** 0 to 1; null untaught. */
+    recallToday: number | null;
+    /** What it assumes from outside the Materials. */
+    assumes: Array<{ name: string; description: string }>;
     /** Up to 3, in reading order; none for a KC not asked for. */
     sources: SourceChunkView[];
   }>;

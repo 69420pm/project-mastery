@@ -27,29 +27,78 @@ const promptOf = (
   call: number,
 ): string => JSON.stringify(model.doStreamCalls[call]!.prompt);
 
-describe("the instructions", () => {
-  test("hold the rules and the dates", async () => {
+/** The text parts of the prompt's user messages, in order. */
+const userTexts = (model: ReturnType<typeof mockTextModel>, call: number) =>
+  model.doStreamCalls[call]!.prompt.filter(({ role }) => role === "user").map(
+    ({ content }) =>
+      (content as Array<{ type: string; text?: string }>)
+        .map((part) => part.text ?? "")
+        .join("|"),
+  );
+
+describe("the tutor context", () => {
+  test("goes in front of the newest Student message only, after static instructions", async () => {
     const model = mockTextModel("What do you remember of Newton's law?");
     useMockModels({ chat: model });
+    const examDate = new Date(Date.now() + 10 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     db.tables.briefs.push({
       owner: STUDENT,
       course_id: COURSE,
-      exam_date: "2026-12-03",
+      exam_date: examDate,
     });
+    const body = firstMessage("Hi");
+
+    await send(body);
+    await send({ chatId: body.chatId, message: userMessage("Go on") });
+
+    const [first, second] = [0, 1].map((call) => model.doStreamCalls[call]!);
+    const system = (call: typeof first) =>
+      call!.prompt.find(({ role }) => role === "system")?.content;
+    expect(system(first)).toContain("Find out before you teach");
+    expect(system(first)).toBe(system(second));
+    const [earlier, newest] = userTexts(model, 1);
+    expect(earlier).toBe("Hi");
+    expect(newest).toMatch(/^<tutor-context>\n/);
+    expect(newest).toContain(
+      `Today is ${new Date().toISOString().slice(0, 10)}. The exam is on ${examDate}, in 10 days.`,
+    );
+    expect(newest).toMatch(/\|Go on$/);
+  });
+
+  test("names the ranking's next Topic with its KCs, anchors and Reading sections, and every Topic", async () => {
+    const model = mockTextModel("Shall we start with thrust?");
+    useMockModels({ chat: model });
+    seedMap();
+    db.tables.kcs.find(({ id }) => id === MAP.thrust)!.assumes = [
+      { name: "Momentum", description: "Mass times velocity." },
+    ];
 
     await send(firstMessage());
 
-    const prompt = promptOf(model, 0);
-    expect(prompt).toContain("Attempt before help.");
-    expect(prompt).toContain("Never show the Student ids or tool names.");
-    expect(prompt).toContain("Write all mathematics in LaTeX");
-    expect(prompt).toContain(
-      `Today is ${new Date().toISOString().slice(0, 10)}`,
+    const [context] = userTexts(model, 0);
+    expect(context).toContain(
+      `Next Topic: Thrust (Topic id ${MAP.topic}): How does an engine make thrust?`,
     );
-    expect(prompt).toContain("The exam date: 2026-12-03.");
+    expect(context).toContain(`Thrust equation (KC id ${MAP.thrust}; new)`);
+    expect(context).toContain(
+      `Anchors: Newton's second law (KC id ${MAP.newton}; new)`,
+    );
+    expect(context).toContain(
+      "Thrust equation assumes, beyond the Materials: Momentum: Mass times velocity.",
+    );
+    expect(context).toContain(`Lecture 7, pp. 3–5 (section id ${MAP.section})`);
+    expect(context).toContain(
+      `Thrust (Topic id ${MAP.topic}): in plan, 0 of 2 learned`,
+    );
+    // The first reply tops up the next Topic's Problem stock.
+    expect(db.tables.problem_runs).toEqual([
+      { course_id: COURSE, topic_id: MAP.topic },
+    ]);
   });
 
-  test("come from the context sent on the reply's start and saved with it", async () => {
+  test("is sent on the reply's start and saved with it", async () => {
     useMockModels({ chat: mockTextModel("Let's start.") });
     const body = firstMessage();
 
@@ -66,7 +115,7 @@ describe("the instructions", () => {
     expect(replyRow?.tutor_context).toEqual(context);
   });
 
-  test("give the goal and the Brief's notes", async () => {
+  test("gives the goal and the Brief's notes", async () => {
     const model = mockTextModel("Let's go.");
     useMockModels({ chat: model });
     db.tables.briefs.push({

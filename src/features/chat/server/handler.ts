@@ -12,7 +12,7 @@ import {
   type ToolSet,
 } from "ai";
 import { after } from "next/server";
-import { chatReplySettings } from "@/features/chat/ai/reply";
+import { chatReplySettings, withTutorContext } from "@/features/chat/ai/reply";
 import { messageGist } from "@/features/chat/domain/chat-label";
 import { replyUsage } from "@/features/chat/domain/reply-usage";
 import {
@@ -53,7 +53,9 @@ import {
   endIdleSessions,
   endsReply,
   recordAnswer,
+  renderTutorContext,
   sessionEndedMessage,
+  setSessionMock,
   startTutoring,
   TutorToolError,
 } from "@/features/study/server";
@@ -79,10 +81,12 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  *    the Student owns, or a new Chat in a Course the Student owns, whose
  *    Study session has not ended: a message to an idle one ends it
  * 3. refuse at the Daily limit, before any model call
- * 4. create the Chat on its first message, or mark the new reply as the
+ * 4. create the Chat on its first message, its session going through the
+ *    graded Mock exam the request names, or mark the new reply as the
  *    Chat's latest, then store the Student's message, also as part of the
  *    answer to the session's open Question
- * 5. stream the reply from the full stored history
+ * 5. stream the reply from the full stored history, the tutor context in
+ *    front of the newest message
  * 6. on end, record the call's usage and store the reply with its model,
  *    unless a newer request has started a reply since
  * 7. name an untitled Chat after its reply
@@ -122,7 +126,7 @@ export async function respondInChat({
   if (!parsed.success) {
     return refuse(400, parsed.error.issues[0]?.message ?? "Invalid request.");
   }
-  const { chatId, courseId, message } = parsed.data;
+  const { chatId, courseId, mockId, message } = parsed.data;
 
   const existing = await findChat(supabase, chatId);
   if (!existing && !courseId) return refuse(404, chatNotFoundMessage);
@@ -168,6 +172,8 @@ export async function respondInChat({
   if (chat === "no course") return refuse(404, courseNotFoundMessage);
 
   if (existing) await startReply(supabase, chat.id, replyId);
+  // A Chat opened from a graded Mock exam goes through it.
+  else if (mockId) await setSessionMock(supabase, chat.id, mockId);
 
   const history =
     resent ??
@@ -284,8 +290,12 @@ async function streamReply({
   // first reply ends the Course's other sessions gone idle.
   const firstReply = !history.some(({ role }) => role === "assistant");
   if (firstReply) await endIdleSessions(supabase, chat.courseId, chat.id);
-  const tutoring = await startTutoring(supabase, chat.courseId, chat.id);
-  const settings = chatReplySettings(tutoring.context);
+  const tutoring = await startTutoring(supabase, chat.courseId, chat.id, {
+    openedSections: openedSections(history),
+    firstReply,
+  });
+  const settings = chatReplySettings();
+  const contextText = renderTutorContext(tutoring.context);
   // What the provider reports when the call completes: its usage over all
   // steps and the model that answered, a gateway fallback when the primary
   // failed. A stopped or failed call reports neither.
@@ -297,7 +307,10 @@ async function streamReply({
     async () =>
       streamText({
         ...settings,
-        messages: await toModelMessages(messages, materials),
+        messages: withTutorContext(
+          await toModelMessages(messages, materials),
+          tutoring.context,
+        ),
         tools: tutoring.tools,
         // A question and a reading wait for the Student.
         stopWhen: [isStepCount(MAX_STEPS), endsReply],
@@ -343,6 +356,7 @@ async function streamReply({
           reported: reportedUsage,
           input: [
             settings.instructions,
+            contextText,
             ...messages.map(({ parts }) => messageText(parts)),
           ].join("\n"),
           output: messageText(responseMessage.parts),
@@ -394,6 +408,17 @@ async function streamReply({
     // Lets `onEnd` run when the client disconnects mid-reply.
     consumeSseStream: consumeStream,
   });
+}
+
+/** The Reading sections the history's `showReading` calls opened, in order. */
+function openedSections(history: ChatUIMessage[]): string[] {
+  return history.flatMap(({ parts }) =>
+    parts.flatMap((part) => {
+      if (part.type !== "tool-showReading") return [];
+      const input = (part as { input?: { sectionId?: unknown } }).input;
+      return typeof input?.sectionId === "string" ? [input.sectionId] : [];
+    }),
+  );
 }
 
 /**

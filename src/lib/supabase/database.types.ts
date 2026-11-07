@@ -2183,6 +2183,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      set_session_mock: {
+        Args: { p_chat_id: string; p_mock_id: string };
+        Returns: boolean;
+      };
       start_mock_exam: { Args: { p_mock_id: string }; Returns: boolean };
       store_assumed_prerequisites: {
         Args: {

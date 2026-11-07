@@ -51,31 +51,15 @@ export async function getStudyState(courseId: string): Promise<StudyState> {
     return NO_STATE;
   }
   const supabase = await createClient();
-  const [map, priorities, exam, topics, attempts, choices, pace, lastMock] =
-    await Promise.all([
-      loadStoredMap(supabase, courseId),
-      loadKcPriorities(supabase, courseId),
-      getExamFacts(supabase, courseId),
-      loadStoredTopics(supabase, courseId),
-      loadCourseAttempts(supabase, courseId),
-      loadTopicChoices(supabase, courseId),
-      loadPace(supabase, courseId),
-      loadLastMockPercent(supabase, courseId),
-    ]);
   const now = new Date();
+  const [study, lastMock] = await Promise.all([
+    loadStudy(supabase, courseId, now),
+    loadLastMockPercent(supabase, courseId),
+  ]);
+  const { map, priorities, exam, topics, attempts, pace, recall, scope } =
+    study;
   const { examDate } = exam;
-  const recall = replayCourse(attempts, { ...exam, now });
-  const scope = planScope({ topics, priorities, goal: exam.goal, choices });
-  const ranked = rankNext({
-    topics,
-    prerequisites: map.prerequisites,
-    priorities,
-    recall,
-    pace,
-    scope,
-    examDate,
-    now,
-  });
+  const ranked = study.ranked;
   const kcName = new Map(map.kcs.map((kc) => [kc.id, kc.name]));
   const topicById = new Map(topics.map((topic) => [topic.id, topic]));
   const ranking = ranked.map((item): NextItem => {
@@ -134,6 +118,51 @@ export async function getStudyState(courseId: string): Promise<StudyState> {
     lastMockPercent: lastMock,
     taught: live.some(({ id }) => recall.get(id)?.taught),
     pace,
+  };
+}
+
+/**
+ * What a Course's study derives from, read with `supabase`: its map,
+ * Topics, Priorities, exam facts, Attempts, pace and plan scope, with the
+ * replayed recall and the ranking at `now`.
+ */
+export async function loadStudy(
+  supabase: Supabase,
+  courseId: string,
+  now: Date,
+) {
+  const [map, priorities, exam, topics, attempts, choices, pace] =
+    await Promise.all([
+      loadStoredMap(supabase, courseId),
+      loadKcPriorities(supabase, courseId),
+      getExamFacts(supabase, courseId),
+      loadStoredTopics(supabase, courseId),
+      loadCourseAttempts(supabase, courseId),
+      loadTopicChoices(supabase, courseId),
+      loadPace(supabase, courseId),
+    ]);
+  const recall = replayCourse(attempts, { ...exam, now });
+  const scope = planScope({ topics, priorities, goal: exam.goal, choices });
+  const ranked = rankNext({
+    topics,
+    prerequisites: map.prerequisites,
+    priorities,
+    recall,
+    pace,
+    scope,
+    examDate: exam.examDate,
+    now,
+  });
+  return {
+    map,
+    priorities,
+    exam,
+    topics,
+    attempts,
+    pace,
+    recall,
+    scope,
+    ranked,
   };
 }
 

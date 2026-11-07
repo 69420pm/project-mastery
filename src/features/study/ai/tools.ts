@@ -10,6 +10,8 @@ import {
 import { computeTool } from "@/features/study/ai/compute-tool";
 import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
+  AttemptHelp,
+  AttemptResult,
   ProblemView,
   GradedKc,
   ReadingView,
@@ -72,11 +74,14 @@ const askInputSchema = z.object({
     ),
 });
 
-/** What `grade` takes: the verdict on the Student's answer to a question. */
+/** What `grade` takes: the verdict on the Student's answer to the open Question. */
 const gradeInputSchema = z.object({
-  questionId: z
-    .string()
-    .describe("The questionId that ask returned for the question answered."),
+  noAnswer: z
+    .boolean()
+    .nullish()
+    .describe(
+      "true when the Student moved on instead of answering: closes the Question without results. Leave out results and help then.",
+    ),
   results: z
     .array(
       z.object({
@@ -90,9 +95,11 @@ const gradeInputSchema = z.object({
     )
     .min(1)
     .max(MAX_QUESTION_KCS)
+    .nullish()
     .describe("One result for each of the question's KCs, each KC once."),
   help: z
     .enum(["none", "some", "solution_shown"])
+    .nullish()
     .describe(
       "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
     ),
@@ -123,10 +130,13 @@ const gradeInputSchema = z.object({
 
 type GradeInput = z.infer<typeof gradeInputSchema>;
 
-/** A stored question as `grade` checks it. */
+/** The session's newest Question as `ask` and `grade` check it. */
 export type QuestionToGrade = {
-  /** The KCs it tests. */
+  id: string;
+  /** The live KCs it tests. */
   kcIds: string[];
+  /** The KCs it tested that were retired since, whose results are dropped. */
+  retiredKcIds: string[];
   answered: boolean;
   graded: boolean;
   /** Whether its Study session has ended, which closes it for grading. */
@@ -200,18 +210,23 @@ export type TutorToolActions = {
     kcIds: string[];
     problemId: string | null;
   }) => Promise<{ questionId: string; generatedProblemId: string | null }>;
-  /** A question asked in the Chat's Study session; null for any other id. */
-  findQuestion: (questionId: string) => Promise<QuestionToGrade | null>;
+  /** The newest Question of the Chat's Study session; null without one. */
+  findQuestion: () => Promise<QuestionToGrade | null>;
   /**
    * Marks the question graded and stores one attempt per KC; returns each
    * KC's new recall band, or null when it was graded in the meantime.
    */
   saveGrade: (grade: {
     questionId: string;
-    help: GradeInput["help"];
-    results: GradeInput["results"];
+    help: AttemptHelp;
+    results: Array<{ kcId: string; result: AttemptResult }>;
     check: FinalValueCheck;
   }) => Promise<GradedKc[] | null>;
+  /**
+   * Marks the question graded without attempts; false when it was graded
+   * in the meantime.
+   */
+  closeQuestion: (questionId: string) => Promise<boolean>;
   /** Runs a mathjs program through the math runner. */
   compute: (program: string) => Promise<ProgramRun>;
 };
@@ -226,7 +241,7 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their description and recall band (new, strong, fading or weak), its anchors with their band and its Reading sections. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with their description, band and source chunks.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their description, recall band (new, strong, fading or weak), recall today (0 to 1) and what each assumes from outside the Materials, its anchors with their band and its Reading sections. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with the same facts and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
         if (!topicId && !kcIds) {
@@ -277,9 +292,15 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     ask: tool({
       description:
-        "Ask the Student a graded question: it shows in the Chat, and ends your reply. The Student's next messages are their answer. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
+        "Ask the Student a graded question: it shows in the Chat, and ends your reply. The Student's next messages are their answer, which you grade with grade. Write any lead-in before calling it, and don't repeat the question in your text. Refused while the open Question is answered but not graded: grade it first.",
       inputSchema: askInputSchema,
       execute: async ({ problemId, ...question }) => {
+        const open = await actions.findQuestion();
+        if (open && open.answered && !open.graded) {
+          throw new TutorToolError(
+            "The Student answered the open Question: grade it first, with noAnswer when they moved on.",
+          );
+        }
         const { questionId, generatedProblemId } = await actions.ask({
           ...question,
           problemId: problemId ?? null,
@@ -297,7 +318,7 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     grade: tool({
       description:
-        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its recall band (new, strong, fading or weak), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results.",
+        "Grade the Student's answer to the open Question, the one you asked last with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. When the Student moved on instead of answering, give only noAnswer: true. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its recall band (new, strong, fading or weak), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results.",
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
     }),
@@ -322,33 +343,52 @@ async function showReading(
 const alreadyGraded = "This question is already graded.";
 
 /**
- * The `grade` call's rules: one result for each KC of an ungraded, answered
- * question of a running session, and the check of its final values against
- * its keys, which turns every `full` into `partial` on a mismatch. A `full`
- * needs a value for every key, so each check runs.
+ * The `grade` call's rules, on the session's open Question: `noAnswer`
+ * closes it without attempts. Otherwise one result for each live KC of an
+ * answered Question, results for KCs retired since the ask dropped, and the
+ * check of its final values against its keys, which turns every `full` into
+ * `partial` on a mismatch. A `full` needs a value for every key, so each
+ * check runs.
  */
 async function grade(
   actions: TutorToolActions,
   input: GradeInput,
 ): Promise<{ kcs: GradedKc[]; check: FinalValueCheck }> {
-  const question = await actions.findQuestion(input.questionId);
-  if (!question) {
+  const question = await actions.findQuestion();
+  if (!question || question.graded) {
     throw new TutorToolError(
-      `${input.questionId} is no question you asked in this Chat: use the questionId that ask returned.`,
+      "There is no open Question to grade: ask one first.",
     );
   }
-  if (question.graded) throw new TutorToolError(alreadyGraded);
   if (question.sessionEnded) {
     throw new TutorToolError(
       "This question's study session has ended, so it can't be graded.",
     );
   }
+  const close = async () => {
+    if (!(await actions.closeQuestion(question.id))) {
+      throw new TutorToolError(alreadyGraded);
+    }
+    return { kcs: [], check: null };
+  };
+  if (input.noAnswer) return close();
   if (!question.answered) {
     throw new TutorToolError(
       "The Student has not answered this question yet: wait for their answer.",
     );
   }
-  const kcIds = input.results.map(({ kcId }) => kcId);
+  if (!input.results || !input.help) {
+    throw new TutorToolError(
+      "Give results and help, or noAnswer: true when the Student moved on.",
+    );
+  }
+  // Every KC it tested was retired since the ask: nothing to record.
+  if (question.kcIds.length === 0) return close();
+  const help = input.help;
+  const results = input.results.filter(
+    ({ kcId }) => !question.retiredKcIds.includes(kcId),
+  );
+  const kcIds = results.map(({ kcId }) => kcId);
   if (new Set(kcIds).size < kcIds.length) {
     throw new TutorToolError("Give each KC once.");
   }
@@ -363,19 +403,16 @@ async function grade(
   const checked = checkAnswers(keys, input.finalValues ?? []);
   if (!checked.ok) throw new TutorToolError(checked.error);
   const unvalued = keys.filter((_, index) => checked.checks[index] === null);
-  if (
-    unvalued.length > 0 &&
-    input.results.some(({ result }) => result === "full")
-  ) {
+  if (unvalued.length > 0 && results.some(({ result }) => result === "full")) {
     throw new TutorToolError(
       `A full needs the Student's value for each final result, for the check: give it in finalValues for ${unvalued.map(({ label }) => `"${label}"`).join(", ")}. Without one in the answer, no KC is full.`,
     );
   }
   const check = worstCheck(checked.checks);
   const kcs = await actions.saveGrade({
-    questionId: input.questionId,
-    help: input.help,
-    results: input.results.map(({ kcId, result }) => ({
+    questionId: question.id,
+    help,
+    results: results.map(({ kcId, result }) => ({
       kcId,
       result: check === "mismatch" && result === "full" ? "partial" : result,
     })),

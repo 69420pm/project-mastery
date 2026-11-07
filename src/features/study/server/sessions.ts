@@ -112,6 +112,24 @@ export async function endIdleSessions(
 }
 
 /**
+ * Has the Chat's new Study session go through the Student's graded Mock
+ * exam `mockId` of the same Course (`set_session_mock`). False, changing
+ * nothing, for any other mock or once the session has a Question.
+ */
+export async function setSessionMock(
+  supabase: Supabase,
+  chatId: string,
+  mockId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("set_session_mock", {
+    p_chat_id: chatId,
+    p_mock_id: mockId,
+  });
+  if (error) failed("Setting the session's Mock exam", error);
+  return data === true;
+}
+
+/**
  * Ends the Chat's running Study session at `at`, starts generating the
  * Course's review stock (#183) and starts closing the session (#187).
  * False when there is none to end: no session, or one that ended already.

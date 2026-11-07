@@ -4,7 +4,11 @@ import { Chat, newChatPath } from "@/features/chat";
 import { newChat } from "@/features/chat/server";
 import { getCourse, getMaterialList } from "@/features/courses/server";
 import { courseMapPath, topicPath } from "@/features/knowledge-map";
-import { isTodayMessage, TodayCard } from "@/features/study";
+import {
+  isTodayMessage,
+  MOCK_REVIEW_MESSAGE,
+  TodayCard,
+} from "@/features/study";
 import { getStudyState } from "@/features/study/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
@@ -18,13 +22,17 @@ export const metadata: Metadata = {
  * A new Chat in a Course, whose empty state shows the Today card. It is
  * stored with its first message. With `?say=` naming one of the Today
  * card's first messages, it sends that message as the Student at once.
+ * With `?mock=` naming a graded Mock exam, its session goes through that
+ * mock, and it starts at once.
  */
 export default async function NewChatPage({
   params,
   searchParams,
 }: PageProps<"/courses/[courseId]/chat">) {
   const { courseId } = await params;
-  const { say } = await searchParams;
+  const { say, mock } = await searchParams;
+  // The server checks it is the Student's graded mock of this Course.
+  const mockId = typeof mock === "string" ? mock : undefined;
   const user = await requireUser(newChatPath(courseId));
   const [course, dailyLimit, materials, study] = await Promise.all([
     getCourse(courseId),
@@ -42,7 +50,10 @@ export default async function NewChatPage({
       isNew
       materials={materials}
       ownerId={user.id}
-      initialMessage={isTodayMessage(say) ? say : undefined}
+      initialMessage={
+        mockId ? MOCK_REVIEW_MESSAGE : isTodayMessage(say) ? say : undefined
+      }
+      mockId={mockId}
       emptyState={
         <TodayCard
           state={study}

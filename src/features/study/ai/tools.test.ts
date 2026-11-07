@@ -20,6 +20,7 @@ const noActions = {
   ask: async () => ({ questionId: "q-1", generatedProblemId: null }),
   findQuestion: async () => null,
   saveGrade: async () => null,
+  closeQuestion: async () => false,
   findReading: async () => null,
   searchMaterials: async () => [],
   compute: async () => ({ ok: false, error: "unused" }),
@@ -122,17 +123,22 @@ describe("searchMaterials", () => {
   });
 });
 
-describe("grade", () => {
-  const open: QuestionToGrade = {
-    kcIds: ["kc-a", "kc-b"],
-    answered: true,
-    graded: false,
-    sessionEnded: false,
-    finalAnswers: null,
-  };
-  const saved: Array<Parameters<TutorToolActions["saveGrade"]>[0]> = [];
+const openQuestion: QuestionToGrade = {
+  id: "q-1",
+  kcIds: ["kc-a", "kc-b"],
+  retiredKcIds: [],
+  answered: true,
+  graded: false,
+  sessionEnded: false,
+  finalAnswers: null,
+};
 
-  /** Grades with `results` a question stored as `question`. */
+describe("grade", () => {
+  const open = openQuestion;
+  const saved: Array<Parameters<TutorToolActions["saveGrade"]>[0]> = [];
+  const closed: string[] = [];
+
+  /** Grades with `results` the session's newest question `question`. */
   async function grade(
     question: QuestionToGrade | null,
     results: Array<{ kcId: string; result: string }> = [
@@ -140,8 +146,10 @@ describe("grade", () => {
       { kcId: "kc-b", result: "wrong" },
     ],
     finalValues?: Array<{ label?: string; value: string }>,
+    noAnswer?: boolean,
   ) {
     saved.length = 0;
+    closed.length = 0;
     const { grade } = tutorTools({
       ...noActions,
       findQuestion: async () => question,
@@ -149,29 +157,51 @@ describe("grade", () => {
         saved.push(input);
         return [];
       },
+      closeQuestion: async (id) => {
+        closed.push(id);
+        return true;
+      },
     });
     return grade.execute!(
-      { questionId: "q-1", results, help: "some", finalValues } as never,
+      noAnswer
+        ? ({ noAnswer } as never)
+        : ({ results, help: "some", finalValues } as never),
       { toolCallId: "1", messages: [] } as never,
     );
   }
 
-  test("stores the results of an answered question", async () => {
+  test("stores the results of the open, answered question", async () => {
     await grade(open);
     expect(saved).toEqual([
       expect.objectContaining({ questionId: "q-1", help: "some" }),
     ]);
   });
 
+  test("noAnswer closes the open question without attempts", async () => {
+    await expect(
+      grade({ ...open, answered: false }, undefined, undefined, true),
+    ).resolves.toEqual({ kcs: [], check: null });
+    expect(closed).toEqual(["q-1"]);
+    expect(saved).toEqual([]);
+  });
+
+  test("drops the results of KCs retired since the ask", async () => {
+    await grade({ ...open, kcIds: ["kc-a"], retiredKcIds: ["kc-b"] });
+    expect(saved[0]?.results).toEqual([{ kcId: "kc-a", result: "full" }]);
+    await grade({ ...open, kcIds: [], retiredKcIds: ["kc-a", "kc-b"] });
+    expect(saved).toEqual([]);
+    expect(closed).toEqual(["q-1"]);
+  });
+
   test.each([
-    ["an unknown question", null, undefined, "no question you asked"],
+    ["no question", null, undefined, "no open Question"],
     [
       "an unanswered one",
       { ...open, answered: false },
       undefined,
       "not answered",
     ],
-    ["a graded one", { ...open, graded: true }, undefined, "already graded"],
+    ["a graded one", { ...open, graded: true }, undefined, "no open Question"],
     [
       "one from an ended session",
       { ...open, sessionEnded: true },
@@ -332,10 +362,14 @@ describe("showReading", () => {
 });
 
 describe("ask", () => {
-  const askWith = (generatedProblemId: string | null) =>
+  const askWith = (
+    generatedProblemId: string | null,
+    newest: QuestionToGrade | null = null,
+  ) =>
     tutorTools({
       ...noActions,
-      ask: async () => ({ questionId: "q-1", generatedProblemId }),
+      findQuestion: async () => newest,
+      ask: async () => ({ questionId: "q-2", generatedProblemId }),
     }).ask.execute!({ prompt: "Go.", kcIds: ["k1"], problemId: "p-1" }, {
       toolCallId: "1",
       messages: [],
@@ -343,10 +377,23 @@ describe("ask", () => {
 
   test("names the generated Problem it poses", async () => {
     expect(await askWith("p-1")).toEqual({
-      questionId: "q-1",
+      questionId: "q-2",
       generatedProblemId: "p-1",
     });
-    expect(await askWith(null)).toEqual({ questionId: "q-1" });
+    expect(await askWith(null)).toEqual({ questionId: "q-2" });
+  });
+
+  test("is refused while the newest Question is answered but ungraded", async () => {
+    await expect(askWith(null, openQuestion)).rejects.toThrow("grade it first");
+    // An unanswered one stays ungraded for good; a graded one is done.
+    for (const newest of [
+      { ...openQuestion, answered: false },
+      { ...openQuestion, graded: true },
+    ]) {
+      await expect(askWith(null, newest)).resolves.toEqual({
+        questionId: "q-2",
+      });
+    }
   });
 });
 

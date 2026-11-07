@@ -16,7 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { goalLabel } from "@/features/chat/domain/tutor-context";
-import { tutorInstructions, type TutorContext } from "@/features/study";
+import { renderTutorContext, type TutorContext } from "@/features/study";
 
 /**
  * The Context action of an AI reply: a right-hand Sheet with the tutor
@@ -73,21 +73,21 @@ function ContextDetails({ context }: { context: TutorContext }) {
       </dl>
 
       <Section title="Memory">
-        {context.memory === "" ? (
+        {context.notes.memory === "" ? (
           <Muted>No notes yet.</Muted>
         ) : (
-          <p className="text-sm whitespace-pre-wrap">{context.memory}</p>
+          <p className="text-sm whitespace-pre-wrap">{context.notes.memory}</p>
         )}
       </Section>
 
       <Collapsible className="text-sm">
         <CollapsibleTrigger className="group flex items-center gap-1 text-muted-foreground hover:text-foreground">
           <ChevronRightIcon className="size-4 transition-transform group-data-[state=open]:rotate-90" />
-          Rendered with the current instructions
+          As the AI read it
         </CollapsibleTrigger>
         <CollapsibleContent>
           <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">
-            {tutorInstructions(context)}
+            {renderTutorContext(context)}
           </pre>
         </CollapsibleContent>
       </Collapsible>

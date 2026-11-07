@@ -83,6 +83,7 @@ function createDb() {
       topics: [],
       topic_kcs: [],
       topic_choices: [],
+      topic_notes: [],
       problems: [],
       problem_kcs: [],
       problem_runs: [],
@@ -98,6 +99,7 @@ function createDb() {
         problem_id: "problems",
       },
       problem_kcs: { problem_id: "problems" },
+      mock_items: { question_id: "questions" },
       question_kcs: { question_id: "questions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
     },
@@ -111,10 +113,35 @@ function createDb() {
           course_id: chat.course_id,
           started_at: new Date().toISOString(),
           ended_at: null,
+          mock_id: null,
         });
       },
     },
     functions: {
+      // As the real function: the caller's graded mock of the session's
+      // Course, while the session has no mock and no Question.
+      set_session_mock: (args, tables) => {
+        const session = tables.study_sessions.find(
+          (row) => row.chat_id === args.p_chat_id && row.owner === signedIn,
+        );
+        const mock = tables.mock_exams.find(
+          (row) =>
+            row.id === args.p_mock_id &&
+            row.owner === signedIn &&
+            row.status === "graded" &&
+            row.course_id === session?.course_id,
+        );
+        if (
+          !session ||
+          !mock ||
+          session.mock_id ||
+          tables.questions.some((q) => q.session_id === session.id)
+        ) {
+          return false;
+        }
+        session.mock_id = mock.id;
+        return true;
+      },
       // Records each generate trigger in `problem_runs` and lets none start,
       // so no workflow runs in these tests.
       queue_problem_run: (args, tables) => {
@@ -190,6 +217,7 @@ function createDb() {
         table === "study_sessions" ||
         table === "questions" ||
         table === "attempts" ||
+        table === "topic_notes" ||
         table === "mock_exams" ||
         table === "mock_items"
       ) {

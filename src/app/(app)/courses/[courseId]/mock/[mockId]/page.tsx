@@ -28,7 +28,10 @@ export default async function MockExamPage({
   }
   return (
     <div className="flex justify-center p-4">
-      <MockExamStatus mock={mock} tutorHref={newChatPath(courseId)} />
+      <MockExamStatus
+        mock={mock}
+        tutorHref={`${newChatPath(courseId)}?mock=${mock.id}`}
+      />
     </div>
   );
 }

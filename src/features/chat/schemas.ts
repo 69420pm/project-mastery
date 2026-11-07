@@ -84,11 +84,13 @@ const studentMessageSchema = z.object({
 /**
  * The body `useChat` posts to the Chat route: only the new message, as in the
  * AI SDK message persistence guide. `courseId` allows creating the Chat with
- * this id in that Course; without it the Chat must exist.
+ * this id in that Course; without it the Chat must exist. `mockId`, with a
+ * new Chat, has its Study session go through that graded Mock exam.
  */
 export const chatRequestSchema = z.object({
   chatId: z.uuid(),
   courseId: z.uuid().optional(),
+  mockId: z.uuid().optional(),
   message: studentMessageSchema,
 });
 

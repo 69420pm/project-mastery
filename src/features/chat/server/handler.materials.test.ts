@@ -95,18 +95,21 @@ describe("attached Materials", () => {
     const prompt = model.doStreamCalls[call]?.prompt ?? [];
     const message = prompt.findLast(({ role }) => role === "user");
     return (
-      (message?.content ?? []) as unknown as Array<Record<string, unknown>>
-    ).map((part) =>
-      part.type === "file"
-        ? {
-            type: "file",
-            filename: part.filename,
-            mediaType: part.mediaType,
-            text: new TextDecoder().decode(
-              (part.data as { data: Uint8Array }).data,
-            ),
-          }
-        : { type: part.type, text: part.text },
+      ((message?.content ?? []) as unknown as Array<Record<string, unknown>>)
+        // The tutor context in front of the message.
+        .filter((part) => !String(part.text).startsWith("<tutor-context>"))
+        .map((part) =>
+          part.type === "file"
+            ? {
+                type: "file",
+                filename: part.filename,
+                mediaType: part.mediaType,
+                text: new TextDecoder().decode(
+                  (part.data as { data: Uint8Array }).data,
+                ),
+              }
+            : { type: part.type, text: part.text },
+        )
     );
   }
 
