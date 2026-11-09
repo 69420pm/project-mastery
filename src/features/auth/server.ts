@@ -2,3 +2,4 @@
 import "server-only";
 
 export { confirmEmailLink } from "./server/confirm-email-link";
+export { signInDemo } from "./server/demo-sign-in";
