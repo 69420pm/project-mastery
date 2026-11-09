@@ -115,7 +115,7 @@
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "sharp": "^0.35.5",
-    "supabase": "^2.122.0",
+    "supabase": "^3.0.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^6",
