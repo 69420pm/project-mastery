@@ -211,7 +211,7 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     solution_chunk_id: null,
     difficulty: 2,
     position: 0,
-    final_answers: [{ label: "Thrust", value: 17.5, unit: "kN" }],
+    final_answers: [{ label: "Thrust", value: "17.5 kN", anyOrder: false }],
   });
   t.exercise_kcs.push({ ...owned, exercise_id: "x1", kc_id: "k1" });
   const at = new Date(Date.now() - 3 * DAY_MS).toISOString();
@@ -222,7 +222,6 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
     session_id: "s0",
     exercise_id: "x1",
     problem_id: null,
-    kind: "question",
     confidence: null,
     asked_at: at,
     answered_at: at,
@@ -234,7 +233,6 @@ function seedCourse(kcIds: string[], taught: string[] = []) {
       session_id: "s0",
       question_id: "q0",
       kc_id,
-      kind: "learn",
       result: "full",
       help: "none",
       created_at: at,
@@ -307,7 +305,9 @@ describe("Topic stock", () => {
       original_exercise_id: "x1",
       difficulty: 2,
       solution: "$F = \\dot m (v_e - v_0)$, so the thrust is 17.5 kN.",
-      final_answers: [{ label: "thrust_kN", value: 17.5, unit: "kN" }],
+      final_answers: [
+        { label: "thrust_kN", value: "17.5 kN", anyOrder: false },
+      ],
     });
     expect(variant.statement).not.toContain("{{");
     expect(variant.statement).toContain("250");
@@ -490,6 +490,19 @@ describe("one Problem's run", () => {
     expect(written()).toMatchObject({ status: "failed", statement: null });
     expect(written().failure).toMatch(/^Program: .*\bm\b/);
     expect(written().program).toMatch(/^m = 2 kg/);
+  });
+
+  test("a failed draft gets no retry that could run past the step's limit", async () => {
+    seedOne();
+    const model = useGenerateModel(unresolved, DRAFT);
+    // The first call takes 150 seconds: a retry could take 170 more.
+    let now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const generate = model.doGenerate.bind(model);
+    model.doGenerate = (options) => ((now += 150_000), generate(options));
+    await generateProblems(COURSE);
+    expect(model.doGenerateCalls).toHaveLength(1);
+    expect(written().failure).toMatch(/Unresolved placeholders/);
   });
 
   test("a model error fails it without a retry", async () => {

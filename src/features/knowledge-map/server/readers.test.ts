@@ -83,6 +83,7 @@ describe("getKnowledgeMap", () => {
       exercises: [],
       checkReport: null,
       canBuild: false,
+      needsUpdate: false,
     });
   });
 

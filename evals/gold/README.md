@@ -7,6 +7,8 @@ evals/gold/<slug>/
   snapshot.json.gz     the Course's built content (tables in evals/gold-snapshot.ts)
   materials/<id>.pdf   the uploaded files the snapshot's Materials point at
   pages.json           recorded page results of some pages, by file (linear-algebra-I)
+  reference-map.json   the map Opus extracts in one pass, the bar for judging a run (linear-algebra-I)
+  runs/<date>-<where>.json  one judged pipeline run: its map, Exercises and keys, aligned to the reference map
 ```
 
 ## Commands
@@ -32,10 +34,12 @@ Everything the pipeline stores for a Course: Materials and their pages, chunks w
 
 ## linear-algebra-I
 
-The gold course of the Knowledge map pipeline v2 (#222). `pages.json` holds the recorded page results and structure call's Outline of `lecture-notes.pdf` pp. 17–24 (the end of Chapter 3 and Chapter 4, Vector Spaces) and `exercises.pdf` pp. 3 and 5 (Exercises 7–16 and solutions), which `pnpm smoke pair` and `pnpm smoke map` parse without page calls (`evals/smoke/recorded-pages.ts`); a change to the page schema records them again. The smoke checks that need a built map (`tutor`, `generate`, `review`, `mock`, `grade-mock`, `close`, `map-findings`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
+The gold course of the Knowledge map pipeline v2 (#222). `pages.json` holds the recorded page results and structure call's Outline of `lecture-notes.pdf` pp. 17–24 (the end of Chapter 3 and Chapter 4, Vector Spaces) and `exercises.pdf` pp. 3 and 5 (Exercises 7–16 and solutions), which `pnpm smoke pair` and `pnpm smoke map` parse without page calls (`evals/smoke/recorded-pages.ts`); a change to the page schema records them again. The smoke checks that need a built map (`tutor`, `generate`, `mock`, `grade-mock`, `close`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
 
 | File                | Pages of the script | What it holds                                                                                |
 | ------------------- | ------------------- | -------------------------------------------------------------------------------------------- |
 | `lecture-notes.pdf` | 1–38                | Course information (admission, exam format and dates) and Chapters 1–7                       |
 | `exercises.pdf`     | 39–44               | Exercises 1–25; solutions to the 11 marked (S); printed results for Exercises 7 and 17       |
 | `past-exams.pdf`    | 45–55               | Final and Resit exam of winter term 2025/26, 6 problems each, each followed by its solutions |
+
+**Judging a run.** `reference-map.json` is the Knowledge map Claude Opus 5.5 extracted from the unsplit 55-page script in one pass, with the extraction prompt's KC rule: 113 KCs (107 taught by the lecture notes, 6 only by Exercises and old exams), 204 Prerequisites, 16 Topics, the pages that teach nothing, what the script assumes from outside, and each Exercise and exam problem with the KCs it tests and its unique printed results as answer keys. Page numbers are those of the unsplit script. A run is judged against it on coverage (reference KCs matched, same or one step finer or coarser), non-KCs and duplicates, Prerequisite precision and recall, the Topic tree, Exercise tagging and answer keys. Each judged run is kept in `runs/` with its alignment (`referenceToRun` maps reference KC ids to the run's KC positions), so the next run can be compared without staging access.

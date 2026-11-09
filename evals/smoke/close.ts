@@ -1,22 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { closeStudySession, pinnedLines } from "@/features/study/server";
+import { closeStudySession } from "@/features/study/server";
 import { insertRows, seedGoldCourse } from "./gold-course";
 import { result, type SmokeCheck } from "./smoke-check";
 
-const PINS = [
-  "!Never explain with car analogies, they confuse me.",
-  "!The exam is on 12 December; keep sessions under 40 minutes.",
-];
-
-/** A Memory of about 3,100 characters: dated filler lines and two pins. */
+/** A Memory of about 3,100 characters of dated filler lines. */
 function longMemory(): string {
-  const lines = [PINS[0]!];
+  const lines: string[] = [];
   for (let day = 1; lines.join("\n").length < 1_500; day++) {
     lines.push(
       `2026-09-${String(day).padStart(2, "0")}: Studied in the evening after work, prefers short sessions of about 30 minutes with a break.`,
     );
   }
-  lines.push(PINS[1]!);
   for (let day = 1; lines.join("\n").length < 3_100; day++) {
     lines.push(
       `2026-10-${String(day).padStart(2, "0")}: Asked for the formula first and the derivation afterwards; likes worked numbers.`,
@@ -24,6 +18,9 @@ function longMemory(): string {
   }
   return lines.join("\n");
 }
+
+/** The longest Topic note the close call may write. */
+const MAX_TOPIC_NOTE_LENGTH = 1_500;
 
 const WRONG_ANSWER = "I'm not sure, I think it is just a name to memorise.";
 
@@ -46,17 +43,16 @@ function messages(
 }
 
 /**
- * The gold course with a short ended learn session on its first Topic (six
- * messages, one Question on two of its KCs, graded wrong) and a Memory of
- * about 3,100 characters with two pinned lines. The real
- * `closeStudySession` runs in process once (one model call). Checks that
- * the session has a two-line note, that the Topic has a note of at most
- * 1,500 characters and that every pinned line is still in the Memory.
+ * The gold course with a short ended session (six messages, one Question
+ * on two KCs of the first Topic, graded wrong) and a Memory of about 3,100
+ * characters. The real `closeStudySession` runs in process once (one model
+ * call). Checks that the session is closed, that it wrote a Topic note for
+ * the touched Topic only, and that its Memory is condensed.
  */
 export const closeSmoke: SmokeCheck = {
   name: "close",
   usage:
-    "pnpm smoke close (the gold course with an ended learn session and a Memory over 3,000 characters with two pinned lines, closed once)",
+    "pnpm smoke close (the gold course with an ended session and a Memory over 3,000 characters, closed once)",
   // The spec's budget: the one close call.
   maxCalls: 1,
   async run({ supabase, studentId }) {
@@ -76,7 +72,7 @@ export const closeSmoke: SmokeCheck = {
     const ended = new Date().toISOString();
     const session = await supabase
       .from("study_sessions")
-      .update({ topic_id: topic.id, started_at: started, ended_at: ended })
+      .update({ started_at: started, ended_at: ended })
       .eq("chat_id", chatId)
       .select("id")
       .single();
@@ -103,7 +99,6 @@ export const closeSmoke: SmokeCheck = {
         id: questionId,
         owner: studentId,
         session_id: sessionId,
-        kind: "question",
         prompt: topic.centralQuestion,
         asked_at: started,
         answer_text: WRONG_ANSWER,
@@ -124,7 +119,6 @@ export const closeSmoke: SmokeCheck = {
         question_id: questionId,
         session_id: sessionId,
         kc_id: kc,
-        kind: "learn",
         result: "wrong",
         help: "none",
         created_at: started,
@@ -138,17 +132,12 @@ export const closeSmoke: SmokeCheck = {
 
     await closeStudySession(sessionId);
 
-    const [closed, note, stored, usage] = await Promise.all([
+    const [closed, stored, usage, topicNotes] = await Promise.all([
       supabase
         .from("study_sessions")
-        .select("session_note")
+        .select("closed_at")
         .eq("id", sessionId)
         .single(),
-      supabase
-        .from("topic_notes")
-        .select("text")
-        .eq("topic_id", topic.id)
-        .maybeSingle(),
       supabase
         .from("memories")
         .select("text")
@@ -159,34 +148,44 @@ export const closeSmoke: SmokeCheck = {
         .select("id")
         .eq("owner", studentId)
         .eq("task", "close"),
+      supabase
+        .from("topic_notes")
+        .select("topic_id, text")
+        .eq("owner", studentId),
     ]);
+    if (topicNotes.error) throw new Error(topicNotes.error.message);
     if (closed.error) throw new Error(closed.error.message);
-    if (note.error) throw new Error(note.error.message);
     if (stored.error) throw new Error(stored.error.message);
     if (usage.error) throw new Error(usage.error.message);
 
-    const sessionNote = closed.data.session_note ?? "";
-    const topicNote = note.data?.text ?? "";
     console.info(
-      `\nSession note: ${sessionNote}\nTopic note: ${topicNote}\nMemory: ${memory.length} -> ${stored.data.text.length} characters`,
+      `\nMemory: ${memory.length} -> ${stored.data.text.length} characters\n${stored.data.text}`,
     );
-    const lines = sessionNote.split("\n").filter((line) => line.trim() !== "");
+    const note = topicNotes.data.find(({ topic_id }) => topic_id === topic.id);
+    console.info(`Topic note: ${note?.text ?? "none"}`);
     return [
       result("one close call", usage.data.length === 1, `${usage.data.length}`),
       result(
-        "the session has a two-line note",
-        lines.length === 2 && sessionNote.length <= 300,
-        JSON.stringify(sessionNote),
+        "a Topic note for the touched Topic",
+        note !== undefined &&
+          note.text.length > 0 &&
+          note.text.length <= MAX_TOPIC_NOTE_LENGTH,
+        note ? `${note.text.length} characters` : "none",
       ),
       result(
-        "the Topic has a note of at most 1,500 characters",
-        topicNote.length > 0 && topicNote.length <= 1_500,
-        `${topicNote.length} characters`,
+        "no Topic note for a Topic the session did not touch",
+        topicNotes.data.every(({ topic_id }) => topic_id === topic.id),
+        `${topicNotes.data.length} notes`,
       ),
       result(
-        "every pinned line is still in the Memory",
-        pinnedLines(memory).length === PINS.length &&
-          PINS.every((pin) => stored.data.text.includes(pin)),
+        "the session is closed",
+        closed.data.closed_at !== null,
+        `${closed.data.closed_at}`,
+      ),
+      result(
+        "the Memory is condensed",
+        stored.data.text.length > 0 &&
+          stored.data.text.length < memory.length * 0.75,
         `${stored.data.text.length} characters`,
       ),
     ];

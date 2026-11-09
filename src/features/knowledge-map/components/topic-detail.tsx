@@ -10,19 +10,20 @@ import type {
   MapPriorities,
   MapTopic,
   MapTopicDetail,
-  MapTopicState,
+  MapTopicStudy,
 } from "@/features/knowledge-map/types";
 import { KnowledgeMap } from "./knowledge-map";
-import { PlanBadges, RecallBar, TopicStateBadge } from "./topic-state";
+import { PlanBadges, TopicStudyLine } from "./topic-study";
 
 /**
- * A Topic's page: its name, the Topic it sits in, its Topic state and
- * recall today, central question, the Topics inside it, its anchors (each
+ * A Topic's page: its name, the Topic it sits in, how many of its KCs are
+ * learned and its Readiness, central question, the Topics inside it, its anchors (each
  * linking to the Topic that holds it, or plain text without one), its own
  * KCs in teaching order, its Reading sections and the Topics before and
  * after it. Below sits the KC graph restricted to its own KCs and anchors.
  * A Topic without KCs of its own shows only its place in the tree and the
- * Topics inside it. `topics` is the whole Topic tree in tree order; `map`, `priorities` and `learning` are what `KnowledgeMap` takes.
+ * Topics inside it. `topics` is the whole Topic tree in tree order; `map`,
+ * `priorities`, `learning` and `details` are what `KnowledgeMap` takes.
  * `controls` is the pin and skip slot below the badges.
  */
 export function TopicDetail({
@@ -32,14 +33,17 @@ export function TopicDetail({
   map,
   priorities,
   learning,
+  details = false,
   controls,
-  topicState,
+  study,
   badges,
 }: {
   courseId: string;
   topic: MapTopicDetail;
-  /** The Topic's state and recall today; undefined while it is new. */
-  topicState?: MapTopicState;
+  /** How many of its KCs are learned, and its Readiness. */
+  study?: MapTopicStudy;
+  /** Whether the KC panel shows its other stats and Attempts. */
+  details?: boolean;
   /** The study plan's badges of the Topic, such as "pinned". */
   badges?: string[];
   topics: MapTopic[];
@@ -66,10 +70,9 @@ export function TopicDetail({
       {ownKcs && (
         <>
           <div className="flex max-w-sm items-end gap-3">
-            <TopicStateBadge topicState={topicState} />
             <PlanBadges badges={badges} />
             <div className="flex-1">
-              <RecallBar topicState={topicState} />
+              <TopicStudyLine study={study} />
             </div>
           </div>
           {controls}
@@ -180,6 +183,7 @@ export function TopicDetail({
             map={restrictMapToTopic(map, topic)}
             priorities={priorities}
             learning={learning}
+            details={details}
           />
         </div>
       )}

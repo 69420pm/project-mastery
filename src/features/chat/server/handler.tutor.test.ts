@@ -22,85 +22,84 @@ const firstMessage = (text = "Let's start studying.") => ({
   message: userMessage(text),
 });
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * A stored full attempt on a KC at `createdAt`, from a question of an
- * earlier session in the Course, on `exerciseId` when given.
- */
-function attempt(kcId: string, createdAt: string, exerciseId?: string) {
-  // A session ended without its Chat, so the attempt creates the KC's card.
-  const session = {
-    id: randomUUID(),
-    owner: STUDENT,
-    course_id: COURSE,
-    chat_id: null,
-    ended_at: createdAt,
-  };
-  const question = {
-    id: randomUUID(),
-    owner: STUDENT,
-    session_id: session.id,
-    exercise_id: exerciseId ?? null,
-  };
-  db.tables.study_sessions.push(session);
-  db.tables.questions.push(question);
-  db.tables.attempts.push({
-    id: randomUUID(),
-    owner: STUDENT,
-    question_id: question.id,
-    session_id: session.id,
-    kc_id: kcId,
-    kind: "learn",
-    result: "full",
-    help: "none",
-    check: null,
-    created_at: createdAt,
-  });
-}
-
-/** The exam date `days` from today, as YYYY-MM-DD. */
-const examIn = (days: number) =>
-  new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
-
 const promptOf = (
   model: ReturnType<typeof mockTextModel>,
   call: number,
 ): string => JSON.stringify(model.doStreamCalls[call]!.prompt);
 
-describe("the instructions", () => {
-  test("hold the rules, the dates and the next Topic with its KCs and anchors", async () => {
+/** The text parts of the prompt's user messages, in order. */
+const userTexts = (model: ReturnType<typeof mockTextModel>, call: number) =>
+  model.doStreamCalls[call]!.prompt.filter(({ role }) => role === "user").map(
+    ({ content }) =>
+      (content as Array<{ type: string; text?: string }>)
+        .map((part) => part.text ?? "")
+        .join("|"),
+  );
+
+describe("the tutor context", () => {
+  test("goes in front of the newest Student message only, after static instructions", async () => {
     const model = mockTextModel("What do you remember of Newton's law?");
     useMockModels({ chat: model });
-    seedMap();
+    const examDate = new Date(Date.now() + 10 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
     db.tables.briefs.push({
       owner: STUDENT,
       course_id: COURSE,
-      exam_date: "2026-12-03",
+      exam_date: examDate,
     });
+    const body = firstMessage("Hi");
+
+    await send(body);
+    await send({ chatId: body.chatId, message: userMessage("Go on") });
+
+    const [first, second] = [0, 1].map((call) => model.doStreamCalls[call]!);
+    const system = (call: typeof first) =>
+      call!.prompt.find(({ role }) => role === "system")?.content;
+    expect(system(first)).toContain("Find out before you teach");
+    expect(system(first)).toBe(system(second));
+    const [earlier, newest] = userTexts(model, 1);
+    expect(earlier).toBe("Hi");
+    expect(newest).toMatch(/^<tutor-context>\n/);
+    expect(newest).toContain(
+      `Today is ${new Date().toISOString().slice(0, 10)}. The exam is on ${examDate}, in 10 days.`,
+    );
+    expect(newest).toMatch(/\|Go on$/);
+  });
+
+  test("names the ranking's next Topic with its KCs, anchors and Reading sections, and every Topic", async () => {
+    const model = mockTextModel("Shall we start with thrust?");
+    useMockModels({ chat: model });
+    seedMap();
+    db.tables.kcs.find(({ id }) => id === MAP.thrust)!.assumes = [
+      { name: "Momentum", description: "Mass times velocity." },
+    ];
 
     await send(firstMessage());
 
-    const prompt = promptOf(model, 0);
-    expect(prompt).toContain("Attempt before help.");
-    expect(prompt).toContain("Never show the Student ids or tool names.");
-    expect(prompt).toContain("Write all mathematics in LaTeX");
-    expect(prompt).toContain(
-      `Today is ${new Date().toISOString().slice(0, 10)}`,
+    const [context] = userTexts(model, 0);
+    expect(context).toContain(
+      `Next Topic: Thrust (Topic id ${MAP.topic}): How does an engine make thrust?`,
     );
-    expect(prompt).toContain("The exam date: 2026-12-03.");
-    expect(prompt).toContain(
-      `Next Topic: Thrust (id ${MAP.topic}). Central question: How does an engine make thrust?`,
+    expect(context).toContain(`Thrust equation (KC id ${MAP.thrust}; new)`);
+    expect(context).toContain(
+      `Anchors: Newton's second law (KC id ${MAP.newton}; new)`,
     );
-    expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}; not taught yet)\\n- Propulsive efficiency (id ${MAP.efficiency}; not taught yet)`,
+    expect(context).toContain(
+      "Thrust equation assumes, beyond the Materials: Momentum: Mass times velocity.",
     );
-    expect(prompt).toContain(`- Newton's second law (id ${MAP.newton})`);
+    expect(context).toContain(`Lecture 7, pp. 3–5 (section id ${MAP.section})`);
+    expect(context).toContain(
+      `Thrust (Topic id ${MAP.topic}): in plan, 0 of 2 learned`,
+    );
+    // The first reply tops up the next Topic's Problem stock.
+    expect(db.tables.problem_runs).toEqual([
+      { course_id: COURSE, topic_id: MAP.topic },
+    ]);
   });
 
-  test("come from the context sent on the reply's start and saved with it", async () => {
-    useMockModels({ chat: mockTextModel("Let's dock on Newton's law.") });
-    seedMap();
+  test("is sent on the reply's start and saved with it", async () => {
+    useMockModels({ chat: mockTextModel("Let's start.") });
     const body = firstMessage();
 
     const reply = await send(body);
@@ -108,10 +107,6 @@ describe("the instructions", () => {
     const context = reply.startMetadata?.tutorContext;
     expect(context).toMatchObject({
       today: new Date().toISOString().slice(0, 10),
-      hasMap: true,
-      todayPlan: {
-        next: expect.objectContaining({ id: MAP.topic, name: "Thrust" }),
-      },
     });
     const [studentRow, replyRow] = db.tables.chat_messages.filter(
       (row) => row.chat_id === body.chatId,
@@ -120,34 +115,13 @@ describe("the instructions", () => {
     expect(replyRow?.tutor_context).toEqual(context);
   });
 
-  test("list the due reviews, and mark the next Topic's taught KCs", async () => {
-    const model = mockTextModel("What is the thrust equation?");
-    useMockModels({ chat: model });
-    seedMap();
-    // Good four days ago, so due since a day.
-    attempt(MAP.thrust, new Date(Date.now() - 4 * DAY_MS).toISOString());
-
-    await send(firstMessage());
-
-    const prompt = promptOf(model, 0);
-    expect(prompt).toMatch(
-      new RegExp(
-        `- Thrust equation \\(id ${MAP.thrust}, Topic id ${MAP.topic}; recall today \\d+%\\)`,
-      ),
-    );
-    expect(prompt).toContain(
-      `- Thrust equation (id ${MAP.thrust}; taught)\\n- Propulsive efficiency (id ${MAP.efficiency}; not taught yet)`,
-    );
-  });
-
-  test("give the goal and the Phase, and no fit line", async () => {
+  test("gives the goal and the Brief's notes", async () => {
     const model = mockTextModel("Let's go.");
     useMockModels({ chat: model });
-    seedMap();
     db.tables.briefs.push({
       owner: STUDENT,
       course_id: COURSE,
-      exam_date: examIn(14),
+      exam_date: "2026-12-03",
       goal: "good_grade",
       notes: "New to linear algebra; no prior knowledge.",
     });
@@ -155,45 +129,8 @@ describe("the instructions", () => {
     await send(firstMessage());
 
     const prompt = promptOf(model, 0);
-    expect(prompt).not.toContain("Study phase");
     expect(prompt).toContain("New to linear algebra; no prior knowledge.");
     expect(prompt).toContain("goal is a good grade");
-    expect(prompt).not.toContain("The study plan:");
-  });
-
-  test("guide the final week to review, and add no plan without an exam date", async () => {
-    const model = mockTextModel("Let's review.");
-    useMockModels({ chat: model });
-    seedMap();
-    db.tables.briefs.push({
-      owner: STUDENT,
-      course_id: COURSE,
-      exam_date: examIn(5),
-      goal: "pass",
-    });
-
-    await send(firstMessage());
-    db.tables.briefs.length = 0;
-    await send(firstMessage());
-
-    const prompt = promptOf(model, 0);
-    expect(prompt).toContain("Final week: the exam is within 7 days.");
-    expect(prompt).toContain("Teach nothing new unless the Student asks.");
-    expect(prompt).toContain("goal is to pass");
-    expect(promptOf(model, 1)).not.toContain("Study phase");
-  });
-
-  test("without a map, have no next Topic and point to the map page", async () => {
-    const model = mockTextModel("Hi.");
-    useMockModels({ chat: model });
-
-    await send(firstMessage("Hi"));
-
-    const prompt = promptOf(model, 0);
-    expect(prompt).toContain("The exam date: not set.");
-    expect(prompt).toContain("no Knowledge map yet");
-    expect(prompt).toContain(`/courses/${COURSE}/map`);
-    expect(prompt).not.toContain("Next Topic:");
   });
 });
 
@@ -223,9 +160,9 @@ describe("getTopic", () => {
     expect(result).toContain("How does an engine make thrust?");
     // Efficiency is in the Topic, but its sources were not asked for.
     expect(result).toContain("Propulsive efficiency");
-    // The anchor, with its state.
+    // The anchor, with its recall band.
     expect(result).toContain("Newton's second law");
-    expect(result).toContain('"state":"new"');
+    expect(result).toContain('"band":"new"');
     expect(result).toContain("Lecture 7");
     expect(result).toContain("p. 3");
     expect(result).toContain("pp. 4–5");
@@ -279,6 +216,7 @@ describe("getTopic", () => {
         position,
         page_from: 9,
         page_to: 9,
+        label: "content",
         markdown: `Chunk ${position}`,
       });
       db.tables.kc_sources.push({
@@ -340,7 +278,7 @@ describe("guided reading", () => {
   // Cut on read from the chunks the Topic's KCs cite; the id pins the cut.
   const SECTION = MAP.section;
 
-  test("the instructions list the next Topic's sections, and showReading ends the reply with the section's text", async () => {
+  test("showReading ends the reply with the section's text", async () => {
     const model = mockToolModel(
       [
         [
@@ -357,9 +295,6 @@ describe("guided reading", () => {
 
     const reply = await send(firstMessage());
 
-    expect(promptOf(model, 0)).toContain(
-      `- Lecture 7, pp. 3–5 (section id ${SECTION})`,
-    );
     expect(model.doStreamCalls).toHaveLength(1);
     expect(reply.text).toBe("");
     const part = (
@@ -375,34 +310,5 @@ describe("guided reading", () => {
         "Chunk 1: $F = \\dot m (v_e - v_0)$",
       ],
     });
-  });
-
-  test("a Done is stored with its section and reaches the model with the prefix", async () => {
-    const model = mockTextModel("What makes thrust, then?");
-    useMockModels({ chat: model });
-    seedMap();
-    const done = {
-      ...userMessage("Done reading."),
-      metadata: { readingSectionId: SECTION },
-    };
-
-    await send({ ...firstMessage(), message: done });
-
-    expect(
-      db.tables.chat_messages.find(({ id }) => id === done.id),
-    ).toMatchObject({ role: "user", reading_section_id: SECTION });
-    expect(promptOf(model, 0)).toContain(
-      `"text":"[Done reading section ${SECTION}.]\\n\\n"},{"type":"text","text":"Done reading."`,
-    );
-  });
-
-  test("refuses a Done whose section id is no uuid", async () => {
-    useMockModels({ chat: mockTextModel("Never sent.") });
-    const done = {
-      ...userMessage("Done reading."),
-      metadata: { readingSectionId: "made-up" },
-    };
-
-    expect((await send({ ...firstMessage(), message: done })).status).toBe(400);
   });
 });

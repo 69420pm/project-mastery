@@ -85,10 +85,13 @@ select results_eq(
 -- parse with the same Outline keeps both on its new Chapter.
 insert into public.briefs (course_id, owner)
 values ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111');
-update public.chapters set is_exam = true, exam_asked = true where title = '1 Limits';
+update public.chapters set is_exam = true, exam_asked = true
+where material_id = 'aaaaaaaa-1111-0000-0000-000000000001' and title = '1 Limits';
 update public.briefs
-set reserved_exam_chapter_id = (select id from public.chapters where title = '1 Limits'),
-  reserved_exam_answered = true;
+set reserved_exam_chapter_id = (select id from public.chapters
+    where material_id = 'aaaaaaaa-1111-0000-0000-000000000001' and title = '1 Limits'),
+  reserved_exam_answered = true
+where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 set local role service_role;
 select public.replace_material_chunks(
@@ -108,7 +111,8 @@ reset role;
 select results_eq(
   $$select ch.title, ch.is_exam, ch.exam_asked, b.reserved_exam_chapter_id = ch.id
     from public.chapters as ch, public.briefs as b
-    where ch.material_id = 'aaaaaaaa-1111-0000-0000-000000000001' order by ch.position$$,
+    where ch.material_id = 'aaaaaaaa-1111-0000-0000-000000000001'
+      and b.course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by ch.position$$,
   $$values ('Exam 2023', null::boolean, false, false), ('1 Limits', true, true, true),
     ('1.1 Exercises', null::boolean, false, false)$$,
   'a new parse keeps the Brief''s old exam and its reservation');

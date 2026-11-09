@@ -25,6 +25,7 @@ import {
   type MapInput,
 } from "@/features/knowledge-map/workflows/map-input";
 import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
+import { retryTimeoutMs } from "@/lib/ai/call-timeout";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failed } from "@/lib/supabase/failed";
@@ -38,8 +39,8 @@ import type { AdminSupabase } from "@/lib/supabase/types";
 
 /** What the tree step gives the last step. */
 export type TreeProposal = {
-  /** The hash of what the tree is built from. */
-  hash: string;
+  /** The hash of what the tree is built from; null when no call answered. */
+  hash: string | null;
   /** The call's Topics; null to keep the stored tree. */
   topics: ProposedTopic[] | null;
 };
@@ -47,23 +48,59 @@ export type TreeProposal = {
 export type TreeOutcome =
   { ok: true; tree: TreeProposal | null } | { ok: false; reason: string };
 
-/** The live KCs as the tree places them, in Course order. */
-export function treeKcs(input: MapInput): TreeKc[] {
+/**
+ * The live KCs as the tree places them, in Course order, with their
+ * embeddings when `vectors` has them.
+ */
+export function treeKcs(
+  input: MapInput,
+  vectors: ReadonlyMap<string, number[]> = new Map(),
+): TreeKc[] {
   const places = firstSourcePlaces(input);
   return input.kcs
     .filter((kc) => places.has(kc.id))
     .toSorted((a, b) => places.get(a.id)! - places.get(b.id)!)
     .map((kc) => {
       const chapterId = input.chunks[places.get(kc.id)!]!.chapterId;
-      if (kc.origin !== "exercise") return { id: kc.id, chapterId };
+      const vector = vectors.get(kc.id);
+      const base = { id: kc.id, chapterId, ...(vector && { vector }) };
+      if (kc.origin !== "exercise") return base;
       return {
-        id: kc.id,
-        chapterId,
+        ...base,
         tests: input.exercises
           .filter((kcs) => kcs.includes(kc.id))
           .flatMap((kcs) => kcs.filter((id) => id !== kc.id)),
       };
     });
+}
+
+/** The embeddings of the Course's live KCs, by KC id. */
+export async function loadKcVectors(
+  supabase: AdminSupabase,
+  courseId: string,
+): Promise<Map<string, number[]>> {
+  const rows = await allRows("Loading the KC embeddings", (from, to) =>
+    supabase
+      .from("kcs")
+      .select("id, embedding")
+      .eq("course_id", courseId)
+      .is("retired_at", null)
+      .not("embedding", "is", null)
+      .order("id")
+      .range(from, to),
+  );
+  return new Map(
+    rows.flatMap((row) => {
+      // PostgREST returns a vector as its text, `[0.1,0.2]`.
+      const vector: unknown =
+        typeof row.embedding === "string"
+          ? JSON.parse(row.embedding)
+          : row.embedding;
+      return Array.isArray(vector)
+        ? [[row.id, vector as number[]] as const]
+        : [];
+    }),
+  );
 }
 
 /** The Course's stored Topics in tree order. */
@@ -144,10 +181,13 @@ function offeredCourse(
  * Proposes the Topic tree: no call when the Course has no KCs, or when its
  * Outlines and KCs are what the stored tree was built from; else one call,
  * its short ids turned back into stored ones (unknown ones are dropped). A
- * reached Daily limit stops the build.
+ * call that fails is made once more; when that fails too, the proposal is
+ * empty, so every Chapter with KCs becomes a Topic of its own, and the
+ * build goes on. A reached Daily limit stops the build.
  */
 export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
   "use step";
+  const startedAt = Date.now();
   const supabase = createAdminClient();
   const owner = await touchBuild(supabase, courseId);
   if (!owner) return { ok: true, tree: null };
@@ -173,13 +213,23 @@ export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
     return { ok: true, tree: { hash, topics: null } };
   }
 
-  const answer = await buildCall(
-    supabase,
-    { studentId: owner, task: "topic", traceName: "topic-tree" },
-    { ...topicTreeSettings(course), messages: topicTreeMessages(course) },
-    topicTreeSchema(),
-  );
+  const treeCall = (timeoutMs?: number) =>
+    buildCall(
+      supabase,
+      { studentId: owner, task: "topic", traceName: "topic-tree" },
+      { ...topicTreeSettings(course), messages: topicTreeMessages(course) },
+      topicTreeSchema(),
+      timeoutMs,
+    );
+  let answer = await treeCall();
+  const retryMs = retryTimeoutMs(startedAt);
+  if (answer === "failed" && retryMs !== null) answer = await treeCall(retryMs);
   if (answer === "limit") return { ok: false, reason: dailyLimitReason };
+  if (answer === "failed") {
+    // Each Chapter with KCs becomes a Topic of its own (`planTopicTree`);
+    // without a hash, the next Update map calls again.
+    return { ok: true, tree: { hash: null, topics: [] } };
+  }
   const chapterOf = new Map([...chapterIds].map(([id, short]) => [short, id]));
   const topicOf = new Map([...topicIds].map(([id, short]) => [short, id]));
   return {

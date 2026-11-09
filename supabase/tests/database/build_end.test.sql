@@ -22,7 +22,7 @@ select public.replace_material_chunks('aaaaaaaa-1111-0000-0000-000000000001',
 insert into public.chapter_extractions (id, chapter_id, owner, course_id, kind, unit, content_hash, output, kc_ids)
 select 'eeeeeeee-0000-0000-0000-000000000001', id, owner, course_id, 'content', 0, repeat('a', 64),
   '{"kcs": [], "prerequisites": []}', '{}'
-from public.chapters;
+from public.chapters where course_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 create function pg_temp.vec(axis int) returns extensions.vector language sql as $$
   select ('[' || array_to_string(array_agg(case when i = axis then 1 else 0 end order by i), ',') || ']')::extensions.vector
@@ -44,14 +44,16 @@ select results_eq(
   'alike_kcs lists each pair of alike live KCs once');
 
 select is(
-  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001', '[]',
+  public.store_assumed_prerequisites('aaaaaaaa-0000-0000-0000-000000000001',
     '[{"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000002", "to": "bbbbbbbb-0000-0000-0000-000000000003"},
       {"from": "bbbbbbbb-0000-0000-0000-000000000001", "to": "bbbbbbbb-0000-0000-0000-000000000002"}]',
-    '{eeeeeeee-0000-0000-0000-000000000001}'),
+    '[]', '[]', '{eeeeeeee-0000-0000-0000-000000000001}'),
   true, 'the running build stores assumed Prerequisites');
-select is((select count(*)::int from public.prerequisite_links), 3, 'all three are stored');
-select is((select assumes_matched from public.chapter_extractions), true,
+select is((select count(*)::int from public.prerequisite_links
+  where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), 3, 'all three are stored');
+select is((select assumes_matched from public.chapter_extractions
+  where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'), true,
   'the unit extraction is marked matched');
 
 select is(
@@ -62,12 +64,14 @@ select is(
     '{"chaptersWithoutKcs": [], "exercisesWithoutKcs": [], "duplicates": []}'),
   true, 'the build ends');
 select results_eq(
-  $$select name, position from public.kcs order by position$$,
+  $$select name, position from public.kcs
+    where course_id = 'aaaaaaaa-0000-0000-0000-000000000001' order by position$$,
   $$values ('Basis'::text, 0), ('Vector', 1), ('Vectors', 2)$$,
   'the listed KCs come first in their order, the others after them');
 select results_eq(
-  $$select status, check_report ? 'chaptersWithoutKcs', (select count(*)::int from public.prerequisite_links)
-    from public.knowledge_map_builds$$,
+  $$select status, check_report ? 'chaptersWithoutKcs', (select count(*)::int from public.prerequisite_links
+      where course_id = 'aaaaaaaa-0000-0000-0000-000000000001')
+    from public.knowledge_map_builds where course_id = 'aaaaaaaa-0000-0000-0000-000000000001'$$,
   $$values ('built'::text, true, 2)$$,
   'the build is built with its check report and the redundant Prerequisite dropped');
 

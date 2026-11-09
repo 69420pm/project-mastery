@@ -8,7 +8,15 @@ export { exerciseLabel } from "./domain/exercise-label";
 export { courseMapPath, topicPath } from "./domain/map-paths";
 export { restrictMapToTopic } from "./domain/topic-map";
 export { topicAnchors } from "./domain/topic-reading";
-export { finalAnswerSchema } from "./schemas";
+export {
+  checkAnswer,
+  checkAnswers,
+  checkEachAnswer,
+  worstCheck,
+  type AnswerCheck,
+  type AnswerKey,
+} from "./domain/answer-keys";
+export { answerKeySchema, MAX_ANSWER_LENGTH } from "./schemas";
 export {
   findReadingSection,
   loadCourseTopics,
@@ -17,7 +25,7 @@ export {
 } from "./server/course-topics";
 export { getKnowledgeMap } from "./server/queries";
 export { getTopicNames } from "./server/topic-names";
-export { loadStoredMap } from "./server/stored-map";
+export { loadKcAssumes, loadStoredMap } from "./server/stored-map";
 export {
   loadStoredTopics,
   loadTopicTree,

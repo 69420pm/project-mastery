@@ -11,6 +11,12 @@ Verified on 2026-10-25 with the installed `mathjs` (15.x) under Node, for M5b (#
 - **A worker thread's `resourceLimits` don't contain a large allocation.** `sum(range(1, 1e8))` in a worker with `maxOldGenerationSizeMb: 256` hits V8's fatal out-of-memory and aborts the whole Node process (Node 24). The runner therefore evaluates each program in its own `node -e` process with `--max-old-space-size`, which only takes itself down; spawning it and loading mathjs costs about 0.4 s.
 - `math.Unit.isValuelessUnit(name)` tells a unit name (`m`, `km`, `N`, `g`, `T`) from a free one (`a`, `thrust`); a parsed program's `AssignmentNode`s and `FunctionAssignmentNode`s carry the assigned `name`.
 
+Verified on 2026-11-06 for the answer keys (#249):
+
+- **Restricting an instance.** `math.import({ range: thrower, ... }, { override: true })` on a `create(all)` instance disables those functions for nodes that instance's `parse` built, the `a:b` range syntax included. Take `const parse = math.parse` before overriding `parse` itself.
+- **Scope wins over units.** `t^2 + 1` throws without a scope (`t` is the tonne), but evaluates with `t` in the scope Map. `2t` is 2 tonnes, and `m` alone a valueless unit. `A` is the ampere, so a program can't assign a matrix to `A`.
+- `evaluate("x = 5")` returns 5; `format(matrix, { precision: 4 })` rounds each element; `squeeze([[2], [-3]])` gives `[2, -3]`; `sqrt(-x)` evaluates to a complex number.
+
 One live call on `xiaomi/mimo-v2.6-flash` (gateway, DeepInfra) asked for a variant of the gold thrust Exercise with a program, a structured output of statement, solution, program and final answers by variable and unit. It answered in 15 s, 168 input and 172 output tokens, no reasoning, about $0.00005. The program ran, with the unit slip above.
 
 One run of the `generate` task's real prompt (#183, medium reasoning, a new Problem for a Linear Algebra KC) failed twice with `Invalid left hand side of assignment operator = (char 37)`: about 30 s and 950 input / 450 output tokens for the first call, 16 s for the retry. The program was not kept then; a failed Problem now stores its last program.

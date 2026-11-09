@@ -1,18 +1,6 @@
-import { expect, test, vi } from "vitest";
+import { expect, test } from "vitest";
 import type { ChatUIMessage } from "@/features/chat/types";
-import {
-  doneReadings,
-  questionStates,
-  rebuildQuestions,
-  replySegments,
-  practiceProgress,
-  reviewProgress,
-  sessionStage,
-  sessionTopic,
-} from "./reply-steps";
-
-// The study feature's index also exports its Memory card's server action.
-vi.mock("server-only", () => ({}));
+import { replySegments } from "./reply-steps";
 
 type Parts = ChatUIMessage["parts"];
 
@@ -38,8 +26,6 @@ function summaries(
         return `question ${segment.question.id}: ${segment.question.prompt}`;
       case "reading":
         return `reading ${segment.reading.sectionId}`;
-      case "knowledgeMap":
-        return `knowledge map ${segment.knowledgeMap.topicId}`;
       case "step":
         return `${segment.step.state}: ${segment.step.summary}`;
     }
@@ -51,11 +37,11 @@ const askPart = (id: string, state: "input-available" | "output-available") =>
     type: "tool-ask",
     toolCallId: `ask-${id}`,
     state,
-    input: { kind: "question", prompt: `Question ${id}?`, kcIds: ["a"] },
+    input: { prompt: `Question ${id}?`, kcIds: ["a"] },
     ...(state === "output-available" && { output: { questionId: id } }),
   }) as Parts[number];
 
-test("shows an asked question as a question card, and one being asked as a step", () => {
+test("shows an asked question as its prompt, and one being asked as a step", () => {
   expect(
     summaries([
       { type: "text", text: "Try this. " },
@@ -65,93 +51,6 @@ test("shows an asked question as a question card, and one being asked as a step"
   expect(summaries([askPart("q2", "input-available")])).toEqual([
     "running: Asking a question…",
   ]);
-});
-
-test("a question is submitted by an answer from its card and graded by grade", () => {
-  const graded = [{ id: "a", name: "Limits", result: "partial" }];
-  const messages = [
-    { id: "1", role: "assistant", parts: [askPart("q1", "output-available")] },
-    { id: "2", role: "user", parts: [{ type: "text", text: "On the side" }] },
-    {
-      id: "3",
-      role: "user",
-      metadata: { questionId: "q1" },
-      parts: [{ type: "text", text: "4" }],
-    },
-    {
-      id: "4",
-      role: "assistant",
-      metadata: {},
-      parts: [askPart("q2", "output-available")],
-    },
-    {
-      id: "5",
-      role: "user",
-      metadata: { questionId: "q2" },
-      parts: [{ type: "text", text: "5" }],
-    },
-    {
-      id: "6",
-      role: "assistant",
-      parts: [
-        {
-          type: "tool-grade",
-          toolCallId: "g",
-          state: "output-available",
-          input: { questionId: "q2" },
-          output: { kcs: graded },
-        },
-      ],
-    },
-  ] as ChatUIMessage[];
-
-  const states = questionStates(messages);
-
-  expect(states.get("q1")).toEqual({ status: "submitted" });
-  expect(states.get("q2")).toEqual({ status: "graded", kcs: graded });
-  expect(questionStates(messages.slice(0, 2)).get("q1")).toBeUndefined();
-});
-
-test("a graded rebuild of a session with a Topic is followed by a Knowledge map", () => {
-  const rebuild = {
-    ...askPart("q1", "output-available"),
-    input: { kind: "rebuild", prompt: "Rebuild it.", kcIds: ["a", "b"] },
-  } as Parts[number];
-  const grade = (questionId: string) =>
-    ({
-      type: "tool-grade",
-      toolCallId: `g-${questionId}`,
-      state: "output-available",
-      input: { questionId },
-      output: { kcs: [{ id: "a", name: "Limits", result: "full" }] },
-    }) as Parts[number];
-  const context = (session: object | null) => ({
-    tutorContext: { session, todayPlan: { next: { id: "t1" } } },
-  });
-  const messages = [
-    {
-      id: "1",
-      role: "assistant",
-      metadata: context({ stage: "rebuild" }),
-      parts: [rebuild, askPart("q2", "output-available")],
-    },
-  ] as ChatUIMessage[];
-
-  const rebuilds = rebuildQuestions(messages);
-  const topicId = sessionTopic(messages);
-  expect([...rebuilds]).toEqual(["q1"]);
-  expect(topicId).toBe("t1");
-  expect(
-    summaries([grade("q1"), grade("q2")], { ...live, rebuilds, topicId }),
-  ).toEqual([
-    "done: Graded: Limits full",
-    "knowledge map t1",
-    "done: Graded: Limits full",
-  ]);
-  // Without stages there is no session Topic.
-  expect(
-    sessionTopic([{ ...messages[0]!, metadata: context(null) }] as never),
-  ).toBeNull();
 });
 
 const readingPart = (callId: string, sectionId: string) =>
@@ -175,130 +74,6 @@ test("shows an opened reading as a reading card", () => {
       },
     },
   ]);
-});
-
-test("a reading card is done once a later Student message names its section", () => {
-  const reply = (id: string, parts: Parts) =>
-    ({ id, role: "assistant", parts }) as ChatUIMessage;
-  const student = (id: string, readingSectionId?: string) =>
-    ({
-      id,
-      role: "user",
-      ...(readingSectionId && { metadata: { readingSectionId } }),
-      parts: [{ type: "text", text: "Done reading." }],
-    }) as ChatUIMessage;
-  const messages = [
-    student("0", "s1"),
-    reply("1", [readingPart("r1", "s1"), readingPart("r2", "s2")]),
-    // A side message leaves the cards open.
-    student("2"),
-    student("3", "s1"),
-    reply("4", [readingPart("r3", "s1")]),
-  ];
-
-  expect([...doneReadings(messages)]).toEqual(["r1"]);
-  expect(doneReadings(messages.slice(0, 3)).size).toBe(0);
-});
-
-test("the session's stage is the latest setStage that returned, else the latest reply's context", () => {
-  const reply = (stage: string | null, parts: Parts = []) =>
-    ({
-      id: "r",
-      role: "assistant",
-      metadata: { tutorContext: { session: stage && { stage } } },
-      parts,
-    }) as unknown as ChatUIMessage;
-  const moved = (stage: string, state = "output-available") =>
-    ({
-      type: "tool-setStage",
-      toolCallId: "s",
-      state,
-      input: { stage },
-      output: { stage },
-    }) as Parts[number];
-
-  expect(sessionStage([reply(null)])).toBeNull();
-  expect(sessionStage([reply("orient", [moved("prime")])])).toBe("prime");
-  expect(
-    sessionStage([
-      reply("orient", [moved("prime")]),
-      reply("prime", [moved("read", "input-available")]),
-    ]),
-  ).toBe("prime");
-  expect(summaries([moved("work")])).toEqual(["done: Moved to Work"]);
-});
-
-test("a review session's progress counts the done groups of the latest queue and of its reply's grades", () => {
-  const grade = (kcIds: string[]) => ({
-    type: "tool-grade",
-    toolCallId: `grade-${kcIds.join()}`,
-    state: "output-available",
-    input: {
-      questionId: "q",
-      results: kcIds.map((kcId) => ({ kcId, result: "wrong" })),
-    },
-    output: {},
-  });
-  const reply = (statuses?: string[], parts: unknown[] = []) =>
-    ({
-      id: "r",
-      role: "assistant",
-      metadata: {
-        tutorContext: {
-          reviewQueue: statuses?.map((status, i) => ({
-            status,
-            kcs: [{ id: `k${i}` }, { id: `j${i}` }],
-          })),
-        },
-      },
-      parts,
-    }) as unknown as ChatUIMessage;
-
-  expect(
-    reviewProgress([reply(["open"]), reply(["done", "retry", "open"])]),
-  ).toBe("2 of 3 done");
-  expect(
-    reviewProgress([
-      reply(["done", "open", "open"], [grade(["k1", "j1", "k2"])]),
-    ]),
-  ).toBe("2 of 3 done");
-  expect(reviewProgress([reply([])])).toBeNull();
-  expect(reviewProgress([reply()])).toBeNull();
-});
-
-test("a practice session's progress counts its graded questions that posed a Problem", () => {
-  const ask = (id: string, problemId?: string) => ({
-    type: "tool-ask",
-    toolCallId: `ask-${id}`,
-    state: "output-available",
-    input: { kind: "problem", kcIds: ["k"], prompt: "Solve", problemId },
-    output: { questionId: id },
-  });
-  const grade = (id: string) => ({
-    type: "tool-grade",
-    toolCallId: `grade-${id}`,
-    state: "output-available",
-    input: { questionId: id },
-    output: { kcs: [] },
-  });
-  const reply = (parts: unknown[], practiceKcs: unknown[] | null = [{}]) =>
-    ({
-      id: "r",
-      role: "assistant",
-      metadata: { tutorContext: practiceKcs ? { practiceKcs } : {} },
-      parts,
-    }) as unknown as ChatUIMessage;
-
-  const messages = [
-    reply([ask("q1", "p1")]),
-    reply([grade("q1"), ask("q2"), ask("q3", "p2")]),
-    reply([grade("q2"), grade("q3"), ask("q4", "p3")]),
-  ];
-  expect(practiceProgress(messages)).toBe("2 Problems answered");
-  expect(practiceProgress(messages.slice(0, 2))).toBe("1 Problem answered");
-  expect(practiceProgress([reply([])])).toBe("0 Problems answered");
-  expect(practiceProgress([reply([], [])])).toBeNull();
-  expect(practiceProgress([reply([], null)])).toBeNull();
 });
 
 test("keeps text and tool calls in order, merging text across steps", () => {
@@ -328,7 +103,7 @@ test("keeps text and tool calls in order, merging text across steps", () => {
   ).toEqual(["Let me look. ", "done: Read Topic Calculus", "Here we go."]);
 });
 
-test("a call on its way is running, and a failed one carries its error", () => {
+test("a call on its way is running, and a failed one hides the AI's error", () => {
   const [running, failed] = replySegments(
     [
       {
@@ -354,9 +129,9 @@ test("a call on its way is running, and a failed one carries its error", () => {
     step: {
       state: "error",
       summary: "Making a note failed",
-      errorText: "One line, without line breaks.",
     },
   });
+  expect(JSON.stringify(failed)).not.toContain("One line");
 });
 
 test("a call that never returned in a finished reply shows as stopped", () => {
@@ -468,7 +243,6 @@ test("a denied call is a failed step saying it was denied", () => {
     step: {
       state: "error",
       summary: "Making a note failed",
-      errorText: "The call was denied.",
       detail: null,
     },
   });

@@ -1,0 +1,2064 @@
+{
+  "about": "Compact record of one pipeline run of the gold course on staging, aligned to reference-map.json. Written by Claude Opus 5.5 for PR #252.",
+  "run": {
+    "course": "Linear Algebra I (new after #252)",
+    "courseId": "e899632d-e458-45c0-a18e-7c960ce44052",
+    "material": "Linear_Algebra_I_Script_WS2026-27 (material.pdf, 55 pages)",
+    "models": {
+      "generating": "xiaomi/mimo-v2.6-flash",
+      "embed": "cohere/embed-v5.0-fast"
+    },
+    "parse": {
+      "from": "2026-11-07T16:43:41Z",
+      "to": "2026-11-07T16:58:24Z",
+      "commitBefore": "3a18f23"
+    },
+    "build": {
+      "firstMapCall": "2026-11-07T17:01:06Z",
+      "lastBuildStarted": "2026-11-07T19:14:36Z",
+      "finished": "2026-11-07T19:32:33Z",
+      "status": "built"
+    },
+    "costUsd": {
+      "ingest": 0.0576,
+      "embed": 0.0053,
+      "map": 0.0886,
+      "exercise": 0.0193,
+      "topic": 0.0003,
+      "total": 0.1711
+    },
+    "timeouts": {
+      "parse-batch": "1 of 17 (p. 10 alone)",
+      "parse-outline": "1 of 1",
+      "extract-chapter": "7 of 55",
+      "extract-exercises": "6 of 12",
+      "check-prerequisites": "6 of 18",
+      "topic-tree": "1 of 1"
+    },
+    "language": null,
+    "notes": null,
+    "uncoveredPages": [10]
+  },
+  "kcs": [
+    {
+      "position": 0,
+      "name": "Parallelogram rule for vector addition",
+      "origin": "content",
+      "pages": [1],
+      "chapter": ["Linear_Algebra_I_Script_WS2026-27"],
+      "assumes": [
+        "Vector addition in $\u0003b1^2\u0003b2",
+        "Coordinate system and position vectors"
+      ]
+    },
+    {
+      "position": 1,
+      "name": "Scope of linear algebra",
+      "origin": "content",
+      "pages": [3],
+      "chapter": ["Course Information"],
+      "assumes": []
+    },
+    {
+      "position": 2,
+      "name": "Proof‑based nature of the course",
+      "origin": "content",
+      "pages": [3],
+      "chapter": ["Course Information"],
+      "assumes": []
+    },
+    {
+      "position": 3,
+      "name": "Course notation and conventions",
+      "origin": "content",
+      "pages": [6],
+      "chapter": ["Course Information"],
+      "assumes": [
+        "Basic set terminology",
+        "Number systems",
+        "Matrices and column vectors"
+      ]
+    },
+    {
+      "position": 4,
+      "name": "Operations on sets and Cartesian products",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": [
+        "Subset relation and set membership",
+        "Basic operations on sets"
+      ]
+    },
+    {
+      "position": 5,
+      "name": "Double inclusion",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": ["Subset relation", "Implication with set membership"]
+    },
+    {
+      "position": 6,
+      "name": "Maps, images and preimages",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": ["Set membership and subsets", "Set-builder notation"]
+    },
+    {
+      "position": 7,
+      "name": "Injectivity, surjectivity, bijectivity",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": ["Equality of elements"]
+    },
+    {
+      "position": 8,
+      "name": "Composition and identity maps",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": []
+    },
+    {
+      "position": 9,
+      "name": "Left and right inverses characterise injectivity and surjectivity",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": ["Axiom of choice", "Empty set and existence quantifier"]
+    },
+    {
+      "position": 10,
+      "name": "Finite sets of equal size: injective iff surjective",
+      "origin": "content",
+      "pages": [11],
+      "chapter": ["Maps"],
+      "assumes": ["Cardinality of finite sets", "Contradiction argument"]
+    },
+    {
+      "position": 11,
+      "name": "Equivalence relations and quotient sets",
+      "origin": "content",
+      "pages": [12],
+      "chapter": ["Relations and induction"],
+      "assumes": ["Divisibility and division with remainder"]
+    },
+    {
+      "position": 12,
+      "name": "The principle of mathematical induction",
+      "origin": "content",
+      "pages": [12],
+      "chapter": ["Relations and induction"],
+      "assumes": [
+        "Natural numbers and summation notation",
+        "Manipulating algebraic expressions"
+      ]
+    },
+    {
+      "position": 13,
+      "name": "Group and its axioms",
+      "origin": "content",
+      "pages": [13],
+      "chapter": ["Groups"],
+      "assumes": []
+    },
+    {
+      "position": 14,
+      "name": "Consequences of the group axioms",
+      "origin": "content",
+      "pages": [13],
+      "chapter": ["Groups"],
+      "assumes": []
+    },
+    {
+      "position": 15,
+      "name": "Standard groups and non-groups",
+      "origin": "content",
+      "pages": [13],
+      "chapter": ["Groups"],
+      "assumes": []
+    },
+    {
+      "position": 16,
+      "name": "Subgroups",
+      "origin": "content",
+      "pages": [13],
+      "chapter": ["Groups"],
+      "assumes": []
+    },
+    {
+      "position": 17,
+      "name": "Group homomorphisms and kernel",
+      "origin": "content",
+      "pages": [13],
+      "chapter": ["Groups"],
+      "assumes": []
+    },
+    {
+      "position": 18,
+      "name": "Rings and fields",
+      "origin": "content",
+      "pages": [14],
+      "chapter": ["Rings and fields"],
+      "assumes": []
+    },
+    {
+      "position": 19,
+      "name": "Standard rings and zero divisors",
+      "origin": "content",
+      "pages": [14],
+      "chapter": ["Rings and fields"],
+      "assumes": []
+    },
+    {
+      "position": 20,
+      "name": "The ring $\\mathbb{Z}/n\\mathbb{Z}$",
+      "origin": "content",
+      "pages": [14],
+      "chapter": ["Rings and fields"],
+      "assumes": []
+    },
+    {
+      "position": 21,
+      "name": "Characteristic of a field",
+      "origin": "content",
+      "pages": [14],
+      "chapter": ["Rings and fields"],
+      "assumes": []
+    },
+    {
+      "position": 22,
+      "name": "The complex numbers as a field",
+      "origin": "content",
+      "pages": [15],
+      "chapter": ["Complex numbers"],
+      "assumes": ["Real number arithmetic"]
+    },
+    {
+      "position": 23,
+      "name": "Fundamental theorem of algebra",
+      "origin": "content",
+      "pages": [15],
+      "chapter": ["Complex numbers"],
+      "assumes": ["Polynomials and their degree"]
+    },
+    {
+      "position": 24,
+      "name": "Matrix–vector notation and linear systems",
+      "origin": "content",
+      "pages": [16],
+      "chapter": ["Elementary row operations and row echelon form"],
+      "assumes": []
+    },
+    {
+      "position": 25,
+      "name": "Linearity and structure of the solution set",
+      "origin": "content",
+      "pages": [16],
+      "chapter": ["Elementary row operations and row echelon form"],
+      "assumes": []
+    },
+    {
+      "position": 26,
+      "name": "Elementary row operations preserve solvability",
+      "origin": "content",
+      "pages": [16],
+      "chapter": ["Elementary row operations and row echelon form"],
+      "assumes": []
+    },
+    {
+      "position": 27,
+      "name": "Row echelon and reduced row echelon form",
+      "origin": "content",
+      "pages": [16],
+      "chapter": ["Elementary row operations and row echelon form"],
+      "assumes": []
+    },
+    {
+      "position": 28,
+      "name": "Gaussian elimination and uniqueness of the normal form",
+      "origin": "content",
+      "pages": [16],
+      "chapter": ["Elementary row operations and row echelon form"],
+      "assumes": []
+    },
+    {
+      "position": 29,
+      "name": "Reading off solvability, uniqueness and the general solution",
+      "origin": "content",
+      "pages": [17],
+      "chapter": ["Reading off the solution"],
+      "assumes": []
+    },
+    {
+      "position": 30,
+      "name": "Carrying out elimination to describe a solution set",
+      "origin": "content",
+      "pages": [18],
+      "chapter": ["Reading off the solution"],
+      "assumes": []
+    },
+    {
+      "position": 31,
+      "name": "Solution count over finite fields",
+      "origin": "content",
+      "pages": [18],
+      "chapter": ["Reading off the solution"],
+      "assumes": []
+    },
+    {
+      "position": 32,
+      "name": "Cost of Gaussian elimination",
+      "origin": "content",
+      "pages": [18],
+      "chapter": ["Reading off the solution"],
+      "assumes": []
+    },
+    {
+      "position": 33,
+      "name": "Vector space axioms",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 34,
+      "name": "Basic zero identities in vector spaces",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 35,
+      "name": "Standard examples of vector spaces",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": ["Notion of a subfield"]
+    },
+    {
+      "position": 36,
+      "name": "Subspace criterion",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 37,
+      "name": "Solution sets and subspace examples",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 38,
+      "name": "Intersections and unions of subspaces",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 39,
+      "name": "Linear combinations, span and smallest containing subspace",
+      "origin": "content",
+      "pages": [19],
+      "chapter": ["Subspaces"],
+      "assumes": []
+    },
+    {
+      "position": 40,
+      "name": "Definition of linear independence",
+      "origin": "content",
+      "pages": [20],
+      "chapter": ["Linear independence and bases"],
+      "assumes": []
+    },
+    {
+      "position": 41,
+      "name": "Degenerate cases of independence",
+      "origin": "content",
+      "pages": [20],
+      "chapter": ["Linear independence and bases"],
+      "assumes": []
+    },
+    {
+      "position": 42,
+      "name": "Dependence criterion through spans",
+      "origin": "content",
+      "pages": [20],
+      "chapter": ["Linear independence and bases"],
+      "assumes": []
+    },
+    {
+      "position": 43,
+      "name": "Checking independence in $K^m$",
+      "origin": "content",
+      "pages": [20],
+      "chapter": ["Linear independence and bases"],
+      "assumes": []
+    },
+    {
+      "position": 44,
+      "name": "Basis: definition and standard examples",
+      "origin": "content",
+      "pages": [21],
+      "chapter": ["Dimension"],
+      "assumes": ["Generating family / span"]
+    },
+    {
+      "position": 45,
+      "name": "Characterisation of bases",
+      "origin": "content",
+      "pages": [21],
+      "chapter": ["Dimension"],
+      "assumes": []
+    },
+    {
+      "position": 46,
+      "name": "Coordinates with respect to an ordered basis",
+      "origin": "content",
+      "pages": [21],
+      "chapter": ["Dimension"],
+      "assumes": ["Coordinate vector in $K^n$"]
+    },
+    {
+      "position": 47,
+      "name": "Extracting a basis from a finite generating family",
+      "origin": "content",
+      "pages": [21],
+      "chapter": ["Dimension"],
+      "assumes": ["Finitely generated space"]
+    },
+    {
+      "position": 48,
+      "name": "Steinitz exchange lemma",
+      "origin": "content",
+      "pages": [21],
+      "chapter": ["Dimension"],
+      "assumes": ["Field inverses"]
+    },
+    {
+      "position": 49,
+      "name": "Invariance of the number of basis elements",
+      "origin": "content",
+      "pages": [22],
+      "chapter": ["Dimension"],
+      "assumes": []
+    },
+    {
+      "position": 50,
+      "name": "Dimension and its computation",
+      "origin": "content",
+      "pages": [22],
+      "chapter": ["Dimension"],
+      "assumes": ["Countability"]
+    },
+    {
+      "position": 51,
+      "name": "Basis extension theorem",
+      "origin": "content",
+      "pages": [22],
+      "chapter": ["Dimension"],
+      "assumes": []
+    },
+    {
+      "position": 52,
+      "name": "Dimension of subspaces",
+      "origin": "content",
+      "pages": [22],
+      "chapter": ["Dimension"],
+      "assumes": []
+    },
+    {
+      "position": 53,
+      "name": "Sum and direct sum of subspaces",
+      "origin": "content",
+      "pages": [23],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 54,
+      "name": "Criterion for directness",
+      "origin": "content",
+      "pages": [23],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 55,
+      "name": "Dimension formula for sums",
+      "origin": "content",
+      "pages": [23],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 56,
+      "name": "Complements of subspaces",
+      "origin": "content",
+      "pages": [23],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 57,
+      "name": "Basis and dimension of an explicit span",
+      "origin": "content",
+      "pages": [23, 24],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 58,
+      "name": "Basis of a solution space $L(A,0)$",
+      "origin": "content",
+      "pages": [23, 24],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 59,
+      "name": "Implicit description of an explicit span",
+      "origin": "content",
+      "pages": [23, 24],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 60,
+      "name": "Computing sums and intersections of subspaces",
+      "origin": "content",
+      "pages": [23, 24],
+      "chapter": ["Computing with subspaces of Kn"],
+      "assumes": []
+    },
+    {
+      "position": 61,
+      "name": "Definition of linear map and notation",
+      "origin": "content",
+      "pages": [25],
+      "chapter": ["Linear maps"],
+      "assumes": []
+    },
+    {
+      "position": 62,
+      "name": "Determination by basis images",
+      "origin": "content",
+      "pages": [26],
+      "chapter": ["The matrix of a linear map"],
+      "assumes": []
+    },
+    {
+      "position": 63,
+      "name": "Coordinate isomorphism and isomorphism by dimension",
+      "origin": "content",
+      "pages": [26],
+      "chapter": ["The matrix of a linear map"],
+      "assumes": []
+    },
+    {
+      "position": 64,
+      "name": "Rank–nullity theorem",
+      "origin": "content",
+      "pages": [26],
+      "chapter": ["The matrix of a linear map"],
+      "assumes": ["Kernel and image"]
+    },
+    {
+      "position": 65,
+      "name": "Injectivity, surjectivity and dimension",
+      "origin": "content",
+      "pages": [26],
+      "chapter": ["The matrix of a linear map"],
+      "assumes": []
+    },
+    {
+      "position": 66,
+      "name": "Change of basis",
+      "origin": "content",
+      "pages": [28],
+      "chapter": ["The rank of a matrix"],
+      "assumes": []
+    },
+    {
+      "position": 67,
+      "name": "Transformation formula",
+      "origin": "content",
+      "pages": [28],
+      "chapter": ["The rank of a matrix"],
+      "assumes": [
+        "Matrix of composition",
+        "Invertible matrices $\\operatorname{GL}_n(K)$"
+      ]
+    },
+    {
+      "position": 68,
+      "name": "Quotient space construction",
+      "origin": "content",
+      "pages": [29],
+      "chapter": ["Elementary matrices"],
+      "assumes": []
+    },
+    {
+      "position": 69,
+      "name": "Homomorphism theorem for linear maps",
+      "origin": "content",
+      "pages": [29],
+      "chapter": ["Elementary matrices"],
+      "assumes": ["Kernel and image of a linear map"]
+    },
+    {
+      "position": 70,
+      "name": "Dual space and dual map",
+      "origin": "content",
+      "pages": [30],
+      "chapter": ["The dual space"],
+      "assumes": []
+    },
+    {
+      "position": 71,
+      "name": "Dual basis",
+      "origin": "content",
+      "pages": [30],
+      "chapter": ["The dual space"],
+      "assumes": []
+    },
+    {
+      "position": 72,
+      "name": "Matrix of the dual map is the transpose",
+      "origin": "content",
+      "pages": [30],
+      "chapter": ["The dual space"],
+      "assumes": ["Transpose of a matrix"]
+    },
+    {
+      "position": 73,
+      "name": "$V$ and $V^*$ are not canonically isomorphic",
+      "origin": "content",
+      "pages": [30],
+      "chapter": ["The dual space"],
+      "assumes": []
+    },
+    {
+      "position": 74,
+      "name": "Determinant of a matrix and its meaning",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": ["Invertible matrices", "The linear map $f_A$ of a matrix"]
+    },
+    {
+      "position": 75,
+      "name": "Symmetric group $S_n$ and transpositions",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 76,
+      "name": "Decomposition of a permutation into transpositions",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 77,
+      "name": "Inversions and the sign of a permutation",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 78,
+      "name": "Product formula for the sign",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 79,
+      "name": "Sign as a homomorphism and parity of a factorisation",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 80,
+      "name": "The alternating group $A_n$",
+      "origin": "content",
+      "pages": [31],
+      "chapter": ["Permutations"],
+      "assumes": []
+    },
+    {
+      "position": 81,
+      "name": "Determinant function",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": ["Matrix as tuple of columns"]
+    },
+    {
+      "position": 82,
+      "name": "Sign and invariance under column operations",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 83,
+      "name": "Determinant vanishes on dependent columns",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 84,
+      "name": "Determinant of permuted standard basis columns",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 85,
+      "name": "Existence and uniqueness of the determinant",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": ["Expansion along standard basis vectors"]
+    },
+    {
+      "position": 86,
+      "name": "Evaluating determinants via the Leibniz formula",
+      "origin": "content",
+      "pages": [32],
+      "chapter": ["Multilinear alternating forms and the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 87,
+      "name": "Multiplicativity of the determinant",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": ["Columns of a product (D1), (D2)"]
+    },
+    {
+      "position": 88,
+      "name": "Determinant as invertibility criterion",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": ["Invertibility and linear independence of columns"]
+    },
+    {
+      "position": 89,
+      "name": "Invariance of the determinant under transposition",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 90,
+      "name": "Similar matrices share their determinant",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 91,
+      "name": "Determinant under scalar multiples and sums",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 92,
+      "name": "Computing determinants by row reduction",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 93,
+      "name": "Determinant of a block triangular matrix",
+      "origin": "content",
+      "pages": [33],
+      "chapter": ["Properties of the determinant"],
+      "assumes": []
+    },
+    {
+      "position": 94,
+      "name": "Minors of a matrix",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": []
+    },
+    {
+      "position": 95,
+      "name": "Laplace expansion",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": ["Determinant properties (D1)"]
+    },
+    {
+      "position": 96,
+      "name": "Vandermonde determinant and interpolation",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": []
+    },
+    {
+      "position": 97,
+      "name": "Adjugate and inverse via determinant",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": []
+    },
+    {
+      "position": 98,
+      "name": "Cramer's rule",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": []
+    },
+    {
+      "position": 99,
+      "name": "Geometric meaning of the determinant",
+      "origin": "content",
+      "pages": [34],
+      "chapter": ["Laplace expansion and Cramer's rule"],
+      "assumes": []
+    },
+    {
+      "position": 100,
+      "name": "Eigenvalue, eigenvector and eigenspace",
+      "origin": "content",
+      "pages": [35],
+      "chapter": ["The characteristic polynomial"],
+      "assumes": ["Kernel of a linear map"]
+    },
+    {
+      "position": 101,
+      "name": "Diagonalisability",
+      "origin": "content",
+      "pages": [35],
+      "chapter": ["The characteristic polynomial"],
+      "assumes": []
+    },
+    {
+      "position": 102,
+      "name": "Eigenvalues of concrete maps and matrices",
+      "origin": "content",
+      "pages": [35],
+      "chapter": ["The characteristic polynomial"],
+      "assumes": []
+    },
+    {
+      "position": 103,
+      "name": "Eigenvectors of distinct eigenvalues",
+      "origin": "content",
+      "pages": [35],
+      "chapter": ["The characteristic polynomial"],
+      "assumes": []
+    },
+    {
+      "position": 104,
+      "name": "Characteristic polynomial test for eigenvalues",
+      "origin": "content",
+      "pages": [35],
+      "chapter": ["The characteristic polynomial"],
+      "assumes": ["Characteristic polynomial"]
+    },
+    {
+      "position": 105,
+      "name": "Diagonalisability criterion",
+      "origin": "content",
+      "pages": [36, 37],
+      "chapter": ["Diagonalisability", "Outlook"],
+      "assumes": ["Multiplicity notation"]
+    },
+    {
+      "position": 106,
+      "name": "Algorithm for diagonalising a matrix",
+      "origin": "content",
+      "pages": [37],
+      "chapter": ["Outlook"],
+      "assumes": []
+    },
+    {
+      "position": 107,
+      "name": "Matrix powers and linear recursions",
+      "origin": "content",
+      "pages": [37],
+      "chapter": ["Outlook"],
+      "assumes": []
+    },
+    {
+      "position": 108,
+      "name": "Outlook: further structure theorems",
+      "origin": "content",
+      "pages": [37],
+      "chapter": ["Outlook"],
+      "assumes": []
+    },
+    {
+      "position": 109,
+      "name": "Invariant subspaces",
+      "origin": "content",
+      "pages": [38],
+      "chapter": ["Outlook"],
+      "assumes": []
+    },
+    {
+      "position": 110,
+      "name": "Matrix form with respect to an invariant subspace",
+      "origin": "content",
+      "pages": [38],
+      "chapter": ["Outlook"],
+      "assumes": []
+    },
+    {
+      "position": 111,
+      "name": "Exercise collection for applied practice",
+      "origin": "content",
+      "pages": [39],
+      "chapter": ["II Exercises"],
+      "assumes": [
+        "Algebraic structures",
+        "Linear systems, vector spaces, linear maps and determinants",
+        "Eigenvalues and diagonalisation"
+      ]
+    },
+    {
+      "position": 112,
+      "name": "Defining a linear map on a basis",
+      "origin": "exercise",
+      "pages": [41],
+      "chapter": ["Linear maps and matrices"],
+      "assumes": []
+    },
+    {
+      "position": 113,
+      "name": "Rank of a matrix as image dimension",
+      "origin": "exercise",
+      "pages": [41],
+      "chapter": ["Linear maps and matrices"],
+      "assumes": []
+    },
+    {
+      "position": 114,
+      "name": "Computing $A^{-1}$ by row reduction",
+      "origin": "exercise",
+      "pages": [42],
+      "chapter": ["Solutions to selected exercises"],
+      "assumes": []
+    },
+    {
+      "position": 115,
+      "name": "Inversions and sign of a permutation",
+      "origin": "exercise",
+      "pages": [42],
+      "chapter": ["Solutions to selected exercises"],
+      "assumes": []
+    },
+    {
+      "position": 116,
+      "name": "Elementary operations and the determinant",
+      "origin": "exercise",
+      "pages": [52],
+      "chapter": ["Solutions"],
+      "assumes": []
+    },
+    {
+      "position": 117,
+      "name": "Matrix of a linear map with respect to a basis",
+      "origin": "exercise",
+      "pages": [52],
+      "chapter": ["Solutions"],
+      "assumes": []
+    }
+  ],
+  "prerequisites": [
+    [6, 7],
+    [7, 8],
+    [8, 9],
+    [13, 14],
+    [13, 15],
+    [13, 16],
+    [13, 17],
+    [13, 18],
+    [18, 19],
+    [18, 20],
+    [18, 21],
+    [18, 22],
+    [24, 25],
+    [24, 26],
+    [26, 27],
+    [27, 28],
+    [28, 29],
+    [29, 30],
+    [33, 34],
+    [33, 36],
+    [36, 38],
+    [36, 39],
+    [40, 41],
+    [40, 42],
+    [40, 43],
+    [48, 49],
+    [49, 50],
+    [48, 51],
+    [53, 54],
+    [53, 56],
+    [55, 56],
+    [57, 60],
+    [59, 60],
+    [58, 60],
+    [64, 65],
+    [66, 67],
+    [68, 69],
+    [70, 71],
+    [71, 72],
+    [71, 73],
+    [77, 78],
+    [77, 79],
+    [76, 79],
+    [79, 80],
+    [75, 76],
+    [75, 77],
+    [81, 82],
+    [81, 83],
+    [81, 84],
+    [84, 85],
+    [85, 86],
+    [87, 90],
+    [88, 90],
+    [94, 95],
+    [95, 96],
+    [95, 97],
+    [97, 98],
+    [103, 105],
+    [101, 105],
+    [100, 104],
+    [104, 105],
+    [105, 106],
+    [106, 107],
+    [109, 110],
+    [18, 24],
+    [12, 28],
+    [20, 31],
+    [29, 31],
+    [18, 33],
+    [24, 37],
+    [11, 20],
+    [10, 20],
+    [12, 23],
+    [39, 40],
+    [29, 43],
+    [40, 44],
+    [42, 45],
+    [40, 48],
+    [12, 48],
+    [44, 49],
+    [47, 51],
+    [45, 52],
+    [50, 55],
+    [51, 55],
+    [46, 56],
+    [28, 57],
+    [30, 58],
+    [29, 59],
+    [7, 10],
+    [4, 11],
+    [8, 13],
+    [13, 75],
+    [12, 76],
+    [17, 79],
+    [61, 81],
+    [42, 83],
+    [79, 84],
+    [85, 87],
+    [83, 88],
+    [85, 89],
+    [67, 90],
+    [26, 92],
+    [86, 92],
+    [84, 93],
+    [83, 93],
+    [33, 61],
+    [17, 61],
+    [61, 62],
+    [45, 62],
+    [61, 63],
+    [50, 63],
+    [51, 64],
+    [50, 64],
+    [52, 65],
+    [15, 66],
+    [64, 68],
+    [20, 68],
+    [61, 69],
+    [61, 70],
+    [62, 71],
+    [51, 71],
+    [63, 73],
+    [3, 94],
+    [12, 96],
+    [14, 97],
+    [24, 98],
+    [61, 99],
+    [61, 100],
+    [67, 101],
+    [86, 102],
+    [54, 103],
+    [40, 103],
+    [88, 104],
+    [30, 106],
+    [86, 106],
+    [51, 110]
+  ],
+  "topics": [
+    {
+      "position": 0,
+      "name": "Linear_Algebra_I_Script_WS2026-27",
+      "centralQuestion": "Linear_Algebra_I_Script_WS2026-27",
+      "parent": null,
+      "kcs": [0]
+    },
+    {
+      "position": 1,
+      "name": "Course Information",
+      "centralQuestion": "Course Information",
+      "parent": null,
+      "kcs": [1, 2, 3]
+    },
+    {
+      "position": 2,
+      "name": "Maps",
+      "centralQuestion": "Maps",
+      "parent": null,
+      "kcs": [4, 5, 6, 7, 8, 9, 10, 112, 113]
+    },
+    {
+      "position": 3,
+      "name": "Relations and induction",
+      "centralQuestion": "Relations and induction",
+      "parent": null,
+      "kcs": [11, 12]
+    },
+    {
+      "position": 4,
+      "name": "Groups",
+      "centralQuestion": "Groups",
+      "parent": null,
+      "kcs": [13, 14, 15, 16, 17]
+    },
+    {
+      "position": 5,
+      "name": "Rings and fields",
+      "centralQuestion": "Rings and fields",
+      "parent": null,
+      "kcs": [18, 19, 20, 21]
+    },
+    {
+      "position": 6,
+      "name": "Complex numbers",
+      "centralQuestion": "Complex numbers",
+      "parent": null,
+      "kcs": [22, 23]
+    },
+    {
+      "position": 7,
+      "name": "Elementary row operations and row echelon form",
+      "centralQuestion": "Elementary row operations and row echelon form",
+      "parent": null,
+      "kcs": [24, 25, 26, 27, 28, 114]
+    },
+    {
+      "position": 8,
+      "name": "Reading off the solution",
+      "centralQuestion": "Reading off the solution",
+      "parent": null,
+      "kcs": [29, 30, 31, 32]
+    },
+    {
+      "position": 9,
+      "name": "Subspaces",
+      "centralQuestion": "Subspaces",
+      "parent": null,
+      "kcs": [33, 34, 35, 36, 37, 38, 39]
+    },
+    {
+      "position": 10,
+      "name": "Linear independence and bases",
+      "centralQuestion": "Linear independence and bases",
+      "parent": null,
+      "kcs": [40, 41, 42, 43]
+    },
+    {
+      "position": 11,
+      "name": "Dimension",
+      "centralQuestion": "Dimension",
+      "parent": null,
+      "kcs": [44, 45, 46, 47, 48, 49, 50, 51, 52]
+    },
+    {
+      "position": 12,
+      "name": "Computing with subspaces of Kn",
+      "centralQuestion": "Computing with subspaces of Kn",
+      "parent": null,
+      "kcs": [53, 54, 55, 56, 57, 58, 59, 60]
+    },
+    {
+      "position": 13,
+      "name": "Linear maps",
+      "centralQuestion": "Linear maps",
+      "parent": null,
+      "kcs": [61]
+    },
+    {
+      "position": 14,
+      "name": "The matrix of a linear map",
+      "centralQuestion": "The matrix of a linear map",
+      "parent": null,
+      "kcs": [62, 63, 64, 65]
+    },
+    {
+      "position": 15,
+      "name": "The rank of a matrix",
+      "centralQuestion": "The rank of a matrix",
+      "parent": null,
+      "kcs": [66, 67]
+    },
+    {
+      "position": 16,
+      "name": "Elementary matrices",
+      "centralQuestion": "Elementary matrices",
+      "parent": null,
+      "kcs": [68, 69]
+    },
+    {
+      "position": 17,
+      "name": "The dual space",
+      "centralQuestion": "The dual space",
+      "parent": null,
+      "kcs": [70, 71, 72, 73]
+    },
+    {
+      "position": 18,
+      "name": "Permutations",
+      "centralQuestion": "Permutations",
+      "parent": null,
+      "kcs": [74, 75, 76, 77, 78, 79, 80, 115]
+    },
+    {
+      "position": 19,
+      "name": "Multilinear alternating forms and the determinant",
+      "centralQuestion": "Multilinear alternating forms and the determinant",
+      "parent": null,
+      "kcs": [81, 82, 83, 84, 85, 86]
+    },
+    {
+      "position": 20,
+      "name": "Properties of the determinant",
+      "centralQuestion": "Properties of the determinant",
+      "parent": null,
+      "kcs": [87, 88, 89, 90, 91, 92, 93, 116]
+    },
+    {
+      "position": 21,
+      "name": "Laplace expansion and Cramer's rule",
+      "centralQuestion": "Laplace expansion and Cramer's rule",
+      "parent": null,
+      "kcs": [94, 95, 96, 97, 98, 99]
+    },
+    {
+      "position": 22,
+      "name": "The characteristic polynomial",
+      "centralQuestion": "The characteristic polynomial",
+      "parent": null,
+      "kcs": [100, 101, 102, 103, 104, 117]
+    },
+    {
+      "position": 23,
+      "name": "Diagonalisability",
+      "centralQuestion": "Diagonalisability",
+      "parent": null,
+      "kcs": [105]
+    },
+    {
+      "position": 24,
+      "name": "Outlook",
+      "centralQuestion": "Outlook",
+      "parent": null,
+      "kcs": [106, 107, 108, 109, 110]
+    },
+    {
+      "position": 25,
+      "name": "II Exercises",
+      "centralQuestion": "II Exercises",
+      "parent": null,
+      "kcs": [111]
+    }
+  ],
+  "exercises": [
+    {
+      "position": 0,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**8.1 Preliminaries and algebraic structures**\n\n**Exercise 1",
+      "kcs": [9, 7, 8],
+      "finalAnswers": [
+        {
+          "label": "none",
+          "value": ":none",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 1,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**Exercise 2.** Let $f: X \\to Y$ be a map and $A, B \\subsete",
+      "kcs": [6, 5, 7],
+      "finalAnswers": [
+        {
+          "label": "none",
+          "value": ":none",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 2,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**Exercise 3** (S).\n\n(a) Determine $3^{-1}$ in $\\mathbb{F}_7",
+      "kcs": [],
+      "finalAnswers": [
+        {
+          "label": "$3^{-1}=5$",
+          "value": "5",
+          "anyOrder": false
+        },
+        {
+          "label": "solution of $3x+4=1$ in $\\mathbb{F}_7$",
+          "value": "6",
+          "anyOrder": false
+        },
+        {
+          "label": "(b),(c) proofs: no numerical result",
+          "value": ":none",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 3,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**Exercise 4** ($\\star$). Let $G$ be a group in which $g^2 =",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 4,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**Exercise 5.** Let $\\varphi: G \\to H$ be a group homomorphi",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 5,
+      "page": 40,
+      "chapter": "Linear systems",
+      "start": "**8.2 Linear systems**\n\n**Exercise 6** (S). For which $a \\in",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 6,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "_Marked at start: continues from the preceding page._\nsolvab",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 7,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 7.** Solve the following system over $\\mathbb{F}_",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 8,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**8.3 Vector spaces**\n\n**Exercise 8 (S).** Decide which of t",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 9,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 9 (S).** Show that the functions $\\sin$, $\\cos$ a",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 10,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 10 (S).** Let $V = \\mathbb{R}[x]_{\\leq 3}$ and $U",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 11,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 11.** In $\\mathbb{R}^4$ let $U = \\mathrm{span}\\, ",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 12,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 12 ($\\star$).** Let $\\mathrm{char}\\, K \\neq 2$. S",
+      "kcs": [],
+      "finalAnswers": []
+    },
+    {
+      "position": 13,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 13 ($\\star$).** Let $V$ be a vector space over an",
+      "kcs": [38, 36, 31],
+      "finalAnswers": []
+    },
+    {
+      "position": 14,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**8.4 Linear maps and matrices**\n\n**Exercise 14 (S).** Let $",
+      "kcs": [64, 24, 57, 67],
+      "finalAnswers": [
+        {
+          "label": "Matrix of $f$ w.r.t. the standard bases",
+          "value": "[[1, -1, 2], [2, 1, 1]]",
+          "anyOrder": false
+        },
+        {
+          "label": "Basis of $\\ker f$",
+          "value": "[-1, 1, 1]",
+          "anyOrder": false
+        },
+        {
+          "label": "$\\operatorname{im} f$",
+          "value": "R^2",
+          "anyOrder": false
+        },
+        {
+          "label": "Basis of $\\operatorname{im} f$",
+          "value": "[[1, 0], [0, 1]]",
+          "anyOrder": false
+        },
+        {
+          "label": "$M^{\\mathcal{B}}_{\\mathcal{C}}(f)$",
+          "value": "[[3/2, 3/2, 3], [-1/2, -3/2, -1]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 15,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 15 (S).** Let $V$ be a vector space of dimension ",
+      "kcs": [64, 5, 112, 8],
+      "finalAnswers": [
+        {
+          "label": "Example in matrix form for $n = 2m$",
+          "value": "[[0, 0], [I_m, 0]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 16,
+      "page": 41,
+      "chapter": "Linear maps and matrices",
+      "start": "**Exercise 16.** Show that $\\operatorname{rank}(A + B) \\leq ",
+      "kcs": [64, 113, 6, 55],
+      "finalAnswers": []
+    },
+    {
+      "position": 17,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 17.** Compute the inverse of $A = \\begin{pmatrix}",
+      "kcs": [88, 114, 24],
+      "finalAnswers": [
+        {
+          "label": "Inverse of $A$",
+          "value": "[[-24, 18, 5], [20, -15, -4], [-5, 4, 1]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 18,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 18 (S, $\\star$).** Let $\\dim V = n < \\infty$ and ",
+      "kcs": [64, 5, 52],
+      "finalAnswers": []
+    },
+    {
+      "position": 19,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 19 ($\\star$).** Let $V = K[x]_{\\leq n}$ and let $",
+      "kcs": [64, 96, 65],
+      "finalAnswers": []
+    },
+    {
+      "position": 20,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**8.5 Determinants**\n\n**Exercise 20.** Determine the number ",
+      "kcs": [115],
+      "finalAnswers": []
+    },
+    {
+      "position": 21,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 21 (S).** For $n \\geq 1$ let $D_n$ be the determi",
+      "kcs": [95, 64],
+      "finalAnswers": [
+        {
+          "label": "Value of $D_n$",
+          "value": "n + 1",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 22,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 22 ($\\star$).** Let $A \\in \\mathbb{Z}^{n \\times n",
+      "kcs": [97, 74, 88],
+      "finalAnswers": []
+    },
+    {
+      "position": 23,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**8.6 Eigenvalues**\n\n**Exercise 23 (S).** Let $A = \\begin{pm",
+      "kcs": [104, 64, 67, 101],
+      "finalAnswers": [
+        {
+          "label": "Eigenvalues of $A$",
+          "value": "[1, 4]",
+          "anyOrder": true
+        },
+        {
+          "label": "Characteristic polynomial $\\chi_A$",
+          "value": "(x - 1)^2 * (x - 4)",
+          "anyOrder": false
+        },
+        {
+          "label": "$S^{-1}AS$",
+          "value": "[[1, 0, 0], [0, 1, 0], [0, 0, 4]]",
+          "anyOrder": false
+        },
+        {
+          "label": "Closed formula for $A^k$",
+          "value": "I + (4^k - 1)/3 * J",
+          "anyOrder": false
+        },
+        {
+          "label": "Matrix $S$",
+          "value": "[[1, 1, 1], [-1, 0, 1], [0, -1, 1]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 24,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 24.** Show by direct computation that every $A \\i",
+      "kcs": [95, 97, 88],
+      "finalAnswers": []
+    },
+    {
+      "position": 25,
+      "page": 42,
+      "chapter": "Solutions to selected exercises",
+      "start": "**Exercise 25.** Show that $A$ and $A^{\\mathsf{T}}$ have the",
+      "kcs": [95, 104, 88, 89],
+      "finalAnswers": []
+    },
+    {
+      "position": 26,
+      "page": 46,
+      "chapter": "Final Exam, Winter Term 2025/26",
+      "start": "## Problem 1\n\n*Decide for each of the following statements w",
+      "kcs": [44, 64, 91, 40, 86, 65],
+      "finalAnswers": []
+    },
+    {
+      "position": 27,
+      "page": 46,
+      "chapter": "Final Exam, Winter Term 2025/26",
+      "start": "## Problem 2\n\nFor $t \\in \\mathbb{R}$ consider the real syste",
+      "kcs": [58, 61, 25, 24, 64, 88],
+      "finalAnswers": [
+        {
+          "label": "(i) no solution for",
+          "value": "t = -2",
+          "anyOrder": false
+        },
+        {
+          "label": "(iii) infinitely many solutions for",
+          "value": "t = 1",
+          "anyOrder": false
+        },
+        {
+          "label": "determinant of the coefficient matrix (remark)",
+          "value": "-(t-1)^2 (t+2)",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 28,
+      "page": 47,
+      "chapter": "Solutions",
+      "start": "## Problem 3\n\nLet $f: \\mathbb{R}^3 \\to \\mathbb{R}^3$ be the ",
+      "kcs": [45, 44, 61, 64, 88, 24],
+      "finalAnswers": [
+        {
+          "label": "(a) rank $f$",
+          "value": "2",
+          "anyOrder": false
+        },
+        {
+          "label": "(a) basis of $\\ker f$",
+          "value": "[[1, -1, 1]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(a) basis of $\\operatorname{im} f$",
+          "value": "[[1, 0, 1], [2, 1, 3]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(b) $\\det T$",
+          "value": "1",
+          "anyOrder": false
+        },
+        {
+          "label": "(b) $M_{\\mathcal B}^{\\mathcal B}(f)$",
+          "value": "[[0, 0, -1], [0, 1, 2], [0, 1, 3]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 29,
+      "page": 47,
+      "chapter": "Solutions",
+      "start": "## Problem 4\n\nLet $A = \\begin{pmatrix} 4 & 1 & -1 \\\\ 2 & 5 &",
+      "kcs": [106, 64, 100, 95, 105, 104],
+      "finalAnswers": [
+        {
+          "label": "characteristic polynomial",
+          "value": "(x - 3)^2 * (x - 5)",
+          "anyOrder": false
+        },
+        {
+          "label": "eigenvalues",
+          "value": "[3, 5]",
+          "anyOrder": true
+        },
+        {
+          "label": "$\\dim \\operatorname{Eig}(A,3)$",
+          "value": "2",
+          "anyOrder": false
+        },
+        {
+          "label": "basis of $\\operatorname{Eig}(A,3)$",
+          "value": "[[1, -1, 0], [1, 0, 1]]",
+          "anyOrder": true
+        },
+        {
+          "label": "basis of $\\operatorname{Eig}(A,5)$",
+          "value": "[[1, 2, 1]]",
+          "anyOrder": true
+        },
+        {
+          "label": "$S$",
+          "value": "[[1, 1, 1], [-1, 0, 2], [0, 1, 1]]",
+          "anyOrder": false
+        },
+        {
+          "label": "$S^{-1}AS$",
+          "value": "[[3, 0, 0], [0, 3, 0], [0, 0, 5]]",
+          "anyOrder": false
+        },
+        {
+          "label": "$\\det S$",
+          "value": "-2",
+          "anyOrder": false
+        },
+        {
+          "label": "$Q$",
+          "value": "0.5 * [[1, 1, -1], [2, 2, -2], [1, 1, -1]]",
+          "anyOrder": false
+        },
+        {
+          "label": "$A^n$",
+          "value": "3^n * [[1, 0, 0], [0, 1, 0], [0, 0, 1]] + (5^n - 3^n) / 2 * [[1, 1, -1], [2, 2, -2], [1, 1, -1]]",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 30,
+      "page": 47,
+      "chapter": "Solutions",
+      "start": "## Problem 5\n\nLet $V$ be a finite-dimensional $K$-vector spa",
+      "kcs": [100, 54, 53, 64, 44, 101],
+      "finalAnswers": [
+        {
+          "label": "(b) possible eigenvalues",
+          "value": "[0, 1]",
+          "anyOrder": true
+        },
+        {
+          "label": "(c) $\\operatorname{tr} f$",
+          "value": "rank(f) * 1_K",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 31,
+      "page": 47,
+      "chapter": "Solutions",
+      "start": "## Problem 6\n\n**(a)** Let $n$ be odd and $A \\in \\mathbb{R}^{",
+      "kcs": [61, 40, 64, 91, 88, 100],
+      "finalAnswers": [
+        {
+          "label": "(a) $\\det A$ for odd $n$",
+          "value": "0",
+          "anyOrder": false
+        },
+        {
+          "label": "(a) counterexample matrix for even $n$",
+          "value": "[[0, 1], [-1, 0]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(a) $\\det A$ of the counterexample",
+          "value": "1",
+          "anyOrder": false
+        },
+        {
+          "label": "(b)",
+          "value": "none",
+          "anyOrder": false
+        },
+        {
+          "label": "(c)",
+          "value": "none",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 32,
+      "page": 51,
+      "chapter": "Resit Exam, Winter Term 2025/26",
+      "start": "# Problem 1  [8 points]\n\n(a) Give the definition of a *basis",
+      "kcs": [101, 44, 53, 64, 104, 54],
+      "finalAnswers": [
+        {
+          "label": "(c) matrix A",
+          "value": "[[0, -1], [1, 0]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(d) subspaces U1, U2, U3 as spanning vectors",
+          "value": "[[1, 0], [0, 1], [1, 1]]",
+          "anyOrder": true
+        }
+      ]
+    },
+    {
+      "position": 33,
+      "page": 51,
+      "chapter": "Resit Exam, Winter Term 2025/26",
+      "start": "# Problem 2  [10 points]\n\nConsider the vectors $v_1 = &begin",
+      "kcs": [86, 25, 43, 58, 40, 88],
+      "finalAnswers": [
+        {
+          "label": "(a) det T",
+          "value": "-10",
+          "anyOrder": false
+        },
+        {
+          "label": "(b) coefficients of the relation v1 + 3v2 + 3v3 = 0",
+          "value": "[1, 3, 3]",
+          "anyOrder": false
+        },
+        {
+          "label": "(c) general solution (x1, x2, x3) = (4, 1, 0) + s(2, 1, 1)",
+          "value": "[4, 1, 0] + s[2, 1, 1]",
+          "anyOrder": false
+        },
+        {
+          "label": "(c) number of solutions",
+          "value": "5",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 34,
+      "page": 52,
+      "chapter": "Solutions",
+      "start": "# Problem 3  [10 points]\n\n(a) Compute $&det &begin{pmatrix}2",
+      "kcs": [116, 95, 86, 91, 88],
+      "finalAnswers": [
+        {
+          "label": "(a) determinant",
+          "value": "-11",
+          "anyOrder": false
+        },
+        {
+          "label": "(b) det A_n(x)",
+          "value": "(x - 1)^(n - 1) * (x + n - 1)",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 35,
+      "page": 52,
+      "chapter": "Solutions",
+      "start": "# Problem 4  [12 points]\n\nLet $V = &mathbb{R}[x]_{&leq 2}$ b",
+      "kcs": [64, 61, 100, 101, 117, 104],
+      "finalAnswers": [
+        {
+          "label": "(b) matrix A with respect to 𝓑 = (1, x, x²)",
+          "value": "[[0, 1, 0], [0, 1, 2], [0, 0, 2]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(c) eigenbasis 𝓒",
+          "value": "[1, x + 1, (x + 1)^2]",
+          "anyOrder": false
+        },
+        {
+          "label": "(c) M_𝓒^𝓒(f)",
+          "value": "[[0, 0, 0], [0, 1, 0], [0, 0, 2]]",
+          "anyOrder": false
+        },
+        {
+          "label": "(d) ker f",
+          "value": "span(1)",
+          "anyOrder": false
+        }
+      ]
+    },
+    {
+      "position": 36,
+      "page": 52,
+      "chapter": "Solutions",
+      "start": "# Problem 5  [10 points]\n\nLet $V, W, U$ be $K$-vector spaces",
+      "kcs": [64, 69, 61, 65, 40],
+      "finalAnswers": []
+    },
+    {
+      "position": 37,
+      "page": 52,
+      "chapter": "Solutions",
+      "start": "# Problem 6  [10 points]\n\nA matrix $A &isin; K^{n&times n}$ ",
+      "kcs": [104, 88, 101, 105, 64, 100],
+      "finalAnswers": []
+    }
+  ],
+  "alignment": {
+    "referenceToRun": {
+      "L1": [],
+      "L2": [],
+      "L3": [],
+      "L4": [],
+      "S1": [4],
+      "S2": [5],
+      "M1": [6],
+      "M2": [7],
+      "M3": [8],
+      "M4": [9],
+      "M5": [10],
+      "R1": [11],
+      "R2": [11],
+      "R3": [12],
+      "G1": [13, 15],
+      "G2": [14],
+      "G3": [16],
+      "G4": [17],
+      "F1": [18, 19],
+      "F2": [20],
+      "F3": [20],
+      "F4": [21],
+      "F5": [22],
+      "F6": [23],
+      "E1": [24],
+      "E2": [25],
+      "E3": [26],
+      "E4": [27],
+      "E5": [28],
+      "E6": [29, 30],
+      "E7": [29],
+      "E8": [31],
+      "V1": [33, 35],
+      "V2": [34],
+      "V3": [36, 37],
+      "V4": [38],
+      "V5": [39],
+      "V6": [40, 41],
+      "V7": [42],
+      "V8": [43],
+      "V9": [44],
+      "V10": [45, 46],
+      "V11": [47],
+      "V12": [48],
+      "V13": [49, 50],
+      "V14": [51],
+      "V15": [52],
+      "V16": [53, 54],
+      "V17": [55],
+      "V18": [56],
+      "V19": [57],
+      "V20": [58],
+      "V21": [59],
+      "V22": [60],
+      "LM1": [61],
+      "LM2": [],
+      "LM3": [],
+      "LM4": [62, 112],
+      "LM5": [63],
+      "LM6": [64],
+      "LM7": [65],
+      "LM8": [],
+      "MX1": [117],
+      "MX2": [],
+      "MX3": [],
+      "MX4": [114],
+      "CB1": [66],
+      "CB2": [67],
+      "CB3": [],
+      "RK1": [],
+      "RK2": [],
+      "RK3": [],
+      "Q1": [68],
+      "Q2": [69],
+      "EM1": [],
+      "EM2": [],
+      "EM3": [],
+      "D1": [70],
+      "D2": [71, 73],
+      "D3": [72],
+      "P1": [75, 76],
+      "P2": [77, 78, 115],
+      "P3": [79, 80],
+      "DT1": [81, 82, 83, 84],
+      "DT2": [85, 86],
+      "DT3": [87],
+      "DT4": [88, 74],
+      "DT5": [89],
+      "DT6": [90, 91],
+      "DT7": [92, 116],
+      "DT8": [93],
+      "DT9": [94, 95],
+      "DT10": [96],
+      "DT11": [97],
+      "DT12": [98],
+      "DT13": [99, 74],
+      "EV1": [100, 102],
+      "EV2": [101],
+      "EV3": [103],
+      "EV4": [104],
+      "EV5": [],
+      "EV6": [],
+      "EV7": [105],
+      "EV8": [106],
+      "EV9": [107],
+      "EV10": [102],
+      "INV": [109, 110],
+      "X1": [],
+      "X2": [],
+      "X3": [],
+      "X4": [113],
+      "X5": [],
+      "X6": []
+    },
+    "notKcs": {
+      "0": "cover figure",
+      "1": "course information",
+      "2": "course information",
+      "3": "notation list",
+      "32": "side remark on cost",
+      "108": "Outlook (Linear Algebra II)",
+      "111": "Part title 'II Exercises'"
+    },
+    "duplicates": [
+      [112, 62],
+      [115, 77],
+      [116, 92]
+    ],
+    "wrongPrerequisites": [
+      [7, 8],
+      [3, 94],
+      [14, 97]
+    ]
+  }
+}

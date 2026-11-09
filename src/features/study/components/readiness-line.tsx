@@ -1,23 +1,25 @@
-import type { CourseReadiness } from "@/features/study/types";
+import type { StudyState } from "@/features/study/types";
 
 /**
  * The map header's Readiness line: the exam weight the Student is likely to
- * recall on the day (today without an exam date ahead), labelled untested
- * until a mock is graded, then by how many mocks check it. Nothing without
+ * recall on the day (today without an exam date ahead), with the latest
+ * graded mock's score beside it when there is one. Nothing without
  * Priorities.
  */
-export function ReadinessLine({ readiness }: { readiness: CourseReadiness }) {
-  if (readiness.course === null) return null;
-  const percent = Math.round(readiness.course * 100);
-  const when = readiness.onTheDay ? "on the day" : "today";
-  const label =
-    readiness.mocks === 0
-      ? "untested"
-      : `checked against ${readiness.mocks} ${readiness.mocks === 1 ? "mock" : "mocks"}`;
+export function ReadinessLine({
+  state,
+}: {
+  state: Pick<StudyState, "readiness" | "lastMockPercent">;
+}) {
+  const { course, onTheDay } = state.readiness;
+  if (course === null) return null;
+  const when = onTheDay ? "on the day" : "today";
   return (
     <p>
-      Exam weight you&apos;re likely to recall {when}: {percent}%{" "}
-      <span className="italic">({label})</span>
+      Exam weight you&apos;re likely to recall {when}:{" "}
+      {Math.round(course * 100)}%
+      {state.lastMockPercent !== null &&
+        ` · Last mock: ${state.lastMockPercent}%`}
     </p>
   );
 }

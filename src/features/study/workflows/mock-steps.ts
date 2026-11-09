@@ -19,12 +19,13 @@ import {
   predictedSuccess,
   type MockCandidate,
 } from "@/features/study/domain/mock-plan";
-import { kcState } from "@/features/study/domain/replay";
 import {
   loadAskedProblems,
-  loadSchedules,
+  loadRecall,
 } from "@/features/study/server/attempts";
-import { loadPlan } from "@/features/study/server/plan";
+import { planScope } from "@/features/study/domain/plan";
+import { inFinalStretch } from "@/features/study/domain/ranking";
+import { loadTopicChoices } from "@/features/study/server/choices";
 import { loadReadyProblems } from "@/features/study/server/problems";
 import { queueProblems } from "@/features/study/workflows/stock-steps";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -61,8 +62,9 @@ export type MockPlan = {
 const NO_ITEMS = "No problems could be found or generated for your Topics.";
 
 /**
- * Plans the assembling mock: the final mock when the Phase is the final
- * week and a reservation is active, else the blueprint filled from the
+ * Plans the assembling mock: the final mock in the final stretch while a
+ * reservation is active, else the blueprint over the in-plan Topics filled
+ * from the
  * Course's unseen Problems, with a Problem queued for each of up to 6 empty
  * slots. Records how many it generates. Null when the mock is no longer
  * assembling.
@@ -90,30 +92,13 @@ export async function planMockExam(
   const reserved = new Set(
     reservedId === null ? [] : await loadChapterChunkIds(supabase, reservedId),
   );
-  const schedules = await loadSchedules(
-    supabase,
-    courseId,
-    { examDate: exam.examDate, goal: exam.goal, priorities },
-    now,
-  );
-  const plan = await loadPlan(
-    supabase,
-    courseId,
-    {
-      prerequisites: map.prerequisites,
-      priorities,
-      exam,
-      schedules,
-      dueCount: 0,
-      topics,
-    },
-    now,
-  );
+  const [kcRecall, choices] = await Promise.all([
+    loadRecall(supabase, courseId, exam, now),
+    loadTopicChoices(supabase, courseId),
+  ]);
+  const scope = planScope({ topics, priorities, goal: exam.goal, choices });
   const recall = new Map(
-    map.kcs.map((kc) => [
-      kc.id,
-      kcState(schedules.get(kc.id), now).retrievability,
-    ]),
+    map.kcs.map((kc) => [kc.id, kcRecall.get(kc.id)?.recallToday ?? null]),
   );
   const topicKcs = new Map(topics.map((topic) => [topic.id, topic.kcs]));
   const topicOf = (kcs: string[]) =>
@@ -141,7 +126,7 @@ export async function planMockExam(
     seen: asked.has(exercise.id),
   }));
 
-  if (plan.phase === "final_week" && reservedId !== null) {
+  if (inFinalStretch(exam.examDate, now) && reservedId !== null) {
     // The final mock is the reserved exam's Exercises, in order.
     const final = exercises.filter((e) => e.reserved);
     const chunks = await questionChunks(supabase, final);
@@ -165,10 +150,16 @@ export async function planMockExam(
     };
   }
 
+  const inPlan = new Set(
+    scope.filter((t) => t.status === "in_plan").map((t) => t.id),
+  );
   const slots = planMock(
-    plan.topics
-      .filter((topic) => topic.status === "in_plan")
-      .map(({ id, priority }) => ({ id, priority })),
+    topics
+      .filter((topic) => inPlan.has(topic.id))
+      .map(({ id, kcs }) => ({
+        id,
+        priority: kcs.reduce((sum, kc) => sum + (priorities[kc] ?? 0), 0),
+      })),
   );
   if (slots.length === 0) {
     return { items: [], emptyReason: "Your study plan has no Topics yet." };

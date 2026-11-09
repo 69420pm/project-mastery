@@ -1,5 +1,9 @@
-import { describe, expect, test } from "vitest";
+// @vitest-environment node
+import { asSchema } from "ai";
+import { describe, expect, test, vi } from "vitest";
 import type { z } from "zod";
+
+vi.mock("server-only", () => ({}));
 import {
   endsReply,
   tutorTools,
@@ -14,16 +18,12 @@ const noActions = {
   getTopic: async () => null,
   findProblems: async () => ({ problems: [] }),
   remember: async () => {},
-  ask: async () => ({ questionId: "q-1", generatedProblemId: null }),
+  ask: async () => ({ questionId: "q-1", problem: null }),
   findQuestion: async () => null,
   saveGrade: async () => null,
+  closeQuestion: async () => false,
   findReading: async () => null,
-  loadStage: async () => null,
-  saveStage: async () => true,
   searchMaterials: async () => [],
-  isKc: () => true,
-  findChunk: async () => null,
-  saveMapFinding: async () => "f-1",
   compute: async () => ({ ok: false, error: "unused" }),
 } satisfies TutorToolActions;
 
@@ -41,7 +41,7 @@ describe.each([
 ] as const)("%s", (name, max) => {
   const input = (ids: string[]) =>
     name === "ask"
-      ? { kind: "recall", prompt: "Why?", kcIds: ids }
+      ? { prompt: "Why?", kcIds: ids }
       : name === "getTopic"
         ? { topicId: "t-1", kcIds: ids }
         : { kcIds: ids };
@@ -124,154 +124,110 @@ describe("searchMaterials", () => {
   });
 });
 
-describe("flagMap", () => {
-  const markdown = "Thrust follows from the\n  **change** in momentum.";
-  const file = (input: object, actions: Partial<TutorToolActions> = {}) => {
-    const saved: unknown[] = [];
-    const run = tutorTools({
-      ...noActions,
-      isKc: (id) => id.startsWith("kc-"),
-      findChunk: async (id) => (id === "ch-1" ? { markdown } : null),
-      saveMapFinding: async (finding) => {
-        saved.push(finding);
-        return "f-1";
-      },
-      ...actions,
-    }).flagMap.execute!(
-      {
-        kind: "missing_link",
-        kcId: "kc-1",
-        linkedKcId: "kc-2",
-        chunkId: "ch-1",
-        quote: "the **change**",
-        reason: "Thrust builds on momentum.",
-        ...input,
-      } as never,
-      { toolCallId: "1", messages: [] } as never,
-    );
-    return { run, saved };
-  };
-
-  test("saves a Finding whose quote is in its chunk, case and whitespace aside", async () => {
-    const { run, saved } = file({ quote: "FOLLOWS from THE  **change**" });
-    expect(await run).toEqual({ findingId: "f-1" });
-    expect(saved).toEqual([
-      {
-        kind: "missing_link",
-        kcId: "kc-1",
-        linkedKcId: "kc-2",
-        proposedDescription: null,
-        chunkId: "ch-1",
-        quote: "FOLLOWS from THE  **change**",
-        reason: "Thrust builds on momentum.",
-      },
-    ]);
-    const description = file({
-      kind: "wrong_description",
-      linkedKcId: null,
-      proposedDescription: "Thrust is the change in momentum per second.",
-    });
-    await expect(description.run).resolves.toEqual({ findingId: "f-1" });
-    expect(description.saved).toMatchObject([
-      {
-        linkedKcId: null,
-        proposedDescription: "Thrust is the change in momentum per second.",
-      },
-    ]);
-  });
-
-  test.each([
-    [{ linkedKcId: null }, "give the prerequisite of kcId"],
-    [{ kind: "wrong_link", linkedKcId: "" }, "give the prerequisite"],
-    [
-      { kind: "wrong_description", linkedKcId: null },
-      "needs proposedDescription",
-    ],
-    [{ proposedDescription: "New." }, "has no proposedDescription"],
-    [
-      { kind: "wrong_description", proposedDescription: "New." },
-      "omit linkedKcId",
-    ],
-    [{ linkedKcId: "kc-1" }, "two different KCs"],
-    [{ kcId: "x-1" }, "no KC ids of this Course: x-1"],
-    [{ linkedKcId: "x-2" }, "no KC ids of this Course: x-2"],
-    [{ chunkId: "ch-9" }, "ch-9 is no chunk of this Course"],
-    [{ quote: "change of momentum" }, "The quote is not in that chunk"],
-    [{ quote: " \n " }, "The quote is empty"],
-  ])("refuses %o without saving", async (input, message) => {
-    const { run, saved } = file(input);
-    await expect(run).rejects.toThrow(message);
-    expect(saved).toEqual([]);
-  });
-
-  test("takes a quote of at most 500 characters and a one-line reason", () => {
-    const input = { kind: "wrong_link", kcId: "k", chunkId: "c" };
-    const ok = (quote: string, reason = "Off.") =>
-      accepts("flagMap", { ...input, quote, reason });
-    expect(ok("x".repeat(500))).toBe(true);
-    expect(ok("x".repeat(501))).toBe(false);
-    expect(ok("")).toBe(false);
-    expect(ok("x", "Two\nlines")).toBe(false);
-  });
-});
+const openQuestion: QuestionToGrade = {
+  id: "q-1",
+  kcIds: ["kc-a", "kc-b"],
+  retiredKcIds: [],
+  answered: true,
+  graded: false,
+  sessionEnded: false,
+  finalAnswers: null,
+};
 
 describe("grade", () => {
-  const open: QuestionToGrade = {
-    kind: "question",
-    kcIds: ["kc-a", "kc-b"],
-    answered: true,
-    graded: false,
-    sessionEnded: false,
-    finalAnswers: null,
-  };
+  const open = openQuestion;
   const saved: Array<Parameters<TutorToolActions["saveGrade"]>[0]> = [];
+  const closed: string[] = [];
 
-  /** Grades with `results` a question stored as `question`. */
-  async function grade(
-    question: QuestionToGrade | null,
-    results: Array<{ kcId: string; result: string }> = [
-      { kcId: "kc-a", result: "full" },
-      { kcId: "kc-b", result: "wrong" },
-    ],
-    finalValue?: string,
-  ) {
+  /** The tools on the session's newest question `question`. */
+  function toolsOn(question: QuestionToGrade | null) {
     saved.length = 0;
-    const { grade } = tutorTools({
+    closed.length = 0;
+    return tutorTools({
       ...noActions,
       findQuestion: async () => question,
       saveGrade: async (input) => {
         saved.push(input);
         return [];
       },
+      closeQuestion: async (id) => {
+        closed.push(id);
+        return true;
+      },
     });
-    return grade.execute!(
-      { questionId: "q-1", results, help: "some", finalValue } as never,
-      { toolCallId: "1", messages: [] } as never,
+  }
+
+  const options = { toolCallId: "1", messages: [] } as never;
+
+  /** Grades with `results` the session's newest question `question`. */
+  async function grade(
+    question: QuestionToGrade | null,
+    results: Array<{ kcId: string; result: string }> = [
+      { kcId: "kc-a", result: "full" },
+      { kcId: "kc-b", result: "wrong" },
+    ],
+    finalValues?: Array<{ label?: string; value: string }>,
+  ) {
+    return toolsOn(question).grade.execute!(
+      { results, help: "some", finalValues } as never,
+      options,
     );
   }
 
-  test("stores one result per KC of an answered question, pre for a prequestion", async () => {
+  test("stores the results of the open, answered question", async () => {
     await grade(open);
     expect(saved).toEqual([
-      expect.objectContaining({
-        questionId: "q-1",
-        kind: "learn",
-        help: "some",
-      }),
+      expect.objectContaining({ questionId: "q-1", help: "some" }),
     ]);
-    await grade({ ...open, kind: "prequestion" });
-    expect(saved[0]?.kind).toBe("pre");
+  });
+
+  test("closeQuestion closes the open question without attempts", async () => {
+    await expect(
+      toolsOn({ ...open, answered: false }).closeQuestion.execute!({}, options),
+    ).resolves.toEqual({ ok: true });
+    expect(closed).toEqual(["q-1"]);
+    expect(saved).toEqual([]);
   });
 
   test.each([
-    ["an unknown question", null, undefined, "no question you asked"],
+    ["no question", null, "no open Question"],
+    ["a graded one", { ...open, graded: true }, "no open Question"],
+    [
+      "one from an ended session",
+      { ...open, sessionEnded: true },
+      "session has ended",
+    ],
+  ])("closeQuestion refuses %s", async (_, question, message) => {
+    await expect(
+      toolsOn(question).closeQuestion.execute!({}, options),
+    ).rejects.toThrow(message);
+    expect(closed).toEqual([]);
+  });
+
+  test("grade's schema requires results and help", async () => {
+    // With every field optional and a noAnswer flag, MiMo sent finalValues
+    // without results in 4 of 4 replays of a staging reply (2026-11-09).
+    const schema = await asSchema(toolsOn(open).grade.inputSchema).jsonSchema;
+    expect(schema).toMatchObject({ required: ["results", "help"] });
+  });
+
+  test("drops the results of KCs retired since the ask", async () => {
+    await grade({ ...open, kcIds: ["kc-a"], retiredKcIds: ["kc-b"] });
+    expect(saved[0]?.results).toEqual([{ kcId: "kc-a", result: "full" }]);
+    await grade({ ...open, kcIds: [], retiredKcIds: ["kc-a", "kc-b"] });
+    expect(saved).toEqual([]);
+    expect(closed).toEqual(["q-1"]);
+  });
+
+  test.each([
+    ["no question", null, undefined, "no open Question"],
     [
       "an unanswered one",
       { ...open, answered: false },
       undefined,
       "not answered",
     ],
-    ["a graded one", { ...open, graded: true }, undefined, "already graded"],
+    ["a graded one", { ...open, graded: true }, undefined, "no open Question"],
     [
       "one from an ended session",
       { ...open, sessionEnded: true },
@@ -308,58 +264,86 @@ describe("grade", () => {
     expect(saved).toEqual([]);
   });
 
-  describe("the numeric check", () => {
-    const keyed = (unit: string | null, value: number): QuestionToGrade => ({
-      ...open,
-      finalAnswers: [{ label: "Result", value, unit }],
+  describe("the answer check", () => {
+    const key = (label: string, value: string) => ({
+      label,
+      value,
+      anyOrder: false,
     });
-    const thrust = keyed("kN", 17.5);
+    const thrust: QuestionToGrade = {
+      ...open,
+      finalAnswers: [key("Thrust", "17.5 kN")],
+    };
+    const two: QuestionToGrade = {
+      ...open,
+      finalAnswers: [key("A", "[[1, 2], [0, 1]]"), key("b", "n + 1")],
+    };
+    const partial = [
+      { kcId: "kc-a", result: "partial" },
+      { kcId: "kc-b", result: "wrong" },
+    ];
 
     test.each([
-      ["the key's unit", thrust, "17.5 kN", "match"],
-      ["another unit of it", thrust, "17500 N", "match"],
-      ["no unit, read in the key's", thrust, "17.5", "match"],
-      ["0.6% off", thrust, "17.6 kN", "match"],
-      ["1.7% off", thrust, "17.8 kN", "mismatch"],
-      ["a unit of another quantity", thrust, "17.5 kg", "mismatch"],
-      ["kelvin for degrees Celsius", keyed("degC", 300), "573.15 K", "match"],
-      ["a percentage for a pure number", keyed(null, 0.508), "50.8 %", "match"],
-      ["a unit for a pure number", keyed(null, 0.508), "0.508 m", "mismatch"],
-    ])("stores %s as %s", async (_, question, finalValue, check) => {
-      await grade(question, undefined, finalValue);
+      ["one unlabelled value", thrust, [{ value: "17500 N" }], "match"],
+      [
+        "each key by label",
+        two,
+        [
+          { label: "A", value: "[[1, 2], [0, 1]]" },
+          { label: "B", value: "1 + n" },
+        ],
+        "match",
+      ],
+      [
+        "the worst check",
+        two,
+        [
+          { label: "A", value: "[[1, 2], [0, 1]]" },
+          { label: "b", value: "n" },
+        ],
+        "mismatch",
+      ],
+      [
+        "a value code doesn't compare",
+        thrust,
+        [{ value: "true" }],
+        "unchecked",
+      ],
+    ])("stores %s as %s", async (_, question, finalValues, check) => {
+      await grade(question, undefined, finalValues);
       expect(saved[0]?.check).toBe(check);
     });
 
     test("a mismatch turns full into partial; a match keeps the verdict", async () => {
       const results = (value: string) =>
-        grade(thrust, undefined, value).then(() =>
+        grade(thrust, undefined, [{ value }]).then(() =>
           saved[0]?.results.map(({ result }) => result),
         );
       expect(await results("20 kN")).toEqual(["partial", "wrong"]);
       expect(await results("17.5 kN")).toEqual(["full", "wrong"]);
     });
 
-    test("applies only with a key and a final value", async () => {
-      await grade(open, undefined, "17.5 kN");
+    test("is null without keys, and unchecked for a key without a value", async () => {
+      await grade(open, undefined, [{ value: "17.5 kN" }]);
       expect(saved[0]?.check).toBeNull();
-      await grade(thrust, [
-        { kcId: "kc-a", result: "partial" },
-        { kcId: "kc-b", result: "wrong" },
-      ]);
-      expect(saved[0]?.check).toBeNull();
+      await grade(thrust, partial);
+      expect(saved[0]?.check).toBe("unchecked");
     });
 
-    test("refuses a full without the final value", async () => {
-      await expect(grade(thrust)).rejects.toThrow(
-        "a full needs the Student's final value",
-      );
+    test("refuses a full while a key has no value", async () => {
+      await expect(
+        grade(two, undefined, [{ label: "A", value: "[[1, 2], [0, 1]]" }]),
+      ).rejects.toThrow('give it in finalValues for "b"');
       expect(saved).toEqual([]);
     });
 
-    test("refuses a final value that is no number", async () => {
-      await expect(grade(thrust, undefined, "about 17")).rejects.toThrow(
-        "no number with a unit",
-      );
+    test("refuses an unknown label and a value mathjs can't read", async () => {
+      await expect(
+        grade(two, partial, [{ label: "c", value: "1" }]),
+      ).rejects.toThrow("A, b");
+      await expect(
+        grade(thrust, partial, [{ value: "17.5 kN)" }]),
+      ).rejects.toThrow("mathjs");
       expect(saved).toEqual([]);
     });
   });
@@ -404,53 +388,40 @@ describe("showReading", () => {
 });
 
 describe("ask", () => {
-  const askWith = (generatedProblemId: string | null) =>
+  const problem = {
+    statement: "Compute it.",
+    page: null,
+    generatedProblemId: "p-1",
+  };
+  const askWith = (
+    posed: typeof problem | null,
+    newest: QuestionToGrade | null = null,
+  ) =>
     tutorTools({
       ...noActions,
-      ask: async () => ({ questionId: "q-1", generatedProblemId }),
-    }).ask.execute!(
-      { kind: "problem", prompt: "Go.", kcIds: ["k1"], problemId: "p-1" },
-      { toolCallId: "1", messages: [] } as never,
-    );
+      findQuestion: async () => newest,
+      ask: async () => ({ questionId: "q-2", problem: posed }),
+    }).ask.execute!({ prompt: "Go.", kcIds: ["k1"], problemId: "p-1" }, {
+      toolCallId: "1",
+      messages: [],
+    } as never);
 
-  test("names the generated Problem it poses, for its card's flag", async () => {
-    expect(await askWith("p-1")).toEqual({
-      questionId: "q-1",
-      generatedProblemId: "p-1",
-    });
-    expect(await askWith(null)).toEqual({ questionId: "q-1" });
-  });
-});
-
-describe("setStage", () => {
-  const call = (actions: Partial<TutorToolActions>, input: object) =>
-    tutorTools({ ...noActions, ...actions }).setStage.execute!(
-      input as never,
-      { toolCallId: "1", messages: [] } as never,
-    );
-  const at = (stage: "orient" | "close") => async () => ({
-    stage,
-    afterReview: "orient" as const,
-    readingLeft: false,
+  test("returns the Problem it poses", async () => {
+    expect(await askWith(problem)).toEqual({ questionId: "q-2", problem });
+    expect(await askWith(null)).toEqual({ questionId: "q-2" });
   });
 
-  test("saves an allowed move and returns the stage", async () => {
-    const saved: string[] = [];
-    const saveStage = async (stage: string) => saved.push(stage) > 0;
-    expect(
-      await call({ loadStage: at("orient"), saveStage }, { stage: "prime" }),
-    ).toEqual({ stage: "prime" });
-    expect(saved).toEqual(["prime"]);
-  });
-
-  test("refuses a session without a Topic, a skip without a reason and leaving close", async () => {
-    await expect(call({}, { stage: "prime" })).rejects.toThrow("no Topic");
-    await expect(
-      call({ loadStage: at("orient") }, { stage: "apply" }),
-    ).rejects.toThrow("give a one-line reason");
-    await expect(
-      call({ loadStage: at("close") }, { stage: "rebuild", reason: "More." }),
-    ).rejects.toThrow("stays there");
+  test("is refused while the newest Question is answered but ungraded", async () => {
+    await expect(askWith(null, openQuestion)).rejects.toThrow("grade it first");
+    // An unanswered one stays ungraded for good; a graded one is done.
+    for (const newest of [
+      { ...openQuestion, answered: false },
+      { ...openQuestion, graded: true },
+    ]) {
+      await expect(askWith(null, newest)).resolves.toEqual({
+        questionId: "q-2",
+      });
+    }
   });
 });
 

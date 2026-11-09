@@ -74,6 +74,7 @@ const map: KnowledgeMapView = {
   exercises: [],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
 const topics: MapTopic[] = [
@@ -93,9 +94,9 @@ const topics: MapTopic[] = [
   },
 ];
 
-const plan: ComponentProps<typeof ProgressLine>["plan"] = {
+const plan: ComponentProps<typeof ProgressLine>["state"] = {
   examDate: "2026-12-03",
-  progress: { known: 34, total: 120, daysIn: 12, daysLeft: 30 },
+  progress: { learned: 34, total: 120, daysIn: 12, daysLeft: 30 },
 };
 
 const renderMap = (
@@ -107,11 +108,9 @@ const renderMap = (
     <CourseMap
       map={view}
       topics={mapTopics}
-      learning={{}}
-      topicStates={{ t1: { state: "needs_work", recall: 0.426 } }}
-      topicReadiness={{ t1: 0.624 }}
+      topicStudies={{ t1: { learned: 1, total: 3, readiness: 0.624 } }}
       topicBadges={{ t2: ["pinned"] }}
-      progressLine={<ProgressLine plan={progressPlan} briefHref="/brief" />}
+      progressLine={<ProgressLine state={progressPlan} briefHref="/brief" />}
       readinessLine={<p>Readiness line</p>}
     />,
   );
@@ -139,15 +138,13 @@ test("each Topic is a card opening its Topic page", async () => {
   expect(screen.queryByRole("button", { name: "k1" })).toBeNull();
 });
 
-test("each card shows its Topic state and recall today", async () => {
+test("each card shows how many of its KCs are learned", async () => {
   renderMap(map, topics);
   const card = await screen.findByRole("link", { name: "Momentum" });
-  expect(within(card).getByLabelText("Topic state: Needs work")).toBeVisible();
-  expect(card).toHaveTextContent("Recall today 43%");
-  // A Topic without a Topic state is new.
-  const other = screen.getByRole("link", { name: "Nozzles" });
-  expect(within(other).getByLabelText("Topic state: New")).toBeVisible();
-  expect(other).toHaveTextContent("Recall today 0%");
+  expect(card).toHaveTextContent("1 of 3 learned");
+  expect(screen.getByRole("link", { name: "Nozzles" })).not.toHaveTextContent(
+    "learned",
+  );
 });
 
 test("the header shows the Readiness line and a card its Readiness", async () => {
@@ -169,6 +166,75 @@ test("a map whose update stopped before its Topics asks for an update", () => {
   expect(screen.queryByRole("application")).toBeNull();
 });
 
+describe("the map check", () => {
+  const weak = {
+    ...map,
+    checkReport: {
+      chaptersWithoutKcs: ["Preface"],
+      exercisesWithoutKcs: [],
+      duplicates: [],
+      unitsBelowCoverage: [{ chapter: "Bases", coverage: 0.3 }],
+      unreadPages: [{ material: "Notes", pages: [10, 36, 37, 38] }],
+      unitsNotExtracted: [],
+    },
+  };
+  const renderCheck = (view: KnowledgeMapView, checkDetails: boolean) =>
+    render(
+      <CourseMap
+        map={view}
+        topics={[]}
+        topicStudies={{}}
+        topicBadges={{}}
+        progressLine={null}
+        checkDetails={checkDetails}
+      />,
+    );
+
+  test("tells the Student in one line what the AI missed, with Update map", () => {
+    renderCheck(weak, false);
+    const note = screen.getByRole("note", { name: "Map check" });
+    expect(note).toHaveTextContent(
+      "The AI couldn't read pp. 10, 36–38 and covered 1 Chapter only in part.",
+    );
+    expect(
+      within(note).getByRole("button", { name: "Update map" }),
+    ).toBeVisible();
+    expect(within(note).queryByText("Check report")).toBeNull();
+  });
+
+  test("shows the full lists outside production", () => {
+    renderCheck(weak, true);
+    const note = screen.getByRole("note", { name: "Map check" });
+    expect(note).toHaveTextContent("Chapters without KCs");
+    expect(note).toHaveTextContent("Preface");
+    expect(note).toHaveTextContent("Bases: 30%");
+  });
+
+  test("says nothing of a full build to the Student", () => {
+    renderCheck(
+      {
+        ...weak,
+        checkReport: {
+          ...weak.checkReport,
+          unitsBelowCoverage: [],
+          unreadPages: [],
+        },
+      },
+      false,
+    );
+    expect(screen.queryByRole("note", { name: "Map check" })).toBeNull();
+  });
+});
+
+test("a map whose Materials or old exams changed since its build asks for Update map", () => {
+  renderMap({ ...map, needsUpdate: true }, topics);
+  const note = screen.getByRole("note", { name: "Map update" });
+  expect(note).toHaveTextContent("Your Materials changed");
+  expect(
+    within(note).getByRole("button", { name: "Update map" }),
+  ).toBeVisible();
+});
+
 test("without a map, the page says so", () => {
   renderMap({ ...map, build: null, kcs: [] }, []);
   expect(screen.getByRole("heading", { name: "No map yet" })).toBeVisible();
@@ -184,7 +250,7 @@ describe("the Progress line", () => {
     expect(bar).toHaveAttribute("aria-valuenow", "34");
     expect(bar).toHaveAttribute("aria-valuemax", "120");
     expect(
-      screen.getByText("34 of 120 KCs known · 12 days in · 30 days left"),
+      screen.getByText("34 of 120 KCs learned · 12 days in · 30 days left"),
     ).toBeVisible();
     expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();
     expect(screen.getByText("Readiness line")).toBeVisible();
@@ -193,9 +259,9 @@ describe("the Progress line", () => {
   test("leaves out the days it lacks and links to the Brief without a date", () => {
     renderMap(map, topics, {
       examDate: null,
-      progress: { known: 0, total: 1, daysIn: null, daysLeft: null },
+      progress: { learned: 0, total: 1, daysIn: null, daysLeft: null },
     });
-    expect(screen.getByText("0 of 1 KC known")).toBeVisible();
+    expect(screen.getByText("0 of 1 KC learned")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Add your exam date in the Brief" }),
     ).toHaveAttribute("href", "/brief");
@@ -207,14 +273,14 @@ describe("the Progress line", () => {
       progress: { ...plan.progress, daysIn: 1, daysLeft: 0 },
     });
     expect(
-      screen.getByText("34 of 120 KCs known · 1 day in · Exam today"),
+      screen.getByText("34 of 120 KCs learned · 1 day in · Exam today"),
     ).toBeVisible();
   });
 
   test("shows nothing without in-plan KCs", () => {
     renderMap(map, topics, {
       examDate: null,
-      progress: { known: 0, total: 0, daysIn: 3, daysLeft: null },
+      progress: { learned: 0, total: 0, daysIn: 3, daysLeft: null },
     });
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByRole("link", { name: /exam date/ })).toBeNull();

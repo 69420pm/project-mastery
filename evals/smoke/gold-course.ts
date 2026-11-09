@@ -10,7 +10,8 @@ import { GOLD_DIR, readSnapshot, seedSnapshot } from "./gold-seed";
  */
 export const GOLD_SLUG = "linear-algebra-I";
 
-export type FinalAnswer = { label: string; value: number; unit: string | null };
+/** An Exercise's answer key, its value a mathjs expression. */
+export type FinalAnswer = { label: string; value: string; anyOrder: boolean };
 
 /** What a smoke check reads of the seeded Course, in course order. */
 export type GoldCourse = {
@@ -160,18 +161,13 @@ async function loadGoldCourse(
   };
 }
 
-/** The final answers written out, such as "x = 3, det = -2 m". */
+/** The final answers written out, such as "x = 3, A = [[1, 2], [0, 1]]". */
 export function answerText(answers: FinalAnswer[]) {
-  return answers
-    .map(
-      ({ label, value, unit }) =>
-        `${label} = ${value}${unit ? ` ${unit}` : ""}`,
-    )
-    .join(", ");
+  return answers.map(({ label, value }) => `${label} = ${value}`).join(", ");
 }
 
 /**
- * The first askable Exercise with a numeric key among those testing any of
+ * The first askable Exercise with an answer key among those testing any of
  * `kcIds`, or among all when none does.
  */
 export function numericExercise(gold: GoldCourse, kcIds: Iterable<string>) {

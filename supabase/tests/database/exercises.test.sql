@@ -41,7 +41,7 @@ values
 insert into public.exercises (id, owner, course_id, question_chunk_id, difficulty, position, final_answers)
 values ('eeeeeeee-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
   'aaaaaaaa-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000001', 3, 0,
-  '[{"label": "Thermal efficiency", "value": 0.508, "unit": null}]');
+  '[{"label": "Thermal efficiency", "value": "0.508", "anyOrder": false}]');
 
 insert into public.exercise_kcs (exercise_id, kc_id, owner, course_id)
 select 'eeeeeeee-0000-0000-0000-000000000001', id, owner, course_id
@@ -61,7 +61,7 @@ select is(
   0, 'another Student reads no exercises');
 set local request.jwt.claims = '{"sub": "11111111-1111-1111-1111-111111111111", "role": "authenticated"}';
 select is((select final_answers from public.exercises),
-  '[{"label": "Thermal efficiency", "value": 0.508, "unit": null}]'::jsonb,
+  '[{"label": "Thermal efficiency", "value": "0.508", "anyOrder": false}]'::jsonb,
   'the owner reads their exercises with their final answers');
 select throws_ok(
   $$delete from public.exercises$$,

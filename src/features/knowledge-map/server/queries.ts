@@ -37,6 +37,7 @@ export async function getKnowledgeMap(
     exercises: [],
     checkReport: null,
     canBuild: false,
+    needsUpdate: false,
   };
   if (!z.uuid().safeParse(courseId).success || !(await getUser())) {
     return empty;
@@ -54,7 +55,9 @@ export async function getKnowledgeMap(
   ] = await Promise.all([
     supabase
       .from("knowledge_map_builds")
-      .select("status, failure_reason, finished_at, check_report, heartbeat_at")
+      .select(
+        "status, failure_reason, finished_at, check_report, heartbeat_at, needs_update",
+      )
       .eq("course_id", courseId)
       .maybeSingle(),
     allRows("Loading the KCs", (from, to) =>
@@ -165,6 +168,7 @@ export async function getKnowledgeMap(
       materials.map((material) => material.parse.status),
       mapBuild,
     ),
+    needsUpdate: build.data?.needs_update ?? false,
     kcs: kcs.map(kcView),
     // A retired KC's links wait for it to come back.
     prerequisites: prerequisites

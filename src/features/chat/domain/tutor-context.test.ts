@@ -1,17 +1,5 @@
-import { describe, expect, test, vi } from "vitest";
-import { dueReviewText, goalLabel, phaseLabel } from "./tutor-context";
-
-// The study feature's index also exports its Memory card's server action.
-vi.mock("server-only", () => ({}));
-
-test.each([
-  ["build", "Build"],
-  ["deepen", "Deepen"],
-  ["final_week", "Final week"],
-  [null, "None"],
-] as const)("phaseLabel(%s) is %s", (phase, label) => {
-  expect(phaseLabel(phase)).toBe(label);
-});
+import { expect, test } from "vitest";
+import { goalLabel } from "./tutor-context";
 
 test.each([
   ["pass", "Pass"],
@@ -20,16 +8,4 @@ test.each([
   [null, "Not answered"],
 ] as const)("goalLabel(%s) is %s", (goal, label) => {
   expect(goalLabel(goal)).toBe(label);
-});
-
-describe("dueReviewText", () => {
-  test("shows today's recall", () => {
-    expect(dueReviewText({ retrievability: 0.836 })).toBe(
-      "due · Recall today 84%",
-    );
-  });
-
-  test("shows only due for a context stored before FSRS", () => {
-    expect(dueReviewText({})).toBe("due");
-  });
 });

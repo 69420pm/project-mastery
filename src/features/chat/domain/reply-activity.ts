@@ -9,7 +9,6 @@ const TOOL_ACTIVITY: Record<string, string> = {
   ask: "Writing a question…",
   showReading: "Choosing a reading…",
   grade: "Grading your answer…",
-  setStage: "Moving on…",
   compute: "Checking the numbers…",
 };
 

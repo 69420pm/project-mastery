@@ -14,15 +14,14 @@ vi.mock("@/features/study/server/actions", () => ({
 const { CloseCard } = await import("./close-card");
 
 const summary: SessionSummary = {
-  topic: { name: "Thrust basics", state: "in_progress", recall: 0.5 },
   kcs: [
     {
       id: "k1",
       name: "Thrust equation",
-      state: "learning",
+      result: "partial",
       nextReview: "2026-10-27",
     },
-    { id: "k2", name: "Mass flow", state: "new", nextReview: null },
+    { id: "k2", name: "Mass flow", result: "full", nextReview: null },
   ],
   ended: false,
   rating: null,
@@ -48,19 +47,17 @@ function renderCard(busy = false) {
   );
 }
 
-test("shows the Topic's new state and each KC practised with its next review", async () => {
+test("shows each KC checked with its result and next review", async () => {
   renderCard();
   const card = screen.getByRole("region", { name: "Session summary" });
-  expect(await within(card).findByText("Thrust basics")).toBeVisible();
-  expect(within(card).getByLabelText("Topic state: In progress")).toBeVisible();
-  const kcs = within(card).getByRole("list", { name: "KCs practised" });
+  const kcs = await within(card).findByRole("list", { name: "KCs checked" });
   expect(
     within(kcs)
       .getAllByRole("listitem")
       .map((li) => li.textContent),
   ).toEqual([
-    "Thrust equationLearningNext review 2026-10-27",
-    "Mass flowNewNo review planned",
+    "Thrust equationPartialNext review 2026-10-27",
+    "Mass flowFullNo review planned",
   ]);
   expect(
     within(card).getByRole("link", { name: "Start new session" }),

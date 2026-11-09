@@ -30,10 +30,11 @@ export type VariantInput = {
     question: string;
     /** Its printed solution; null without one. */
     solution: string | null;
+    /** Its answer keys, each value a mathjs expression; null without any. */
     finalAnswers: Array<{
       label: string;
-      value: number;
-      unit: string | null;
+      value: string;
+      anyOrder: boolean;
     }> | null;
     difficulty: number;
   };
@@ -69,7 +70,7 @@ Rules for every problem:
 5. Physically and mathematically sensible values and results.
 6. The solution shows the reasoning step by step, and says when other approaches are equally valid (proofs, derivations).
 
-Numbers come from code, never from your own arithmetic. When the problem has numbers, write a mathjs program: one assignment per line, units inline, such as \`mass_flow = 40 kg/s\`, \`thrust = mass_flow * (600 m/s - 250 m/s)\`, \`thrust_kN = to(thrust, kN)\`. It assigns every given value and computes every intermediate and final result from them. Never name a variable like a unit (m, s, g, N, K, T, J, W, Pa, ...): use mass, time, mass_flow. Convert with to(value, unit); dividing by a unit drops it. In the statement and the solution, write every number, given or computed, as a placeholder {{variable}} of the program, which code replaces with the value at 4 significant figures and its unit: write "the air leaves at {{exit_velocity}}", never the number or the unit yourself. Write no {{ for anything else. List each final answer as the program variable that holds it and the unit it is in, null for a plain number. A problem without numbers, such as a proof or a conceptual question, has program null and no final answers.`;
+Numbers come from code, never from your own arithmetic. When the problem has numbers, write a mathjs program: one assignment per line, units inline, such as \`mass_flow = 40 kg/s\`, \`thrust = mass_flow * (600 m/s - 250 m/s)\`, \`thrust_kN = to(thrust, kN)\`. It assigns every given value and computes every intermediate and final result from them. Never name a variable like a unit (m, s, g, N, K, T, J, W, Pa, ...): use mass, time, mass_flow. Convert with to(value, unit); dividing by a unit drops it. Vectors, matrices and complex numbers are values too: \`v = [2, -3]\`, \`A = [[1, 2], [0, 1]]\`, \`z = 3 + 4i\`. In the statement and the solution, write every number, vector or matrix, given or computed, as a placeholder {{variable}} of the program, which code replaces with the value at 4 significant figures and its unit: write "the air leaves at {{exit_velocity}}", never the number or the unit yourself. Write no {{ for anything else. List each final answer as the program variable that holds it and the unit it is in, null for a plain number, a vector, a matrix or a complex number. A problem without numbers, such as a proof or a conceptual question, has program null and no final answers.`;
 
 /** The model's draft of one Problem. */
 const draftFields = {

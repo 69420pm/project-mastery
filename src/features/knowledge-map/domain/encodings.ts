@@ -1,6 +1,6 @@
 import type {
-  MapKcLearning,
   MapPriorities,
+  MapRecallBand,
 } from "@/features/knowledge-map/types";
 import { DEFAULT_LAYERS, type MapLayers } from "./map-graph";
 
@@ -9,11 +9,11 @@ import { DEFAULT_LAYERS, type MapLayers } from "./map-graph";
  * by one attribute, size by Priority, and the saved settings. Pure code.
  */
 
-export const COLOR_BYS = ["state", "priority"] as const;
+export const COLOR_BYS = ["band", "priority"] as const;
 export type ColorBy = (typeof COLOR_BYS)[number];
 
 export const COLOR_BY_NAMES: Record<ColorBy, string> = {
-  state: "KC state",
+  band: "Recall band",
   priority: "Priority",
 };
 
@@ -26,19 +26,17 @@ export type MapSettings = {
 
 export const DEFAULT_SETTINGS: MapSettings = {
   layers: DEFAULT_LAYERS,
-  colorBy: "state",
+  colorBy: "band",
   sizeByPriority: false,
 };
 
 const NEUTRAL = "var(--muted-foreground)";
 
-type KcState = MapKcLearning[string]["state"];
-
-const STATE_COLORS: Record<KcState, string> = {
+const BAND_COLORS: Record<MapRecallBand, string> = {
   new: NEUTRAL,
-  learning: "var(--brand)",
-  due: "var(--warning)",
-  known: "var(--success)",
+  weak: "var(--destructive)",
+  fading: "var(--warning)",
+  strong: "var(--success)",
 };
 
 /** Lowest to highest Priority; the theme's chart ramp, light to dark. */
@@ -91,15 +89,15 @@ function rampColor(fraction: number): string {
 
 /** What `kcColor` needs to colour one KC. */
 export type ColorContext = {
-  state: KcState;
+  band: MapRecallBand;
   /** From `priorityFractions`; undefined without a Priority. */
   fraction: number | undefined;
 };
 
 export function kcColor(colorBy: ColorBy, kc: ColorContext): string {
   switch (colorBy) {
-    case "state":
-      return STATE_COLORS[kc.state];
+    case "band":
+      return BAND_COLORS[kc.band];
     case "priority":
       return kc.fraction === undefined ? NEUTRAL : rampColor(kc.fraction);
   }
@@ -110,13 +108,13 @@ export type LegendEntry = { label: string; color: string };
 /** The legend for `colorBy`: one entry per colour the graph can show. */
 export function legendEntries(
   colorBy: ColorBy,
-  stateNames: Record<KcState, string>,
+  bandNames: Record<MapRecallBand, string>,
 ): LegendEntry[] {
   switch (colorBy) {
-    case "state":
-      return (Object.keys(STATE_COLORS) as KcState[]).map((state) => ({
-        label: stateNames[state],
-        color: STATE_COLORS[state],
+    case "band":
+      return (Object.keys(BAND_COLORS) as MapRecallBand[]).map((band) => ({
+        label: bandNames[band],
+        color: BAND_COLORS[band],
       }));
     case "priority":
       return [
@@ -156,7 +154,7 @@ export function parseSettings(saved: string | null): MapSettings {
   };
   return {
     layers,
-    colorBy: COLOR_BYS.find((c) => c === stored.colorBy) ?? "state",
+    colorBy: COLOR_BYS.find((c) => c === stored.colorBy) ?? "band",
     sizeByPriority: flag(stored.sizeByPriority, false),
   };
 }

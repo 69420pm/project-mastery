@@ -57,8 +57,8 @@ describe("remember", () => {
   });
 });
 
-describe("the instructions", () => {
-  test("hold the Memory under its heading", async () => {
+describe("the tutor context", () => {
+  test("holds the Memory under its heading", async () => {
     db.tables.memories.push({
       course_id: COURSE,
       owner: STUDENT,
@@ -70,38 +70,16 @@ describe("the instructions", () => {
     await sendMessage("Hi");
 
     expect(promptOf(model)).toContain(
-      "What you know about this Student from earlier Chats:\\n\\n2026-10-01: Prefers worked examples.",
+      "## Memory\\n2026-10-01: Prefers worked examples.",
     );
   });
 
-  test("hold the Course's three newest Session notes", async () => {
-    const note = (day: number) => ({
-      id: randomUUID(),
-      owner: STUDENT,
-      course_id: COURSE,
-      mode: "review",
-      started_at: `2026-10-0${day}T09:00:00Z`,
-      ended_at: `2026-10-0${day}T10:00:00Z`,
-      session_note: `Note of day ${day}.`,
-    });
-    db.tables.study_sessions.push(note(1), note(2), note(3), note(4));
+  test("leaves the heading out without a Memory", async () => {
     const model = mockTextModel("Hello!");
     useMockModels({ chat: model });
 
     await sendMessage("Hi");
 
-    const prompt = promptOf(model);
-    expect(prompt).toContain("2026-10-04, review session:\\nNote of day 4.");
-    expect(prompt).toContain("Note of day 2.");
-    expect(prompt).not.toContain("Note of day 1.");
-  });
-
-  test("leave the heading out without a Memory", async () => {
-    const model = mockTextModel("Hello!");
-    useMockModels({ chat: model });
-
-    await sendMessage("Hi");
-
-    expect(promptOf(model)).not.toContain("from earlier Chats");
+    expect(promptOf(model)).not.toContain("## Memory");
   });
 });

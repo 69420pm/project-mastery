@@ -91,9 +91,10 @@ const map: KnowledgeMapView = {
   ],
   checkReport: null,
   canBuild: true,
+  needsUpdate: false,
 };
 
-const renderMap = (learning: MapKcLearning = {}) =>
+const renderMap = (learning: MapKcLearning = {}, details = true) =>
   render(
     <KnowledgeMap
       map={map}
@@ -103,30 +104,34 @@ const renderMap = (learning: MapKcLearning = {}) =>
         },
       }}
       learning={learning}
+      details={details}
     />,
   );
 
+const nozzlesLearning: MapKcLearning = {
+  k2: {
+    band: "strong",
+    recallToday: 0.934,
+    nextReview: "2026-10-20",
+    attempts: [
+      {
+        createdAt: "2026-10-15T10:00:00Z",
+        result: "full",
+        help: "some",
+        exerciseId: null,
+      },
+    ],
+  },
+};
+
 test("clicking a KC node opens its panel", async () => {
-  renderMap({
-    k2: {
-      state: "learning",
-      nextReview: "2026-10-20",
-      retrievability: 0.934,
-      attempts: [
-        {
-          createdAt: "2026-10-15T10:00:00Z",
-          result: "full",
-          help: "some",
-          exerciseId: null,
-        },
-      ],
-    },
-  });
+  renderMap(nozzlesLearning);
   fireEvent.click(await screen.findByRole("button", { name: "Nozzles" }));
 
   const panel = screen.getByRole("complementary", { name: "KC details" });
   const section = (name: string) => within(panel).getByRole("region", { name });
   expect(section("Overview")).toHaveTextContent("About Nozzles.");
+  expect(section("Learning")).toHaveTextContent("RecallStrong");
   expect(section("Learning")).toHaveTextContent("Recall today93%");
   expect(section("Learning")).toHaveTextContent("Next review");
   expect(section("Learning")).toHaveTextContent("Fullsome help");
@@ -141,12 +146,25 @@ test("clicking a KC node opens its panel", async () => {
   expect(section("Links")).toHaveTextContent("Nozzles");
 });
 
+test("in production the KC panel shows only the band, recall today and next review", async () => {
+  renderMap(nozzlesLearning, false);
+  fireEvent.click(await screen.findByRole("button", { name: "Nozzles" }));
+
+  const panel = screen.getByRole("complementary", { name: "KC details" });
+  const learning = within(panel).getByRole("region", { name: "Learning" });
+  expect(learning).toHaveTextContent("Recall today93%");
+  expect(learning).toHaveTextContent("Next review");
+  expect(within(panel).queryByRole("list", { name: "Attempts" })).toBeNull();
+  expect(within(panel).queryByRole("region", { name: "Priority" })).toBeNull();
+  expect(within(panel).queryByRole("region", { name: "Links" })).toBeNull();
+});
+
 test("an Exercise node shows its difficulty and opens its panel", async () => {
   renderMap({
     k2: {
-      state: "learning",
+      band: "weak",
+      recallToday: null,
       nextReview: null,
-      retrievability: null,
       attempts: [
         {
           createdAt: "2026-10-15T10:00:00Z",
@@ -214,6 +232,9 @@ const withDuplicate = {
     chaptersWithoutKcs: [],
     exercisesWithoutKcs: [],
     duplicates: [{ a: "Nozzles", b: "Jet nozzles", similarity: 0.9 }],
+    unitsBelowCoverage: [],
+    unreadPages: [],
+    unitsNotExtracted: [],
   },
 };
 
@@ -236,7 +257,7 @@ describe("saved settings", () => {
     localStorage.clear();
     const first = renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Known");
+    expect(legend()).toHaveTextContent("Fading");
     first.unmount();
 
     localStorage.setItem(
@@ -253,7 +274,7 @@ describe("saved settings", () => {
     localStorage.setItem("knowledge-map-settings", "{broken");
     renderWith(withDuplicate);
     await screen.findByRole("button", { name: "Nozzles" });
-    expect(legend()).toHaveTextContent("Known");
+    expect(legend()).toHaveTextContent("Fading");
     expect(screen.getByRole("button", { name: "Ex. 7.2b" })).toBeVisible();
     localStorage.clear();
   });

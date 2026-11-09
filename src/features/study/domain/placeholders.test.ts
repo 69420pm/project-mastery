@@ -5,7 +5,18 @@ const values = {
   efficiency: { value: 0.508_337, unit: null },
   thrust: { value: 17_500, unit: "N" },
   matrix: { value: null, unit: null },
+  rotation: { value: null, unit: null, text: "[[0.70710678, -1], [1, 0]]" },
+  root: { value: null, unit: null, text: "1.23456 + 2i" },
+  flag: { value: null, unit: null, text: "true" },
 };
+
+test("fills a matrix or complex number at 4 significant figures", () => {
+  expect(fillPlaceholders("{{rotation}}, {{root}}", values)).toEqual({
+    ok: true,
+    text: "[[0.7071, -1], [1, 0]], 1.235 + 2i",
+  });
+  expect(fillPlaceholders("{{flag}}", values)).toMatchObject({ ok: false });
+});
 
 test("fills each placeholder at 4 significant figures with its unit, LaTeX braces left alone", () => {
   expect(

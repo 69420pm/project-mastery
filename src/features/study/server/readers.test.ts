@@ -5,14 +5,15 @@ import type { TopicChoice } from "@/features/study/domain/plan";
 import { fakeSupabase, type FakeRow } from "@/lib/supabase/testing";
 
 /**
- * The map page's study reads: KC learning, KC states, the plan and its
- * Today plan. The stored map is given; Priorities, the Brief and
- * the attempts come from local tables.
+ * The map page's study reads: KC learning and the study state. The stored
+ * map is given; Priorities, the Brief, the attempts and the mocks come from
+ * local tables.
  */
 
 vi.mock("server-only", () => ({}));
 
 const COURSE = "aaaaaaaa-c000-4000-8000-000000000001";
+const OTHER_COURSE = "bbbbbbbb-c000-4000-8000-000000000001";
 const [PRIOR, THRUST, EFFICIENCY, NOZZLE] = [1, 2, 3, 4].map(
   (n) => `aaaaaaaa-0000-4000-8000-00000000000${n}`,
 ) as [string, string, string, string];
@@ -57,10 +58,13 @@ function createDb() {
       chat_messages: [] as FakeRow[],
       questions: [{ id: QUESTION, session_id: SESSION, exercise_id: null }],
       attempts: [] as FakeRow[],
+      mock_exams: [] as FakeRow[],
+      mock_items: [] as FakeRow[],
     },
     foreignKeys: {
       questions: { session_id: "study_sessions" },
       attempts: { question_id: "questions", session_id: "study_sessions" },
+      mock_items: { mock_id: "mock_exams" },
     },
   });
 }
@@ -103,16 +107,15 @@ vi.mock("@/features/study/server/choices", () => ({
   loadTopicChoices: async () => choices,
 }));
 
-const { getKcLearning, getKcStates, getPlan, getTopicStates } =
+const { getKcLearning, getStudyState } =
   await import("@/features/study/server");
 
-/** A stored `learn` attempt on a KC `days` from now, in the ended session. */
+/** A stored attempt on a KC `days` from now, in the ended session. */
 const attempt = (kcId: string, days: number, correct = true): FakeRow => ({
   id: randomUUID(),
   question_id: QUESTION,
   session_id: SESSION,
   kc_id: kcId,
-  kind: "learn",
   result: correct ? "full" : "wrong",
   help: "none",
   created_at: at(days),
@@ -123,8 +126,8 @@ beforeEach(() => {
   choices = [];
   map = MAP;
   db = createDb();
-  // Stored newest first: the readers order them by time. The session's last
-  // answer, a Good, creates the card due three days later.
+  // Stored newest first: the readers order them by time. A wrong answer
+  // teaches Thrust; the next day's Good reviews it, due three days later.
   db.tables.attempts.push(attempt(THRUST, -5), attempt(THRUST, -6, false));
 });
 
@@ -132,33 +135,28 @@ describe.each([
   ["signed out", COURSE, false],
   ["a malformed id", "not-a-uuid", true],
 ])("%s", (_, courseId, user) => {
-  test("gives no learning, states or plan", async () => {
+  test("gives no learning and no study state", async () => {
     signedIn = user;
 
     expect(await getKcLearning(courseId)).toEqual({});
-    expect(await getKcStates(courseId)).toEqual({});
-    expect(await getTopicStates(courseId)).toEqual({});
-    expect(await getPlan(courseId)).toEqual({
-      phase: null,
-      topics: [],
-      order: [],
-      pace: { minutesPerKc: 30, minutesPerReview: 2 },
+    expect(await getStudyState(courseId)).toMatchObject({
       hasMap: false,
-      today: { reviews: null, next: null, hint: null },
-      examDate: null,
-      progress: { known: 0, total: 0, daysIn: null, daysLeft: null },
+      ranking: [],
+      scope: [],
+      progress: { learned: 0, total: 0, daysIn: null, daysLeft: null },
+      lastMockPercent: null,
     });
   });
 });
 
 describe("getKcLearning", () => {
-  test("replays a taught KC's attempts to its state, newest first", async () => {
+  test("replays a taught KC's attempts to its band, newest first", async () => {
     const learning = await getKcLearning(COURSE);
 
     expect(learning[THRUST]).toEqual({
-      state: "due",
+      band: "fading",
+      recallToday: expect.closeTo(0.85, 1),
       nextReview: day(-2),
-      retrievability: expect.closeTo(0.85, 1),
       attempts: db.tables.attempts.map((row) => ({
         createdAt: row.created_at,
         result: row.result,
@@ -168,102 +166,39 @@ describe("getKcLearning", () => {
     });
   });
 
-  test("reads only the Course's sessions, and a partial answer as Hard", async () => {
+  test("reads only the Course's sessions", async () => {
     db.tables.study_sessions.push({
       id: "other",
       course_id: "other-course",
       ended_at: at(-1),
     });
     db.tables.questions.push({ id: "q2", session_id: "other" });
-    db.tables.attempts.push(
-      { ...attempt(NOZZLE, -1), question_id: "q2", session_id: "other" },
-      { ...attempt(THRUST, -4.5), result: "partial" },
-    );
-
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[NOZZLE]).toBeUndefined();
-    // Hard on a new card gives two days.
-    expect(learning[THRUST]).toMatchObject({ nextReview: day(-2.5) });
-  });
-
-  test("keeps a KC learning without a next review while its first session runs", async () => {
     db.tables.attempts.push({
-      ...attempt(EFFICIENCY, 0),
-      session_id: OPEN_SESSION,
+      ...attempt(NOZZLE, -1),
+      question_id: "q2",
+      session_id: "other",
     });
-    // A prequestion leaves a KC new.
-    db.tables.attempts.push({ ...attempt(NOZZLE, -1), kind: "pre" });
 
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[EFFICIENCY]).toMatchObject({
-      state: "learning",
-      nextReview: null,
-      retrievability: null,
-    });
-    expect(learning[NOZZLE]).toMatchObject({
-      state: "new",
-      attempts: [expect.objectContaining({ result: "full" })],
-    });
+    expect((await getKcLearning(COURSE))[NOZZLE]).toBeUndefined();
   });
 
-  test("ends a session after 2 hours without a message", async () => {
-    db.tables.chats[0]!.last_message_at = at(-0.1);
-    db.tables.attempts.push({
-      ...attempt(EFFICIENCY, -0.11),
-      session_id: OPEN_SESSION,
-    });
-
-    const learning = await getKcLearning(COURSE);
-
-    expect(learning[EFFICIENCY]).toMatchObject({ nextReview: day(2.89) });
-  });
-
-  test("lists only KCs with attempts", async () => {
-    expect(Object.keys(await getKcLearning(COURSE))).toEqual([THRUST]);
-  });
-});
-
-describe("getKcStates", () => {
-  test("gives each taught KC its replayed state", async () => {
+  test("schedules a KC taught in a session that still runs, not strong when answered wrong today", async () => {
+    // Early in the UTC day, so a whole day passes before its end, where the
+    // band reads recall.
     db.tables.attempts.push({
       ...attempt(EFFICIENCY, 0, false),
+      created_at: `${day(0)}T00:01:00.000Z`,
       session_id: OPEN_SESSION,
     });
 
-    expect(await getKcStates(COURSE)).toEqual({
-      [THRUST]: {
-        state: "due",
-        nextReview: day(-2),
-        retrievability: expect.any(Number),
-      },
-      [EFFICIENCY]: {
-        state: "learning",
-        nextReview: null,
-        retrievability: null,
-      },
+    expect((await getKcLearning(COURSE))[EFFICIENCY]).toMatchObject({
+      band: "fading",
+      nextReview: day(1),
     });
   });
 });
 
-describe("getTopicStates", () => {
-  test("gives each Topic its state and recall today", async () => {
-    expect(await getTopicStates(COURSE)).toEqual({
-      // The taught KC's recall, with the untaught one counting as 0.
-      t1: { state: "in_progress", recall: expect.closeTo(0.85 / 2, 1) },
-      t2: { state: "new", recall: 0 },
-    });
-  });
-
-  test("is empty for another Student's Course", async () => {
-    expect(
-      await getTopicStates("bbbbbbbb-c000-4000-8000-000000000001"),
-    ).toEqual({});
-  });
-});
-
-describe("getPlan", () => {
+describe("getStudyState", () => {
   const brief = () =>
     db.tables.briefs.push({
       course_id: COURSE,
@@ -271,44 +206,76 @@ describe("getPlan", () => {
       goal: null,
     });
 
-  test("gives the Topic plan", async () => {
+  test("ranks the due Review, then the next Topic, with Progress and Readiness", async () => {
     brief();
 
-    const plan = await getPlan(COURSE);
-    expect(plan).toMatchObject({
-      phase: "build",
-      // t1 is in progress, with Thrust taught.
-      order: ["t1", "t2"],
-    });
-    expect(plan.topics).toMatchObject([
-      { id: "t1", priority: 0.8, untaught: [EFFICIENCY] },
-      { id: "t2", priority: 0.1, untaught: [NOZZLE] },
+    const state = await getStudyState(COURSE);
+    // Efficiency has no Priority, so t1's untaught work is worth nothing.
+    expect(state.ranking).toEqual([
+      {
+        kind: "review",
+        id: THRUST,
+        name: "Thrust equation",
+        centralQuestion: null,
+        minutes: 2,
+      },
+      {
+        kind: "topic",
+        id: "t2",
+        name: "Nozzles",
+        centralQuestion: "What does a nozzle do?",
+        minutes: 30,
+      },
     ]);
-    // Thrust's card came due, so nothing counts; the first attempt was 6
-    // days ago.
-    expect(plan.progress).toEqual({
-      known: 0,
-      total: 3,
-      daysIn: 7,
-      daysLeft: 21,
+    expect(state).toMatchObject({
+      hasMap: true,
+      hasTopics: true,
+      examDate: day(21),
+      finalStretch: false,
+      taught: true,
+      // Thrust is learned; the first attempt was 6 days ago.
+      progress: { learned: 1, total: 3, daysIn: 7, daysLeft: 21 },
+      readiness: { onTheDay: true },
+      topics: {
+        t1: { learned: 1, total: 2, readiness: expect.any(Number) },
+        t2: { learned: 0, total: 1, readiness: 0 },
+      },
     });
+    // Thrust weighs 0.8 against Nozzle's untaught 0.1.
+    expect(state.readiness.course).toBeCloseTo(
+      (0.8 * state.topics.t1!.readiness!) / 0.9,
+    );
   });
 
   test("reads the Student's skips and pins", async () => {
     brief();
+    const pinnedAt = at(-1);
     choices = [
-      { topicId: "t1", choice: "skipped", createdAt: at(-1) },
-      { topicId: "t2", choice: "pinned", createdAt: at(-1) },
+      { topicId: "t1", choice: "skipped", createdAt: pinnedAt },
+      { topicId: "t2", choice: "pinned", createdAt: pinnedAt },
     ];
 
-    const plan = await getPlan(COURSE);
-    expect(plan.order).toEqual(["t2"]);
-    expect(plan.topics).toMatchObject([
-      { id: "t1", status: "skipped" },
-      { id: "t2", status: "in_plan", pinned: true },
+    const state = await getStudyState(COURSE);
+    expect(state.ranking.map((item) => item.id)).toEqual(["t2"]);
+    expect(state.scope).toEqual([
+      { id: "t1", status: "skipped", pinnedAt: null },
+      { id: "t2", status: "in_plan", pinnedAt },
     ]);
-    // The Today card names the pinned Topic, not the skipped one.
-    expect(plan.today.next?.id).toBe("t2");
+  });
+
+  test("gives the latest graded mock's score over its graded items", async () => {
+    db.tables.mock_exams.push(
+      { id: "m1", course_id: COURSE, status: "graded", graded_at: at(-3) },
+      { id: "m2", course_id: COURSE, status: "graded", graded_at: at(-1) },
+      { id: "m3", course_id: COURSE, status: "ready", graded_at: null },
+    );
+    db.tables.mock_items.push(
+      { mock_id: "m1", points: 4, points_awarded: 4 },
+      { mock_id: "m2", points: 4, points_awarded: 3 },
+      { mock_id: "m2", points: 6, points_awarded: null },
+    );
+
+    expect((await getStudyState(COURSE)).lastMockPercent).toBe(75);
   });
 
   test("measures the pace from 3 ended teaching sessions' messages", async () => {
@@ -344,52 +311,27 @@ describe("getPlan", () => {
       );
     });
 
-    expect((await getPlan(COURSE)).pace).toEqual({
+    expect((await getStudyState(COURSE)).pace).toEqual({
       minutesPerKc: expect.closeTo(6, 5),
       minutesPerReview: 2,
-    });
-  });
-
-  test("has no Phase without an exam date", async () => {
-    expect(await getPlan(COURSE)).toMatchObject({ phase: null });
-  });
-
-  test("is empty for another Student's Course", async () => {
-    expect(await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).toMatchObject(
-      { phase: null, topics: [], order: [] },
-    );
-  });
-});
-
-describe("the Today plan", () => {
-  test("gives the due reviews in minutes and the next Topic", async () => {
-    expect(await getPlan(COURSE)).toMatchObject({
-      hasMap: true,
-      today: {
-        reviews: { count: 1, minutes: 2 },
-        next: {
-          id: "t1",
-          name: "Thrust",
-          centralQuestion: "How is thrust made?",
-          kcs: [THRUST, EFFICIENCY],
-        },
-        hint: null,
-      },
     });
   });
 
   test("has no map without one", async () => {
     map = EMPTY_MAP;
 
-    expect(await getPlan(COURSE)).toMatchObject({
+    expect(await getStudyState(COURSE)).toMatchObject({
       hasMap: false,
-      today: { reviews: null },
+      taught: false,
     });
   });
 
   test("is empty for another Student's Course", async () => {
-    expect(
-      (await getPlan("bbbbbbbb-c000-4000-8000-000000000001")).today,
-    ).toEqual({ reviews: null, next: null, hint: null });
+    expect(await getStudyState(OTHER_COURSE)).toMatchObject({
+      hasTopics: false,
+      ranking: [],
+      scope: [],
+      topics: {},
+    });
   });
 });

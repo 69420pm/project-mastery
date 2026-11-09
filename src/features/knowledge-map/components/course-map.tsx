@@ -2,20 +2,25 @@
 
 import { RotateCwIcon, WaypointsIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState, useTransition } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useState,
+  useTransition,
+} from "react";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { checkReportLine } from "@/features/knowledge-map/domain/check-report";
 import { startKnowledgeMapBuild } from "@/features/knowledge-map/server/actions";
 import type {
   KnowledgeMapView,
   MapBuild,
-  MapKcLearning,
   MapTopic,
   MapTopicBadges,
-  MapTopicReadiness,
-  MapTopicStates,
+  MapTopicStudies,
 } from "@/features/knowledge-map/types";
 import { CourseMapGraph } from "./course-map-graph";
 
@@ -29,31 +34,28 @@ const BUILD_POLL_MS = 2000;
 
 /**
  * A Course's home, the Course map: the build's state with Build or Update
- * map, the reviews due and the Progress line (`progressLine`, a slot,
- * since the study feature that owns the plan depends on this one), the
- * Today card (`today`, a slot too), then its Topic tree as a graph of
- * nested boxes filling the rest of the page, each with its Topic state and recall
- * today from `topicStates` and its plan badges from `topicBadges`, which the
- * page passes in since the study feature computes them. The page refreshes
- * itself while a build runs.
+ * map, the Progress and Readiness lines (`progressLine` and
+ * `readinessLine`, slots, since the study feature that owns them depends
+ * on this one), the Today card (`today`, a slot too), then its Topic tree
+ * as a graph of nested boxes filling the rest of the page, each with how
+ * many of its KCs are learned and its Readiness from `topicStudies` and its
+ * plan badges from `topicBadges`, which the page passes in since the study
+ * feature computes them. The page refreshes itself while a build runs.
  */
 export function CourseMap({
   map,
   topics,
-  learning,
-  topicStates,
-  topicReadiness = {},
+  topicStudies,
   topicBadges,
   progressLine,
   readinessLine,
   today,
+  checkDetails = false,
 }: {
   map: KnowledgeMapView;
   /** The Topic tree in tree order; empty before a build stored Topics. */
   topics: MapTopic[];
-  learning: MapKcLearning;
-  topicStates: MapTopicStates;
-  topicReadiness?: MapTopicReadiness;
+  topicStudies: MapTopicStudies;
   topicBadges: MapTopicBadges;
   /** The study feature's Progress line, shown in the header. */
   progressLine: ReactNode;
@@ -61,9 +63,10 @@ export function CourseMap({
   readinessLine?: ReactNode;
   /** The study feature's Today card, shown above the graph. */
   today?: ReactNode;
+  /** Whether to show the check report's full lists: outside production. */
+  checkDetails?: boolean;
 }) {
   const { kcs } = map;
-  const dueCount = kcs.filter((kc) => learning[kc.id]?.state === "due").length;
   const building = map.build?.status === "building";
   useBuildPolling(building);
   const buildButton = (
@@ -86,14 +89,42 @@ export function CourseMap({
           <BuildStatus build={map.build} />
           {kcs.length > 0 && (
             <>
-              <p>
-                {dueCount} {dueCount === 1 ? "review" : "reviews"} due
-              </p>
               {progressLine}
               {readinessLine}
             </>
           )}
         </div>
+        {!building && map.needsUpdate && map.build?.finishedAt && (
+          <div
+            role="note"
+            aria-label="Map update"
+            className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground"
+          >
+            <p>Your Materials changed since the map was last built.</p>
+            <BuildButton
+              courseId={map.courseId}
+              hasMap
+              disabled={!map.canBuild}
+              size="sm"
+              variant="outline"
+            />
+          </div>
+        )}
+        {!building && (
+          <MapCheck
+            report={map.checkReport}
+            details={checkDetails}
+            updateButton={
+              <BuildButton
+                courseId={map.courseId}
+                hasMap
+                disabled={!map.canBuild}
+                size="sm"
+                variant="outline"
+              />
+            }
+          />
+        )}
       </div>
 
       {kcs.length === 0 || (topics.length === 0 && building) ? (
@@ -116,8 +147,7 @@ export function CourseMap({
             <CourseMapGraph
               map={map}
               topics={topics}
-              topicStates={topicStates}
-              topicReadiness={topicReadiness}
+              topicStudies={topicStudies}
               topicBadges={topicBadges}
             />
           </div>
@@ -178,6 +208,67 @@ function BuildStatus({ build }: { build: MapBuild }) {
 }
 
 /**
+ * What the last build's check report says of a weak map: one line when it
+ * left pages unread or Chapters covered only in part, with Update map, and
+ * with `details` (outside production) its full lists.
+ */
+function MapCheck({
+  report,
+  details,
+  updateButton,
+}: {
+  report: KnowledgeMapView["checkReport"];
+  details: boolean;
+  updateButton: ReactNode;
+}) {
+  if (!report) return null;
+  const line = checkReportLine(report);
+  const lists = [
+    { title: "Chapters without KCs", items: report.chaptersWithoutKcs },
+    { title: "Exercises without KCs", items: report.exercisesWithoutKcs },
+    {
+      title: "Units below the coverage bar",
+      items: report.unitsBelowCoverage.map(
+        (unit) => `${unit.chapter}: ${Math.round(unit.coverage * 100)}%`,
+      ),
+    },
+    { title: "Units the AI gave up on", items: report.unitsNotExtracted },
+  ].filter((list) => list.items.length > 0);
+  if (!line && !(details && lists.length > 0)) return null;
+  return (
+    <div
+      role="note"
+      aria-label="Map check"
+      className="flex flex-col gap-2 text-sm text-muted-foreground"
+    >
+      {line && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p>{line}.</p>
+          {updateButton}
+        </div>
+      )}
+      {details && lists.length > 0 && (
+        <details>
+          <summary className="cursor-pointer">Check report</summary>
+          <div className="mt-2 flex flex-col gap-2">
+            {lists.map((list) => (
+              <div key={list.title}>
+                <p className="font-medium text-foreground">{list.title}</p>
+                <ul className="list-inside list-disc">
+                  {list.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+/**
  * Starts a build: Build before the first map, Update map after, which maps
  * what Materials added or deleted since. Disabled while one runs or before a
  * Material is parsed.
@@ -186,10 +277,14 @@ function BuildButton({
   courseId,
   hasMap,
   disabled,
+  size,
+  variant,
 }: {
   courseId: string;
   hasMap: boolean;
   disabled: boolean;
+  size?: ComponentProps<typeof Button>["size"];
+  variant?: ComponentProps<typeof Button>["variant"];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +293,8 @@ function BuildButton({
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
+        size={size}
+        variant={variant}
         disabled={disabled || isPending}
         onClick={() =>
           startTransition(async () => {

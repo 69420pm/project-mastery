@@ -1,5 +1,7 @@
 # FSRS replay
 
+> Superseded by [ADR 0027](0027-per-day-scheduling-and-one-ranking.md), where one per-day rule on UTC days replaces the session rules, Easy, the exam cap and the final-week sweep.
+
 **Context.** ADR 0010 scheduled reviews on a fixed review ladder until FSRS could be fitted to a Student's history. The ladder ignored how well a KC was answered beyond correct or not, and its levels said nothing about how likely the Student is to remember a KC today, which ranking due reviews and later the exam projection need. FSRS-6's default weights are a better start than a fixed ladder even unfitted, and M1 (#173, ADR 0018) gave every attempt a session, a result and the help given, which is what a rating needs.
 
 **Decision.** FSRS (`ts-fsrs` 5.4.2) replaces the ladder (#174). A pure module (`src/features/study/domain/replay.ts`) replays each KC's attempts into an FSRS card on every read, with the FSRS-6 default weights, `enable_short_term: false` and `enable_fuzz: false`; nothing derived is stored, and the `attempts` log stays the only stored learner state.

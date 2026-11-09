@@ -15,18 +15,18 @@ import type { Supabase } from "@/lib/supabase/types";
 const SAMPLE = 5;
 
 /**
- * The Student's measured pace in a Course at `now` (`measurePace`), read
- * with `supabase` from its attempts, their questions and the messages of
- * the newest 5 teaching sessions that still have their Chat. A session
- * whose Chat is gone has no known active time and doesn't count.
+ * The Student's measured pace in a Course (`measurePace`), read with
+ * `supabase` from its attempts, their questions and the messages of the
+ * newest 5 teaching sessions that still have their Chat. A session whose
+ * Chat is gone has no known active time and doesn't count.
  */
 export async function loadPace(
   supabase: Supabase,
   courseId: string,
-  now: Date,
 ): Promise<Pace> {
-  const { attempts, ended } = await loadCourseAttempts(supabase, courseId, now);
-  const { reviews, teaching } = paceEvidence(attempts, ended);
+  const { reviews, teaching } = paceEvidence(
+    await loadCourseAttempts(supabase, courseId),
+  );
   const active = new Map<string, number>();
   if (teaching.length > 0) {
     const { data, error } = await supabase

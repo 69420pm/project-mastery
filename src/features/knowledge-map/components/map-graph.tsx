@@ -22,6 +22,7 @@ import {
   sizeScale,
 } from "@/features/knowledge-map/domain/encodings";
 import {
+  BAND_NAMES,
   type CheckBadgeKind,
   checkBadges,
   DIFFICULTY_NAMES,
@@ -47,6 +48,7 @@ import type {
   KnowledgeMapView,
   MapKcLearning,
   MapPriorities,
+  MapRecallBand,
 } from "@/features/knowledge-map/types";
 import { cn } from "@/lib/utils";
 import { ZoomControls } from "./zoom-controls";
@@ -55,16 +57,11 @@ const BADGE_ICONS: Record<CheckBadgeKind, LucideIcon> = {
   duplicate: CopyIcon,
 };
 
-type KcState = MapKcLearning[string]["state"];
-
-const STATE_MARKERS: Record<KcState, { name: string; className: string }> = {
-  new: {
-    name: "New",
-    className: "border border-muted-foreground bg-transparent",
-  },
-  learning: { name: "Learning", className: "bg-brand" },
-  due: { name: "Due", className: "bg-warning" },
-  known: { name: "Known", className: "bg-success" },
+const BAND_MARKERS: Record<MapRecallBand, string> = {
+  new: "border border-muted-foreground bg-transparent",
+  weak: "bg-destructive",
+  fading: "bg-warning",
+  strong: "bg-success",
 };
 
 /**
@@ -72,7 +69,7 @@ const STATE_MARKERS: Record<KcState, { name: string; className: string }> = {
  */
 type KcNodeData = {
   kc: KcView;
-  state: KcState;
+  band: MapRecallBand;
   selected: boolean;
   related: boolean;
   /** The colour-by encoding's colour. */
@@ -111,10 +108,9 @@ function Handles({ source = true }: { source?: boolean }) {
   );
 }
 
-/** A KC: its name and state marker. */
+/** A KC: its name and recall band marker. */
 function KcNodeView({ data }: NodeProps<KcNode>) {
-  const { kc, state, selected, related, color, scale, badges } = data;
-  const marker = STATE_MARKERS[state];
+  const { kc, band, selected, related, color, scale, badges } = data;
   return (
     <>
       <Handles />
@@ -155,11 +151,11 @@ function KcNodeView({ data }: NodeProps<KcNode>) {
           <Markdown>{kc.name}</Markdown>
         </span>
         <span
-          title={marker.name}
-          aria-label={`State: ${marker.name}`}
+          title={BAND_NAMES[band]}
+          aria-label={`Recall: ${BAND_NAMES[band]}`}
           className={cn(
             "mt-1 size-2.5 shrink-0 rounded-full",
-            marker.className,
+            BAND_MARKERS[band],
           )}
         />
       </button>
@@ -321,17 +317,17 @@ export function MapGraph({
         };
       }
       const kc = kcs.get(node.id)!;
-      const state = learning[node.id]?.state ?? "new";
+      const band = learning[node.id]?.band ?? "new";
       const fraction = fractions.get(node.id);
       return {
         ...common,
         type: "kc",
         data: {
           kc,
-          state,
+          band,
           selected,
           related,
-          color: kcColor(colorBy, { state, fraction }),
+          color: kcColor(colorBy, { band, fraction }),
           scale: sizeByPriority && fractions.size > 0 ? sizeScale(fraction) : 1,
           badges: checkBadges(map.checkReport, kc.name),
         },

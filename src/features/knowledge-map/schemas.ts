@@ -11,7 +11,9 @@ const description = z.string().trim().min(1).max(1000);
 /**
  * A knowledge component that its `sources` chunks teach. It comes from the
  * content, or from an exercise that needs it when the content does not
- * teach it. A KC the Materials assume but never teach has no sources.
+ * teach it. What the Materials assume but never teach is no KC: it is text
+ * on the KC that assumes it (`kcs.assumes`), and a KC whose sources are
+ * gone is retired.
  */
 const kcSchema = z.object({
   id,
@@ -25,23 +27,24 @@ const kcSchema = z.object({
 const prerequisiteSchema = z.object({ from: id, to: id });
 
 /**
- * One numeric final result of an Exercise, the key a Student's final value
- * is checked against: such as `{ label: "Thrust", value: 17.5, unit: "kN" }`.
- * The unit is written for mathjs; null for a number without one.
+ * One final result of an Exercise or a generated Problem, the key a
+ * Student's final value is checked against (`domain/answer-keys.ts`): such
+ * as `{ label: "Thrust", value: "17.5 kN", anyOrder: false }`.
  */
-export const finalAnswerSchema = z.object({
-  label: z.string().trim().min(1).max(200),
-  value: z.number(),
-  unit: z.string().trim().min(1).max(50).nullable(),
-});
+/** The longest answer key or final value read. */
+export const MAX_ANSWER_LENGTH = 500;
 
-export type FinalAnswer = z.infer<typeof finalAnswerSchema>;
+export const answerKeySchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  value: z.string().trim().min(1).max(MAX_ANSWER_LENGTH),
+  anyOrder: z.boolean(),
+});
 
 /**
  * An Exercise: one subtask whose question is the `questionChunk`, with its
  * printed solution's chunk (null without one), the KCs it tests, a
- * difficulty from 1 (easy) to 3 (hard) and its numeric final answers as
- * printed (null without any).
+ * difficulty from 1 (easy) to 3 (hard) and its answer keys as printed (null
+ * without any).
  */
 const exerciseSchema = z.object({
   id,
@@ -49,7 +52,7 @@ const exerciseSchema = z.object({
   solutionChunk: id.nullable(),
   difficulty: z.int().min(1).max(3),
   kcs: z.array(id),
-  finalAnswers: z.array(finalAnswerSchema).min(1).nullish(),
+  finalAnswers: z.array(answerKeySchema).min(1).nullish(),
 });
 
 /**
@@ -91,6 +94,22 @@ export const checkReportSchema = z.object({
   exercisesWithoutKcs: z.array(z.string()),
   /** KC pairs still alike enough to be duplicates after merging, by name. */
   duplicates: z.array(z.object({ a: name, b: name, similarity: z.number() })),
+  /**
+   * Teaching units whose KCs cite less than MIN_UNIT_COVERAGE of them, by
+   * their Chapters' titles, with the share they cite.
+   */
+  unitsBelowCoverage: z.array(
+    z.object({ chapter: z.string(), coverage: z.number() }),
+  ),
+  /** Pages read without units, unreadable or uncovered, per Material. */
+  unreadPages: z.array(
+    z.object({ material: z.string(), pages: z.array(z.number().int()) }),
+  ),
+  /**
+   * Units the build gave up on because their calls kept failing, by their
+   * Chapters' titles: only the pieces that were answered are in the map.
+   */
+  unitsNotExtracted: z.array(z.string()).default([]),
 });
 
 /**
@@ -105,7 +124,7 @@ const extractedExerciseSchema = z.object({
   notAnExercise: z.boolean(),
   kcIds: z.array(z.string()),
   newKcs: z.array(z.int()),
-  finalAnswers: z.array(finalAnswerSchema),
+  finalAnswers: z.array(answerKeySchema),
   solutionLines: z.int().nullable(),
 });
 
@@ -116,9 +135,12 @@ export type ExtractedExercise = z.infer<typeof extractedExerciseSchema>;
  * stored chunk ids, what each assumes (`{ name, description }`) and, until
  * they are stored, their vectors of "name: description"; Prerequisites by
  * index into `kcs`. An exercise
- * unit's also has its subtasks, whose new KCs are its `kcs`.
+ * unit's also has its subtasks, whose new KCs are its `kcs`. A partial
+ * extraction of a split unit (`domain/unit-pieces.ts`) names the chunks its
+ * answered pieces read in `readChunkIds`.
  */
 export const storedExtractionSchema = z.object({
+  readChunkIds: z.array(z.string()).optional(),
   kcs: z.array(
     z.object({
       name,
@@ -133,6 +155,12 @@ export const storedExtractionSchema = z.object({
 });
 
 export type StoredExtraction = z.infer<typeof storedExtractionSchema>;
+
+/**
+ * What a KC assumes that no KC of the Course means (`kcs.assumes`): names
+ * with a one-line description, unique by name.
+ */
+export const kcAssumesSchema = z.array(z.object({ name, description }));
 
 /** The input of the Build button's Server Action. */
 export const startKnowledgeMapBuildSchema = z.object({ courseId: z.uuid() });

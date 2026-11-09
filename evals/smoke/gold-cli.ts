@@ -14,93 +14,16 @@
  * database only; makes no model calls.
  */
 import { parseArgs } from "node:util";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { readdir } from "node:fs/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
-import {
-  encodeSnapshot,
-  extensionOf,
-  SNAPSHOT_TABLES,
-  type Snapshot,
-} from "../gold-snapshot";
-import { GOLD_DIR, readSnapshot, seedSnapshot, table } from "./gold-seed";
+import { exportCourse } from "./gold-export";
+import { GOLD_DIR, readSnapshot, seedSnapshot } from "./gold-seed";
 
 const GOLD_EMAIL = process.env.GOLD_EMAIL ?? "gold@example.com";
 const GOLD_PASSWORD = process.env.GOLD_PASSWORD ?? "gold-password";
 const DEFAULT_EXAM_IN_DAYS = 42;
-const PAGE = 1000;
-
-type Row = Record<string, unknown>;
-
-async function readAll(
-  supabase: AdminSupabase,
-  name: string,
-  column: string,
-  values: string[],
-) {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await table(supabase, name)
-      .select("*")
-      .in(column as "id", values)
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`${name}: ${error.message}`);
-    rows.push(...(data as Row[]));
-    if (data.length < PAGE) return rows;
-  }
-}
-
-async function exportCourse(courseId: string, slug: string, name?: string) {
-  const supabase = createAdminClient();
-  const { data: course, error } = await supabase
-    .from("courses")
-    .select("id, name, pairing_requested")
-    .eq("id", courseId)
-    .single();
-  if (error) throw new Error(`Course ${courseId}: ${error.message}`);
-
-  const tables: Snapshot["tables"] = {};
-  for (const { table: name, parent } of SNAPSHOT_TABLES) {
-    tables[name] = parent
-      ? await readAll(
-          supabase,
-          name,
-          parent.column,
-          (tables[parent.table] ?? []).map((row) => row.id as string),
-        )
-      : await readAll(supabase, name, "course_id", [courseId]);
-  }
-  const snapshot: Snapshot = {
-    version: 1,
-    courseName: name ?? course.name,
-    courseId,
-    pairingRequested: course.pairing_requested,
-    tables,
-  };
-
-  const dir = path.join(GOLD_DIR, slug);
-  await mkdir(path.join(dir, "materials"), { recursive: true });
-  for (const material of tables.materials ?? []) {
-    const { data, error: downloadError } = await supabase.storage
-      .from(MATERIALS_BUCKET)
-      .download(material.storage_path as string);
-    if (downloadError) throw new Error(downloadError.message);
-    const file = `${material.id as string}.${extensionOf(material.media_type as string)}`;
-    await writeFile(
-      path.join(dir, "materials", file),
-      Buffer.from(await data.arrayBuffer()),
-    );
-  }
-  await writeFile(path.join(dir, "snapshot.json.gz"), encodeSnapshot(snapshot));
-  console.info(
-    `Exported "${snapshot.courseName}" to ${dir}: ${Object.entries(tables)
-      .filter(([, rows]) => rows.length > 0)
-      .map(([n, rows]) => `${n} ${rows.length}`)
-      .join(", ")}`,
-  );
-}
 
 /** The gold Student, created on first use with a known local password. */
 async function goldStudent(supabase: AdminSupabase) {
@@ -192,7 +115,7 @@ async function main() {
   const [command, first, second] = positionals;
   if (command === "list") return list();
   if (command === "export" && first && second) {
-    return exportCourse(first, second, values.name);
+    return exportCourse(createAdminClient(), first, second, values.name);
   }
   if (command === "seed" && first) {
     return seedCourse(

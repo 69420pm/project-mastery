@@ -50,21 +50,21 @@ select results_eq(
   $$select alice_session from ids$$,
   'a Student reads only their own session');
 select throws_ok(
-  $$insert into public.study_sessions (owner, course_id, mode)
-    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001', 'learn')$$,
+  $$insert into public.study_sessions (owner, course_id)
+    values ('11111111-1111-1111-1111-111111111111', 'aaaaaaaa-0000-0000-0000-000000000001')$$,
   '42501', null, 'a Student cannot start a session themselves');
 
 select lives_ok(
-  $$insert into public.questions (session_id, kind, prompt)
-    select alice_session, 'question', 'What is thrust?' from ids$$,
+  $$insert into public.questions (session_id, prompt)
+    select alice_session, 'What is thrust?' from ids$$,
   'the owner asks a question in their session');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt)
-    select bob_session, 'question', 'Sneaky?' from ids$$,
+  $$insert into public.questions (session_id, prompt)
+    select bob_session, 'Sneaky?' from ids$$,
   '42501', null, 'a question in another Student''s session is refused');
 select throws_ok(
-  $$insert into public.questions (session_id, kind, prompt, exercise_id)
-    select alice_session, 'problem', 'Ex. 9', 'dddddddd-0000-0000-0000-000000000009' from ids$$,
+  $$insert into public.questions (session_id, prompt, exercise_id)
+    select alice_session, 'Ex. 9', 'dddddddd-0000-0000-0000-000000000009' from ids$$,
   '42501', null, 'an Exercise not of the Course is refused');
 
 select lives_ok(
@@ -90,27 +90,27 @@ select throws_ok(
   '42501', null, 'what was asked cannot be changed');
 
 select lives_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help, "check")
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'partial', 'some', 'mismatch'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help, "check")
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'partial', 'some', 'unchecked'
     from public.questions$$,
   'the owner records an attempt on the question''s KC');
 select results_eq(
   $$select owner, result, help, "check", created_at = now() from public.attempts$$,
-  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'mismatch', true)$$,
+  $$values ('11111111-1111-1111-1111-111111111111'::uuid, 'partial', 'some', 'unchecked', true)$$,
   'the owner reads it, owned by them and timed by the database');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help)
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'learn', 'full', 'none'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help)
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000003', 'full', 'none'
     from public.questions$$,
   '42501', null, 'a KC the question does not test is refused');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help)
-    select q.id, ids.bob_session, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'full', 'none'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help)
+    select q.id, ids.bob_session, 'bbbbbbbb-0000-0000-0000-000000000001', 'full', 'none'
     from public.questions q, ids$$,
   '42501', null, 'an attempt in another session than its question''s is refused');
 select throws_ok(
-  $$insert into public.attempts (question_id, session_id, kc_id, kind, result, help, created_at)
-    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'learn', 'full', 'none', now() - interval '3 days'
+  $$insert into public.attempts (question_id, session_id, kc_id, result, help, created_at)
+    select id, session_id, 'bbbbbbbb-0000-0000-0000-000000000001', 'full', 'none', now() - interval '3 days'
     from public.questions$$,
   '42501', null, 'an attempt cannot be backdated');
 select throws_ok(

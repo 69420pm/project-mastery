@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import type { MaterialReference } from "@/features/courses";
-import type { ProblemFlag, SessionMode, TutorContext } from "@/features/study";
+import type { ProblemFlag, TutorContext } from "@/features/study";
 
 /** The tokens and cost of the AI call that wrote a reply. */
 export type ReplyUsage = {
@@ -13,18 +13,8 @@ export type ReplyUsage = {
   estimated: boolean;
 };
 
-/**
- * What a message carries besides its parts: on a Student's message, the
- * question it answers on a question card; the rest the server attaches to an AI
- * message.
- */
+/** What the server attaches to an AI message besides its parts. */
 export type ChatMessageMetadata = {
-  /** The question a Student's message answers, sent from its question card. */
-  questionId?: string;
-  /** How sure the Student was in that answer, from 1 to 4. */
-  confidence?: number;
-  /** The Reading section a Student's "Done reading." is for, sent with Done. */
-  readingSectionId?: string;
   /** The model that wrote the reply. */
   modelId?: string;
   /** Whether the reply was stopped before it ended. */
@@ -57,10 +47,6 @@ export type ChatWithMessages = {
   courseId: string;
   title: string | null;
   messages: ChatUIMessage[];
-  /** The mode of its Study session. */
-  mode: SessionMode;
-  /** The graded Mock exam a new results Chat goes through. */
-  mockId?: string;
   /** Whether its Study session has ended, which makes it read-only. */
   ended: boolean;
   /** The flags of the generated Problems its questions posed, by Problem id. */
@@ -74,15 +60,7 @@ export type ChatWithMessages = {
 export type SourceRequest = {
   kind: "section" | "chunk";
   id: string;
-  /** The reading card that opened a section, whose Done the pane shows. */
-  cardId?: string;
 };
-
-/**
- * What the Chat's side slot shows, one at a time: a source, or a Topic's KC
- * graph after a rebuild, by Topic id.
- */
-export type PaneRequest = SourceRequest | { kind: "topic"; id: string };
 
 /** A source as the source pane shows it (`openSource`). */
 export type ChatSource = {

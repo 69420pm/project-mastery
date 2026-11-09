@@ -1,8 +1,9 @@
+import {
+  isReadableAnswer,
+  type AnswerKey,
+} from "@/features/knowledge-map/domain/answer-keys";
 import type { ExtractedKc } from "@/features/knowledge-map/domain/chapter-extraction";
-import type {
-  ExtractedExercise,
-  FinalAnswer,
-} from "@/features/knowledge-map/schemas";
+import type { ExtractedExercise } from "@/features/knowledge-map/schemas";
 
 /**
  * The extraction of one exercise unit (task `exercise`): per subtask, the
@@ -23,7 +24,7 @@ export type AnsweredSubtask = {
   notAnExercise: boolean;
   kcIds: string[];
   newKcs: Array<{ name: string; description: string }>;
-  finalAnswers: Array<{ label: string; value: number; unit: string | null }>;
+  finalAnswers: AnswerKey[];
 };
 
 /** A subtask the call was offered, with its stored chunks. */
@@ -46,7 +47,8 @@ const nameKey = (name: string) => name.trim().toLowerCase();
 
 /**
  * Checks the call's answer for an exercise unit: an unknown candidate id is
- * dropped, a new KC whose name the unit already proposed is the same KC, and
+ * dropped, a new KC named by an offered id is that candidate, a new KC
+ * whose name the unit already proposed is the same KC, and
  * an Exercise tests at most MAX_EXERCISE_KCS KCs, candidates first. A
  * subtask the call left out is an Exercise without KCs or final answers.
  */
@@ -59,12 +61,18 @@ export function checkExerciseAnswer(
   const indexOf = new Map<string, number>();
   const exercises = subtasks.map((subtask): ExtractedExercise => {
     const answered = answer.subtasks.find((given) => given.id === subtask.id);
+    // A new KC named by an offered id, such as k5, is that offered KC.
+    const named = [
+      ...(answered?.kcIds ?? []),
+      ...(answered?.newKcs ?? []).map((kc) => kc.name.trim()),
+    ];
     const kcIds = [
-      ...new Set(answered?.kcIds.flatMap((id) => kcIdOf.get(id) ?? []) ?? []),
+      ...new Set(named.flatMap((id) => kcIdOf.get(id) ?? [])),
     ].slice(0, MAX_EXERCISE_KCS);
     const newKcs: number[] = [];
     for (const kc of answered?.newKcs ?? []) {
       if (kcIds.length + newKcs.length >= MAX_EXERCISE_KCS) break;
+      if (kcIdOf.has(kc.name.trim())) continue;
       const name = kc.name.trim().slice(0, 200);
       const description = kc.description.trim().slice(0, 1000);
       if (!name || !description) continue;
@@ -96,15 +104,16 @@ export function checkExerciseAnswer(
   return { kcs, exercises };
 }
 
+/** The answer keys with a label and a value mathjs can parse. */
 function checkFinalAnswers(
   answers: AnsweredSubtask["finalAnswers"],
-): FinalAnswer[] {
+): AnswerKey[] {
   return answers
     .flatMap((answer) => {
       const label = answer.label.trim().slice(0, 200);
-      const unit = answer.unit?.trim().slice(0, 50) || null;
-      return label && Number.isFinite(answer.value)
-        ? [{ label, value: answer.value, unit }]
+      const value = answer.value.trim();
+      return label && isReadableAnswer(value)
+        ? [{ label, value, anyOrder: answer.anyOrder }]
         : [];
     })
     .slice(0, MAX_FINAL_ANSWERS);

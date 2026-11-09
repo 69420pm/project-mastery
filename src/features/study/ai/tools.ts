@@ -1,26 +1,20 @@
 import { hasToolCall, tool } from "ai";
 import { z } from "zod";
-import type { FinalAnswer } from "@/features/knowledge-map";
 import {
-  checkFinalValue,
-  parseFinalValue,
-} from "@/features/study/domain/final-answers";
-import {
-  STAGES,
-  stageMoveRefusal,
-  type Stage,
-} from "@/features/study/domain/stages";
+  checkAnswers,
+  MAX_ANSWER_LENGTH,
+  worstCheck,
+  type AnswerCheck,
+  type AnswerKey,
+} from "@/features/knowledge-map/server";
 import { computeTool } from "@/features/study/ai/compute-tool";
-import {
-  flagMapInputSchema,
-  type FlagMapInput,
-} from "@/features/study/ai/flag-map-input";
 import type { ProgramRun } from "@/features/study/server/math-runner";
 import type {
+  AskedProblem,
+  AttemptHelp,
+  AttemptResult,
   ProblemView,
   GradedKc,
-  MapFindingKind,
-  QuestionKind,
   ReadingView,
   SourceChunkView,
   TopicView,
@@ -59,28 +53,14 @@ const getTopicInputSchema = z.object({
     ),
 });
 
-const QUESTION_KINDS = [
-  "prequestion",
-  "recall",
-  "question",
-  "problem",
-  "rebuild",
-  "mock_item",
-] as const satisfies readonly QuestionKind[];
-
-/** What `ask` takes: one graded question for a question card. */
+/** What `ask` takes: one graded question, shown in the Chat. */
 const askInputSchema = z.object({
-  kind: z
-    .enum(QUESTION_KINDS)
-    .describe(
-      "prequestion: before teaching, a guess on what comes next; recall: retrieve what was taught; question: check understanding; problem: a problem or Exercise to solve; rebuild: rebuild a derivation or argument; mock_item: an exam-conditions item.",
-    ),
   prompt: z
     .string()
     .min(1)
     .max(20_000)
     .describe(
-      "The question as the Student reads it on the card, in Markdown with LaTeX. Complete on its own: give all data the Student needs.",
+      "The question as the Student reads it in the Chat, in Markdown with LaTeX. Complete on its own: give all data the Student needs.",
     ),
   kcIds: z
     .array(z.string())
@@ -95,11 +75,14 @@ const askInputSchema = z.object({
     ),
 });
 
-/** What `grade` takes: the verdict on the Student's answer to a question. */
+/**
+ * What `grade` takes: the verdict on the Student's answer to the open
+ * Question. `results` and `help` are required: with every field optional and
+ * a `noAnswer` flag beside them, MiMo sent `finalValues` without `results` in
+ * 4 of 4 replays of a staging reply (2026-11-09), and graded in 4 of 4 with
+ * this schema and `closeQuestion` for a Question the Student moved on from.
+ */
 const gradeInputSchema = z.object({
-  questionId: z
-    .string()
-    .describe("The questionId that ask returned for the question answered."),
   results: z
     .array(
       z.object({
@@ -119,32 +102,50 @@ const gradeInputSchema = z.object({
     .describe(
       "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
     ),
-  finalValue: z
-    .string()
-    .max(100)
+  finalValues: z
+    .array(
+      z.object({
+        label: z
+          .string()
+          .max(200)
+          .nullish()
+          .describe(
+            "The label of the final result it answers; may be left out when the question has one.",
+          ),
+        value: z
+          .string()
+          .max(MAX_ANSWER_LENGTH)
+          .describe(
+            'The Student\'s value as mathjs, such as "17.5 kN", "[[1, 2], [0, 1]]", "[2, -3]", "n + 1" or "3 + 4i".',
+          ),
+      }),
+    )
+    .max(10)
     .nullish()
     .describe(
-      'For a question that poses an Exercise with a numeric result: the Student\'s final value with its unit, as a number and a unit such as "17.5 kN", "1.2e5 Pa" or "9.81 m/s^2". Omit it when the Student gave no final number.',
+      "For a question with final results: the Student's final value for each one they gave, even when it looks wrong. Leave out a result the Student gave no value for.",
     ),
 });
 
 type GradeInput = z.infer<typeof gradeInputSchema>;
 
-/** A stored question as `grade` checks it. */
+/** The session's newest Question as `ask` and `grade` check it. */
 export type QuestionToGrade = {
-  kind: QuestionKind;
-  /** The KCs it tests. */
+  id: string;
+  /** The live KCs it tests. */
   kcIds: string[];
+  /** The KCs it tested that were retired since, whose results are dropped. */
+  retiredKcIds: string[];
   answered: boolean;
   graded: boolean;
   /** Whether its Study session has ended, which closes it for grading. */
   sessionEnded: boolean;
-  /** Its Exercise's or generated Problem's numeric final answers; null without any. */
-  finalAnswers: FinalAnswer[] | null;
+  /** Its Exercise's or generated Problem's answer keys; null without any. */
+  finalAnswers: AnswerKey[] | null;
 };
 
-/** What the numeric check found: null when it didn't apply. */
-export type FinalValueCheck = "match" | "mismatch" | null;
+/** The worst check of the final values: null when the question has no keys. */
+export type FinalValueCheck = AnswerCheck | null;
 
 /** What `remember` takes: one line for the Memory. */
 const rememberInputSchema = z.object({
@@ -165,42 +166,17 @@ const searchMaterialsInputSchema = z.object({
 
 /** What `showReading` takes: a Reading section and why the Student reads it. */
 const showReadingInputSchema = z.object({
-  sectionId: z
-    .string()
-    .describe("The id of a Reading section listed for the next Topic."),
+  sectionId: z.string().describe("The id of a Reading section of a Topic."),
   purpose: rememberInputSchema.shape.text.describe(
     "The question the reading answers, which the Student reads it for: one line of at most 300 characters.",
   ),
 });
-
-/** What `setStage` takes: the stage to move to and, to skip, why. */
-const setStageInputSchema = z.object({
-  stage: z.enum(STAGES).describe("The stage of this learn session to move to."),
-  reason: rememberInputSchema.shape.text
-    .nullish()
-    .describe(
-      "Why, in one line, when you skip a stage: needed for any move but the next stage, work back to read for a Reading section left, and review to the stage named for after it.",
-    ),
-});
-
-/** Where a learn session stands, as `setStage` checks a move against it. */
-export type SessionStage = {
-  stage: Stage;
-  /** Where the session goes after `review`. */
-  afterReview: Stage;
-  /** Whether a Reading section of the Topic has no Done message yet. */
-  readingLeft: boolean;
-};
 
 /**
  * What the tools do. A refusal, such as an id that is no KC of the Course,
  * throws a `TutorToolError`, whose message the model sees.
  */
 export type TutorToolActions = {
-  /** The Chat's learn session's stage; null when it has no Topic. */
-  loadStage: () => Promise<SessionStage | null>;
-  /** Moves the session to a stage; false when it has ended or is at close. */
-  saveStage: (stage: Stage) => Promise<boolean>;
   /**
    * A Topic of the Course with the source chunks of `kcIds`, or of all its
    * KCs when none; null for an id that is no Topic of the Course. Without a
@@ -216,20 +192,6 @@ export type TutorToolActions = {
    * nearest first. Throws a `TutorToolError` when it can't search.
    */
   searchMaterials: (query: string) => Promise<SourceChunkView[]>;
-  /** Whether the id is a KC of the Course. */
-  isKc: (kcId: string) => boolean;
-  /** A chunk of the Course; null for any other id. */
-  findChunk: (chunkId: string) => Promise<{ markdown: string } | null>;
-  /** Stores an open map Finding in the Chat's Study session; returns its id. */
-  saveMapFinding: (finding: {
-    kind: MapFindingKind;
-    kcId: string;
-    linkedKcId: string | null;
-    proposedDescription: string | null;
-    chunkId: string;
-    quote: string;
-    reason: string;
-  }) => Promise<string>;
   /** A note, without Problems, tells the model why there are none. */
   findProblems: (
     kcIds: string[],
@@ -240,27 +202,31 @@ export type TutorToolActions = {
   remember: (text: string) => Promise<void>;
   /**
    * Stores a question in the Chat's Study session; returns its id, and the
-   * generated Problem it poses, which its card lets the Student flag.
+   * Problem it poses, which the Chat shows. Throws a `TutorToolError` for a
+   * `problemId` that is no Problem of the Course.
    */
   ask: (question: {
-    kind: QuestionKind;
     prompt: string;
     kcIds: string[];
     problemId: string | null;
-  }) => Promise<{ questionId: string; generatedProblemId: string | null }>;
-  /** A question asked in the Chat's Study session; null for any other id. */
-  findQuestion: (questionId: string) => Promise<QuestionToGrade | null>;
+  }) => Promise<{ questionId: string; problem: AskedProblem | null }>;
+  /** The newest Question of the Chat's Study session; null without one. */
+  findQuestion: () => Promise<QuestionToGrade | null>;
   /**
    * Marks the question graded and stores one attempt per KC; returns each
-   * KC's new state, or null when it was graded in the meantime.
+   * KC's new recall band, or null when it was graded in the meantime.
    */
   saveGrade: (grade: {
     questionId: string;
-    kind: "pre" | "learn";
-    help: GradeInput["help"];
-    results: GradeInput["results"];
+    help: AttemptHelp;
+    results: Array<{ kcId: string; result: AttemptResult }>;
     check: FinalValueCheck;
   }) => Promise<GradedKc[] | null>;
+  /**
+   * Marks the question graded without attempts; false when it was graded
+   * in the meantime.
+   */
+  closeQuestion: (questionId: string) => Promise<boolean>;
   /** Runs a mathjs program through the math runner. */
   compute: (program: string) => Promise<ProgramRun>;
 };
@@ -275,7 +241,7 @@ export function tutorTools(actions: TutorToolActions) {
   return {
     getTopic: tool({
       description:
-        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their description and state (new, learning, due or known), its anchors with their state and its Reading sections, each marked done when the Student has read it. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Each KC lists its open map Findings (kind, the other KC and the reason): where it has one, the map may be wrong, so lean on the sources. Without a topicId, it reads the KCs in kcIds alone, with their type, description, state and source chunks.",
+        "Read a Topic of this Course before teaching it: its central question, its KCs in order with their description, recall band (new, strong, fading or weak), recall today (0 to 1) and what each assumes from outside the Materials, its anchors with their band and its Reading sections. The KCs you give in kcIds (all of the Topic's when omitted) come with up to 3 source chunks from the Course's Materials in reading order, each with its Markdown, Material, pages and a link to cite. Without a topicId, it reads the KCs in kcIds alone, with the same facts and source chunks.",
       inputSchema: getTopicInputSchema,
       execute: async ({ topicId, kcIds }) => {
         if (!topicId && !kcIds) {
@@ -289,7 +255,7 @@ export function tutorTools(actions: TutorToolActions) {
         );
         if (!topic) {
           throw new TutorToolError(
-            `${topicId} is no Topic id of this Course: use the id of the next Topic, or of a due review's Topic.`,
+            `${topicId} is no Topic id of this Course: use the id of one of its Topics.`,
           );
         }
         return topic;
@@ -309,15 +275,9 @@ export function tutorTools(actions: TutorToolActions) {
             };
       },
     }),
-    flagMap: tool({
-      description:
-        "File a Finding on the Knowledge map when the course's sources show it is wrong: a link between two KCs it lacks, a link the sources contradict, or a KC's description the sources contradict. Check the sources first with getTopic or searchMaterials, and quote the chunk that shows it. For a wrong_description, give the new description as proposedDescription. The Student accepts or dismisses it on the Course map, and accepting applies it at once; nothing changes before. Never file one for what is only plausible from general knowledge. Returns the Finding's id.",
-      inputSchema: flagMapInputSchema,
-      execute: async (input) => flagMap(actions, input),
-    }),
     findProblems: tool({
       description:
-        "Find up to 3 Problems for the given KCs that test any of them and that the Student has not attempted yet: Exercises of this Course first, then Problems generated for it, ranked to vary and step up in difficulty. Each comes with its source (old_exam, exercise, or a generated variant of an Exercise or new Problem), its question, the KCs it tests, a link to cite (null for a generated Problem) and its solution, labelled with where it comes from. Use it for the apply step, and pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A generated solution without a program may be wrong: check it yourself before relying on it.",
+        "Find up to 3 Problems for the given KCs that test any of them: unseen ones first, then those not asked in the last 14 days; Exercises of this Course first, then Problems generated for it, ranked to vary and step up in difficulty. Each comes with its source (old_exam, exercise, or a generated variant of an Exercise or new Problem), its question, the KCs it tests, a link to cite (null for a generated Problem) and its solution, labelled with where it comes from. Pose the Problem you pick through ask with its problemId, never as text; never show the solution before the Student has tried. A generated solution without a program may be wrong: check it yourself before relying on it.",
       inputSchema: kcIdsInputSchema,
       execute: async ({ kcIds }) => actions.findProblems(kcIds),
     }),
@@ -332,16 +292,20 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     ask: tool({
       description:
-        "Ask the Student a graded question: it shows on a question card where they answer, and ends your reply. Write any lead-in before calling it, and don't repeat the question in your text. Returns the questionId to grade the answer with.",
+        "Ask the Student a graded question: it shows in the Chat, and ends your reply. The Student's next messages are their answer, which you grade with grade. With a problemId, the Chat shows the Problem's own statement and page in place of your prompt. Write any lead-in before calling it, and don't repeat the question in your text. Refused while the open Question is answered but not graded: grade it first.",
       inputSchema: askInputSchema,
       execute: async ({ problemId, ...question }) => {
-        const { questionId, generatedProblemId } = await actions.ask({
+        const open = await actions.findQuestion();
+        if (open && open.answered && !open.graded) {
+          throw new TutorToolError(
+            "The Student answered the open Question: grade it first, or close it with closeQuestion when they moved on.",
+          );
+        }
+        const { questionId, problem } = await actions.ask({
           ...question,
           problemId: problemId ?? null,
         });
-        return generatedProblemId === null
-          ? { questionId }
-          : { questionId, generatedProblemId };
+        return problem === null ? { questionId } : { questionId, problem };
       },
     }),
     showReading: tool({
@@ -350,17 +314,23 @@ export function tutorTools(actions: TutorToolActions) {
       inputSchema: showReadingInputSchema,
       execute: async ({ sectionId }) => showReading(actions, sectionId),
     }),
-    setStage: tool({
-      description:
-        "Move this learn session to another stage once the current one has done its job. Without a reason it allows the next stage in order, work back to read while a Reading section of the Topic is left, and review to the stage named for after it; any other forward move needs a one-line reason. It never moves back otherwise, and close is final. Returns the stage the session is at.",
-      inputSchema: setStageInputSchema,
-      execute: async (input) => setStage(actions, input),
-    }),
     grade: tool({
       description:
-        "Grade the Student's answer to a question you asked with ask, before you give feedback: a result for each of its KCs, how much you helped and, for an Exercise with a numeric result, the Student's final value. Code checks that value against the Exercise's key at 1% tolerance: on a mismatch every full becomes partial. Returns each KC's result, its state (new, learning, due or known), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch or null when it didn't apply. A KC first taught in this session is learning with no next review or recall until the session ends.",
+        "Grade the Student's answer to the open Question, the one you asked last with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. When the Student moved on instead of answering, call closeQuestion instead. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its recall band (new, strong, fading or weak), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results.",
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
+    }),
+    closeQuestion: tool({
+      description:
+        "Close the open Question without a grade when the Student moved on instead of answering it. Records nothing about their knowledge.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const question = await openQuestion(actions);
+        if (!(await actions.closeQuestion(question.id))) {
+          throw new TutorToolError(alreadyGraded);
+        }
+        return { ok: true };
+      },
     }),
     compute: computeTool(actions.compute),
   };
@@ -374,139 +344,59 @@ async function showReading(
   const section = await actions.findReading(sectionId);
   if (!section) {
     throw new TutorToolError(
-      `${sectionId} is no Reading section of this Course: use a section id listed for the next Topic.`,
+      `${sectionId} is no Reading section of this Course: use a section id that getTopic lists.`,
     );
   }
   return section;
 }
 
-/** Lower case with whitespace collapsed, as `flagMap` compares quotes. */
-const normalized = (text: string) =>
-  text.toLowerCase().replace(/\s+/g, " ").trim();
-
-/**
- * The `flagMap` call's rules: a linked KC for link kinds only, a proposed
- * description for wrong_description only, KCs and a chunk of the Course, and
- * a quote found in the chunk's Markdown.
- */
-async function flagMap(
-  actions: TutorToolActions,
-  { linkedKcId, proposedDescription, ...input }: FlagMapInput,
-): Promise<{ findingId: string }> {
-  const linked = linkedKcId || null;
-  const proposed = proposedDescription?.trim() || null;
-  if (input.kind === "wrong_description" && linked) {
-    throw new TutorToolError(
-      "A wrong_description Finding is about one KC: omit linkedKcId.",
-    );
-  }
-  if (input.kind === "wrong_description" && !proposed) {
-    throw new TutorToolError(
-      "A wrong_description Finding needs proposedDescription: the KC's new description.",
-    );
-  }
-  if (input.kind !== "wrong_description" && proposed) {
-    throw new TutorToolError(
-      `A ${input.kind} Finding has no proposedDescription: omit it.`,
-    );
-  }
-  if (input.kind !== "wrong_description" && !linked) {
-    throw new TutorToolError(
-      `A ${input.kind} Finding links two KCs: give the prerequisite of kcId as linkedKcId.`,
-    );
-  }
-  if (linked === input.kcId) {
-    throw new TutorToolError("A link joins two different KCs.");
-  }
-  const unknown = [input.kcId, linked].filter(
-    (id): id is string => id !== null && !actions.isKc(id),
-  );
-  if (unknown.length > 0) {
-    throw new TutorToolError(
-      `These are no KC ids of this Course: ${unknown.join(", ")}. Use the ids getTopic returns.`,
-    );
-  }
-  const chunk = await actions.findChunk(input.chunkId);
-  if (!chunk) {
-    throw new TutorToolError(
-      `${input.chunkId} is no chunk of this Course: use a chunkId from getTopic or searchMaterials.`,
-    );
-  }
-  const quote = normalized(input.quote);
-  if (quote === "") {
-    throw new TutorToolError(
-      "The quote is empty: copy the words that show it from the chunk.",
-    );
-  }
-  if (!normalized(chunk.markdown).includes(quote)) {
-    throw new TutorToolError(
-      "The quote is not in that chunk's Markdown: copy its words exactly from the chunk.",
-    );
-  }
-  const findingId = await actions.saveMapFinding({
-    ...input,
-    linkedKcId: linked,
-    proposedDescription: proposed,
-  });
-  return { findingId };
-}
-
-/** The `setStage` call: a move `stageMoveRefusal` allows, then saved. */
-async function setStage(
-  actions: TutorToolActions,
-  { stage, reason }: z.infer<typeof setStageInputSchema>,
-): Promise<{ stage: Stage }> {
-  const session = await actions.loadStage();
-  if (!session) {
-    throw new TutorToolError(
-      "This session has no Topic, so it has no stages: tutor without them.",
-    );
-  }
-  const refusal = stageMoveRefusal({
-    ...session,
-    from: session.stage,
-    to: stage,
-    reason,
-  });
-  if (refusal) throw new TutorToolError(refusal);
-  if (stage !== session.stage && !(await actions.saveStage(stage))) {
-    throw new TutorToolError(
-      "This session has ended or is at close, so its stage stays.",
-    );
-  }
-  return { stage };
-}
-
 const alreadyGraded = "This question is already graded.";
 
+/** The session's open Question, which `grade` and `closeQuestion` act on. */
+async function openQuestion(
+  actions: TutorToolActions,
+): Promise<QuestionToGrade> {
+  const question = await actions.findQuestion();
+  if (!question || question.graded) {
+    throw new TutorToolError("There is no open Question: ask one first.");
+  }
+  if (question.sessionEnded) {
+    throw new TutorToolError(
+      "This question's study session has ended, so it can't be graded or closed.",
+    );
+  }
+  return question;
+}
+
 /**
- * The `grade` call's rules: one result for each KC of an ungraded, answered
- * question of a running session, and the numeric check of a final value against its Exercise's
- * final answers, which turns every `full` into `partial` on a mismatch. A
- * `full` on a question with a key needs the final value, so the check runs.
+ * The `grade` call's rules, on the session's open Question: one result for
+ * each live KC of an answered Question, results for KCs retired since the
+ * ask dropped, and the check of its final values against its keys, which
+ * turns every `full` into `partial` on a mismatch. A `full` needs a value
+ * for every key, so each check runs.
  */
 async function grade(
   actions: TutorToolActions,
   input: GradeInput,
 ): Promise<{ kcs: GradedKc[]; check: FinalValueCheck }> {
-  const question = await actions.findQuestion(input.questionId);
-  if (!question) {
-    throw new TutorToolError(
-      `${input.questionId} is no question you asked in this Chat: use the questionId that ask returned.`,
-    );
-  }
-  if (question.graded) throw new TutorToolError(alreadyGraded);
-  if (question.sessionEnded) {
-    throw new TutorToolError(
-      "This question's study session has ended, so it can't be graded.",
-    );
-  }
+  const question = await openQuestion(actions);
   if (!question.answered) {
     throw new TutorToolError(
-      "The Student has not answered this question yet: wait for their answer on the card.",
+      "The Student has not answered this question yet: wait for their answer.",
     );
   }
-  const kcIds = input.results.map(({ kcId }) => kcId);
+  // Every KC it tested was retired since the ask: nothing to record.
+  if (question.kcIds.length === 0) {
+    if (!(await actions.closeQuestion(question.id))) {
+      throw new TutorToolError(alreadyGraded);
+    }
+    return { kcs: [], check: null };
+  }
+  const help = input.help;
+  const results = input.results.filter(
+    ({ kcId }) => !question.retiredKcIds.includes(kcId),
+  );
+  const kcIds = results.map(({ kcId }) => kcId);
   if (new Set(kcIds).size < kcIds.length) {
     throw new TutorToolError("Give each KC once.");
   }
@@ -517,21 +407,20 @@ async function grade(
       `Give one result for each KC the question tests, and no others: ${question.kcIds.join(", ")}.`,
     );
   }
-  if (
-    question.finalAnswers?.length &&
-    !input.finalValue &&
-    input.results.some(({ result }) => result === "full")
-  ) {
+  const keys = question.finalAnswers ?? [];
+  const checked = checkAnswers(keys, input.finalValues ?? []);
+  if (!checked.ok) throw new TutorToolError(checked.error);
+  const unvalued = keys.filter((_, index) => checked.checks[index] === null);
+  if (unvalued.length > 0 && results.some(({ result }) => result === "full")) {
     throw new TutorToolError(
-      "This question poses an Exercise with a numeric result, so a full needs the Student's final value: give it as finalValue for the check. Without a final number in the answer, no KC is full.",
+      `A full needs the Student's value for each final result, for the check: give it in finalValues for ${unvalued.map(({ label }) => `"${label}"`).join(", ")}. Without one in the answer, no KC is full.`,
     );
   }
-  const check = checkAgainstKey(question.finalAnswers, input.finalValue);
+  const check = worstCheck(checked.checks);
   const kcs = await actions.saveGrade({
-    questionId: input.questionId,
-    kind: question.kind === "prequestion" ? "pre" : "learn",
-    help: input.help,
-    results: input.results.map(({ kcId, result }) => ({
+    questionId: question.id,
+    help,
+    results: results.map(({ kcId, result }) => ({
       kcId,
       result: check === "mismatch" && result === "full" ? "partial" : result,
     })),
@@ -541,25 +430,10 @@ async function grade(
   return { kcs, check };
 }
 
-/** The numeric check, when the question has a key and a value was given. */
-function checkAgainstKey(
-  keys: FinalAnswer[] | null,
-  finalValue: string | null | undefined,
-): FinalValueCheck {
-  if (!keys || keys.length === 0 || !finalValue) return null;
-  const value = parseFinalValue(finalValue);
-  if (value === null) {
-    throw new TutorToolError(
-      `finalValue "${finalValue}" is no number with a unit: give it like "17.5 kN" or "0.508", or omit it.`,
-    );
-  }
-  return checkFinalValue(value, keys);
-}
-
 export type TutorTools = ReturnType<typeof tutorTools>;
 
 /**
- * Ends a reply at a call that waits for the Student: a question on its card
- * (`ask`) or a reading (`showReading`).
+ * Ends a reply at a call that waits for the Student: a question (`ask`) or
+ * a reading (`showReading`).
  */
 export const endsReply = hasToolCall("ask", "showReading");

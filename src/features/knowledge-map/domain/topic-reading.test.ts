@@ -18,6 +18,7 @@ const span = (
   materialName: `Material ${materialId}`,
   pageFrom,
   pageTo,
+  label: "content",
 });
 
 describe("topicAnchors", () => {
@@ -96,6 +97,19 @@ describe("readingSections", () => {
     expect(
       readingSections(["a", "b", "c"], chunks).map((s) => s.chunkIds),
     ).toEqual([["a", "b"], ["c"]]);
+  });
+
+  test("cuts from content chunks only", () => {
+    const chunks = (["content", "exercise", "solution", "admin"] as const).map(
+      (label, page) => ({ ...span(label, "m1", page + 1), label }),
+    );
+    expect(
+      readingSections(
+        chunks.map((chunk) => chunk.id),
+        chunks,
+      ),
+    ).toEqual([expect.objectContaining({ chunkIds: ["content"] })]);
+    expect(readingSections(["exercise"], chunks)).toEqual([]);
   });
 
   test("is empty without cited chunks", () => {

@@ -2,27 +2,37 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { ReadinessLine } from "./readiness-line";
 
-const base = { course: 0.62, topics: {}, mocks: 0, onTheDay: true };
+const readiness = { course: 0.62, onTheDay: true };
 
 describe("ReadinessLine", () => {
-  test("is untested until a mock is graded", () => {
-    render(<ReadinessLine readiness={base} />);
-    expect(screen.getByText(/recall on the day: 62%/).textContent).toContain(
-      "untested",
-    );
+  test("shows the Readiness on the day, without a mock score before one is graded", () => {
+    render(<ReadinessLine state={{ readiness, lastMockPercent: null }} />);
+    const line = screen.getByText(/recall on the day: 62%/);
+    expect(line.textContent).not.toContain("mock");
   });
 
-  test("names the mocks that check it, and says today without an exam ahead", () => {
+  test("puts the latest mock score beside it, and says today without an exam ahead", () => {
     render(
-      <ReadinessLine readiness={{ ...base, mocks: 2, onTheDay: false }} />,
+      <ReadinessLine
+        state={{
+          readiness: { ...readiness, onTheDay: false },
+          lastMockPercent: 55,
+        }}
+      />,
     );
-    const line = screen.getByText(/recall today: 62%/);
-    expect(line.textContent).toContain("checked against 2 mocks");
+    expect(screen.getByText(/recall today: 62%/).textContent).toContain(
+      "Last mock: 55%",
+    );
   });
 
   test("shows nothing without Priorities", () => {
     const { container } = render(
-      <ReadinessLine readiness={{ ...base, course: null }} />,
+      <ReadinessLine
+        state={{
+          readiness: { ...readiness, course: null },
+          lastMockPercent: 40,
+        }}
+      />,
     );
     expect(container).toBeEmptyDOMElement();
   });

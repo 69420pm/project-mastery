@@ -1,8 +1,8 @@
 /**
- * FSRS replay (#174, ADR "FSRS replay"): each KC's card, replayed with
- * `ts-fsrs` from its attempts on every read. Pure code on UTC days, like the
- * Daily limit; nothing derived is stored, so a changed exam date or goal
- * applies on the next read.
+ * FSRS replay under the per-day rule (ADR "Per-day scheduling and one
+ * ranking"): each KC's card, replayed with `ts-fsrs` from its Attempts on
+ * every read, on UTC days. Nothing derived is stored, so a changed exam date
+ * or goal applies on the next read.
  */
 import {
   createEmptyCard,
@@ -19,65 +19,48 @@ export type AttemptHelp = "none" | "some" | "solution_shown";
 /** How the AI graded the Student's answer on a KC. */
 export type AttemptResult = "full" | "partial" | "wrong";
 
-/**
- * `pre` for prequestions and `retry` for a Results session's questions,
- * which never schedule; `mock` for a Mock exam's items and `learn`
- * otherwise, which do.
- */
-export type AttemptKind = "pre" | "learn" | "mock" | "retry";
-
-/** Whether attempts of a kind schedule their KC. */
-export const schedules = (kind: AttemptKind) =>
-  kind !== "pre" && kind !== "retry";
-
 /** The Brief's goal, which sets the desired retention. */
 export type Goal = "pass" | "good_grade" | "master_everything" | null;
 
-/** What the replay reads of an attempt. */
+/** What the replay and pace read of an Attempt. */
 export type ReplayAttempt = {
   kcId: string;
   sessionId: string;
   /** An ISO timestamp. */
   createdAt: string;
-  kind: AttemptKind;
   result: AttemptResult;
   help: AttemptHelp;
-  /** The question the attempt grades, for the median seconds. */
-  questionId: string;
-  /** The Student's confidence from 1 to 4; null when not given. */
-  confidence: number | null;
-  /** Seconds from asking to answering the question; null if unanswered. */
+  /** Seconds from asking to answering its question; null if unanswered. */
   seconds: number | null;
 };
 
-/** The Student's median seconds to answer, by attempt kind. */
-export type MedianSeconds = Partial<Record<AttemptKind, number>>;
-
-/**
- * A taught KC's schedule: its FSRS card, null while the first session with
- * a scheduling attempt on it is still open.
- */
-export type KcSchedule = { card: Card | null };
-
-/** A KC's state, as the map page and the Chat show it. */
-export type KcStateName = "new" | "learning" | "due" | "known";
-
-/** A KC's state with its next review and today's recall. */
-export type KcState = {
-  state: KcStateName;
-  /** As YYYY-MM-DD; null without a card. */
+/** What the replay gives of a KC. */
+export type KcRecall = {
+  /** It has a card: it has an Attempt. */
+  taught: boolean;
+  /** It has at least one `full` Attempt without help. */
+  learned: boolean;
+  /** FSRS recall at the end of today's UTC day, 0 to 1; 0 untaught. */
+  recallToday: number;
+  /** FSRS recall on the exam day; `recallToday` without an exam ahead. */
+  recallOnExamDay: number;
+  /** Its card's due day is today or earlier. */
+  due: boolean;
+  /** Its card's due day, as YYYY-MM-DD; null untaught. */
   nextReview: string | null;
-  /** Today's FSRS recall, 0 to 1; null without a card. */
-  retrievability: number | null;
+};
+
+/** A KC without Attempts. */
+export const UNTAUGHT: KcRecall = {
+  taught: false,
+  learned: false,
+  recallToday: 0,
+  recallOnExamDay: 0,
+  due: false,
+  nextReview: null,
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** How long a session may sit without a message before it counts as ended. */
-const IDLE_MS = 2 * 60 * 60 * 1000;
-
-/** Stability under which a not-due card is still `learning`, in days. */
-const LEARNING_STABILITY = 7;
 
 /** The UTC day of an ISO timestamp, as YYYY-MM-DD. */
 export const utcDay = (timestamp: string | Date) =>
@@ -90,23 +73,6 @@ export const daysBetween = (from: string, to: string) =>
 /** The day `days` after a YYYY-MM-DD day, before it when negative. */
 export const addDays = (day: string, days: number) =>
   utcDay(new Date(Date.parse(day) + days * DAY_MS));
-
-/**
- * When a session ended, as an ISO timestamp, or null while it runs: its
- * `ended_at`, or else its Chat's newest message once that is more than 2
- * hours before `now`.
- */
-export function sessionEnd(
-  session: { endedAt: string | null; newestMessageAt: string | null },
-  now: Date,
-): string | null {
-  if (session.endedAt !== null) return session.endedAt;
-  const newest = session.newestMessageAt;
-  if (newest !== null && now.getTime() - Date.parse(newest) > IDLE_MS) {
-    return newest;
-  }
-  return null;
-}
 
 /** The desired retention for the Brief's goal. */
 export function desiredRetention(goal: Goal): number {
@@ -121,56 +87,19 @@ export function desiredRetention(goal: Goal): number {
 }
 
 /**
- * The median seconds to answer per attempt kind over the answered questions
- * with attempts of that kind; a kind without any is missing.
+ * An Attempt's FSRS rating: wrong or with the solution shown is Again,
+ * partial or with some help is Hard, full without help is Good. There is no
+ * Easy.
  */
-export function medianSeconds(attempts: ReplayAttempt[]): MedianSeconds {
-  const byQuestion = new Map<string, ReplayAttempt>();
-  for (const a of attempts) {
-    if (a.seconds !== null) byQuestion.set(`${a.kind}:${a.questionId}`, a);
-  }
-  const medians: MedianSeconds = {};
-  for (const [kind, group] of Map.groupBy(byQuestion.values(), (a) => a.kind)) {
-    const sorted = group.map((a) => a.seconds!).toSorted((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    medians[kind] =
-      sorted.length % 2 === 1
-        ? sorted[mid]!
-        : (sorted[mid - 1]! + sorted[mid]!) / 2;
-  }
-  return medians;
-}
-
-/**
- * An attempt's FSRS rating: wrong or with the solution shown is Again,
- * partial or with some help is Hard, full without help is Good. Full without
- * help with confidence 4 and seconds to answer strictly below the median for
- * its kind is Easy.
- */
-export function rateAttempt(
-  attempt: {
-    result: AttemptResult;
-    help: AttemptHelp;
-    kind?: AttemptKind;
-    confidence?: number | null;
-    seconds?: number | null;
-  },
-  medians: MedianSeconds = {},
-): Grade {
+export function rateAttempt(attempt: {
+  result: AttemptResult;
+  help: AttemptHelp;
+}): Grade {
   if (attempt.result === "wrong" || attempt.help === "solution_shown") {
     return Rating.Again;
   }
   if (attempt.result === "partial" || attempt.help === "some") {
     return Rating.Hard;
-  }
-  const median = medians[attempt.kind ?? "learn"];
-  if (
-    attempt.confidence === 4 &&
-    attempt.seconds != null &&
-    median !== undefined &&
-    attempt.seconds < median
-  ) {
-    return Rating.Easy;
   }
   return Rating.Good;
 }
@@ -192,212 +121,106 @@ function scheduler(retention: number): FSRS {
 }
 
 /**
- * Reviews `card` with `attempt`'s rating at its time. With an exam after
- * the review's day, the due date is at most half the days left (rounded
- * down, at least 1) after it.
+ * One KC's Attempts by the per-day rule; null without any. `first` holds
+ * the Attempts of its first UTC day, which teaches it; `reviews` the first
+ * Attempt of each later UTC day, oldest first. Its other Attempts don't
+ * schedule.
  */
-function review(
-  f: FSRS,
-  card: Card,
-  attempt: ReplayAttempt,
-  examDate: string | null,
-  medians: MedianSeconds,
-): Card {
-  const reviewed = f.next(
-    card,
-    attempt.createdAt,
-    rateAttempt(attempt, medians),
-  ).card;
-  const day = utcDay(attempt.createdAt);
-  if (examDate === null || examDate <= day) return reviewed;
-  const cap = Math.max(1, Math.floor(daysBetween(day, examDate) / 2));
-  const latest = new Date(Date.parse(attempt.createdAt) + cap * DAY_MS);
-  if (reviewed.due <= latest) return reviewed;
-  return { ...reviewed, due: latest, scheduled_days: cap };
-}
-
-/**
- * One KC's attempts as the replay schedules them; null without a scheduling
- * attempt (`schedules`). `first` is the first session with one, which teaches the KC.
- * `reviews` are the first attempt of each later session, oldest first,
- * leaving out a session that ran alongside the first one and started
- * before its last attempt.
- */
-export function schedulingAttempts(attempts: ReplayAttempt[]): {
-  firstId: string;
+export function kcDays(attempts: ReplayAttempt[]): {
   first: ReplayAttempt[];
   reviews: ReplayAttempt[];
 } | null {
-  const scheduling = attempts
-    .filter((attempt) => schedules(attempt.kind))
-    .toSorted((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
-  const sessions = [...Map.groupBy(scheduling, (attempt) => attempt.sessionId)];
-  if (sessions.length === 0) return null;
-  const [[firstId, first], ...later] = sessions as [
-    [string, ReplayAttempt[]],
-    ...Array<[string, ReplayAttempt[]]>,
-  ];
-  const createdAt = Date.parse(first.at(-1)!.createdAt);
-  const reviews = later
-    .map(([, inSession]) => inSession[0]!)
-    .filter((attempt) => Date.parse(attempt.createdAt) >= createdAt);
-  return { firstId, first, reviews };
-}
-
-/**
- * Replays one KC's attempts into its schedule; null without a scheduling
- * attempt. The first session with one creates the card once it has ended,
- * rated by its last attempt there and dated at it. In every later session,
- * only the first attempt is a review; the rest don't schedule
- * (`schedulingAttempts`).
- */
-export function replayKc(
-  attempts: ReplayAttempt[],
-  {
-    ended,
-    examDate,
-    retention,
-    medians = {},
-  }: {
-    ended: (sessionId: string) => boolean;
-    examDate: string | null;
-    retention: number;
-    medians?: MedianSeconds;
-  },
-): KcSchedule | null {
-  const split = schedulingAttempts(attempts);
-  if (split === null) return null;
-  if (!ended(split.firstId)) return { card: null };
-  const f = scheduler(retention);
-  const created = split.first.at(-1)!;
-  let card = review(
-    f,
-    createEmptyCard(created.createdAt),
-    created,
-    examDate,
-    medians,
+  const sorted = attempts.toSorted(
+    (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt),
   );
-  for (const attempt of split.reviews) {
-    card = review(f, card, attempt, examDate, medians);
-  }
-  return { card };
+  const days = [...Map.groupBy(sorted, (a) => utcDay(a.createdAt)).values()];
+  const [first, ...later] = days;
+  if (!first) return null;
+  return { first, reviews: later.map((day) => day[0]!) };
 }
 
 /**
- * Replays the Course's attempts into each taught KC's schedule by KC id,
- * then applies the final-week sweep (`finalWeekSweep`).
+ * Replays one KC's Attempts into its card; null without any. Its first UTC
+ * day's newest Attempt so far creates the card, dated at it; the first
+ * Attempt of each later day reviews it.
+ */
+export function replayCard(
+  attempts: ReplayAttempt[],
+  retention: number,
+): Card | null {
+  const days = kcDays(attempts);
+  if (days === null) return null;
+  const f = scheduler(retention);
+  const review = (card: Card, attempt: ReplayAttempt) =>
+    f.next(card, attempt.createdAt, rateAttempt(attempt)).card;
+  const created = days.first.at(-1)!;
+  return days.reviews.reduce(
+    review,
+    review(createEmptyCard(created.createdAt), created),
+  );
+}
+
+/**
+ * A card's FSRS-6 recall at `at`, from 0 to 1, on the time since its last
+ * review in fractional days. `ts-fsrs` counts only whole 24-hour periods,
+ * which gives 1 all through the day of a review (docs/agents/notes).
+ */
+export function retrievability(card: Card, at: Date): number {
+  const w = scheduler(desiredRetention(null)).parameters.w;
+  const decay = -w[20]!;
+  const factor = 0.9 ** (1 / decay) - 1;
+  const last = card.last_review ?? card.due;
+  const days = Math.max(0, (at.getTime() - last.getTime()) / DAY_MS);
+  return (1 + (factor * days) / card.stability) ** decay;
+}
+
+/**
+ * How far under retention today's recall sits for a KC whose newest Attempt
+ * is today and rated Again: FSRS gives a card answered wrong late in the day
+ * a recall above retention at the day's end.
+ */
+const AGAIN_TODAY_MARGIN = 0.01;
+
+/**
+ * Replays the Course's Attempts into each taught KC's recall at `now`, by
+ * KC id. KCs without an Attempt are missing (`UNTAUGHT`). A KC whose newest
+ * Attempt is today and rated Again recalls below retention today, so it is
+ * never `strong` the day it was answered wrong.
  */
 export function replayCourse(
   attempts: ReplayAttempt[],
-  {
-    ended,
-    examDate,
-    goal,
-    priorities,
-    today,
-  }: {
-    ended: (sessionId: string) => boolean;
-    examDate: string | null;
-    goal: Goal;
-    priorities: Record<string, number>;
-    /** As YYYY-MM-DD. */
-    today: string;
-  },
-): Map<string, KcSchedule> {
+  { examDate, goal, now }: { examDate: string | null; goal: Goal; now: Date },
+): Map<string, KcRecall> {
   const retention = desiredRetention(goal);
-  const medians = medianSeconds(attempts);
-  const schedules = new Map<string, KcSchedule>();
-  for (const [kcId, kcAttempts] of Map.groupBy(attempts, (a) => a.kcId)) {
-    const schedule = replayKc(kcAttempts, {
-      ended,
-      examDate,
-      retention,
-      medians,
-    });
-    if (schedule) schedules.set(kcId, schedule);
-  }
-  return finalWeekSweep(schedules, { examDate, priorities, today });
-}
-
-/**
- * The final-week sweep: with an exam date on `today` or later, the top half
- * (rounded up) of the KCs with a card by Priority (none counts as 0, ties
- * in `schedules` order) whose last review is more than 7 days before 3 days
- * ahead of the exam become due then at the latest.
- */
-export function finalWeekSweep(
-  schedules: Map<string, KcSchedule>,
-  {
-    examDate,
-    priorities,
-    today,
-  }: {
-    examDate: string | null;
-    priorities: Record<string, number>;
-    /** As YYYY-MM-DD. */
-    today: string;
-  },
-): Map<string, KcSchedule> {
-  if (examDate === null || examDate < today) return schedules;
-  const cards = [...schedules].flatMap(([kcId, { card }]) =>
-    card ? [{ kcId, card }] : [],
-  );
-  const top = cards
-    .toSorted((a, b) => (priorities[b.kcId] ?? 0) - (priorities[a.kcId] ?? 0))
-    .slice(0, Math.ceil(cards.length / 2));
-  const sweepDay = addDays(examDate, -3);
-  const swept = new Map(schedules);
-  for (const { kcId, card } of top) {
-    if (daysBetween(utcDay(card.last_review!), sweepDay) <= 7) continue;
-    if (utcDay(card.due) <= sweepDay) continue;
-    swept.set(kcId, { card: { ...card, due: new Date(sweepDay) } });
-  }
-  return swept;
-}
-
-/** Whether a card is due on `today` (YYYY-MM-DD): its due day or later. */
-export const isDue = (card: Card, today: string) => utcDay(card.due) <= today;
-
-/** A card's FSRS recall at `now`, from 0 to 1. */
-export const retrievability = (card: Card, now: Date) =>
-  scheduler(desiredRetention(null)).retrievability(card, now);
-
-/**
- * A card's projected recall: its recall on the exam date (YYYY-MM-DD) while
- * the exam is still ahead of `now`'s day, otherwise today's.
- */
-export function projectedRecall(
-  card: Card,
-  now: Date,
-  examDate: string | null,
-): number {
-  return examDate !== null && examDate > utcDay(now)
-    ? retrievability(card, new Date(examDate))
-    : retrievability(card, now);
-}
-
-/**
- * A KC's state at `now` from its schedule (undefined for a KC without
- * non-`pre` attempts): `new` without one, `due` when its card is, `learning`
- * while its first session runs or its stability is under 7 days, else
- * `known`.
- */
-export function kcState(schedule: KcSchedule | undefined, now: Date): KcState {
-  if (!schedule) {
-    return { state: "new", nextReview: null, retrievability: null };
-  }
-  const { card } = schedule;
-  if (card === null) {
-    return { state: "learning", nextReview: null, retrievability: null };
-  }
   const today = utcDay(now);
-  return {
-    state: isDue(card, today)
-      ? "due"
-      : card.stability < LEARNING_STABILITY
-        ? "learning"
-        : "known",
-    nextReview: utcDay(card.due),
-    retrievability: retrievability(card, now),
-  };
+  const endOfToday = new Date(Date.parse(addDays(today, 1)) - 1);
+  const recall = new Map<string, KcRecall>();
+  for (const [kcId, kcAttempts] of Map.groupBy(attempts, (a) => a.kcId)) {
+    const card = replayCard(kcAttempts, retention);
+    if (card === null) continue;
+    const newest = kcAttempts.reduce((a, b) =>
+      Date.parse(b.createdAt) > Date.parse(a.createdAt) ? b : a,
+    );
+    const againToday =
+      utcDay(newest.createdAt) === today &&
+      rateAttempt(newest) === Rating.Again;
+    const recallToday = againToday
+      ? Math.min(
+          retrievability(card, endOfToday),
+          retention - AGAIN_TODAY_MARGIN,
+        )
+      : retrievability(card, endOfToday);
+    recall.set(kcId, {
+      taught: true,
+      learned: kcAttempts.some((a) => a.result === "full" && a.help === "none"),
+      recallToday,
+      recallOnExamDay:
+        examDate !== null && examDate > today
+          ? retrievability(card, new Date(examDate))
+          : recallToday,
+      due: utcDay(card.due) <= today,
+      nextReview: utcDay(card.due),
+    });
+  }
+  return recall;
 }

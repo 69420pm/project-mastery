@@ -56,7 +56,8 @@ select throws_ok(
 reset role;
 
 select is(
-  (select count(*)::int from public.chunks where embedding is not null),
+  (select count(*)::int from public.chunks
+    where material_id = 'aaaaaaaa-1111-0000-0000-000000000001' and embedding is not null),
   0, 'the refused calls set no vectors');
 
 -- The workflow sets a batch.

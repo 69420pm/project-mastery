@@ -5,6 +5,7 @@ import { markAdminClient, type AdminSupabase } from "./admin-brand";
 import type { Database } from "./database.types";
 import { getSupabasePublicEnv, getSupabaseSecretEnv } from "./env";
 import type { SessionSupabase } from "./types";
+import { fetchWithoutNul } from "./without-nul";
 
 const noSession = {
   autoRefreshToken: false,
@@ -30,6 +31,7 @@ export function createAdminClient() {
   return markAdminClient(
     createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
       auth: noSession,
+      global: { fetch: fetchWithoutNul },
     }),
   );
 }

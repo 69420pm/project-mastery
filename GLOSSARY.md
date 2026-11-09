@@ -37,7 +37,7 @@ A Student-confirmed statement that the exam leaves out (`excluded`) or stresses 
 _Avoid_: Topic choice (a pin or skip is about the study plan, not the exam)
 
 **Knowledge map**:
-What a Course's Materials teach and what they assume without explaining, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. An update adds what new Materials teach and assume and drops what deleted ones taught, unless a KC still builds on it; its KCs and Exercises keep their identity across updates.
+What a Course's Materials teach, built from them by the AI: its Topic tree, Knowledge components and Prerequisites, with its Exercises. What the Materials assume without explaining stays as text on the KCs that assume it. An update adds what new Materials teach and drops what deleted ones taught; its KCs and Exercises keep their identity across updates. Old exams teach nothing, but their exercises count.
 _Avoid_: Topic map, concept map, knowledge graph, syllabus
 
 **Course map**:
@@ -45,16 +45,12 @@ The Course's home: its Topics drawn as nested boxes, with the arrows between Top
 _Avoid_: Dashboard, overview, home page
 
 **Knowledge component (KC)**:
-One thing a Student can learn and be tested on, with the chunks of the Materials that teach it, if any. A KC without chunks is one the Materials assume but never explain; the AI teaches it in the Chat, and it counts like any other KC. Every KC sits in one Topic, a KC without chunks in the Topic of the first KC that builds on it; a KC whose chunks are all gone, and that no live KC builds on, is retired and keeps its Attempts.
+One thing an exam task could test on its own and a Student could learn in one sitting, with the chunks of the Materials that teach it. It also lists, as text, what it assumes that no KC means. Every KC sits in one Topic; a KC whose chunks are all gone is retired and keeps its Attempts.
 _Avoid_: Skill, learning objective, concept, node
 
 **Topic**:
-A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call continues it.
+A named node of a Course's Topic tree, covering whole Chapters of its Materials, that a Student learns and sees as one. A Topic can hold Topics inside it and KCs of its own; one with KCs of its own has the central question they answer, its anchors (the Prerequisites outside it) and its Reading sections. It keeps its identity across Knowledge map updates while the tree call, or else the new Topic holding most of its Chapters, continues it.
 _Avoid_: Big idea, chapter, unit, lesson, module
-
-**Topic state**:
-Where a Student stands on a Topic, the first that holds: needs work (a KC's FSRS card has lapsed 3 or more times), solid (every KC has a card whose recall on the exam date, or today without an exam ahead, reaches the goal's retention), learned (every KC is taught), in progress (some KC is taught) or new.
-_Avoid_: Topic status, Topic progress
 
 **Reading section**:
 A part of a Topic's source pages, about one to three pages in Material order, cut when read from the chunks its KCs cite. The Student reads the pages as they are.
@@ -65,55 +61,51 @@ A link saying one KC must be learned before another. The Prerequisites of a Know
 _Avoid_: Dependency, requirement
 
 **Exercise**:
-One printed exercise of a Course's Materials with all its subtasks, such as "Ex. 7.2", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "Linear maps · Sheet 2 p. 3" (its Chapter, Material and page), is built when read. Its statement is a chunk labelled `exercise`; the subtasks stay in it, so they share the Exercise's KCs and final answers.
+One printed exercise of a Course's Materials with all its subtasks, such as "Ex. 7.2", as a Knowledge map build analyses it: the KCs it tests, a difficulty, its final answers as printed, each an answer key a code check can use (a mathjs expression with a label), and the solution printed in the Materials, if any; without one, the AI solves it with the Student. Its label, such as "Linear maps · Sheet 2 p. 3" (its Chapter, Material and page), is built when read. Its statement is a chunk labelled `exercise`; the subtasks stay in it, so they share the Exercise's KCs and final answers.
 _Avoid_: Task, assignment
 
 **Problem**:
 An exam-style task a Student solves: an Exercise from the Materials, also from an old exam, a variant of one, or one generated for the KCs it tests.
 _Avoid_: Task, exercise (only for those from the Materials)
 
-**Map Finding**:
-What the tutor files in a Study session when the Course's sources show the Knowledge map is wrong: a missing or wrong Prerequisite between two KCs, or a wrong KC description with the description it proposes, with a quote from the chunk that shows it. The Student accepts or dismisses it on the Course map; accepting applies the change at once, unless a new Prerequisite would close a cycle, which refuses the accept.
-_Avoid_: Issue, error, erratum
-
 **Priority**:
-How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. A KC is at least as high as any KC that builds on it, directly or not, unless the Student excluded it; a KC without sources has no value of its own and takes exactly that highest Priority. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
+How much a KC matters for this Student's exam, computed when read from how many old-exam Exercises and Exercises test it, the Materials the Brief excludes and the exam scope of its Topic or the nearest Topic above it. A KC is at least as high as any KC that builds on it, directly or not, unless the Student excluded it. Without old exams, Exercises or exam scopes every KC is equal, so course order decides.
 _Avoid_: Weight, importance, relevance
 
 **Attempt**:
-The evidence for one KC from one Question: whether the Student got it right and how much help they needed. The log of attempts is the only stored learning state.
+The evidence for one KC from one Question, in a Chat or a Mock exam: whether the Student got it right and how much help they needed. The log of attempts is the only stored learning state. A KC's first UTC day with an Attempt teaches it; on each later day its first Attempt is a Review.
 _Avoid_: Answer, result, score
 
 **Review**:
-Asking about a due KC again, to schedule its next one further out when the Student remembers it.
+A due KC's first Attempt of a later UTC day, which schedules its next one further out when the Student remembers it. Due Reviews come first in the Ranking.
 _Avoid_: Revision, repetition, quiz
 
-**KC state**:
-Where a KC stands for a Student, from its FSRS card replayed from its attempts: _new_ (no attempts besides prequestions), _learning_ (its first Study session is still open, or its card's stability is under 7 days and it isn't due), _due_ (its next review is today or earlier) or _known_ (any other KC with a card).
-_Avoid_: Mastered, mastery level, status
+**Recall band**:
+What the Student sees of a KC, from its recall at the end of the current UTC day: _new_ (not taught), _strong_ (at or above the goal's retention), _fading_ (0.7 or more) or _weak_ (below 0.7).
+_Avoid_: KC state, mastery level, status
+
+**Ranking**:
+The one ordered list of what is worth doing next in a Course, derived on every read from the map, Priority, the replayed recall, the pace and the plan: due Reviews, the plan's Topics with untaught KCs, refreshes of taught KCs, then the Topics that are _if time allows_; in the final stretch (the exam day and the 7 days before it) everything by value per minute. A Topic never comes before an untaught Topic it builds on.
+_Avoid_: Plan order, queue, schedule
 
 **Readiness**:
-How much of a Course's exam weight a Student is likely to recall on the exam day, from the projected recall of the KCs that matter weighted by Priority, and checked against graded Mock exams. It is never a grade.
+How much of a Course's exam weight a Student is likely to recall on the exam day: the Priority-weighted recall of its KCs on that day, with 0 for an untaught KC, per Topic and per Course. It shows beside the latest graded Mock exam's score and is never a grade.
 _Avoid_: Score, grade, prediction
 
 **Progress**:
-How many of the KCs in the study plan a Student knows, kept conservative: a KC counts only while it is _known_ and has had a Review after its teaching, so the count can fall when one comes due. Shown as a bar with the days since the first Attempt and the days to the exam, on the Course map and in the Brief's panel.
+How many of the KCs in the study plan a Student has learned (answered fully without help at least once), with the days since the first Attempt and the days to the exam, such as "34 of 120 KCs learned · 12 days in · 30 days left". It falls only when the plan or the map changes. Shown on the Course map and in the Brief's panel.
 _Avoid_: Mastery, completion
-
-**Phase**:
-Where a Course's study stands before its exam, derived by code: _build_ (teaching the KCs that matter), _deepen_ (all taught; exam-style practice and weak KCs) or _final week_ (Review only).
-_Avoid_: Period. A Stage and a mode belong to a Study session, not to a Course.
 
 **If time allows**:
 A Topic the Student's goal leaves out of the study plan, which the Student studies only after the plan's Topics. A pin puts it in the plan.
 _Avoid_: Optional, left out, out of scope
 
 **Topic choice**:
-A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Memory.
+A Student's _pin_ or _skip_ of a Topic, one at a time. A pinned Topic is always in the study plan and comes first in its order; a skipped Topic never is. A skip's optional reason goes into the Brief's notes.
 _Avoid_: Favourite, hide, exclude (an excluded Material is something else)
 
 **Today card**:
-What the study plan says to do next, on the Course map and in a new Chat: the due Reviews with their minutes, the next Topic, the Phase's hint and a start button per available Study session mode: Learn with a next Topic, Review with Reviews due, Practice with a learned Topic.
+The head of the Ranking, on the Course map and in a new Chat: the due Reviews with their minutes, then the next Topic with its minutes, or the first 5 items in the final stretch. Its buttons open a new Chat that sends a first message as the Student: "Let's start.", "Let's review." when Reviews are due and "Exam problems please." once a KC is taught.
 _Avoid_: Dashboard, daily plan, agenda
 
 **AI**:
@@ -121,27 +113,23 @@ The tutoring intelligence a Student studies with: it explains, asks and gives fe
 _Avoid_: Tutor, assistant, bot. The code's "tutor context", `TutorTools` and the like name what the AI is given to tutor with, not the AI.
 
 **Chat**:
-One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map.
+One ongoing conversation between a Student and the AI within one Course, kept until the Student deletes it or its Course. It is where the AI tutors the Student from the Course's Knowledge map: it gets the facts of their study and a proposal of what to do next, teaches freely, and follows the Student when they want something else.
 _Avoid_: Conversation, thread
 
 **Source pane**:
-The pane beside a Chat that shows one thing at a time: a Material's own pages, at a Reading section or a citation, or a Topic's part of the Knowledge map after its rebuild. A citation in the Chat opens the cited page in it.
+The pane beside a Chat that shows a Material's own pages, at a Reading section or a citation. A citation in the Chat opens the cited page in it.
 _Avoid_: Viewer, reader, side panel
 
 **Study session**:
-A Chat with a mode: _learn_ (one Topic), _review_ (due KCs), _practice_ (exam-style Problems), _mock exam_ or _results_ (going through a graded Mock exam), with a start and an end.
+One sitting of study with a start and an end: a Chat, or a Mock exam. Every Chat is one kind of session, ended by the Student, a Session rating or 2 idle hours, and then closed by one model call that writes its notes.
 _Avoid_: Lesson, sitting, session alone when a Chat is meant
-
-**Stage**:
-Where a Learn session stands in teaching its Topic: _review_ (the due Reviews it opens with), _orient_, _prime_, _read_, _work_, _apply_, _rebuild_ or _close_.
-_Avoid_: Step, phase (a Phase belongs to a Course)
 
 **Session rating**:
 The Student's verdict on a Study session at its close: 1 to 5, with an optional short note.
 _Avoid_: Feedback, score, review (a Review asks about a due KC)
 
 **Question**:
-One graded ask the AI puts to a Student in a Study session, such as a prequestion, a recall question, a Problem or the rebuild of a Topic, with the KCs it tests. Grading its answer gives Attempts.
+One graded ask the AI puts to a Student in a Study session, such as a recall question or a Problem, with the KCs it tests. It shows inline in the Chat. The Student's messages after it, until it is graded, are its answer. Grading its answer gives Attempts.
 _Avoid_: Quiz, prompt, task
 
 **Mock exam**:
@@ -153,20 +141,12 @@ An old exam the Student chose in the Brief to keep unseen for their final Mock e
 _Avoid_: Held-back exam, hidden exam, final exam
 
 **Memory**:
-What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The Student can edit it on the Brief page.
+What the AI noted about a Student in one Course to tutor them better, such as preferences and context, never mastery. The AI adds to it while it tutors and when a session closes; the Student can edit it on the Brief page.
 _Avoid_: Profile, notes (the Brief's notes are something else)
 
 **Topic note**:
-What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. Each learn session on the Topic replaces it when it closes; the tutor reads it as a hint.
+What the AI noted about a Student's study of one Topic: what clicked, recurring errors and the explanation that worked, never mastery. The close call writes one for each Topic a session's Attempts touched, replacing the old one. The tutor reads it as a hint.
 _Avoid_: Topic summary, Topic memory
-
-**Session note**:
-Two lines the AI writes when a Study session closes: what happened and what is next. The tutor reads the last three of a Course as hints.
-_Avoid_: Session summary, session log
-
-**Pinned line**:
-A Memory line starting with `!`. Condensing the Memory keeps it word for word.
-_Avoid_: Starred line, protected line
 
 **Daily limit**:
 The most a Student's AI use may cost per day, measured in US dollars.

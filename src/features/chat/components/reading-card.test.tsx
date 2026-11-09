@@ -32,26 +32,10 @@ window.matchMedia = (query: string) =>
 const { WithSourcePane } = await import("./source-pane");
 const { ReadingCard } = await import("./reading-card");
 
-const onDone = vi.fn();
-
-function renderCard({
-  done = false,
-  canAnswer = true,
-  autoOpen = false,
-}: { done?: boolean; canAnswer?: boolean; autoOpen?: boolean } = {}) {
-  const doneCards = new Set(done ? [reading.id] : []);
+function renderCard({ autoOpen = false }: { autoOpen?: boolean } = {}) {
   render(
-    <WithSourcePane
-      courseId={COURSE}
-      reading={{ done: doneCards, canDone: canAnswer, onDone }}
-    >
-      <ReadingCard
-        reading={reading}
-        done={done}
-        canAnswer={canAnswer}
-        autoOpen={autoOpen}
-        onDone={() => onDone(SECTION)}
-      />
+    <WithSourcePane courseId={COURSE}>
+      <ReadingCard reading={reading} autoOpen={autoOpen} />
     </WithSourcePane>,
   );
   return screen.getByRole("region", { name: "Reading" });
@@ -71,11 +55,10 @@ function serve() {
 
 beforeEach(() => {
   openSource.mockReset();
-  onDone.mockReset();
   serve();
 });
 
-test("an open card shows its label and purpose, opens the pane and sends Done", async () => {
+test("a card shows its label and purpose, and Open shows its pages in the pane", async () => {
   const card = renderCard();
   expect(card).toHaveTextContent("Lecture 3, pp. 12–14");
   expect(card).toHaveTextContent("What makes thrust?");
@@ -89,26 +72,13 @@ test("an open card shows its label and purpose, opens the pane and sends Done", 
     kind: "section",
     id: SECTION,
   });
-
-  fireEvent.click(within(card).getByRole("button", { name: "Done" }));
-  fireEvent.click(within(pane).getByRole("button", { name: "Done" }));
-  expect(onDone.mock.calls).toEqual([[SECTION], [SECTION]]);
-});
-
-test("a done card shows Read without Done, in the card and the pane", async () => {
-  const card = renderCard({ done: true, autoOpen: true });
-  expect(card).toHaveAttribute("data-reading-state", "done");
-  expect(card).toHaveTextContent("Read");
-
-  const pane = screen.getByRole("complementary", { name: "Source" });
-  await within(pane).findByText("PDF at page 12");
   expect(
     screen.queryByRole("button", { name: "Done" }),
   ).not.toBeInTheDocument();
-  expect(pane).toHaveTextContent("Read");
 });
 
-test("Done is disabled while no answer could be sent", () => {
-  const card = renderCard({ canAnswer: false });
-  expect(within(card).getByRole("button", { name: "Done" })).toBeDisabled();
+test("a card that arrives in a reply opens the pane on its own", async () => {
+  renderCard({ autoOpen: true });
+  const pane = screen.getByRole("complementary", { name: "Source" });
+  expect(await within(pane).findByText("PDF at page 12")).toBeVisible();
 });

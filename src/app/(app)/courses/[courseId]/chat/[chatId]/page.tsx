@@ -5,6 +5,7 @@ import { getChat } from "@/features/chat/server";
 import { getMaterialList } from "@/features/courses/server";
 import { getDailyLimitStatus } from "@/features/usage/server";
 import { requireUser } from "@/lib/auth/user";
+import { isProductionDeployment } from "@/lib/deployment-env";
 
 export const metadata: Metadata = {
   title: "Chat",
@@ -31,6 +32,7 @@ export default async function ChatPage({
       materials={materials}
       ownerId={user.id}
       dailyLimit={dailyLimit}
+      showDetails={!isProductionDeployment()}
     />
   );
 }

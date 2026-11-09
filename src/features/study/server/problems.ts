@@ -59,24 +59,25 @@ export async function loadReadyProblems(
 }
 
 /**
- * Whether the id is a ready Problem of the Course, which a question may
- * pose; flagged or not, as the question insert policy allows.
+ * The statement of a ready Problem of the Course, which a question may
+ * pose, flagged or not, as the question insert policy allows; null for any
+ * other id.
  */
-export async function isReadyProblem(
+export async function loadReadyStatement(
   supabase: Supabase,
   courseId: string,
   problemId: string,
-): Promise<boolean> {
-  if (!isUuid(problemId)) return false;
+): Promise<string | null> {
+  if (!isUuid(problemId)) return null;
   const { data, error } = await supabase
     .from("problems")
-    .select("id")
+    .select("statement")
     .eq("id", problemId)
     .eq("course_id", courseId)
     .eq("status", "ready")
     .maybeSingle();
   if (error) failed("Loading the Problem", error);
-  return data !== null;
+  return data?.statement ?? null;
 }
 
 /**

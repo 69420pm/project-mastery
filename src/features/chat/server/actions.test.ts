@@ -138,6 +138,7 @@ describe("openSource", () => {
       material_id: ids.material,
       page_from: 4,
       page_to: 5,
+      label: "content",
     });
     return ids;
   }

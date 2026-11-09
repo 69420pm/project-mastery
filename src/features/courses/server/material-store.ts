@@ -303,7 +303,7 @@ export async function listMaterials(
       "material_id",
       data.map((row) => row.id),
     )
-    .eq("skipped", "unreadable")
+    .in("skipped", ["unreadable", "uncovered"])
     .order("page_number");
   if (unreadable.error)
     failed("Loading the unreadable pages", unreadable.error);

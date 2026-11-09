@@ -117,4 +117,24 @@ test("the Course map nests a Topic in its parent, which opens with its own KCs a
   await expect(
     page.getByRole("region", { name: "KCs" }).getByText("Thrust equation"),
   ).toBeVisible();
+  await expect(page.getByText("0 of 1 learned")).toBeVisible();
+});
+
+test("the Today card names the next Topic, and Let's start. opens a Chat that sends it", async ({
+  page,
+  student,
+  course,
+}) => {
+  await seedTree(student.id, course.id);
+  await page.goto(`/courses/${course.id}/map`);
+
+  const today = page.getByRole("region", { name: "Today" });
+  await expect(today.getByText(/Next Topic · about \d+ min/)).toBeVisible();
+  await today.getByRole("link", { name: "Let's start." }).click();
+
+  // The message is sent as the Student, and the Chat gets its own address.
+  await expect(
+    page.getByTestId("message-text").filter({ hasText: "Let's start." }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/courses/${course.id}/chat/.+`));
 });

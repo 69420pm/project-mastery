@@ -61,6 +61,13 @@ test("Mock exam: start, answer one task, submit", async ({
   await page
     .getByRole("link", { name: "Go through it with the tutor" })
     .click();
-  await expect(page).toHaveURL(/mode=results&mock=/);
-  await expect(page.getByText("Results", { exact: true })).toBeVisible();
+  // A new Chat that goes through the mock starts at once.
+  await expect(
+    page
+      .getByTestId("message-text")
+      .filter({ hasText: "Let's go through my mock exam." }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/courses/${course.id}/chat/.+`));
+  // The reply is stored before the test's Student is removed.
+  await expect(page.getByRole("button", { name: "Regenerate" })).toBeVisible();
 });

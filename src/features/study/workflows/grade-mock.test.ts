@@ -94,7 +94,7 @@ function seedMock() {
     id: "x1",
     question_chunk_id: "c1",
     solution_chunk_id: null,
-    final_answers: [{ label: "F", value: 17.5, unit: "kN" }],
+    final_answers: [{ label: "F", value: "17.5 kN", anyOrder: false }],
   });
   t.problems.push(
     { id: "p1", solution: "Stages.", final_answers: null },
@@ -158,16 +158,15 @@ const grading = (
 ) => ({
   steps: [{ points, reason: "Right." }],
   results: { K1: result },
-  finalValue,
+  finalValues: finalValue === null ? [] : [{ label: "F", value: finalValue }],
 });
 
 const item = (id: string) => db.tables.mock_items.find((i) => i.id === id)!;
 const attemptsOf = (questionId: string) =>
   db.tables.attempts
     .filter((a) => a.question_id === questionId)
-    .map(({ kc_id, kind, result, help, check }) => ({
+    .map(({ kc_id, result, help, check }) => ({
       kc_id,
-      kind,
       result,
       help,
       check,
@@ -191,7 +190,6 @@ test("grades each item, a blank one without a call, and makes the mock graded", 
   expect(attemptsOf("q0")).toEqual([
     {
       kc_id: "k1",
-      kind: "mock",
       result: "partial",
       help: "none",
       check: "mismatch",

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   pageBatches,
+  uncoveredPages,
   unitsOnPages,
   type BatchUnit,
 } from "@/features/ingestion/domain/page-batches";
@@ -22,6 +23,16 @@ test("pageBatches cuts the pages to read into runs of at most 5", () => {
     [7, 9],
   ]);
   expect(pageBatches([])).toEqual([]);
+});
+
+test("uncoveredPages gives the pages no unit spans", () => {
+  expect(
+    uncoveredPages(
+      [unit({ pageFrom: 3, pageTo: 5 }), unit({ pageFrom: 8, pageTo: 8 })],
+      [10, 3, 4, 5, 6, 7, 8],
+    ),
+  ).toEqual([6, 7, 10]);
+  expect(uncoveredPages([], [2, 1])).toEqual([1, 2]);
 });
 
 describe("unitsOnPages", () => {
