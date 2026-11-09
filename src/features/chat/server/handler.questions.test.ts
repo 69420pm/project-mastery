@@ -47,9 +47,15 @@ const toolError = (toolName: string) =>
   (
     db.tables.chat_messages.at(-1)!.parts as Array<{
       type: string;
+      toolName?: string;
       errorText?: string;
     }>
-  ).find(({ type }) => type === `tool-${toolName}`)?.errorText;
+  ).find(
+    // A call whose input failed the schema is stored as a dynamic tool.
+    (part) =>
+      part.type === `tool-${toolName}` ||
+      (part.type === "dynamic-tool" && part.toolName === toolName),
+  )?.errorText;
 
 const newestUserText = (model: Model, call = 0) =>
   JSON.stringify(
@@ -94,13 +100,13 @@ test("grade grades the open Question without an id, and ask waits for it", async
   expect(db.tables.questions[0]!.graded_at).not.toBeNull();
 });
 
-test("grade with noAnswer closes the Question without Attempts", async () => {
+test("closeQuestion closes the Question without Attempts", async () => {
   const chatId = await useAskedChat();
 
   await useReply(
     chatId,
     mockToolModel(
-      [[{ toolName: "grade", input: { noAnswer: true } }]],
+      [[{ toolName: "closeQuestion", input: {} }]],
       "Let's look at something else.",
     ),
     "Can we do eigenvalues instead?",
@@ -108,6 +114,40 @@ test("grade with noAnswer closes the Question without Attempts", async () => {
 
   expect(db.tables.questions[0]!.graded_at).not.toBeNull();
   expect(db.tables.attempts).toEqual([]);
+});
+
+test("grade without results is refused before it runs", async () => {
+  const chatId = await useAskedChat();
+
+  await useReply(
+    chatId,
+    mockToolModel(
+      [[{ toolName: "grade", input: { help: "none", finalValues: [] } }]],
+      "",
+    ),
+  );
+
+  expect(toolError("grade")).toContain("Invalid input for tool grade");
+  expect(toolError("grade")).toContain('"results"');
+  expect(db.tables.questions[0]!.graded_at).toBeNull();
+});
+
+test("a reply that spent its steps on tool calls ends with text", async () => {
+  const chatId = await useAskedChat();
+  const failing = { toolName: "grade", input: { help: "none" } };
+  const model = mockToolModel(
+    [[failing], [failing], [failing], [failing]],
+    "Both parts are right.",
+  );
+
+  await useReply(chatId, model);
+
+  expect(model.doStreamCalls.map(({ toolChoice }) => toolChoice?.type)).toEqual(
+    ["auto", "auto", "auto", "auto", "none"],
+  );
+  expect(JSON.stringify(db.tables.chat_messages.at(-1)!.parts)).toContain(
+    "Both parts are right.",
+  );
 });
 
 test("grade drops a KC retired since the ask", async () => {

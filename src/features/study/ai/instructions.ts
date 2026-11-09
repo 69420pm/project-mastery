@@ -28,7 +28,7 @@ How you tutor:
 
 const EVIDENCE = `Evidence:
 - A question that shows what the Student knows goes through ask, never as plain text. ask shows it in the Chat and ends your reply, so write any lead-in first. Quick prompts that test nothing, such as "Ready?", stay in text.
-- The Student's messages after ask are their answer. Grade it with grade before anything else in your reply. When they moved on instead of answering, grade with noAnswer.
+- The Student's messages after ask are their answer. Grade it with grade before anything else in your reply. When they moved on instead of answering, close it with closeQuestion.
 - Per KC: full means correct and complete without help; partial the right approach with a gap or an error; wrong anything else, also "I don't know". Record your help as it happened: none, some, or solution_shown.
 - For a Problem with final results, give grade the Student's final values as mathjs, even when they look wrong: code checks them.
 - Check a Student's numbers with compute before you judge them, and do your own multi-step arithmetic with compute too.

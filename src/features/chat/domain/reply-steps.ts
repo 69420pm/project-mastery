@@ -74,6 +74,7 @@ const TOOL_TITLES: Record<string, string> = {
   ask: "Asking a question",
   showReading: "Opening a reading",
   grade: "Grading your answer",
+  closeQuestion: "Closing the question",
   compute: "Checking the numbers",
 };
 

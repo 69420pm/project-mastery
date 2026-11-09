@@ -75,14 +75,14 @@ const askInputSchema = z.object({
     ),
 });
 
-/** What `grade` takes: the verdict on the Student's answer to the open Question. */
+/**
+ * What `grade` takes: the verdict on the Student's answer to the open
+ * Question. `results` and `help` are required: with every field optional and
+ * a `noAnswer` flag beside them, MiMo sent `finalValues` without `results` in
+ * 4 of 4 replays of a staging reply (2026-11-09), and graded in 4 of 4 with
+ * this schema and `closeQuestion` for a Question the Student moved on from.
+ */
 const gradeInputSchema = z.object({
-  noAnswer: z
-    .boolean()
-    .nullish()
-    .describe(
-      "true when the Student moved on instead of answering: closes the Question without results. Leave out results and help then.",
-    ),
   results: z
     .array(
       z.object({
@@ -96,15 +96,11 @@ const gradeInputSchema = z.object({
     )
     .min(1)
     .max(MAX_QUESTION_KCS)
-    .nullish()
-    .describe(
-      "Required unless noAnswer: one result for each of the question's KCs, each KC once.",
-    ),
+    .describe("One result for each of the question's KCs, each KC once."),
   help: z
     .enum(["none", "some", "solution_shown"])
-    .nullish()
     .describe(
-      "Required unless noAnswer: how much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
+      "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
     ),
   finalValues: z
     .array(
@@ -302,7 +298,7 @@ export function tutorTools(actions: TutorToolActions) {
         const open = await actions.findQuestion();
         if (open && open.answered && !open.graded) {
           throw new TutorToolError(
-            "The Student answered the open Question: grade it first, with noAnswer when they moved on.",
+            "The Student answered the open Question: grade it first, or close it with closeQuestion when they moved on.",
           );
         }
         const { questionId, problem } = await actions.ask({
@@ -320,9 +316,21 @@ export function tutorTools(actions: TutorToolActions) {
     }),
     grade: tool({
       description:
-        "Grade the Student's answer to the open Question, the one you asked last with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. When the Student moved on instead of answering, give only noAnswer: true. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its recall band (new, strong, fading or weak), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results.",
+        "Grade the Student's answer to the open Question, the one you asked last with ask, before you give feedback: a result for each of its KCs, how much you helped and, for a question with final results, the Student's final values. When the Student moved on instead of answering, call closeQuestion instead. Code checks each value against its key: numbers and units at 1% tolerance, vectors and matrices element by element, expressions at sample points. On a mismatch every full becomes partial. Returns each KC's result, its recall band (new, strong, fading or weak), its next review date (YYYY-MM-DD) and recall today (0 to 1), and the check: match, mismatch, unchecked (a value code doesn't compare, or a result without a value) or null when the question has no final results.",
       inputSchema: gradeInputSchema,
       execute: async (input) => grade(actions, input),
+    }),
+    closeQuestion: tool({
+      description:
+        "Close the open Question without a grade when the Student moved on instead of answering it. Records nothing about their knowledge.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const question = await openQuestion(actions);
+        if (!(await actions.closeQuestion(question.id))) {
+          throw new TutorToolError(alreadyGraded);
+        }
+        return { ok: true };
+      },
     }),
     compute: computeTool(actions.compute),
   };
@@ -344,46 +352,46 @@ async function showReading(
 
 const alreadyGraded = "This question is already graded.";
 
+/** The session's open Question, which `grade` and `closeQuestion` act on. */
+async function openQuestion(
+  actions: TutorToolActions,
+): Promise<QuestionToGrade> {
+  const question = await actions.findQuestion();
+  if (!question || question.graded) {
+    throw new TutorToolError("There is no open Question: ask one first.");
+  }
+  if (question.sessionEnded) {
+    throw new TutorToolError(
+      "This question's study session has ended, so it can't be graded or closed.",
+    );
+  }
+  return question;
+}
+
 /**
- * The `grade` call's rules, on the session's open Question: `noAnswer`
- * closes it without attempts. Otherwise one result for each live KC of an
- * answered Question, results for KCs retired since the ask dropped, and the
- * check of its final values against its keys, which turns every `full` into
- * `partial` on a mismatch. A `full` needs a value for every key, so each
- * check runs.
+ * The `grade` call's rules, on the session's open Question: one result for
+ * each live KC of an answered Question, results for KCs retired since the
+ * ask dropped, and the check of its final values against its keys, which
+ * turns every `full` into `partial` on a mismatch. A `full` needs a value
+ * for every key, so each check runs.
  */
 async function grade(
   actions: TutorToolActions,
   input: GradeInput,
 ): Promise<{ kcs: GradedKc[]; check: FinalValueCheck }> {
-  const question = await actions.findQuestion();
-  if (!question || question.graded) {
-    throw new TutorToolError(
-      "There is no open Question to grade: ask one first.",
-    );
-  }
-  if (question.sessionEnded) {
-    throw new TutorToolError(
-      "This question's study session has ended, so it can't be graded.",
-    );
-  }
-  const close = async () => {
-    if (!(await actions.closeQuestion(question.id))) {
-      throw new TutorToolError(alreadyGraded);
-    }
-    return { kcs: [], check: null };
-  };
-  if (input.noAnswer) return close();
+  const question = await openQuestion(actions);
   if (!question.answered) {
     throw new TutorToolError(
       "The Student has not answered this question yet: wait for their answer.",
     );
   }
-  if (!input.results || !input.help) {
-    throw new TutorToolError(missingGradeFields(input, question.kcIds));
-  }
   // Every KC it tested was retired since the ask: nothing to record.
-  if (question.kcIds.length === 0) return close();
+  if (question.kcIds.length === 0) {
+    if (!(await actions.closeQuestion(question.id))) {
+      throw new TutorToolError(alreadyGraded);
+    }
+    return { kcs: [], check: null };
+  }
   const help = input.help;
   const results = input.results.filter(
     ({ kcId }) => !question.retiredKcIds.includes(kcId),
@@ -420,21 +428,6 @@ async function grade(
   });
   if (!kcs) throw new TutorToolError(alreadyGraded);
   return { kcs, check };
-}
-
-/**
- * The error for a `grade` call on an answered Question without `results` or
- * `help`: it names what is missing and shows `results` with the Question's
- * own KC ids, so a model that repeats its call has a call to copy instead.
- */
-function missingGradeFields(input: GradeInput, kcIds: string[]): string {
-  const missing = [!input.results && "results", !input.help && "help"].filter(
-    Boolean,
-  );
-  const example = JSON.stringify(
-    kcIds.map((kcId) => ({ kcId, result: "full" })),
-  );
-  return `The grade call has no ${missing.join(" and no ")}. Call grade again with results, one per KC the question tests, each result full, partial or wrong, such as results: ${example}, and help: none, some or solution_shown. Only when the Student moved on instead of answering, call it with noAnswer: true alone.`;
 }
 
 export type TutorTools = ReturnType<typeof tutorTools>;

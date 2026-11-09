@@ -217,7 +217,7 @@ export async function respondInChat({
 
 /**
  * The most model calls one reply may take: tool steps to read KCs, a retry
- * after a malformed call, and the text.
+ * after a malformed call, and the text. The last one can only write text.
  */
 const MAX_STEPS = 5;
 
@@ -314,6 +314,10 @@ async function streamReply({
         tools: tutoring.tools,
         // A question and a reading wait for the Student.
         stopWhen: [isStepCount(MAX_STEPS), endsReply],
+        // The last step writes text, so a reply that spent its steps on
+        // tool calls, such as retried grades, still answers the Student.
+        prepareStep: ({ steps }) =>
+          steps.length === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),

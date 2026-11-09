@@ -31,6 +31,9 @@ function statusCode(error: unknown): number | undefined {
   return undefined;
 }
 
+/** A tool call the model got wrong, as the AI SDK names it in a string. */
+const TOOL_CALL_ERROR = /^AI_(InvalidToolInputError|NoSuchToolError): /;
+
 /**
  * The error the Student sees when a reply fails mid-stream. A tool call the
  * model got wrong keeps its own message: it is stored as the tool's error and
@@ -39,6 +42,9 @@ function statusCode(error: unknown): number | undefined {
 export function replyErrorMessage(error: unknown): string {
   if (InvalidToolInputError.isInstance(error)) return error.message;
   if (NoSuchToolError.isInstance(error)) return error.message;
+  // The AI SDK hands an invalid call's error to `onError` a second time as a
+  // string, for the call's own part (`tool-error` from `streamText`).
+  if (typeof error === "string" && TOOL_CALL_ERROR.test(error)) return error;
   return statusCode(error) === 429
     ? "The AI is busy right now. Please try again in a moment."
     : "The AI could not reply. Please try again.";

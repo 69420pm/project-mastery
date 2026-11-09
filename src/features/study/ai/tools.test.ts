@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { asSchema } from "ai";
 import { describe, expect, test, vi } from "vitest";
 import type { z } from "zod";
 
@@ -138,19 +139,11 @@ describe("grade", () => {
   const saved: Array<Parameters<TutorToolActions["saveGrade"]>[0]> = [];
   const closed: string[] = [];
 
-  /** Grades with `results` the session's newest question `question`. */
-  async function grade(
-    question: QuestionToGrade | null,
-    results: Array<{ kcId: string; result: string }> = [
-      { kcId: "kc-a", result: "full" },
-      { kcId: "kc-b", result: "wrong" },
-    ],
-    finalValues?: Array<{ label?: string; value: string }>,
-    noAnswer?: boolean,
-  ) {
+  /** The tools on the session's newest question `question`. */
+  function toolsOn(question: QuestionToGrade | null) {
     saved.length = 0;
     closed.length = 0;
-    const { grade } = tutorTools({
+    return tutorTools({
       ...noActions,
       findQuestion: async () => question,
       saveGrade: async (input) => {
@@ -162,11 +155,22 @@ describe("grade", () => {
         return true;
       },
     });
-    return grade.execute!(
-      noAnswer
-        ? ({ noAnswer } as never)
-        : ({ results, help: "some", finalValues } as never),
-      { toolCallId: "1", messages: [] } as never,
+  }
+
+  const options = { toolCallId: "1", messages: [] } as never;
+
+  /** Grades with `results` the session's newest question `question`. */
+  async function grade(
+    question: QuestionToGrade | null,
+    results: Array<{ kcId: string; result: string }> = [
+      { kcId: "kc-a", result: "full" },
+      { kcId: "kc-b", result: "wrong" },
+    ],
+    finalValues?: Array<{ label?: string; value: string }>,
+  ) {
+    return toolsOn(question).grade.execute!(
+      { results, help: "some", finalValues } as never,
+      options,
     );
   }
 
@@ -177,21 +181,34 @@ describe("grade", () => {
     ]);
   });
 
-  test("noAnswer closes the open question without attempts", async () => {
+  test("closeQuestion closes the open question without attempts", async () => {
     await expect(
-      grade({ ...open, answered: false }, undefined, undefined, true),
-    ).resolves.toEqual({ kcs: [], check: null });
+      toolsOn({ ...open, answered: false }).closeQuestion.execute!({}, options),
+    ).resolves.toEqual({ ok: true });
     expect(closed).toEqual(["q-1"]);
     expect(saved).toEqual([]);
   });
 
-  test("a call without results names it and shows results with the question's KC ids", async () => {
-    // MiMo repeated { help, finalValues } five times on staging (2026-11-09)
-    // against a generic "Give results and help".
-    await expect(grade(open, null as never, [{ value: "x" }])).rejects.toThrow(
-      'no results. Call grade again with results, one per KC the question tests, each result full, partial or wrong, such as results: [{"kcId":"kc-a","result":"full"},{"kcId":"kc-b","result":"full"}]',
-    );
-    expect(saved).toEqual([]);
+  test.each([
+    ["no question", null, "no open Question"],
+    ["a graded one", { ...open, graded: true }, "no open Question"],
+    [
+      "one from an ended session",
+      { ...open, sessionEnded: true },
+      "session has ended",
+    ],
+  ])("closeQuestion refuses %s", async (_, question, message) => {
+    await expect(
+      toolsOn(question).closeQuestion.execute!({}, options),
+    ).rejects.toThrow(message);
+    expect(closed).toEqual([]);
+  });
+
+  test("grade's schema requires results and help", async () => {
+    // With every field optional and a noAnswer flag, MiMo sent finalValues
+    // without results in 4 of 4 replays of a staging reply (2026-11-09).
+    const schema = await asSchema(toolsOn(open).grade.inputSchema).jsonSchema;
+    expect(schema).toMatchObject({ required: ["results", "help"] });
   });
 
   test("drops the results of KCs retired since the ask", async () => {
