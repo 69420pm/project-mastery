@@ -72,7 +72,7 @@ The code is organized by feature, in layers that depend in one direction only ([
 src/
 ├── app/                   Routing only: Next.js special files
 │   ├── (marketing)/       Public pages
-│   ├── (auth)/            Sign-in pages and the email link route
+│   ├── (auth)/            Sign-in pages, the email link route and the demo link
 │   ├── (app)/             Signed-in pages
 │   └── api/               Route handlers that need raw HTTP (streaming, webhooks)
 ├── features/<feature>/    One folder per product capability
