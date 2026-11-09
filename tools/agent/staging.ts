@@ -2,10 +2,10 @@ import postgres from "postgres";
 import { AgentError } from "./config";
 
 /**
- * The staging project's rows for agents to review (ADR 0025). The one command
- * here that does not work against the local stack. It sends GET requests only:
- * the secret key bypasses Row Level Security, so it can also write, and the
- * GET-only rule is what keeps agents from doing so.
+ * The staging project's rows for agents to review and, for testing, to change
+ * (ADR 0025, ADR 0029). These commands do not work against the local stack.
+ * Reads send GET requests only; writes go through `writeStaging` alone. Never
+ * production: the URL and key come from the STAGING_ variables.
  */
 
 const envNames = ["STAGING_SUPABASE_URL", "STAGING_SUPABASE_SECRET_KEY"];
@@ -89,6 +89,85 @@ export async function queryStaging(
     );
   }
   return JSON.stringify(JSON.parse(body));
+}
+
+const WRITE_METHODS = ["POST", "PATCH", "DELETE"] as const;
+type WriteMethod = (typeof WRITE_METHODS)[number];
+
+/**
+ * The URL, method and body of one staging write, or a refusal. Tables only
+ * (no `rpc/`), and PATCH and DELETE need a filter so one call cannot rewrite
+ * or empty a whole table by accident.
+ */
+export function stagingWriteRequest(
+  baseUrl: string,
+  input: string,
+  body: string | undefined,
+): { url: URL; method: WriteMethod; body?: string } {
+  const [rawMethod, target, ...rest] = input.trim().split(/\s+/);
+  const method = rawMethod?.toUpperCase() as WriteMethod;
+  if (!WRITE_METHODS.includes(method) || !target || rest.length > 0) {
+    throw new AgentError(
+      `Give "<POST|PATCH|DELETE> <table>?<params>", for example: agent staging-write "PATCH materials?id=eq.7" '{"title":"x"}'`,
+    );
+  }
+  if (!TABLE_PATH.test(target)) {
+    throw new AgentError(
+      `"${target}" is not a table query. rpc/ functions and single-row paths are refused.`,
+    );
+  }
+  const url = new URL(`${baseUrl}/rest/v1/${target}`);
+  const filters = [...url.searchParams.keys()].filter(
+    (key) => !["on_conflict", "columns", "select"].includes(key),
+  );
+  if (method !== "POST" && filters.length === 0) {
+    throw new AgentError(
+      `${method} needs a filter, for example ?id=eq.7, so it cannot touch every row.`,
+    );
+  }
+  if (method === "DELETE") return { url, method };
+  if (!body) {
+    throw new AgentError(`${method} needs a JSON body as the second argument.`);
+  }
+  try {
+    JSON.parse(body);
+  } catch {
+    throw new AgentError("The body is not valid JSON.");
+  }
+  return { url, method, body };
+}
+
+/**
+ * Runs one write against the staging REST API with the secret key and returns
+ * the affected rows as one line of JSON. `POST` with `on_conflict` upserts.
+ */
+export async function writeStaging(
+  input: string,
+  body: string | undefined,
+  env: Env = process.env,
+  fetchFn: typeof fetch = fetch,
+): Promise<string> {
+  const { url, secretKey } = stagingEnv(env);
+  const request = stagingWriteRequest(url, input, body);
+  const upsert = request.url.searchParams.has("on_conflict");
+  const response = await fetchFn(request.url, {
+    method: request.method,
+    headers: {
+      apikey: secretKey,
+      Authorization: `Bearer ${secretKey}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Prefer: `return=representation${upsert ? ",resolution=merge-duplicates" : ""}`,
+    },
+    body: request.body,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new AgentError(
+      `Staging returned ${response.status}: ${text.slice(0, 500)}`,
+    );
+  }
+  return text ? JSON.stringify(JSON.parse(text)) : "[]";
 }
 
 /** The most rows one SQL call prints. */

@@ -5,7 +5,7 @@
  *
  * Every command prints only what an agent needs to decide the next step, so
  * a clean result costs a line, not a page. Every command works against the
- * local stack, except `staging`, which reads the staging project (ADR 0025).
+ * local stack, except `staging*`, which reach the staging project (ADR 0025, 0029).
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ import { checkAll, newProblems } from "./diagnostics";
 import { formatMail, latestMail } from "./mail";
 import { callNextTool } from "./next-mcp";
 import { PERSONA_PASSWORD, PERSONAS, persona } from "./personas";
-import { queryStaging, queryStagingSql } from "./staging";
+import { queryStaging, queryStagingSql, writeStaging } from "./staging";
 import { formatSqlResult } from "./sql-format";
 import {
   ensurePersonas,
@@ -63,10 +63,14 @@ Data
   mail [email] [--body]  latest email (to <email>): subject and links
   users                  test users and their password
 
-Staging (real data, read only; from .env.local, ADR 0025)
+Staging (real data; reads, and REST writes for testing; from .env.local, ADR 0025, 0029)
   staging "<table>?<params>"
                          rows as one JSON line; limit defaults to 20, max 200
                          e.g. staging "materials?select=id,title&limit=5"
+  staging-write "<POST|PATCH|DELETE> <table>?<params>" '<json body>'
+                         insert (on_conflict=<col> upserts), update or delete rows;
+                         PATCH and DELETE need a filter; prints the affected rows
+                         e.g. staging-write "PATCH materials?id=eq.7" '{"title":"x"}'
   staging-sql "<query>"  one read-only SQL statement; at most 200 rows printed
                          e.g. staging-sql "select count(*) from materials"`;
 
@@ -258,6 +262,12 @@ async function run(
       if (!args[0])
         throw new AgentError('Usage: agent staging "<table>?<params>"');
       return queryStaging(args[0]);
+    case "staging-write":
+      if (!args[0])
+        throw new AgentError(
+          "Usage: agent staging-write \"<POST|PATCH|DELETE> <table>?<params>\" '<json body>'",
+        );
+      return writeStaging(args[0], args[1]);
     case "staging-sql":
       if (!args[0]) throw new AgentError('Usage: agent staging-sql "<query>"');
       return queryStagingSql(args[0]);

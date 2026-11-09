@@ -62,7 +62,7 @@ flowchart LR
 
 Preview deployments never touch production data.
 
-Staging is the Supabase project of previews. Agents read its rows with `pnpm -s agent staging` and `staging-sql`, and never write to it ([ADR 0025](adr/0025-staging-for-agent-review.md)).
+Staging is the Supabase project of previews. Agents read its rows with `pnpm -s agent staging` and `staging-sql`, and change rows with `staging-write` ([ADR 0025](adr/0025-staging-for-agent-review.md), [ADR 0029](adr/0029-agent-writes-to-staging.md)).
 
 ## Project structure
 
@@ -97,7 +97,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors. For example, `chat` depends on `courses`: a Chat belongs to a Course and attaches its Materials. `courses` never imports `chat`. Likewise `courses` depends on `ingestion`, which parses its Materials, and `ingestion` never imports `courses`.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
 - Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`. Smoke checks in `evals/smoke/` (`pnpm smoke`, [docs/agents/live-ai.md](agents/live-ai.md)) may also use the admin client, to set up and remove a throwaway Student on the local stack, as may `evals/metrics-cli.ts` (`pnpm -s metrics`), which reads every Student's Chats to score them in Langfuse.
-- `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`. Its `staging` and `staging-sql` commands read rows of the staging project, never writing ([ADR 0025](adr/0025-staging-for-agent-review.md)). `tools/retro/` digests Claude Code transcripts for `/retro` (`pnpm -s retro`). `tools/sweep/` runs the deterministic checks for `/sweep` (`pnpm -s sweep`, `pnpm -s sweep mutate`): knip, jscpd, coverage, Stryker and metrics per unit, written to `.sweep/<date>/`; it defines the units.
+- `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`. Its `staging`, `staging-sql` and `staging-write` commands reach the staging project, never production ([ADR 0025](adr/0025-staging-for-agent-review.md), [ADR 0029](adr/0029-agent-writes-to-staging.md)). `tools/retro/` digests Claude Code transcripts for `/retro` (`pnpm -s retro`). `tools/sweep/` runs the deterministic checks for `/sweep` (`pnpm -s sweep`, `pnpm -s sweep mutate`): knip, jscpd, coverage, Stryker and metrics per unit, written to `.sweep/<date>/`; it defines the units.
 
 ### Anatomy of a feature
 
@@ -194,6 +194,7 @@ Each technical decision is an ADR in [adr/](adr/), with its context, the choice 
 - [0026](adr/0026-assumptions-as-text.md): Assumptions as text: what a KC assumes and no KC means stays as text on the KC, matched again when new KCs arrive; supersedes 0024
 - [0027](adr/0027-per-day-scheduling-and-one-ranking.md): Per-day scheduling and one ranking: a KC's first UTC day teaches it, each later day's first Attempt reviews it, no Easy, cap or sweep; one pure ranking (`rankNext`) of what comes next replaces Phases and Today's rules; supersedes 0019
 - [0028](adr/0028-one-study-session.md): One Study session: a tutor context of facts in front of the newest message, static instructions, eight tools, Questions inline, four kinds of notes; supersedes the session parts of 0018
+- [0029](adr/0029-agent-writes-to-staging.md): Agent writes to staging: `staging-write` changes rows through the REST API for testing, tables only and filtered; supersedes the no-writes sentence of 0025
 
 ## Open questions
 
