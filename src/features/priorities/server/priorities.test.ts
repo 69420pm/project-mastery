@@ -88,9 +88,9 @@ vi.mock("@/features/knowledge-map/server", async () => ({
     { id: "t1", parentId: "top", kcs: ["k1", "k2"] },
   ],
   topicLineage: (
-    await vi.importActual<
-      typeof import("@/features/knowledge-map/domain/topic-tree")
-    >("@/features/knowledge-map/domain/topic-tree")
+    await vi.importActual<typeof import("@/features/knowledge-map/server")>(
+      "@/features/knowledge-map/server",
+    )
   ).topicLineage,
 }));
 
