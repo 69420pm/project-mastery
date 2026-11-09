@@ -97,12 +97,14 @@ const gradeInputSchema = z.object({
     .min(1)
     .max(MAX_QUESTION_KCS)
     .nullish()
-    .describe("One result for each of the question's KCs, each KC once."),
+    .describe(
+      "Required unless noAnswer: one result for each of the question's KCs, each KC once.",
+    ),
   help: z
     .enum(["none", "some", "solution_shown"])
     .nullish()
     .describe(
-      "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
+      "Required unless noAnswer: how much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
     ),
   finalValues: z
     .array(
@@ -378,9 +380,7 @@ async function grade(
     );
   }
   if (!input.results || !input.help) {
-    throw new TutorToolError(
-      "Give results and help, or noAnswer: true when the Student moved on.",
-    );
+    throw new TutorToolError(missingGradeFields(input, question.kcIds));
   }
   // Every KC it tested was retired since the ask: nothing to record.
   if (question.kcIds.length === 0) return close();
@@ -420,6 +420,21 @@ async function grade(
   });
   if (!kcs) throw new TutorToolError(alreadyGraded);
   return { kcs, check };
+}
+
+/**
+ * The error for a `grade` call on an answered Question without `results` or
+ * `help`: it names what is missing and shows `results` with the Question's
+ * own KC ids, so a model that repeats its call has a call to copy instead.
+ */
+function missingGradeFields(input: GradeInput, kcIds: string[]): string {
+  const missing = [!input.results && "results", !input.help && "help"].filter(
+    Boolean,
+  );
+  const example = JSON.stringify(
+    kcIds.map((kcId) => ({ kcId, result: "full" })),
+  );
+  return `The grade call has no ${missing.join(" and no ")}. Call grade again with results, one per KC the question tests, each result full, partial or wrong, such as results: ${example}, and help: none, some or solution_shown. Only when the Student moved on instead of answering, call it with noAnswer: true alone.`;
 }
 
 export type TutorTools = ReturnType<typeof tutorTools>;

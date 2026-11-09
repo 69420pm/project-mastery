@@ -103,7 +103,7 @@ test("keeps text and tool calls in order, merging text across steps", () => {
   ).toEqual(["Let me look. ", "done: Read Topic Calculus", "Here we go."]);
 });
 
-test("a call on its way is running, and a failed one carries its error", () => {
+test("a call on its way is running, and a failed one hides the AI's error", () => {
   const [running, failed] = replySegments(
     [
       {
@@ -129,9 +129,9 @@ test("a call on its way is running, and a failed one carries its error", () => {
     step: {
       state: "error",
       summary: "Making a note failed",
-      errorText: "One line, without line breaks.",
     },
   });
+  expect(JSON.stringify(failed)).not.toContain("One line");
 });
 
 test("a call that never returned in a finished reply shows as stopped", () => {
@@ -243,7 +243,6 @@ test("a denied call is a failed step saying it was denied", () => {
     step: {
       state: "error",
       summary: "Making a note failed",
-      errorText: "The call was denied.",
       detail: null,
     },
   });

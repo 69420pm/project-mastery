@@ -22,8 +22,9 @@ const SOURCE_LABELS: Record<ProblemView["source"], string> = {
 
 /**
  * One tool call of an AI reply: a collapsed line that says what it did, and
- * what it returned when expanded. It shimmers while it runs and shows the
- * error the AI got back when it failed.
+ * what it returned when expanded. It shimmers while it runs and turns red
+ * when it failed. The error the AI got back is written for the AI, so the
+ * Student never sees it.
  */
 export function StepCard({ step }: { step: ReplyStep }) {
   const failed = step.state === "error";
@@ -55,9 +56,6 @@ export function StepCard({ step }: { step: ReplyStep }) {
           <span className="truncate">{step.summary}</span>
         )}
       </CollapsibleTrigger>
-      {failed && step.errorText && (
-        <p className="px-3 pb-2 pl-9 whitespace-pre-wrap">{step.errorText}</p>
-      )}
       {step.detail && (
         <CollapsibleContent className="border-t px-3 py-2">
           <StepDetails detail={step.detail} />

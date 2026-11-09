@@ -185,6 +185,15 @@ describe("grade", () => {
     expect(saved).toEqual([]);
   });
 
+  test("a call without results names it and shows results with the question's KC ids", async () => {
+    // MiMo repeated { help, finalValues } five times on staging (2026-11-09)
+    // against a generic "Give results and help".
+    await expect(grade(open, null as never, [{ value: "x" }])).rejects.toThrow(
+      'no results. Call grade again with results, one per KC the question tests, each result full, partial or wrong, such as results: [{"kcId":"kc-a","result":"full"},{"kcId":"kc-b","result":"full"}]',
+    );
+    expect(saved).toEqual([]);
+  });
+
   test("drops the results of KCs retired since the ask", async () => {
     await grade({ ...open, kcIds: ["kc-a"], retiredKcIds: ["kc-b"] });
     expect(saved[0]?.results).toEqual([{ kcId: "kc-a", result: "full" }]);

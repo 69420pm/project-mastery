@@ -31,8 +31,6 @@ export type ReplyStep = {
   state: StepState;
   /** The card's one line. */
   summary: string;
-  /** The error the AI got back, for a failed call. */
-  errorText?: string;
   /** Null until the call has returned. */
   detail: StepDetail | null;
 };
@@ -162,8 +160,6 @@ function replyStep(part: ToolPart, inProgress = true): ReplyStep {
       ...base,
       state: "error",
       summary: `${title} failed`,
-      errorText:
-        part.state === "output-error" ? part.errorText : "The call was denied.",
       detail: null,
     };
   }
