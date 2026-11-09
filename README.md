@@ -4,61 +4,89 @@
 [![CodeQL](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
-> **The AI handles everything about learning except the learning itself.**
+**An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam, and it maps what the course teaches, plans what to study next and tutors you through it, asking more than it tells.
 
-Project Mastery is an AI tutor that helps university students master their course material and prepare for exams. A student uploads slides, scripts and old exams, tells the AI about the exam, and gets a study plan and a tutor grounded in their own course: it asks more than it tells, cites the page it draws on and schedules reviews so the knowledge stays.
+> _The AI handles everything about learning except the learning itself._
 
-**Live demo:** https://project-mastery-dun.vercel.app. Create an account to try it; AI use is capped per day.
+**[Try the live demo →](https://project-mastery-dun.vercel.app)**
 
-[VISION.md](VISION.md) defines the product and its principles, and [GLOSSARY.md](GLOSSARY.md) the words used for its concepts in code, issues and UI.
+![The Course map of a Linear Algebra course: Topics in prerequisite order with their Readiness, and a Today card that proposes the next Topic](docs/screenshots/map.png)
 
-## What it does today
+_The Course map: what the course teaches, in prerequisite order, with the student's Progress, Readiness and what to do today._
 
-1. **Upload:** Materials (slides, scripts, exercise sheets, old exams) are parsed into searchable chunks by a durable background workflow.
-2. **Brief:** the student tells the AI about the exam in a conversation: its date, format, their goal and what to skip. The AI keeps what else they say as notes that the tutor reads in every Chat.
-3. **Knowledge map:** the AI builds a map of what the Materials teach, with nested Topics, Knowledge components, Prerequisites and the Exercises that test them, drawn as a graph.
-4. **Plan:** code, not a model, ranks what is worth doing next from the exam date, the goal, Priority, recall and the student's measured pace, and shows its head on a Today card beside Progress, Readiness and the latest mock score.
-5. **Tutor:** a Chat answers from the course, cites Material and page, asks the student to produce answers before it gives solutions, remembers the student, and schedules reviews with [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) replayed from the student's attempts by one per-day rule. It gets the facts and a proposal from the ranking and teaches freely, so the student can go anywhere ([ADR 0028](docs/adr/0028-one-study-session.md)).
-6. **Read:** every Topic has Reading sections with a source pane that shows the original page.
-7. **Practice:** a pool of verified generated problems, and mock exams with a readiness estimate.
+## What it does
 
-## How it is built
+1. **Upload.** Slides, scripts, exercise sheets and old exams are parsed into searchable chunks by a durable background workflow.
+2. **Brief.** A conversation captures the exam. What else the student says is kept as notes the tutor reads in every Chat.
+3. **Knowledge map.** The AI builds a graph of what the Materials teach: nested Topics, Knowledge components (KCs), the Prerequisites between them and the Exercises that test them.
+4. **Plan.** Plain code, not a model, ranks what is worth doing next from the exam date, the goal, the student's recall and pace. A Today card shows it next to Progress and Readiness.
+5. **Tutor.** One Study session at a time: the Chat answers from the course, checks the student's answers against answer keys with a math engine, and schedules reviews with the [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) spaced-repetition algorithm.
+6. **Practice.** Verified generated problems and mock exams, graded against the same answer keys.
 
-- **Feature modules with enforced boundaries.** Code is organized by feature in layers that depend in one direction only. ESLint rules fail the build on a file in the wrong place or an import across a boundary, and the message says where the code belongs ([ADR 0014](docs/adr/0014-feature-modules-with-lint-boundaries.md)).
-- **Security in the database.** The app talks to Postgres through supabase-js as the signed-in student, and Row Level Security does the access control. Every table has pgTAP tests for its policies ([ADR 0003](docs/adr/0003-supabase-js-with-rls.md)).
-- **Durable workflows.** Parsing, map building and other long jobs run as Vercel Workflows that survive restarts and retry per step ([ADR 0008](docs/adr/0008-workflows-by-default.md), [ADR 0009](docs/adr/0009-durable-background-jobs.md)).
-- **AI that is measured.** Every model call goes through one metered path with a per-student daily limit, and is traced in Langfuse. Until paid models run the app, AI quality is checked by hand on gold course materials, with smoke checks of each feature path ([ADR 0006](docs/adr/0006-ai-cost.md), [ADR 0012](docs/adr/0012-ai-observability-and-evals.md)).
-- **Tests that need no keys.** A deterministic mock AI provider lets unit tests, the Playwright suite and CI run the full app without a model or a network. Mutation testing with Stryker checks that the tests would notice a broken line.
-- **Decisions on record.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) shows the stack and how the parts fit, and 23 [ADRs](docs/adr/) explain why each choice was made.
+![The Brief: a conversation about the exam beside the facts the AI recorded, such as date, goal, allowed aids and old exams](docs/screenshots/brief.png)
+
+_The Brief: the student describes the exam in their own words, and the AI fills in the facts on the right._
+
+![A tutoring Chat on proof techniques: the AI grades the student's answers and, when the student says they don't know proofs yet, teaches from the script and cites the page](docs/screenshots/chat.png)
+
+_A Study session: answers are graded, and when the student is stuck the tutor teaches from the script and cites the page it draws on._
+
+[VISION.md](VISION.md) sets out the product and its principles: the student does the thinking, everything is grounded in the course, and the AI recommends while the student stays in control.
+
+## Status and roadmap
+
+Project Mastery is a working prototype, not a finished product. The whole loop runs end to end on real course material, but it has not yet been tested with students. Known limitations:
+
+- **Speed.** The app runs on free-credit models, which are slow. Parsing, the map build and Chat replies can take a long time, and a model call sometimes times out with no answer.
+- **Knowledge map quality.** The map build works, but the Topics and KCs it extracts still need tuning.
+- **Tutor behavior.** The tutor's teaching (when to ask, when to explain, how to grade and when to move on) needs substantial tuning. So far its quality is judged by hand on [gold course materials](evals/gold/), because automated evals are paused until a paid model and a strong judge are affordable.
+- **Polish.** There are smaller bugs and rough edges throughout, and a first-time user needs a lot of steps to reach their first Study session.
+
+Roadmap:
+
+1. **Paid models.** Move parsing, the map build and the tutor to faster, stronger paid models. Every call goes through one gateway and each task's model is set in [one file](src/lib/ai/models.ts), so switching takes a small change, not a redesign.
+2. **Evals.** Bring back automated evals of the map build and the tutor, with a frontier model as judge, and tune both against them.
+3. **Tests with students.** Have real students prepare for a real exam with the app, and use their sessions to fix what gets in their way.
+4. **Polish.** Fix the remaining bugs and shorten the path from the first upload to the first Study session.
+
+Open work is tracked on the [project board](https://github.com/users/69420pm/projects/5).
+
+## Engineering highlights
+
+- **Security in the database.** The app talks to Postgres as the signed-in student, and Row Level Security does the access control. Every table's policies are covered by pgTAP tests ([ADR 0003](docs/adr/0003-supabase-js-with-rls.md), [`supabase/tests/`](supabase/tests/)).
+- **Architecture the build enforces.** Code is organized in feature modules whose layers depend in one direction only. Custom ESLint rules fail the build on a file in the wrong place or an import across a boundary, and the message says where the code belongs ([ADR 0014](docs/adr/0014-feature-modules-with-lint-boundaries.md), [`eslint/architecture.mjs`](eslint/architecture.mjs)).
+- **Durable AI pipelines.** Parsing and the map build are Vercel Workflows that survive restarts and retry per step. Every model call is sized to fit a serverless function's time limit, and a weak build shows on the map instead of passing silently ([`build-knowledge-map.ts`](src/features/knowledge-map/workflows/build-knowledge-map.ts), [ADR 0009](docs/adr/0009-durable-background-jobs.md)).
+- **Deterministic where it counts.** What to study next is a pure ranking function, not a prompt ([`ranking.ts`](src/features/study/domain/ranking.ts)), and answers are checked by a math engine that handles units, vectors, matrices and symbolic expressions ([`answer-keys.ts`](src/features/knowledge-map/domain/answer-keys.ts)). The model teaches; code decides and grades.
+- **AI cost under control.** Every model call goes through one metered path with a per-student daily limit and is traced in Langfuse. Each upload is processed once and reused, and each task uses the smallest model that does it well ([ADR 0006](docs/adr/0006-ai-cost.md)).
+- **Tests that need no API keys.** A deterministic mock AI provider lets unit tests, the Playwright suite and CI run the whole app offline. Live smoke checks against a real model run before each feature PR.
+- **Decisions on record.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) shows how the parts fit, and the [ADRs](docs/adr/) explain why each choice was made, including the ones later superseded.
 
 | Area           | Choice                                                                         |
 | -------------- | ------------------------------------------------------------------------------ |
 | App            | Next.js (App Router, React Server Components, Server Actions), TypeScript, Zod |
 | UI             | Tailwind CSS, shadcn/ui, AI Elements, KaTeX, React Flow with ELK, react-pdf    |
 | Data           | Supabase: Postgres with pgvector, Auth, Storage, Row Level Security            |
-| AI             | Vercel AI SDK through Vercel AI Gateway, Langfuse tracing                      |
+| AI             | Vercel AI SDK through Vercel AI Gateway, Langfuse tracing, mathjs              |
 | Background     | Vercel Workflow                                                                |
 | Tests          | Vitest and React Testing Library, Playwright, pgTAP, Stryker                   |
 | Quality and CI | ESLint, Prettier, Husky, GitHub Actions, CodeQL, Dependabot, release-please    |
 | Hosting        | Vercel and Supabase, both in the EU                                            |
 
-## How it was built
+## How it was built: one developer, a team of agents
 
-Almost every commit here comes from the `agent69420pm` account: the code is written by Claude Code agents, in a workflow I set up and review myself. I make the product decisions and read every PR before I squash-merge it.
+I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent69420pm` account, and every one reached `main` through a pull request I reviewed and merged.
 
-1. **Decide:** `/grilling` interviews me about a plan until the decisions are made, and `/to-spec` turns them into a one-page spec issue.
-2. **Build:** `/build <spec>` implements one spec in its own git worktree: a fresh `builder` agent per slice, then one `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model and a PR, with no questions in between.
-3. **Verify:** agents check their own work. `pnpm -s agent` drives the running app in a real browser and database, and hooks run lint on every edit and the full `pnpm check` before an agent may stop.
-4. **Clean up:** `/sweep` audits the whole codebase with auditor agents and opens one decision issue of ranked changes, `/sweep-apply` builds the ones I tick, and `/retro` reviews what recent runs cost and what went wrong.
+1. **Decide.** `/grilling` interviews me about a plan until every decision is made, and `/to-spec` turns the answers into a one-page spec issue.
+2. **Build.** `/build <spec>` implements the spec in its own git worktree: a fresh `builder` agent per slice, a `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model, then a PR.
+3. **Verify.** Agents check their own work. `pnpm -s agent` drives the running app in a real browser and database, hooks lint every edit, and an agent cannot stop until the full `pnpm check` passes.
+4. **Clean up.** `/sweep` audits the codebase with parallel auditor agents and opens one issue of ranked changes; `/sweep-apply` builds the ones I tick, and `/retro` reviews what recent runs cost and where they went wrong.
 
-The harness follows a few rules: fix a failure in the environment (a lint rule, a script, a hook) before adding a sentence to a prompt; keep always-loaded instructions short; use the cheapest model that does a role well. They are written down in [docs/agents/harness.md](docs/agents/harness.md), with the skills and agents in [`.claude/`](.claude/), the run reports in [docs/retros/](docs/retros/) and the audits in [docs/sweeps/](docs/sweeps/).
+The harness follows a few rules: fix a failure in the environment (a lint rule, a script, a hook) before adding a sentence to a prompt, keep always-loaded instructions short, and use the cheapest model that does a role well. They are written down in [docs/agents/harness.md](docs/agents/harness.md), with the skills and agents in [`.claude/`](.claude/), run reports in [docs/retros/](docs/retros/) and audits in [docs/sweeps/](docs/sweeps/).
 
 ## Run it locally
 
-The live demo needs no setup. To run the app yourself or to change it, follow [CONTRIBUTING.md](CONTRIBUTING.md): local Supabase in Docker, AI keys, scripts, the agent CLI and the workflow for PRs.
+The live demo needs no setup. To run the app yourself or change it, see [CONTRIBUTING.md](CONTRIBUTING.md): local Supabase in Docker, AI keys, scripts and the agent CLI.
 
 ## License
 
-Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may read, run and modify the code for private and other noncommercial use, such as study, research and hobby projects. You may not sell it or use it commercially. This is not an open source license.
-
-Third-party agent skills in `.claude/skills/` keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may read, run and modify the code for noncommercial use such as study, research and hobby projects. This is not an open source license. Third-party agent skills in `.claude/skills/` keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
