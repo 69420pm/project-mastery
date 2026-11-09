@@ -167,8 +167,51 @@ export const MOCK_QUESTION = "Mock question: what is $2 + 2$?";
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-/** One tool call as a whole streamed step. */
-function toolCallStream(id: string, toolName: string, input: unknown) {
+type MockTool = { name: string; inputSchema?: JSONSchema7 };
+
+/**
+ * `value` without the properties its schema leaves optional, at every depth.
+ * A real model leaves optional fields out: MiMo sent `grade` without its
+ * then-optional `results` (2026-11-09). So code that needs a field fails on
+ * the mock too, unless the field is required.
+ */
+function requiredOnly(value: unknown, definition?: SchemaDefinition): unknown {
+  if (typeof definition !== "object") return value;
+  const options = definition.anyOf ?? definition.oneOf;
+  if (options && value !== null) {
+    const fit = options.find(
+      (option) => typeof option === "object" && option.type !== "null",
+    );
+    return requiredOnly(value, fit);
+  }
+  if (Array.isArray(value)) {
+    const items = [definition.items].flat()[0];
+    return value.map((item) => requiredOnly(item, items));
+  }
+  if (value === null || typeof value !== "object" || !definition.properties) {
+    return value;
+  }
+  const required = new Set(definition.required ?? []);
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => required.has(key))
+      .map(([key, field]) => [
+        key,
+        requiredOnly(field, definition.properties?.[key]),
+      ]),
+  );
+}
+
+/**
+ * One tool call as a whole streamed step, with only the input fields the
+ * tool requires.
+ */
+function toolCallStream(
+  id: string,
+  tool: MockTool | undefined,
+  toolName: string,
+  input: unknown,
+) {
   return simulateReadableStream({
     initialDelayInMs: null,
     chunkDelayInMs: null,
@@ -178,7 +221,7 @@ function toolCallStream(id: string, toolName: string, input: unknown) {
         type: "tool-call" as const,
         toolCallId: id,
         toolName,
-        input: JSON.stringify(input),
+        input: JSON.stringify(requiredOnly(input, tool?.inputSchema)),
       },
       {
         type: "finish" as const,
@@ -234,9 +277,16 @@ function openQuestion(prompt: Prompt): { kcIds: string[] } | undefined {
  */
 function mockTutorQuestions(
   prompt: Prompt,
-  tools: ReadonlyArray<{ name: string }> | undefined,
+  tools: ReadonlyArray<MockTool> | undefined,
 ) {
   if (!tools?.some(({ name }) => name === "ask")) return null;
+  const call = (id: string, toolName: string, input: unknown) =>
+    toolCallStream(
+      id,
+      tools.find(({ name }) => name === toolName),
+      toolName,
+      input,
+    );
   if (prompt.at(-1)?.role !== "user") return null;
   const text = lastUserParts(prompt)
     .filter((part) => part.type === "text")
@@ -247,7 +297,7 @@ function mockTutorQuestions(
     !text.startsWith(MOCK_READING_REQUEST) &&
     openQuestion(prompt);
   if (answered) {
-    return toolCallStream("mock-grade", "grade", {
+    return call("mock-grade", "grade", {
       results: answered.kcIds.map((kcId) => ({ kcId, result: "full" })),
       help: "none",
     });
@@ -256,7 +306,7 @@ function mockTutorQuestions(
   if (text.startsWith(MOCK_READING_REQUEST)) {
     const sectionId = new RegExp(`section id (${UUID})`).exec(context)?.[1];
     if (!sectionId) return null;
-    return toolCallStream("mock-show-reading", "showReading", {
+    return call("mock-show-reading", "showReading", {
       sectionId,
       purpose: MOCK_READING_PURPOSE,
     });
@@ -264,7 +314,7 @@ function mockTutorQuestions(
   if (!text.startsWith(MOCK_QUIZ_REQUEST)) return null;
   const kcId = new RegExp(`KC id (${UUID})`).exec(context)?.[1];
   if (!kcId) return null;
-  return toolCallStream("mock-ask", "ask", {
+  return call("mock-ask", "ask", {
     prompt: MOCK_QUESTION,
     kcIds: [kcId],
   });
@@ -296,7 +346,7 @@ function languageModel(modelId: string) {
       responseFormat,
     }: {
       prompt: Prompt;
-      tools?: ReadonlyArray<{ name: string }>;
+      tools?: ReadonlyArray<MockTool>;
       responseFormat?: ResponseFormat;
     }) => ({
       stream:

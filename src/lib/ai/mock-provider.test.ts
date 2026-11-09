@@ -98,3 +98,38 @@ describe("structured output on AI_PROVIDER=mock", () => {
     vi.unstubAllEnvs();
   });
 });
+
+describe("tutor tool calls on AI_PROVIDER=mock", () => {
+  test("leave out every input field the tool does not require, as a real model may", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    const { streamText, tool } = await import("ai");
+    const { z } = await import("zod");
+    const { aiTask } = await import("./models");
+    const kcId = "11111111-1111-4111-8111-111111111111";
+    const ask = tool({
+      inputSchema: z.object({
+        prompt: z.string().nullish(),
+        kcIds: z.array(z.string()),
+      }),
+    });
+
+    const result = streamText({
+      ...aiTask("chat"),
+      tools: { ask },
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: `<tutor-context>KC id ${kcId}` },
+            { type: "text", text: "Quiz me" },
+          ],
+        },
+      ],
+    });
+
+    expect((await result.toolCalls).map((call) => call.input)).toEqual([
+      { kcIds: [kcId] },
+    ]);
+    vi.unstubAllEnvs();
+  });
+});
