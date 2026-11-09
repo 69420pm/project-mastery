@@ -72,7 +72,7 @@ The code is organized by feature, in layers that depend in one direction only ([
 src/
 ├── app/                   Routing only: Next.js special files
 │   ├── (marketing)/       Public pages
-│   ├── (auth)/            Sign-in pages and the email link route
+│   ├── (auth)/            Sign-in pages, the email link route and the demo link
 │   ├── (app)/             Signed-in pages
 │   └── api/               Route handlers that need raw HTTP (streaming, webhooks)
 ├── features/<feature>/    One folder per product capability
@@ -96,7 +96,7 @@ app ──► features ──► components ──► hooks ──► lib
 - **`app/`** contains only Next.js files: `page`, `layout`, `loading`, `error`, `not-found`, `route` and metadata files. Pages fetch data through feature server code and compose feature components. Route handlers delegate to a feature in one line. Signed-in pages go in the `(app)` route group, and each page calls `requireUser` with its own path; its layouts only read the user for the shell (`components/app-shell.tsx`), since layouts do not re-render on navigation.
 - **`features/<feature>/`** holds everything one product capability needs. A feature imports another feature only through that feature's public entry files, and import cycles are errors. For example, `chat` depends on `courses`: a Chat belongs to a Course and attaches its Materials. `courses` never imports `chat`. Likewise `courses` depends on `ingestion`, which parses its Materials, and `ingestion` never imports `courses`.
 - **`components/`, `hooks/`, `lib/`** are shared and know nothing about features or routes, so they never import from `features/` or `app/`.
-- Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`. Smoke checks in `evals/smoke/` (`pnpm smoke`, [docs/agents/live-ai.md](agents/live-ai.md)) may also use the admin client, to set up and remove a throwaway Student on the local stack, as may `evals/metrics-cli.ts` (`pnpm -s metrics`), which reads every Student's Chats to score them in Langfuse.
+- Root files (`proxy.ts`, `instrumentation.ts`) and `evals/` use `lib/` and features' `server.ts`. Smoke checks in `evals/smoke/` (`pnpm smoke`, [docs/agents/live-ai.md](agents/live-ai.md)) may also use the admin client, to set up and remove a throwaway Student on the local stack, as may `pnpm gold` (`evals/smoke/gold-cli.ts`), whose `demo` command copies a staging Course into the demo account of the project it is given, and `evals/metrics-cli.ts` (`pnpm -s metrics`), which reads every Student's Chats to score them in Langfuse.
 - `tools/agent/` is development tooling outside the app ([ADR 0015](adr/0015-agent-cli-for-running-app.md)). It drives the running app through HTTP, a browser and SQL, and imports nothing from `src/`. Its `staging`, `staging-sql` and `staging-write` commands reach the staging project, never production ([ADR 0025](adr/0025-staging-for-agent-review.md), [ADR 0029](adr/0029-agent-writes-to-staging.md)). `tools/retro/` digests Claude Code transcripts for `/retro` (`pnpm -s retro`). `tools/sweep/` runs the deterministic checks for `/sweep` (`pnpm -s sweep`, `pnpm -s sweep mutate`): knip, jscpd, coverage, Stryker and metrics per unit, written to `.sweep/<date>/`; it defines the units.
 
 ### Anatomy of a feature

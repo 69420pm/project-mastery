@@ -6,20 +6,29 @@
  *   pnpm gold list
  *   pnpm gold export <course-id> <slug> [--name "Course name"]
  *   pnpm gold seed <slug> [--exam-in-days 42]
+ *   pnpm gold demo <staging-course-id> [--exam-in-days 42]
  *
  * `export` reads a Course from the local database (build it by uploading its
  * Materials in the app with a real model) into `evals/gold/<slug>/`:
  * `snapshot.json.gz` and the Materials' files in `materials/`. `seed` creates
  * or reuses the gold Student and replaces its Course of that name. Local
- * database only; makes no model calls.
+ * database only; makes no model calls. `demo` is the exception: it copies a
+ * staging Course with its Chats into the demo account of another project
+ * (`gold-demo.ts`).
  */
 import { parseArgs } from "node:util";
 import { readdir } from "node:fs/promises";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { exportCourse } from "./gold-export";
-import { GOLD_DIR, readSnapshot, seedSnapshot } from "./gold-seed";
+import { copyDemoCourse } from "./gold-demo";
+import {
+  GOLD_DIR,
+  goldMaterialFiles,
+  readSnapshot,
+  removeCourses,
+  seedSnapshot,
+} from "./gold-seed";
 
 const GOLD_EMAIL = process.env.GOLD_EMAIL ?? "gold@example.com";
 const GOLD_PASSWORD = process.env.GOLD_PASSWORD ?? "gold-password";
@@ -42,43 +51,15 @@ async function goldStudent(supabase: AdminSupabase) {
   return data.user.id;
 }
 
-/** Deletes the Student's Course of this name with its files. */
-async function removeCourse(
-  supabase: AdminSupabase,
-  studentId: string,
-  courseName: string,
-) {
-  const { data: courses, error } = await supabase
-    .from("courses")
-    .select("id")
-    .eq("owner", studentId)
-    .eq("name", courseName);
-  if (error) throw new Error(error.message);
-  const bucket = supabase.storage.from(MATERIALS_BUCKET);
-  for (const { id } of courses) {
-    const { data: files } = await bucket.list(`${studentId}/${id}`);
-    const paths = (files ?? []).map((f) => `${studentId}/${id}/${f.name}`);
-    if (paths.length > 0) await bucket.remove(paths);
-    const { error: deleteError } = await supabase
-      .from("courses")
-      .delete()
-      .eq("id", id);
-    if (deleteError) throw new Error(deleteError.message);
-  }
-}
-
 async function seedCourse(slug: string, examInDays: number) {
   const snapshot = await readSnapshot(slug);
   const supabase = createAdminClient();
   const studentId = await goldStudent(supabase);
-  await removeCourse(supabase, studentId, snapshot.courseName);
-  const courseId = await seedSnapshot(
-    supabase,
-    slug,
-    snapshot,
-    studentId,
+  await removeCourses(supabase, studentId, snapshot.courseName);
+  const courseId = await seedSnapshot(supabase, snapshot, studentId, {
     examInDays,
-  );
+    materialFile: goldMaterialFiles(slug),
+  });
   console.info(
     `Seeded "${snapshot.courseName}" for ${GOLD_EMAIL} (password ${GOLD_PASSWORD}), exam in ${examInDays} days: /courses/${courseId}/map`,
   );
@@ -104,7 +85,6 @@ function assertLocal() {
 }
 
 async function main() {
-  assertLocal();
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -113,18 +93,18 @@ async function main() {
     },
   });
   const [command, first, second] = positionals;
+  const examInDays = Number(values["exam-in-days"] ?? DEFAULT_EXAM_IN_DAYS);
+  if (command === "demo" && first) return copyDemoCourse(first, examInDays);
+  assertLocal();
   if (command === "list") return list();
   if (command === "export" && first && second) {
     return exportCourse(createAdminClient(), first, second, values.name);
   }
   if (command === "seed" && first) {
-    return seedCourse(
-      first,
-      Number(values["exam-in-days"] ?? DEFAULT_EXAM_IN_DAYS),
-    );
+    return seedCourse(first, examInDays);
   }
   throw new Error(
-    "Usage: pnpm gold list | export <course-id> <slug> [--name N] | seed <slug> [--exam-in-days N]",
+    "Usage: pnpm gold list | export <course-id> <slug> [--name N] | seed <slug> [--exam-in-days N] | demo <staging-course-id> [--exam-in-days N]",
   );
 }
 

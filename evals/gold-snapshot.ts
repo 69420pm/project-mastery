@@ -13,12 +13,22 @@ import { z } from "zod";
 type Parent = { table: string; column: string };
 
 /**
+ * A table a snapshot holds. `deferred` columns point at a table inserted
+ * later; they are inserted empty and set once every table is in.
+ */
+export type SnapshotTable = {
+  table: string;
+  parent?: Parent;
+  deferred?: string[];
+};
+
+/**
  * The tables a snapshot holds, in the order they are inserted (parents first).
  * A table with `course_id` is read by it; one without it is read by `parent`.
  * Tables that a Student's activity fills (Chats, attempts, Memory, Problems,
  * mock exams and so on) are left out on purpose.
  */
-export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
+export const SNAPSHOT_TABLES: SnapshotTable[] = [
   { table: "materials" },
   {
     table: "material_pages",
@@ -39,6 +49,39 @@ export const SNAPSHOT_TABLES: { table: string; parent?: Parent }[] = [
   { table: "briefs" },
   { table: "brief_excluded_materials" },
   { table: "exam_scopes" },
+];
+
+/**
+ * What a Student did in a Course, on top of `SNAPSHOT_TABLES`: the demo
+ * account's copy (`pnpm gold demo`) holds them, so its Chats and progress
+ * show. AI usage stays out, so the copy starts with a fresh Daily limit.
+ */
+export const ACTIVITY_TABLES: SnapshotTable[] = [
+  { table: "chats" },
+  { table: "chat_messages", parent: { table: "chats", column: "chat_id" } },
+  { table: "study_sessions", deferred: ["mock_id"] },
+  { table: "problems" },
+  { table: "problem_kcs" },
+  { table: "problem_runs" },
+  { table: "mock_exams" },
+  {
+    table: "questions",
+    parent: { table: "study_sessions", column: "session_id" },
+  },
+  {
+    table: "question_kcs",
+    parent: { table: "questions", column: "question_id" },
+  },
+  { table: "mock_items", parent: { table: "mock_exams", column: "mock_id" } },
+  {
+    table: "attempts",
+    parent: { table: "study_sessions", column: "session_id" },
+  },
+  { table: "memories" },
+  { table: "topic_choices", parent: { table: "topics", column: "topic_id" } },
+  { table: "topic_notes", parent: { table: "topics", column: "topic_id" } },
+  { table: "exam_results" },
+  { table: "brief_messages" },
 ];
 
 const rowSchema = z.record(z.string(), z.unknown());
@@ -89,7 +132,7 @@ function replaceIds(value: unknown, ids: Map<string, string>): unknown {
 /**
  * The snapshot's rows for a new Student and Course. Every row id gets a new
  * id, and each place that holds an old id (foreign keys, ids inside jsonb)
- * is rewritten to match; `owner`, `course_id` and each
+ * is rewritten to match; `owner` (where a table has one), `course_id` and each
  * Material's `storage_path` point at the new Student and Course. Returns the
  * new ids of the Materials by old id, which name the files to upload.
  */
@@ -109,7 +152,7 @@ export function remapSnapshot(
   for (const [table, rows] of Object.entries(snapshot.tables)) {
     tables[table] = rows.map((row) => {
       const next = replaceIds(row, ids) as Row;
-      next.owner = studentId;
+      if ("owner" in next) next.owner = studentId;
       if ("course_id" in next) next.course_id = courseId;
       if (table === "materials") {
         next.storage_path = `${studentId}/${courseId}/${next.id}`;
