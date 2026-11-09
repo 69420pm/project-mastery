@@ -7,7 +7,6 @@ import {
   extensionOf,
   SNAPSHOT_TABLES,
   type Snapshot,
-  type SnapshotTable,
 } from "../gold-snapshot";
 import { GOLD_DIR, table } from "./gold-seed";
 
@@ -39,18 +38,13 @@ async function readAll(
   }
 }
 
-/**
- * The Course's rows in `tables` (parents first), as a snapshot named `name`
- * if given.
- */
-export async function readCourse(
+/** Writes the Course into `evals/gold/<slug>/`, named `name` if given. */
+export async function exportCourse(
   supabase: AdminSupabase,
   courseId: string,
-  {
-    tables: list = SNAPSHOT_TABLES,
-    name,
-  }: { tables?: SnapshotTable[]; name?: string } = {},
-): Promise<Snapshot> {
+  slug: string,
+  name?: string,
+) {
   const { data: course, error } = await supabase
     .from("courses")
     .select("id, name, pairing_requested")
@@ -59,7 +53,7 @@ export async function readCourse(
   if (error) throw new Error(`Course ${courseId}: ${error.message}`);
 
   const tables: Snapshot["tables"] = {};
-  for (const { table: name, parent } of list) {
+  for (const { table: name, parent } of SNAPSHOT_TABLES) {
     tables[name] = parent
       ? await readAll(
           supabase,
@@ -69,51 +63,32 @@ export async function readCourse(
         )
       : await readAll(supabase, name, "course_id", [courseId]);
   }
-  return {
+  const snapshot: Snapshot = {
     version: 1,
     courseName: name ?? course.name,
     courseId,
     pairingRequested: course.pairing_requested,
     tables,
   };
-}
 
-/** The stored file of a snapshot's Material row. */
-export async function downloadMaterial(supabase: AdminSupabase, material: Row) {
-  const { data, error } = await supabase.storage
-    .from(MATERIALS_BUCKET)
-    .download(material.storage_path as string);
-  if (error) throw new Error(error.message);
-  return new Uint8Array(await data.arrayBuffer());
-}
-
-/** The number of rows per table, for a log line. */
-export function rowCounts(snapshot: Snapshot) {
-  return Object.entries(snapshot.tables)
-    .filter(([, rows]) => rows.length > 0)
-    .map(([n, rows]) => `${n} ${rows.length}`)
-    .join(", ");
-}
-
-/** Writes the Course into `evals/gold/<slug>/`, named `name` if given. */
-export async function exportCourse(
-  supabase: AdminSupabase,
-  courseId: string,
-  slug: string,
-  name?: string,
-) {
-  const snapshot = await readCourse(supabase, courseId, { name });
   const dir = path.join(GOLD_DIR, slug);
   await mkdir(path.join(dir, "materials"), { recursive: true });
-  for (const material of snapshot.tables.materials ?? []) {
+  for (const material of tables.materials ?? []) {
+    const { data, error: downloadError } = await supabase.storage
+      .from(MATERIALS_BUCKET)
+      .download(material.storage_path as string);
+    if (downloadError) throw new Error(downloadError.message);
     const file = `${material.id as string}.${extensionOf(material.media_type as string)}`;
     await writeFile(
       path.join(dir, "materials", file),
-      await downloadMaterial(supabase, material),
+      Buffer.from(await data.arrayBuffer()),
     );
   }
   await writeFile(path.join(dir, "snapshot.json.gz"), encodeSnapshot(snapshot));
   console.info(
-    `Exported "${snapshot.courseName}" to ${dir}: ${rowCounts(snapshot)}`,
+    `Exported "${snapshot.courseName}" to ${dir}: ${Object.entries(tables)
+      .filter(([, rows]) => rows.length > 0)
+      .map(([n, rows]) => `${n} ${rows.length}`)
+      .join(", ")}`,
   );
 }

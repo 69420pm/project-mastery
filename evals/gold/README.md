@@ -13,27 +13,13 @@ evals/gold/<slug>/
 
 ## Commands
 
-Local database only, except `demo`; no model calls (`evals/smoke/gold-cli.ts`, which may use the service role).
+Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use the service role).
 
-| Command                                                  | What it does                                                                                                                                                                                                         |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm gold export <course-id> <slug> [--name "…"]`       | Writes a Course from the local database into `evals/gold/<slug>/`.                                                                                                                                                   |
-| `pnpm gold seed <slug> [--exam-in-days 42]`              | Creates or reuses the gold Student (`gold@example.com`, password `gold-password`; `GOLD_EMAIL` and `GOLD_PASSWORD` override), replaces its Course of the same name and sets the Brief's exam date relative to today. |
-| `pnpm gold demo <staging-course-id> [--exam-in-days 42]` | Copies a staging Course with its Chats and attempts into the demo account (below).                                                                                                                                   |
-| `pnpm gold list`                                         | Lists the snapshots.                                                                                                                                                                                                 |
-
-## The demo account
-
-`/demo` signs a visitor into a shared demo account (`DEMO_EMAIL`, `DEMO_PASSWORD` on the deployment; unset, it is a 404) and opens its latest Course's map, so a recruiter sees the app without signing up. Visitors share the account and its Daily limit, which caps what they spend.
-
-To fill it, build the Course on staging (upload, Brief, a Chat or two), then run with the target project's keys in the shell, not in `.env.local`:
-
-```bash
-DEMO_SUPABASE_URL=https://<ref>.supabase.co DEMO_SUPABASE_SECRET_KEY=sb_secret_... \
-DEMO_EMAIL=demo@... DEMO_PASSWORD=... pnpm gold demo <staging-course-id>
-```
-
-It reads staging with `STAGING_SUPABASE_URL` and `STAGING_SUPABASE_SECRET_KEY` and writes nothing there. On the target it creates the account (or resets its password), deletes all of its Courses and stores the copy: the snapshot tables plus `ACTIVITY_TABLES` (`evals/gold-snapshot.ts`), without AI usage. Run it again to reset the demo, for example when visitors changed it or the exam date (`--exam-in-days` from the run) has come close.
+| Command                                            | What it does                                                                                                                                                                                                         |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm gold export <course-id> <slug> [--name "…"]` | Writes a Course from the local database into `evals/gold/<slug>/`.                                                                                                                                                   |
+| `pnpm gold seed <slug> [--exam-in-days 42]`        | Creates or reuses the gold Student (`gold@example.com`, password `gold-password`; `GOLD_EMAIL` and `GOLD_PASSWORD` override), replaces its Course of the same name and sets the Brief's exam date relative to today. |
+| `pnpm gold list`                                   | Lists the snapshots.                                                                                                                                                                                                 |
 
 ## Making a gold course
 

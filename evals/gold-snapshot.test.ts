@@ -52,18 +52,6 @@ describe("remapSnapshot", () => {
     expect(chunk).toMatchObject({ owner: "student", course_id: "course" });
   });
 
-  it("adds no owner to a table without one", () => {
-    const { tables: chatTables } = remapSnapshot(
-      {
-        ...snapshot,
-        tables: { chat_messages: [{ id: "msg-old", chat_id: "chat-old" }] },
-      },
-      "student",
-      "course",
-    );
-    expect(first(chatTables.chat_messages)).not.toHaveProperty("owner");
-  });
-
   it("rewrites foreign keys to the new ids", () => {
     const chunkId = first(tables.chunks).id;
     expect(first(tables.chunks).material_id).toBe(first(tables.materials).id);

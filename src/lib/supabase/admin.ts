@@ -27,20 +27,9 @@ const noSession = {
 export function createAdminClient() {
   const env = getSupabasePublicEnv();
   const { SUPABASE_SECRET_KEY } = getSupabaseSecretEnv();
-  return createAdminClientFor(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    SUPABASE_SECRET_KEY,
-  );
-}
 
-/**
- * `createAdminClient` for another project than the app's, by its URL and
- * secret key. For scripts that copy between projects (`pnpm gold demo`),
- * never for app code.
- */
-export function createAdminClientFor(url: string, secretKey: string) {
   return markAdminClient(
-    createClient<Database>(url, secretKey, {
+    createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, {
       auth: noSession,
       global: { fetch: fetchWithoutNul },
     }),

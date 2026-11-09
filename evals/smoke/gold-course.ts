@@ -1,12 +1,7 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 import type { AdminSupabase } from "@/lib/supabase/types";
-import {
-  GOLD_DIR,
-  goldMaterialFiles,
-  readSnapshot,
-  seedSnapshot,
-} from "./gold-seed";
+import { GOLD_DIR, readSnapshot, seedSnapshot } from "./gold-seed";
 
 /**
  * The gold course the smoke checks that need a built map start from: the
@@ -82,10 +77,13 @@ export async function seedGoldCourse(
     );
   }
   const snapshot = await readSnapshot(GOLD_SLUG);
-  const courseId = await seedSnapshot(supabase, snapshot, studentId, {
+  const courseId = await seedSnapshot(
+    supabase,
+    GOLD_SLUG,
+    snapshot,
+    studentId,
     examInDays,
-    materialFile: goldMaterialFiles(GOLD_SLUG),
-  });
+  );
   return loadGoldCourse(supabase, courseId);
 }
 
