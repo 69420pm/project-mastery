@@ -33,15 +33,23 @@ _A Study session: answers are graded, and when the student is stuck the tutor te
 
 [VISION.md](VISION.md) sets out the product and its principles: the student does the thinking, everything is grounded in the course, and the AI recommends while the student stays in control.
 
-## Status
+## Status and roadmap
 
-Project Mastery is a working prototype, not a finished product. The whole loop runs end to end on real course material, but no students have used it yet, and a first-time user will find rough edges.
+Project Mastery is a working prototype, not a finished product. The whole loop runs end to end on real course material, but it has not yet been tested with students. Known limitations:
 
-- **Free-tier models.** Until launch it runs on free-credit models, so map builds are slow and the tutor sometimes calls its tools wrong. The code is built to move to a paid model without redesign.
-- **Quality checked by hand.** Automated evals are paused until a paid model and a strong judge are affordable. Until then AI quality is judged by hand on [gold course materials](evals/gold/).
-- **Usability.** Getting from the first upload to the first Study session still asks a lot of a new user.
+- **Speed.** The app runs on free-credit models, which are slow. Parsing, the map build and Chat replies can take a long time, and a model call sometimes times out with no answer.
+- **Knowledge map quality.** The map build works, but the Topics and KCs it extracts still need tuning.
+- **Tutor behavior.** The tutor's teaching (when to ask, when to explain, how to grade and when to move on) needs substantial tuning. So far its quality is judged by hand on [gold course materials](evals/gold/), because automated evals are paused until a paid model and a strong judge are affordable.
+- **Polish.** There are smaller bugs and rough edges throughout, and a first-time user needs a lot of steps to reach their first Study session.
 
-Next: test with real students preparing for a real exam, move to a paid model and bring evals back, and shorten the path to the first Study session. Open work is tracked on the [project board](https://github.com/users/69420pm/projects/5).
+Roadmap:
+
+1. **Paid models.** Move parsing, the map build and the tutor to faster, stronger paid models. Every call goes through one gateway and each task's model is set in [one file](src/lib/ai/models.ts), so switching takes a small change, not a redesign.
+2. **Evals.** Bring back automated evals of the map build and the tutor, with a frontier model as judge, and tune both against them.
+3. **Tests with students.** Have real students prepare for a real exam with the app, and use their sessions to fix what gets in their way.
+4. **Polish.** Fix the remaining bugs and shorten the path from the first upload to the first Study session.
+
+Open work is tracked on the [project board](https://github.com/users/69420pm/projects/5).
 
 ## Engineering highlights
 
