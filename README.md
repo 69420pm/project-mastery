@@ -10,14 +10,11 @@
 
 **[Try the live demo →](https://project-mastery-dun.vercel.app)**
 
-![The knowledge map of a Linear Algebra course: nested Topics with their Knowledge components and Prerequisites](docs/screenshots/map.png)
+![The Course map of a Linear Algebra course: Topics in prerequisite order with their Readiness, and a Today card that proposes the next Topic](docs/screenshots/map.png)
+
+_The Course map: what the course teaches, in prerequisite order, with the student's Progress, Readiness and what to do today._
 
 ## What it does
-
-|                                                                                                                  |                                                                                                                             |
-| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| ![The Brief: a conversation about the exam date, format and goal](docs/screenshots/brief.png)                    | ![A tutoring Chat that asks for the student's answer and cites the course page](docs/screenshots/chat.png)                  |
-| **Brief.** The student tells the AI about the exam in a short conversation: date, format, goal and what to skip. | **Tutor.** The Chat teaches from the course, cites Material and page, and asks for the student's answer before it explains. |
 
 1. **Upload.** Slides, scripts, exercise sheets and old exams are parsed into searchable chunks by a durable background workflow.
 2. **Brief.** A conversation captures the exam. What else the student says is kept as notes the tutor reads in every Chat.
@@ -26,7 +23,25 @@
 5. **Tutor.** One Study session at a time: the Chat answers from the course, checks the student's answers against answer keys with a math engine, and schedules reviews with the [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) spaced-repetition algorithm.
 6. **Practice.** Verified generated problems and mock exams, graded against the same answer keys.
 
+![The Brief: a conversation about the exam beside the facts the AI recorded, such as date, goal, allowed aids and old exams](docs/screenshots/brief.png)
+
+_The Brief: the student describes the exam in their own words, and the AI fills in the facts on the right._
+
+![A tutoring Chat on proof techniques: the AI grades the student's answers and, when the student says they don't know proofs yet, teaches from the script and cites the page](docs/screenshots/chat.png)
+
+_A Study session: answers are graded, and when the student is stuck the tutor teaches from the script and cites the page it draws on._
+
 [VISION.md](VISION.md) sets out the product and its principles: the student does the thinking, everything is grounded in the course, and the AI recommends while the student stays in control.
+
+## Status
+
+Project Mastery is a working prototype, not a finished product. The whole loop runs end to end on real course material, but no students have used it yet, and a first-time user will find rough edges.
+
+- **Free-tier models.** Until launch it runs on free-credit models, so map builds are slow and the tutor sometimes calls its tools wrong. The code is built to move to a paid model without redesign.
+- **Quality checked by hand.** Automated evals are paused until a paid model and a strong judge are affordable. Until then AI quality is judged by hand on [gold course materials](evals/gold/).
+- **Usability.** Getting from the first upload to the first Study session still asks a lot of a new user.
+
+Next: test with real students preparing for a real exam, move to a paid model and bring evals back, and shorten the path to the first Study session. Open work is tracked on the [project board](https://github.com/users/69420pm/projects/5).
 
 ## Engineering highlights
 
