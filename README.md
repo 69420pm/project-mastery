@@ -4,7 +4,7 @@
 [![CodeQL](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
-**An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam, and it maps what the course teaches, plans what to study next and tutors you through it, asking more than it tells.
+**An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam and your learning goals, and it tutors you through it, following learning science.
 
 > _The AI handles everything about learning except the learning itself._
 
