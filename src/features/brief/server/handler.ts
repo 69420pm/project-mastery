@@ -18,10 +18,7 @@ import { briefTools } from "@/features/brief/ai/tools";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import { askedChapterIds } from "@/features/brief/domain/old-exams";
 import { replyMessageId } from "@/features/brief/domain/opening";
-import {
-  MAX_TOOL_CALLS,
-  briefToolActions,
-} from "@/features/brief/server/brief-tools";
+import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
   briefNotFoundMessage,
@@ -204,13 +201,9 @@ async function streamReply({
           ),
         ),
         stopWhen: isStepCount(MAX_STEPS),
-        // The last step, and any step after the reply's tool calls ran
-        // out, writes text, so every reply answers the Student.
+        // The last step writes text, so every reply answers the Student.
         prepareStep: ({ steps }) =>
-          steps.length === MAX_STEPS - 1 ||
-          steps.flatMap(({ toolCalls }) => toolCalls).length >= MAX_TOOL_CALLS
-            ? { toolChoice: "none" }
-            : undefined,
+          steps.length === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
         // A disconnect, such as a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Brief reply failed:", error),

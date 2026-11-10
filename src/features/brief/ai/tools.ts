@@ -43,7 +43,7 @@ export const saveBriefInputSchema = z.object({
     .string()
     .nullish()
     .describe(
-      'The id of the old exam the Student keeps unseen for their final Mock exam, or "none" when they keep none.',
+      "The id of the old exam the Student keeps unseen for their final Mock exam, or the word none when they keep none.",
     ),
   courseLanguage: z
     .string()
@@ -129,7 +129,7 @@ export function briefTools(actions: BriefToolActions) {
     }),
     addNote: tool({
       description:
-        "Store something the Student said about the exam that no saveBrief field holds, such as a teacher's hint, what changed this year, what they know or where they struggle. Pass a neutral third-person paraphrase that keeps every concrete fact, in the Student's language.",
+        "Store one new fact the Student said about the exam that the Brief does not hold yet, such as a teacher's hint, what changed this year, what they know or where they struggle. The date, goal, format, scope and old exams belong in saveBrief, not in a note. Pass a neutral third-person paraphrase that keeps every concrete fact, in the Student's language.",
       inputSchema: addNoteInputSchema,
       execute: ({ text }) => run(() => actions.addNote(text)),
     }),
