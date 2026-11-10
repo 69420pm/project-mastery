@@ -1,7 +1,7 @@
 # Project Mastery
 
-[![CI](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/69420pm/project-mastery/actions/workflows/codeql.yml)
+[![CI](https://github.com/florianportscher/project-mastery/actions/workflows/ci.yml/badge.svg)](https://github.com/florianportscher/project-mastery/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/florianportscher/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/florianportscher/project-mastery/actions/workflows/codeql.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
 **An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam and your learning goals, and it tutors you through it, following learning science.
@@ -71,7 +71,7 @@ Roadmap:
 3. **Tests with students.** Have real students prepare for a real exam with the app, and use their sessions to fix what gets in their way.
 4. **Polish.** Fix the remaining bugs and shorten the path from the first upload to the first Study session.
 
-Open work is tracked on the [project board](https://github.com/users/69420pm/projects/5).
+Open work is tracked on the [project board](https://github.com/users/florianportscher/projects/5).
 
 ## Engineering highlights
 
@@ -96,7 +96,7 @@ Open work is tracked on the [project board](https://github.com/users/69420pm/pro
 
 ## How it was built: one developer, a team of agents
 
-I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent69420pm` account, and agents reach `main` only through pull requests that I merge.
+I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent-florianportscher` account, and agents reach `main` only through pull requests that I merge.
 
 Review is split by what each reviewer does best:
 

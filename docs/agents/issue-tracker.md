@@ -1,6 +1,6 @@
 # Issue tracker
 
-Specs and other issues live in GitHub Issues on `69420pm/project-mastery`, created and read with `gh`, comments included.
+Specs and other issues live in GitHub Issues on `florianportscher/project-mastery`, created and read with `gh`, comments included.
 
 - **Spec** (`/to-spec`): one issue of about one page, labelled with the `type:` that fits (a refactor or chore is `type: task`) and `ready-for-agent`. `/build <spec>` implements it in one PR.
 - **Labels**: one `type:` label per issue, plus `area:` and `priority:` when they are clear. Available:
