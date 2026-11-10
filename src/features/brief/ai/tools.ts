@@ -129,7 +129,7 @@ export function briefTools(actions: BriefToolActions) {
     }),
     addNote: tool({
       description:
-        "Store one new fact the Student said about the exam that the Brief does not hold yet, such as a teacher's hint, what changed this year, what they know or where they struggle. The date, goal, format, scope and old exams belong in saveBrief, not in a note. Pass a neutral third-person paraphrase that keeps every concrete fact, in the Student's language.",
+        "Store one new fact the Student said about the exam that the Brief does not hold yet, such as a teacher's hint, what changed this year, what they know or where they struggle. The date, goal, format, excluded Materials and old exams belong in saveBrief, and what the exam leaves out or stresses in setExamScope, not in a note. Pass a neutral third-person paraphrase that keeps every concrete fact, in the Student's language.",
       inputSchema: addNoteInputSchema,
       execute: ({ text }) => run(() => actions.addNote(text)),
     }),
