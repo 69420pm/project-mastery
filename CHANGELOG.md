@@ -2,6 +2,8 @@
 
 ## [0.1.1](https://github.com/69420pm/project-mastery/compare/project-mastery-v0.1.0...project-mastery-v0.1.1) (2026-11-04)
 
+> The LLM-judged evals listed below were removed in [#218](https://github.com/69420pm/project-mastery/issues/218) (tag `evals-v1`) until paid models run the app; AI quality is checked by hand on the gold course meanwhile.
+
 
 ### Features
 

@@ -10,6 +10,8 @@
 
 **[Try the live demo →](https://project-mastery-dun.vercel.app)**
 
+Built by **Florian Portscher**: I own the product, the architecture and the review of what every change does; Claude Code agents write the code in a workflow I designed ([how it was built](#how-it-was-built-one-developer-a-team-of-agents)).
+
 ![The Course map of a Linear Algebra course: Topics in prerequisite order with their Readiness, and a Today card that proposes the next Topic](docs/screenshots/map.png)
 
 _The Course map: what the course teaches, in prerequisite order, with the student's Progress, Readiness and what to do today._
@@ -22,6 +24,26 @@ _The Course map: what the course teaches, in prerequisite order, with the studen
 4. **Plan.** Plain code, not a model, ranks what is worth doing next from the exam date, the goal, the student's recall and pace. A Today card shows it next to Progress and Readiness.
 5. **Tutor.** One Study session at a time: the Chat answers from the course, checks the student's answers against answer keys with a math engine, and schedules reviews with the [FSRS](docs/adr/0027-per-day-scheduling-and-one-ranking.md) spaced-repetition algorithm.
 6. **Practice.** Verified generated problems and mock exams, graded against the same answer keys.
+
+### Words you will see
+
+The app, the code and the issues share one vocabulary, so a capitalized word such as Brief or Topic is a term of the product, defined in full in [GLOSSARY.md](GLOSSARY.md). The ones on this page:
+
+| Term                             | Meaning                                                                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Course**, **Material**         | One exam's course, and a file uploaded to it: slides, a script, an exercise sheet or an old exam.                                            |
+| **Brief**                        | What the student told the AI about the exam: date, goal, allowed aids, which Materials and Topics count, and short notes.                    |
+| **Knowledge component (KC)**     | One thing an exam task could test on its own and a student could learn in one sitting, such as "Group homomorphisms and kernel".             |
+| **Topic**                        | A named group of KCs that the student learns and sees as one, such as "Groups". Topics nest and are ordered by their Prerequisites.          |
+| **Prerequisite**                 | A link saying one KC must be learned before another.                                                                                         |
+| **Course map**                   | The Course's home: its Topics as a graph in Prerequisite order, with the student's numbers on each.                                          |
+| **Today card**                   | What the ranking proposes now: the Reviews that are due, then the next Topic, each with its minutes.                                         |
+| **Progress**                     | How many KCs of the study plan the student has learned, with days in and days left.                                                          |
+| **Readiness**                    | How much of the exam's weight the student is likely to recall on the exam day, from their spaced-repetition model. An estimate, not a grade. |
+| **Study session**, **Chat**      | One sitting of study. A Chat is a tutoring session; it closes with notes the tutor reads next time.                                          |
+| **Mock exam**, **Reserved exam** | A timed exam without help, graded afterwards. A reserved exam is an old exam the student keeps unseen for their final mock exam.             |
+
+Below each AI reply the app shows the model, the tokens and what the reply cost. That line is there on purpose: running cost is part of the product's design ([ADR 0006](docs/adr/0006-ai-cost.md)).
 
 ![The Brief: a conversation about the exam beside the facts the AI recorded, such as date, goal, allowed aids and old exams](docs/screenshots/brief.png)
 
@@ -74,7 +96,15 @@ Open work is tracked on the [project board](https://github.com/users/69420pm/pro
 
 ## How it was built: one developer, a team of agents
 
-I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent69420pm` account, and every one reached `main` through a pull request I reviewed and merged.
+I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent69420pm` account, and agents reach `main` only through pull requests that I merge.
+
+Review is split by what each reviewer does best:
+
+- **I review behavior against the spec.** I settle every decision of a spec in a `/grilling` interview and approve the spec, then check that the PR does what it says: in the running app, on the gold course and staging data, and in the PR's own account of its decisions and what it could not verify. When the behavior is wrong, it goes back to the agents as a bug or a new spec.
+- **LLMs review the code.** In every `/build`, two `reviewer` agents read the diff, one against the spec and one against the repo's standards, and a `builder` agent confirms or rejects each finding before the PR opens.
+- **Automated checks enforce the rest.** Type checks, ESLint rules for the architecture's boundaries, unit, end-to-end and pgTAP tests, and CodeQL gate every PR, and a feature PR also passes a live smoke check against a real model.
+
+The workflow:
 
 1. **Decide.** `/grilling` interviews me about a plan until every decision is made, and `/to-spec` turns the answers into a one-page spec issue.
 2. **Build.** `/build <spec>` implements the spec in its own git worktree: a fresh `builder` agent per slice, a `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model, then a PR.
