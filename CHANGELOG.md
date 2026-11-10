@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.2](https://github.com/florianportscher/project-mastery/compare/project-mastery-v0.1.1...project-mastery-v0.1.2) (2026-11-10)
+
+
+### Features
+
+* add a demo link that signs into a shared demo account ([#259](https://github.com/florianportscher/project-mastery/issues/259)) ([06a55b7](https://github.com/florianportscher/project-mastery/commit/06a55b78a7496584bd3110e9cd486cc987113766))
+* let agents read the staging database ([#247](https://github.com/florianportscher/project-mastery/issues/247)) ([5b09d82](https://github.com/florianportscher/project-mastery/commit/5b09d825db8ee3f6f631ff605000e22a82f586cd))
+* reliable map build and lean tutoring ([#252](https://github.com/florianportscher/project-mastery/issues/252)) ([27e1e3e](https://github.com/florianportscher/project-mastery/commit/27e1e3e2b80a265868fd01412602a4de78e30537))
+* shorten the brief, make its notes count and replace the estimate with progress ([#243](https://github.com/florianportscher/project-mastery/issues/243)) ([ff67ddb](https://github.com/florianportscher/project-mastery/commit/ff67ddb513feca9f5e1d582e9326eb9db67cf80c))
+
+
+### Bug Fixes
+
+* label course and exam information as admin when reading pages ([#245](https://github.com/florianportscher/project-mastery/issues/245)) ([453376a](https://github.com/florianportscher/project-mastery/commit/453376a1a5895a338e5c531106b06fef2772f8f5))
+
 ## [0.1.1](https://github.com/florianportscher/project-mastery/compare/project-mastery-v0.1.0...project-mastery-v0.1.1) (2026-11-04)
 
 > The LLM-judged evals listed below were removed in [#218](https://github.com/florianportscher/project-mastery/issues/218) (tag `evals-v1`) until paid models run the app; AI quality is checked by hand on the gold course meanwhile.
