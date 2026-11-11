@@ -56,7 +56,7 @@ migrated=$(pnpm exec supabase migration up --local --include-all 2>&1) || {
 }
 url=$(grep '^app' <<<"$up" | grep -o 'http://localhost:[0-9]*' || true)
 
-echo "Preview: $url (main and $count PRs)"
+echo "Preview: $url (main plus waiting PRs: $count)"
 [[ ${#lines[@]} -eq 0 ]] || printf '%s\n' "${lines[@]}"
 if [[ "$url" != "http://localhost:3000" ]]; then
   echo "Port 3000 is taken, and it is the only one the user's browser reaches." >&2
