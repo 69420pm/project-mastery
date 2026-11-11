@@ -1,6 +1,6 @@
 ---
 name: sweep
-description: "Audit the whole codebase without changing it, and open one decision issue of ranked change groups for /sweep-apply. Run after a few /build runs, in its own session."
+description: "Audit the whole codebase without changing it, and open one decision issue of ranked change groups for /sweep-apply. Parked until launch. Run it in its own session."
 model: haiku
 disable-model-invocation: true
 ---

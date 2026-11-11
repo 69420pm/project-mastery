@@ -51,7 +51,7 @@ In an agent worktree (`.claude/worktrees/`), read [docs/agents/worktrees.md](doc
 ## Git workflow
 
 - Conventional Commits for commit messages and PR titles.
-- Every change goes through a PR against `main`; never push to `main` or merge PRs. Read [docs/agents/pull-requests.md](docs/agents/pull-requests.md) before creating a branch or opening a PR.
+- Every change goes through a PR against `main` that the maintainer approves; never push to `main` or merge without that approval. Read [docs/agents/pull-requests.md](docs/agents/pull-requests.md) before creating a branch or opening a PR.
 - Specs are GitHub issues: read [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md) before creating, reading or closing one.
 
 ## Live AI calls

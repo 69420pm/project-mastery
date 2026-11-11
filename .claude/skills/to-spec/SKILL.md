@@ -1,6 +1,7 @@
 ---
 name: to-spec
 description: "Turn the decisions from a grilling session into a one-page spec issue that /build can implement without asking anything."
+model: opus
 disable-model-invocation: true
 ---
 
@@ -20,7 +21,7 @@ A spec has two halves. The **top half**, down to `Try it`, is the user's: what t
 
 5. **Write the Try it steps.** At most five steps the user takes in the running app, in under five minutes, each with what they should see, that together show the Goal is met. A change with nothing to see names the command that shows it.
 
-6. **Plan the smoke check.** When the change touches a model call, name the [smoke check](../../../docs/agents/live-ai.md) that runs it once on a small real input, for example `pnpm smoke parse e2e/files/lecture-notes.pdf`. If it or the `pnpm smoke` runner doesn't exist yet, building it belongs to the last slice.
+6. **Plan the smoke check.** When the change touches a model call, name the [smoke check](../../../docs/agents/live-ai.md) that runs it once on a small real input, for example `pnpm smoke parse e2e/files/lecture-notes.pdf`. When the change depends on how the deployed model behaves (its tool calls, structured output or limits), pin that model with `AI_SMOKE_MODEL`: a check on the local default can pass where the deployed model fails. If it or the `pnpm smoke` runner doesn't exist yet, building it belongs to the last slice.
 
 7. **Publish.** Fill the template, keeping its `##` headings, with the top half under about 250 words and the whole under about 800. Create the issue as [docs/agents/issue-tracker.md](../../../docs/agents/issue-tracker.md) describes, as a sub-issue of the parent if there is one. Reply with the top half as published, the link and `/build <number>`.
 
@@ -65,7 +66,7 @@ The seams to test at (existing ones, as few as possible), the prior art to copy,
 
 ## Smoke check
 
-The command, the input, what it checks and its call budget. Or "None".
+The command, the input, what it checks, its call budget, and its model when that is not the default. Or "None".
 
 ## Shipping
 
