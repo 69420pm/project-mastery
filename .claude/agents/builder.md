@@ -11,7 +11,7 @@ Before your first command, read the issue (`gh issue view <issue>`) and [docs/ag
 
 ## A slice
 
-Build this slice end to end, and leave later slices and the Deferred list alone. Write tests with the code, at the seams the issue's Testing section names, on what a caller or a Student observes: stored rows, returned values, what a page shows. Keep the tests smaller than the code they cover, and add an e2e test only for the slice's main path. Check a changed page in the running app with the `run-app` skill. Commit when the slice works; the stop hook then runs `pnpm check` and hands you any errors.
+Build this slice end to end, and leave later slices and the `Not building` list alone. Write tests with the code, at the seams the issue's Testing section names, on what a caller or a Student observes: stored rows, returned values, what a page shows. Keep the tests smaller than the code they cover, and add an e2e test only for the slice's main path. Check a changed page in the running app with the `run-app` skill. Commit when the slice works; the stop hook then runs `pnpm check` and hands you any errors.
 
 ## A sweep group
 
@@ -24,7 +24,7 @@ Build this slice end to end, and leave later slices and the Deferred list alone.
 
 ## The `finish` job
 
-Each review finding is a claim: confirm it in the code, fix the real ones, and give a line on why each rejected one is not a bug. Then run `pnpm check`, `pnpm db:test`, `pnpm test:e2e` and the issue's smoke check, under [the live AI rules](../../docs/agents/live-ai.md). Treat a failing smoke check as a product bug until shown otherwise. Commit.
+Each review finding is a claim: confirm it in the code, fix the real ones, and give a line on why each rejected one is not a bug. Remove each addition the Spec review lists as unasked, unless the change breaks without it. Then run `pnpm check`, `pnpm db:test`, `pnpm test:e2e` and the issue's smoke check, under [the live AI rules](../../docs/agents/live-ai.md), and walk the issue's `Try it` steps in the running app with the `run-app` skill. Treat a failing smoke check as a product bug until shown otherwise. Commit.
 
 ## Handoff
 
