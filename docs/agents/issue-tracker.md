@@ -7,7 +7,10 @@ Specs and other issues live in GitHub Issues on `69420pm/project-mastery`, creat
   - `type: feature`, `type: bug`, `type: task`, `type: docs`
   - `area: ui`, `area: api`, `area: infra`
   - `priority: high`, `priority: medium`, `priority: low`
-  - `status: triage`, `status: blocked`, `ready-for-agent`
+  - `status: triage`, `status: blocked`, `ready-for-agent`, `verify`
+- **Inbox**: a nit, bug or idea that can wait is an issue with a one-line title and `status: triage`, without a template or an investigation. The maintainer sorts the inbox in batches.
+- **`verify`**: a check an agent can run that a build left open, in one line with the PR it comes from (see `Not verified` in [pull-requests.md](pull-requests.md)).
+- **Waiting for the maintainer**: `status: blocked` plus a comment naming the decision or action needed. `gh issue list --label "status: blocked"` and `gh pr list --search "draft:false"` show everything that waits for them.
 - **Branches**: as in [pull-requests.md](pull-requests.md); `/build` names the branch after the spec.
 - **Bodies**: follow the skill's template; the forms in `.github/ISSUE_TEMPLATE/` are for people using the web UI.
 - **Closing**: issues close when the maintainer merges the PR that resolves them. Put `Closes #<n>` in the PR body for each issue it resolves, and leave issues open yourself.

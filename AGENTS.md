@@ -12,6 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 [VISION.md](VISION.md) defines what this product is and what it is not. Read it before any product, UX or scope decision: proposing or planning features, writing issues, designing flows, UI or AI tutor behavior, or deciding between options that change what the user experiences. It is not needed for purely technical work such as implementing a well-specified issue, refactoring, fixing bugs, tooling or code review.
 
+## Who decides
+
+The maintainer decides what a Student sees or can do, what their data means, what the app costs to run, and what gets built in which order: ask about those. Decide everything else yourself (schema, modules, libraries, thresholds) with the simplest option that works, and report each choice in one line with its reason. A problem or idea outside the current task becomes an inbox issue ([docs/agents/issue-tracker.md](docs/agents/issue-tracker.md)) while you stay on the task.
+
 ## Domain language
 
 Name domain concepts in code, issues and UI with the terms in [GLOSSARY.md](GLOSSARY.md), and avoid the synonyms it lists.

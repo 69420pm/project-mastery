@@ -10,8 +10,14 @@
 
 <!-- Migrations, environment variables, provider settings, or "Nothing beyond the code". -->
 
+## Try it
+
+<!-- Steps in the running app, each with what you should see. -->
+
 ## Checked
 
 ## Not verified
+
+<!-- Each line ends in a Try it step, a `verify` issue, or a reason it needs neither. -->
 
 Closes #
