@@ -77,7 +77,7 @@ describe("a tool result", () => {
     });
     useMockModels({ brief: lecture });
     expect(await lastPrompt(lecture)).toContain(
-      `${LECTURE_ROOT} is no old exam of the Course and was ignored`,
+      `The reserved exam ${LECTURE_ROOT} was ignored: it is not among the old exams.`,
     );
     expect(db.tables.briefs[0]?.reserved_exam_chapter_id).toBe(LECTURE_EXAM);
 
@@ -122,6 +122,20 @@ describe("a tool result", () => {
     await send({ courseId: COURSE, message: userMessage("Auf Deutsch!") });
 
     expect(db.tables.courses[0]?.language).toBe("German");
+  });
+
+  test("a reply's last step can only write text", async () => {
+    seedBrief();
+    const call = { toolName: "saveBrief", input: { goal: "pass" } };
+    const model = mockToolModel([[call], [call], [call], [call]], "Ok.");
+    useMockModels({ brief: model });
+
+    await send({ courseId: COURSE, message: userMessage("…") });
+
+    expect(model.doStreamCalls.map(({ toolChoice }) => toolChoice)).toEqual([
+      ...Array(4).fill({ type: "auto" }),
+      { type: "none" },
+    ]);
   });
 
   test("addNote over the notes' limit changes nothing and says so", async () => {

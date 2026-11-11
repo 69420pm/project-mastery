@@ -1,5 +1,4 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
 import {
   consumeStream,
   convertToModelMessages,
@@ -9,6 +8,7 @@ import {
   streamText,
   toUIMessageStream,
   validateUIMessages,
+  type InferUIMessageChunk,
   type LanguageModelUsage,
   type ToolSet,
 } from "ai";
@@ -17,6 +17,7 @@ import { briefReplySettings } from "@/features/brief/ai/reply";
 import { briefTools } from "@/features/brief/ai/tools";
 import { isIntakeDone } from "@/features/brief/domain/intake";
 import { askedChapterIds } from "@/features/brief/domain/old-exams";
+import { replyMessageId } from "@/features/brief/domain/opening";
 import { briefToolActions } from "@/features/brief/server/brief-tools";
 import {
   briefMessageMetadataSchema,
@@ -54,7 +55,8 @@ import { flushTraces, withTraceAttributes } from "@/lib/tracing";
  * 5. stream the reply from the full stored history, with the stored answers
  *    and the Course's Materials in the instructions; the tools store what
  *    the Student answers
- * 6. on end, record the call's usage and store the reply
+ * 6. on end, record the call's usage and store the reply, unless the
+ *    Student has written since or the message already has a reply
  *
  * Refusals are plain-text responses, which `useChat` shows as the error
  * message.
@@ -110,7 +112,7 @@ export async function respondInBrief({
     courseId,
     userId,
     history,
-    replyId: randomUUID(),
+    replyId: replyMessageId(message.id),
   });
 }
 
@@ -199,6 +201,9 @@ async function streamReply({
           ),
         ),
         stopWhen: isStepCount(MAX_STEPS),
+        // The last step writes text, so every reply answers the Student.
+        prepareStep: ({ steps }) =>
+          steps.length === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
         // A disconnect, such as a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Brief reply failed:", error),
@@ -237,13 +242,19 @@ async function streamReply({
           output: text,
         });
 
-        // A reply cut off by a disconnect is dropped: the Brief has no Stop.
+        // A reply cut off by a disconnect or a step's time limit is
+        // dropped: the Brief has no Stop.
         // A reply that only called tools is stored, so the conversation
         // keeps the answers it saved and never has two Student turns in a
         // row.
         const empty = text === "" && !responseMessage.parts.some(isToolUIPart);
         if (outcome.status === "failed" || stopped || empty) return;
         try {
+          // A reply is stored only right after the message it answers: a
+          // late one, after the Student wrote again, would answer the wrong
+          // message. Its id makes a second reply to one message a no-op.
+          const latest = (await loadMessages(supabase, courseId)).at(-1);
+          if (latest?.id !== messages.at(-1)?.id) return;
           await saveMessage(supabase, courseId, {
             ...responseMessage,
             id: replyId,
@@ -253,8 +264,32 @@ async function streamReply({
           console.error("Saving the Brief reply failed:", error);
         }
       },
-    }),
+    }).pipeThrough(timeoutAsError(request.signal)),
     // Lets `onEnd` run when the client disconnects mid-reply.
     consumeSseStream: consumeStream,
+  });
+}
+
+/** What the Student sees when a step ran past its time limit. */
+export const replyTimeoutMessage =
+  "The AI took too long to reply. Please try again.";
+
+/**
+ * Turns the abort a step's time limit causes into an error, which the
+ * client shows with Retry; as an abort, the reply would just end. An abort
+ * while `signal` is aborted is the client's own disconnect, and stays one.
+ */
+function timeoutAsError(signal: AbortSignal) {
+  return new TransformStream<
+    InferUIMessageChunk<BriefUIMessage>,
+    InferUIMessageChunk<BriefUIMessage>
+  >({
+    transform(chunk, controller) {
+      controller.enqueue(
+        chunk.type === "abort" && !signal.aborted
+          ? { type: "error", errorText: replyTimeoutMessage }
+          : chunk,
+      );
+    },
   });
 }

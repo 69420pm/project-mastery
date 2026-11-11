@@ -25,6 +25,14 @@ export function openingMessageId(courseId: string): string {
 }
 
 /**
+ * The id of the AI's reply to the Student's message `messageId`, so that
+ * a message gets one stored reply, however many requests answer it.
+ */
+export function replyMessageId(messageId: string): string {
+  return staticMessageId(`reply:${messageId}`);
+}
+
+/**
  * The id of the static message that asks whether `chapterIds` are old
  * exams, so the same question is stored once.
  */

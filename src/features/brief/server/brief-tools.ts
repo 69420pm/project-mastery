@@ -87,12 +87,12 @@ export function briefToolActions(
       });
       const ignored = [
         excluded.unknown.length > 0 &&
-          `These are no Material ids of the Course and were ignored: ${excluded.unknown.join(", ")}.`,
+          `These are no Material ids of the Course and were ignored: ${excluded.unknown.join(", ")}. Send excludedMaterialIds again with ids from the Course's Materials.`,
         exams.unknown.length > 0 &&
-          `These are no Chapter ids of the Course and were ignored: ${exams.unknown.join(", ")}.`,
+          `These are no Chapter ids of the Course and were ignored: ${exams.unknown.join(", ")}. Send examChapterIds again with chapter ids from the Course's Materials.`,
         reserved !== undefined &&
           !reservable &&
-          `${reserved} is no old exam of the Course and was ignored: send the id of one, or "none".`,
+          `The reserved exam ${reserved} was ignored: it is not among the old exams. If the Student said it is one, send it again together with examChapterIds that list every old exam, this one included; if they keep none, send reservedExamChapterId none.`,
         used &&
           "The reserved exam was ignored: the Student has taken it as their final mock exam, so it can no longer change.",
       ].filter(Boolean);
