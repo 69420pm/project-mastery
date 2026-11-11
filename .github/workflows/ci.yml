@@ -28,7 +28,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm format:check
-      - run: pnpm test:coverage
+      # Coverage has no threshold and nothing reads its report, so CI runs the
+      # tests without it, as `pnpm check` does.
+      - run: pnpm test:run
 
   build-e2e:
     name: Build & E2E tests
@@ -45,7 +47,12 @@ jobs:
       # Signed-in tests create test Students in local Supabase, as in the
       # database job. The app runs with AI_PROVIDER=mock (playwright.config.ts).
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
-      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
+      # A runner sometimes still holds one of Supabase's ports ("failed to bind
+      # host port ... address already in use"); a second start gets through.
+      - name: Start Supabase
+        run: |
+          start() { supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta; }
+          start || { supabase stop --no-backup; sleep 5; start; }
       - name: Point the app and tests at local Supabase
         run: |
           supabase status -o env | tr -d '"' | sed -n \
@@ -88,8 +95,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Installs the CLI version pinned in pnpm-lock.yaml.
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
-      # Only Postgres, Auth, Storage and the API gateway are needed here.
-      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
+      # Only Postgres, Auth, Storage and the API gateway are needed here. The
+      # second start is for a port the runner still holds, as in the e2e job.
+      - name: Start Supabase
+        run: |
+          start() { supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta; }
+          start || { supabase stop --no-backup; sleep 5; start; }
       - run: supabase db lint --local --fail-on error
       - run: supabase test db
       - name: Check that generated types are up to date
