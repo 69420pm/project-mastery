@@ -12,7 +12,7 @@ const subscribeToNothing = () => () => {};
  * Student's time zone, so it renders a neutral text that the browser
  * replaces after hydration.
  */
-function useLocalResetTime(resetsAt: string): string | null {
+export function useLocalResetTime(resetsAt: string): string | null {
   return useSyncExternalStore(
     subscribeToNothing,
     () =>

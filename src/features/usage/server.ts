@@ -5,6 +5,7 @@ import "server-only";
 export {
   checkDailyLimit,
   dailyLimitReachedMessage,
+  getDailyUsage,
   getDailyLimitStatus,
 } from "./server/daily-limit";
 export {
@@ -13,6 +14,5 @@ export {
   meteredStream,
   RATE_LIMITED_STEP_RETRIES,
 } from "./server/metered-call";
-export { getMonthlyUsage } from "./server/monthly-usage";
 export { loadReplyUsage, recordReplyUsage } from "./server/reply-usage";
 export { recordAiUsage } from "./server/usage-store";

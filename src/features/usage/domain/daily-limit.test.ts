@@ -2,6 +2,7 @@
 import { describe, expect, test } from "vitest";
 import {
   dailyLimitLevel,
+  dailyLimitPercentLeft,
   dailyLimitReset,
   utcDayStart,
 } from "@/features/usage/domain/daily-limit";
@@ -17,6 +18,19 @@ describe("Daily limit level", () => {
     [1000, undefined, "ok"],
   ] as const)("spending %s of %s is %s", (spent, limit, level) => {
     expect(dailyLimitLevel(spent, limit)).toBe(level);
+  });
+});
+
+describe("Daily limit left", () => {
+  test.each([
+    [0, 0.5, 100],
+    [0.18, 0.5, 64],
+    [0.4999, 0.5, 0],
+    [0.5, 0.5, 0],
+    [2, 0.5, 0],
+    [0, 0, 0],
+  ] as const)("spending %s of %s leaves %s%%", (spent, limit, left) => {
+    expect(dailyLimitPercentLeft(spent, limit)).toBe(left);
   });
 });
 

@@ -130,6 +130,41 @@ test("the sidebar's logo leads to the Course list, and it holds the account menu
   ).toBeVisible();
 });
 
+test("Settings saves the name into the sidebar, and clearing it brings the email back", async ({
+  page,
+  student,
+  course,
+}) => {
+  await page.goto(course.chatPath);
+  await openSidebar(page);
+  // Not by role: the open dialog hides the page behind it from the
+  // accessibility tree.
+  const account = page.locator('button[aria-label="Account menu"]');
+  await expect(account).toContainText(student.displayName);
+
+  await account.click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await expect(settings.getByLabel("Email")).toHaveValue(student.email);
+  await expect(
+    settings.getByText(/^100% left today · resets at /),
+  ).toBeVisible();
+  await expect(settings.getByText("$0 of $1.00 used")).toBeVisible();
+
+  await settings.getByLabel("Name").fill("Ada Lovelace");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(settings.getByRole("status")).toHaveText("Saved.");
+  await expect(account).toContainText("Ada Lovelace");
+
+  await settings.getByLabel("Name").fill("");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(account).toContainText(student.email);
+  await expect(account).not.toContainText("Ada Lovelace");
+
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+});
+
 test("on a phone, the logo closes the slide-over even on the page it leads to", async ({
   page,
   course,

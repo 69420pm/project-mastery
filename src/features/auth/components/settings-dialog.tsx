@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DailyLimitRow } from "@/features/auth/components/daily-limit-row";
 import { saveDisplayName } from "@/features/auth/server/actions";
 
 type SettingsDialogProps = {
@@ -87,6 +88,7 @@ export function SettingsDialog({
             <FieldLabel htmlFor="settings-email">Email</FieldLabel>
             <Input id="settings-email" value={email ?? ""} readOnly />
           </Field>
+          {open && <DailyLimitRow />}
           <Field>
             <FieldLabel htmlFor="settings-theme">Appearance</FieldLabel>
             <Select value={theme ?? "system"} onValueChange={setTheme}>
