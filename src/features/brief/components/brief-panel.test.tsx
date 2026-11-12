@@ -85,7 +85,8 @@ test("shows the reserved exam as a line, or none once answered", () => {
   );
   unmount();
   renderPanel({ brief: { reservedExam: "none" } });
-  expect(screen.getByText("Reserved exam:")).toBeInTheDocument();
+  expect(screen.getByText("Reserved exam").tagName).toBe("DT");
+  expect(screen.queryByText("Reserved exam:")).toBeNull();
 });
 
 describe("BriefPanel", () => {
