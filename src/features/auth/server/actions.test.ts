@@ -9,8 +9,19 @@ const auth = {
 };
 
 vi.mock("server-only", () => ({}));
+const profiles = vi.hoisted(() => {
+  const eq = vi.fn();
+  const update = vi.fn(() => ({ eq }));
+  return { eq, update };
+});
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth }),
+  createClient: async () => ({
+    auth,
+    from: () => ({ update: profiles.update }),
+  }),
+}));
+vi.mock("@/lib/auth/user", () => ({
+  requireUser: async () => ({ id: "user-1", email: "a@example.com" }),
 }));
 const request = vi.hoisted(() => ({
   headers: {} as Record<string, string>,
@@ -26,7 +37,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const { signIn, signOut, signUp } = await import("./actions");
+const { saveDisplayName, signIn, signOut, signUp } = await import("./actions");
 
 function form(fields: Record<string, string>) {
   const data = new FormData();
@@ -276,6 +287,38 @@ describe("signUp", () => {
       message: "Choose a password with at least 8 characters.",
       email: "alice@example.com",
     });
+  });
+});
+
+describe("saveDisplayName", () => {
+  beforeEach(() => {
+    profiles.update.mockClear();
+    profiles.eq.mockReset();
+    profiles.eq.mockResolvedValue({ error: null });
+  });
+
+  test("stores the trimmed name and revalidates the layout", async () => {
+    const result = await saveDisplayName(form({ displayName: "  Ada  " }));
+
+    expect(result).toEqual({ ok: true, data: undefined });
+    expect(profiles.update).toHaveBeenCalledWith({ display_name: "Ada" });
+    expect(profiles.eq).toHaveBeenCalledWith("id", "user-1");
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  test.each(["", "   "])("clears the name for %j", async (displayName) => {
+    await saveDisplayName(form({ displayName }));
+
+    expect(profiles.update).toHaveBeenCalledWith({ display_name: null });
+  });
+
+  test("refuses a name over 100 characters", async () => {
+    const result = await saveDisplayName(
+      form({ displayName: "a".repeat(101) }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(profiles.update).not.toHaveBeenCalled();
   });
 });
 
