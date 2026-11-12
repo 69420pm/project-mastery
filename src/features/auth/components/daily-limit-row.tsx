@@ -30,7 +30,7 @@ export function DailyLimitRow() {
 
   return (
     <Field>
-      <FieldLabel>Today&apos;s daily limit</FieldLabel>
+      <FieldLabel>Today&apos;s Daily limit</FieldLabel>
       {usage === undefined ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : usage.limitUsd === undefined ? (
