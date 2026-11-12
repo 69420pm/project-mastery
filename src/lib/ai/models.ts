@@ -146,6 +146,23 @@ const ONLY_PROVIDERS: Record<string, readonly string[]> = {
 };
 
 /**
+ * Models that take only `toolChoice: "auto"`. Verified live on 2026-11-12:
+ * `meta/muse-ember` answers `"none"` with a 400, and with no tools offered
+ * (`activeTools: []`) it still calls one, so a step can't be made text-only.
+ */
+const AUTO_TOOL_CHOICE_ONLY: ReadonlySet<string> = new Set(["meta/muse-ember"]);
+
+/**
+ * The settings of a step that should write text rather than call tools:
+ * `toolChoice: "none"`, or nothing for a model that refuses it.
+ */
+export function textOnlyStep(model: string) {
+  return AUTO_TOOL_CHOICE_ONLY.has(model)
+    ? undefined
+    : { toolChoice: "none" as const };
+}
+
+/**
  * The env override of a task's default model. Configured models are checked
  * for prices by a unit test, overrides here, since every call is priced.
  */

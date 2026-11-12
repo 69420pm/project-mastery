@@ -139,7 +139,7 @@ Value 0 drops a candidate, except a due Review; ties go in Course order. Normall
 3. **Store the Student's message.** Every message between an open Question's `ask` and its `grade` is part of its answer, and `recordAnswer` joins them in order (`joinAnswer`). A message sent again is not recorded twice.
 4. **On the session's first reply,** end the Course's other idle sessions, which closes them too.
 5. **Build the tutor context and tools** (`startTutoring`). On the first reply this also tops up the Problem stock of the Ranking's next Topic.
-6. **Stream the reply** with the static instructions, the history, the tutor context in front of the newest Student message and the tools, at most 5 steps. The fifth step can only write text (`toolChoice: "none"`), so a reply that spent its steps on tool calls still answers. It also stops at a call to `ask` or `showReading`, which wait for the Student.
+6. **Stream the reply** with the static instructions, the history, the tutor context in front of the newest Student message and the tools, at most 5 steps. The fifth step can only write text (`toolChoice: "none"`), so a reply that spent its steps on tool calls still answers; a model that takes only `"auto"`, such as `meta/muse-ember`, keeps its tools there (`textOnlyStep` in `src/lib/ai/models.ts`). It also stops at a call to `ask` or `showReading`, which wait for the Student.
 7. **On end,** record usage in `ai_usage`, store the reply with its `tutor_context`, and name the Chat if it has no title.
 
 A stopped reply with nothing to show is dropped. One with a finished tool call is kept, because the call's rows are already stored.
