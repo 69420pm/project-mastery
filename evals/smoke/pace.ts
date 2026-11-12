@@ -2,6 +2,9 @@
  * Holds model requests within the free tiers' limits, for the smoke checks
  * and the tutoring scenarios (docs/agents/live-ai.md).
  */
+import { readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 /**
  * The Gemini free tier's limit: 15 requests per minute (`notes/ai-sdk.md`).
@@ -34,25 +37,48 @@ function limitOf(url: string): { host: string; rpm: number } | null {
   return null;
 }
 
+/**
+ * The last minute's request times per host, shared by the processes of one
+ * machine: `pnpm tutor-eval say` runs once per Student message, and each run
+ * has to know what the one before it sent.
+ */
+const SENT_FILE = path.join(os.tmpdir(), "project-mastery-model-requests.json");
+
+function readSent(): Record<string, number[]> {
+  try {
+    return JSON.parse(readFileSync(SENT_FILE, "utf8")) as Record<
+      string,
+      number[]
+    >;
+  } catch {
+    return {};
+  }
+}
+
 /** Wraps `fetch` so Gemini and AI Gateway requests keep within their limits. */
 export function paceModelRequests() {
-  const sentBy = new Map<string, number[]>();
   const fetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const limit = limitOf(url);
     if (limit) {
-      const sent = sentBy.get(limit.host) ?? [];
-      sentBy.set(limit.host, sent);
       for (;;) {
         const now = Date.now();
-        while (sent.length > 0 && sent[0]! <= now - 60_000) sent.shift();
+        const sent = (readSent()[limit.host] ?? []).filter(
+          (time) => time > now - 60_000,
+        );
         if (sent.length < limit.rpm) break;
         await new Promise((resolve) =>
-          setTimeout(resolve, sent[0]! + 60_000 - now + 100),
+          setTimeout(resolve, Math.min(...sent) + 60_000 - now + 100),
         );
       }
-      sent.push(Date.now());
+      const all = readSent();
+      const now = Date.now();
+      all[limit.host] = [
+        ...(all[limit.host] ?? []).filter((time) => time > now - 60_000),
+        now,
+      ];
+      writeFileSync(SENT_FILE, JSON.stringify(all));
     }
     return fetch(input, init);
   };
