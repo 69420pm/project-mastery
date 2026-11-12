@@ -22,6 +22,18 @@ Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use th
 | `pnpm gold seed <slug> [--exam-in-days 42]`        | Creates or reuses the gold Student (`gold@example.com`, password `gold-password`; `GOLD_EMAIL` and `GOLD_PASSWORD` override), replaces its Course of the same name and sets the Brief's exam date relative to today. |
 | `pnpm gold list`                                   | Lists the snapshots.                                                                                                                                                                                                 |
 
+## Tutoring scenarios
+
+`evals/tutor/scenarios/` holds ten tutoring situations on `linear-algebra-I` (#277). Each file gives its setup as JSON under "## Setup" (exam days, goal, earlier Attempts, Memory, an open Question, a graded mock), the Student's persona and moves for an agent to play, and the checklist a judge scores. `evals/smoke/tutor-eval.ts` runs them, on the local database only:
+
+| Command                                 | What it does                                                                                                               |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm tutor-eval start <scenario>`      | A new Student with the gold course seeded and the setup applied; prints the run id (its Chat's id). `03` names `03-….md`.  |
+| `pnpm tutor-eval say <run> "<message>"` | Sends the message through `respondInChat`, then prints the reply, each tool call's input and result, and the new Attempts. |
+| `pnpm tutor-eval end <run>`             | Deletes the run's Student with its data.                                                                                   |
+
+Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model.
+
 ## Making a gold course
 
 1. Write the Materials (lecture notes, a problem sheet with solutions, an old exam) as PDFs.
