@@ -19,7 +19,7 @@ test("a Student signs in, signs out and returns to the page they asked for", asy
 
   await openSidebar(page);
   const accountMenu = page.getByRole("button", { name: "Account menu" });
-  await expect(accountMenu).toContainText(student.email);
+  await expect(accountMenu).toContainText(student.displayName);
   await accountMenu.click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page.getByRole("status")).toHaveText("You are signed out.");
