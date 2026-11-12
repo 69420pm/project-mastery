@@ -45,7 +45,7 @@ async function pageCount(bytes: Uint8Array, mediaType: string) {
 /**
  * Parses one file, or a selection of its pages, as a new Material with the
  * real `parseMaterial` workflow, run in this process, and checks what the
- * parse stored. On the default smoke model (AI_SMOKE_MODEL pins MiMo).
+ * parse stored. On the default smoke model (AI_SMOKE_MODEL pins another).
  */
 export const parseSmoke: SmokeCheck = {
   name: "parse",

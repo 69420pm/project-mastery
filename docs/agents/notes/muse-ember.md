@@ -1,6 +1,6 @@
 # Muse Ember
 
-Checked on 2026-11-12 through AI Gateway (`meta/muse-ember`, $0.10 / $0.50 per million tokens, cache read $0.004), with the AI SDK and one small call per capability. Registered in `MODEL_PRICES`, so `AI_MODEL_<TASK>=meta/muse-ember` works; no task defaults to it.
+Checked on 2026-11-12 through AI Gateway (`meta/muse-ember`, $0.10 / $0.50 per million tokens, cache read $0.004), with the AI SDK and one small call per capability. Registered in `MODEL_PRICES`; every text task defaults to it since #278 (embeddings stay on Cohere).
 
 - **Reachable on the free credit**: no 403. The Gateway lists one provider, `meta`, so `ONLY_PROVIDERS` needs no entry. Data: zero retention, no training.
 - **Text, tools, structured output all worked** (3 of 3 calls each at `reasoning: "minimal"` and `"none"`, `warnings` empty): `generateText` with a tool called it with valid input and continued in text; `Output.object` with a Zod schema (boolean, string, enum array of length 2) returned a valid object.

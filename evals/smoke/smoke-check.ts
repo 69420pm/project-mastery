@@ -23,7 +23,7 @@ export type SmokeCheck = {
   /** The most model calls the check may record; the runner's default if unset. */
   maxCalls?: number;
   /**
-   * The model every generating task is pinned to, such as MiMo for a check
+   * The model every generating task is pinned to, such as Muse for a check
    * of what ships; the runner's default if unset.
    */
   model?: string;

@@ -30,7 +30,7 @@ type Supabase = Smoke["supabase"];
  * Pairing on the recorded gold exercise pages, through the real parse
  * workflow run in this process with the page results and the Outline
  * seeded, so the only calls are the embeddings and the Course's one pairing
- * call. On the default smoke model (AI_SMOKE_MODEL pins MiMo).
+ * call. On the default smoke model (AI_SMOKE_MODEL pins another).
  */
 export const pairSmoke: SmokeCheck = {
   name: "pair",

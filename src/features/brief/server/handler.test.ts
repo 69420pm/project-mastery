@@ -38,7 +38,7 @@ describe("a message in a Brief", () => {
       { role: "assistant", text: "Which date is the exam?" },
     ]);
     expect(db.tables.brief_messages.at(-1)).toMatchObject({
-      model_id: "xiaomi/mimo-v2.6-flash",
+      model_id: "meta/muse-ember",
     });
   });
 
@@ -65,7 +65,7 @@ describe("a message in a Brief", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "brief",
-        model_id: "xiaomi/mimo-v2.6-flash",
+        model_id: "meta/muse-ember",
         input_tokens: 10,
         output_tokens: 20,
         estimated: false,
@@ -299,7 +299,7 @@ describe("the Daily limit", () => {
       id: randomUUID(),
       owner: STUDENT,
       task: "chat",
-      model_id: "xiaomi/mimo-v2.6-flash",
+      model_id: "meta/muse-ember",
       input_tokens: 0,
       cached_input_tokens: 0,
       output_tokens: 0,
