@@ -1,11 +1,4 @@
-/**
- * How much of today's Daily limit a Student has used, without amounts: the
- * Chat only ever gets this level. The amounts are `DailyUsage`, for Settings.
- *
- * - `ok`: below 80%, or no limit is set
- * - `warning`: from 80%, the Chat shows a notice
- * - `reached`: 100%, AI calls are refused until the reset
- */
+/** What Settings shows of today's Daily limit: the amounts, in US dollars. */
 export type DailyUsage = {
   /** Today's AI spend in US dollars, since 00:00 UTC. */
   spentUsd: number;
@@ -15,6 +8,14 @@ export type DailyUsage = {
   resetsAt: string;
 };
 
+/**
+ * How much of today's Daily limit a Student has used, without amounts: the
+ * Chat only ever gets this level. The amounts are `DailyUsage`, for Settings.
+ *
+ * - `ok`: below 80%, or no limit is set
+ * - `warning`: from 80%, the Chat shows a notice
+ * - `reached`: 100%, AI calls are refused until the reset
+ */
 export type DailyLimitStatus = {
   level: "ok" | "warning" | "reached";
   /** When the Daily limit resets: the next 00:00 UTC, as an ISO timestamp. */
