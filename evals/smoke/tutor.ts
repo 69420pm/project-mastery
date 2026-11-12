@@ -199,10 +199,17 @@ export async function sendMessage(
       log(`  ${part.type}: ${part.errorText}`);
     }
   }
+  // Each step's text is its own part in the Chat: keep them apart.
   const reply = chunks
-    .filter((part) => part.type === "text-delta")
-    .map((part) => part.delta)
-    .join("");
+    .map((part) =>
+      part.type === "text-delta"
+        ? part.delta
+        : part.type === "text-start"
+          ? "\n\n"
+          : "",
+    )
+    .join("")
+    .trim();
   log(`AI: ${reply}`);
   return { calls, text: reply, questionIds, graded, returned, readings };
 }
