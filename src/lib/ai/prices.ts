@@ -55,6 +55,7 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
     output: 0.6,
     cachedInput: 0.015,
   },
+  "meta/muse-ember": { input: 0.1, output: 0.5, cachedInput: 0.004 },
   "deepseek/deepseek-v4.1-flash-1017": {
     input: 0.15,
     output: 0.6,
