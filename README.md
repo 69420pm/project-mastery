@@ -4,11 +4,11 @@
 [![CodeQL](https://github.com/florianportscher/project-mastery/actions/workflows/codeql.yml/badge.svg)](https://github.com/florianportscher/project-mastery/actions/workflows/codeql.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue)](LICENSE)
 
-**An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam and your learning goals, and it tutors you through it, following learning science.
+**An AI tutor for university exams, grounded in the student's own course.** Upload the slides, scripts and old exams, tell it about the exam and your learning goals, and it tutors you through it, following learning science for reasonable llm api prices.
 
 > _The AI handles everything about learning except the learning itself._
 
-**[Try the live demo →](https://project-mastery-dun.vercel.app)**
+**[Try the live demo →](https://project-mastery-dun.vercel.app/demo)**
 
 Built by **Florian Portscher**: I own the product, the architecture and the review of what every change does; Claude Code agents write the code in a workflow I designed ([how it was built](#how-it-was-built-one-developer-a-team-of-agents)).
 
@@ -102,7 +102,7 @@ Review is split by what each reviewer does best:
 
 - **I review behavior against the spec.** I settle every decision of a spec in a `/grilling` interview and approve the spec, then check that the PR does what it says: in the running app, on the gold course and staging data, and in the PR's own account of its decisions and what it could not verify. When the behavior is wrong, it goes back to the agents as a bug or a new spec.
 - **LLMs review the code.** In every `/build`, two `reviewer` agents read the diff, one against the spec and one against the repo's standards, and a `builder` agent confirms or rejects each finding before the PR opens.
-- **Automated checks enforce the rest.** Type checks, ESLint rules for the architecture's boundaries, unit, end-to-end and pgTAP tests, and CodeQL gate every PR, and a feature PR also passes a live smoke check against a real model.
+- **Automated checks enforce the rest.** Type checks, very strict ESLint rules for the architecture's boundaries, unit, end-to-end and pgTAP tests, and CodeQL gate every PR, and a feature PR also passes a live smoke check against a real model.
 
 The workflow:
 
