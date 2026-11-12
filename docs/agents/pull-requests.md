@@ -1,6 +1,6 @@
 # Pull requests
 
-Every change reaches `main` through a PR that the maintainer reviews and squash-merges. Agents push branches and open PRs; they never push to `main` or merge.
+Every change reaches `main` through a PR that the maintainer reviews and squash-merges. Agents push branches and open PRs; they never push to `main`, and a PR merges only on the maintainer's approval. `/build` arms auto-merge (`gh pr merge <pr> --auto --squash`), so that approval is the merge.
 
 - **Branch:** `<type>/<issue>-<kebab-description>`, or `<type>/<kebab-description>` without an issue. The type is a Conventional Commits type: `feat`, `fix`, `refactor`, `test`, `chore` or `docs`.
 - **Title:** Conventional Commits, in lower case after the type (`feat: parse materials into chunks`). It becomes the commit on `main`.

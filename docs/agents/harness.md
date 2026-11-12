@@ -8,18 +8,19 @@ How this repo equips coding agents: what to change when a run goes wrong, and wh
 - **Cheap runs.** Cost is turns × context. Few agents, small contexts, compact tool output (a clean check prints one line), and the cheapest model that does the role well.
 - **Lean.** Every always-loaded line costs on every turn. Each fact has one home and is reached by pointer; deleting a line nobody needs beats adding one. The `writing-for-agents` skill covers how to write them.
 - **Simple.** The smallest change that removes the failure. No framework for a single case.
+- **Parked until launch:** `/sweep`, `/sweep-apply` and `/retro`. In the five weeks before 2026-11-11, 38 of 133 agent PRs changed the harness, applied a sweep or hardened tests, for an app without users yet. The exception is one `/retro` around 2026-12-02, which compares the two-shift workflow (`/sitting`, then `/build` on a queue) with the report of 2026-11-09.
 
 ## Where things live
 
-| Place                    | Holds                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------ |
-| `AGENTS.md`              | Pointers only, loaded into every session                                             |
-| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues, sweeps                         |
-| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked                  |
-| `docs/agents/notes/`     | Verified library and environment gotchas                                             |
-| `.claude/skills/`        | Workflows the user starts (`/build`, `/to-spec`, `/retro`, `/sweep`, `/sweep-apply`) |
-| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`, `/sweep`'s auditors)                 |
-| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop                           |
-| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm -s retro`)                     |
-| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)                     |
-| ESLint rules, tests      | Rules a machine can check                                                            |
+| Place                    | Holds                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`              | Pointers only, loaded into every session                                                                 |
+| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues, sweeps                                             |
+| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked                                      |
+| `docs/agents/notes/`     | Verified library and environment gotchas                                                                 |
+| `.claude/skills/`        | Workflows the user starts (`/sitting`, `/to-spec`, `/build`; parked: `/retro`, `/sweep`, `/sweep-apply`) |
+| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`, `/sweep`'s auditors)                                     |
+| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop                                               |
+| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm nit`, `pnpm -s retro`)                             |
+| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)                                         |
+| ESLint rules, tests      | Rules a machine can check                                                                                |

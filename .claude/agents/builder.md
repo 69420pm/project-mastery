@@ -1,7 +1,7 @@
 ---
 name: builder
 description: Builds one slice of an issue in the /build worktree, or finishes the build (review findings, full checks, live smoke check). Spawned by /build and /sweep-apply, one at a time.
-model: opus
+model: sonnet
 effort: medium
 ---
 

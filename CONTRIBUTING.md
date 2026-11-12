@@ -81,6 +81,7 @@ pnpm -s agent check           # compile issues, runtime and server errors
 | `pnpm smoke <name>`            | Run one feature path once against a real model and check it (not in CI)            |
 | `pnpm langfuse:models`         | Push the model prices in `src/lib/ai/prices.ts` to Langfuse                        |
 | `pnpm -s agent`                | Drive the running app from the terminal                                            |
+| `pnpm nit "<title>"`           | File a one-line inbox issue                                                        |
 | `pnpm -s retro`                | Digest recent Claude Code runs of this repo for a retro                            |
 | `pnpm -s sweep`                | Deterministic checks for `/sweep` (`mutate [unit...]` runs mutation tests)         |
 | `pnpm db:start`                | Start local Supabase (Docker)                                                      |

@@ -1,6 +1,6 @@
 ---
 name: retro
-description: "Review recent agent runs, write a report to docs/retros/, and apply the improvements the user picks. Run every few /build runs."
+description: "Review recent agent runs, write a report to docs/retros/, and apply the improvements the user picks. Parked until launch, except one run around 2026-12-02."
 disable-model-invocation: true
 model: opus
 ---
