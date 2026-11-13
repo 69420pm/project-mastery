@@ -2,7 +2,7 @@
  * Holds model requests within the free tiers' limits, for the smoke checks
  * and the tutoring scenarios (docs/agents/live-ai.md).
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -78,7 +78,10 @@ export function paceModelRequests() {
         ...(all[limit.host] ?? []).filter((time) => time > now - 60_000),
         now,
       ];
-      writeFileSync(SENT_FILE, JSON.stringify(all));
+      // Written beside the file and renamed, so a reader never sees half a file.
+      const temp = `${SENT_FILE}.${process.pid}`;
+      writeFileSync(temp, JSON.stringify(all));
+      renameSync(temp, SENT_FILE);
     }
     return fetch(input, init);
   };
