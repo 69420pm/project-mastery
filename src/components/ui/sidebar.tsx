@@ -67,6 +67,13 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  // The slide-over is closed whenever the window crosses the breakpoint, so
+  // narrowing never opens it from an earlier phone-width visit.
+  const [wasMobile, setWasMobile] = React.useState(isMobile);
+  if (wasMobile !== isMobile) {
+    setWasMobile(isMobile);
+    setOpenMobile(false);
+  }
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.

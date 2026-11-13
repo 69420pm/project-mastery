@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PathBreadcrumb } from "@/components/path-breadcrumb";
-import { UserMenu } from "@/features/auth";
+import { SettingsProvider, UserMenu } from "@/features/auth";
 import { getDisplayName } from "@/features/auth/server";
 import { BriefLink, briefPath } from "@/features/brief";
 import {
@@ -58,60 +58,62 @@ export default async function CourseLayout({
   if (user && !course) notFound();
 
   return (
-    <ChatListProvider courseId={courseId} chats={chats}>
-      <AppShell
-        defaultOpen={isSidebarOpen(cookieStore)}
-        homeHref={COURSE_LIST_PATH}
-        header={
-          course && (
-            <>
-              <CourseSwitcher course={course} courses={courses} />
-              <NewChatLink />
-              <MaterialsLink courseId={course.id} />
-              <BriefLink courseId={course.id} />
-              <CourseMapLink courseId={course.id} />
-            </>
-          )
-        }
-        content={course && <ChatList />}
-        breadcrumb={
-          course && (
-            <PathBreadcrumb
-              trail={[
-                { href: COURSE_LIST_PATH, label: "Courses" },
-                { href: courseMapPath(course.id), label: course.name },
-              ]}
-              sections={[
-                {
-                  path: newChatPath(course.id),
-                  label: "New chat",
-                  exact: true,
-                },
-                { path: newChatPath(course.id), label: <ChatTitle /> },
-                {
-                  path: materialsPath(course.id),
-                  label: "Materials",
-                  href: materialsPath(course.id),
-                },
-                { path: briefPath(course.id), label: "Brief" },
-                {
-                  path: courseMapPath(course.id),
-                  label: "Course map",
-                  href: courseMapPath(course.id),
-                  detail: (
-                    <TopicTitle courseId={course.id} topics={topicNames} />
-                  ),
-                },
-              ]}
-            />
-          )
-        }
-        footer={
-          user && <UserMenu email={user.email} displayName={displayName} />
-        }
-      >
-        {children}
-      </AppShell>
-    </ChatListProvider>
+    <SettingsProvider email={user?.email} displayName={displayName}>
+      <ChatListProvider courseId={courseId} chats={chats}>
+        <AppShell
+          defaultOpen={isSidebarOpen(cookieStore)}
+          homeHref={COURSE_LIST_PATH}
+          header={
+            course && (
+              <>
+                <CourseSwitcher course={course} courses={courses} />
+                <NewChatLink />
+                <MaterialsLink courseId={course.id} />
+                <BriefLink courseId={course.id} />
+                <CourseMapLink courseId={course.id} />
+              </>
+            )
+          }
+          content={course && <ChatList />}
+          breadcrumb={
+            course && (
+              <PathBreadcrumb
+                trail={[
+                  { href: COURSE_LIST_PATH, label: "Courses" },
+                  { href: courseMapPath(course.id), label: course.name },
+                ]}
+                sections={[
+                  {
+                    path: newChatPath(course.id),
+                    label: "New chat",
+                    exact: true,
+                  },
+                  { path: newChatPath(course.id), label: <ChatTitle /> },
+                  {
+                    path: materialsPath(course.id),
+                    label: "Materials",
+                    href: materialsPath(course.id),
+                  },
+                  { path: briefPath(course.id), label: "Brief" },
+                  {
+                    path: courseMapPath(course.id),
+                    label: "Course map",
+                    href: courseMapPath(course.id),
+                    detail: (
+                      <TopicTitle courseId={course.id} topics={topicNames} />
+                    ),
+                  },
+                ]}
+              />
+            )
+          }
+          footer={
+            user && <UserMenu email={user.email} displayName={displayName} />
+          }
+        >
+          {children}
+        </AppShell>
+      </ChatListProvider>
+    </SettingsProvider>
   );
 }

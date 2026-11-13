@@ -93,7 +93,7 @@ export function MockResultView({
                 <th scope="row" className="py-1 text-left font-normal">
                   {topic.name}
                 </th>
-                <td className="py-1 text-right tabular-nums">
+                <td className="py-1 pl-3 text-right whitespace-nowrap tabular-nums">
                   {topic.awarded} / {topic.points}
                 </td>
               </tr>
