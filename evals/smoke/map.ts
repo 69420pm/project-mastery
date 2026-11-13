@@ -211,21 +211,36 @@ async function checkMap(
     if (error) throw new Error(error.message);
   }
 
-  // A KC may cite any chunk of its unit's Chapters' subtrees: the chunks of
-  // its unit, which may pack sibling Chapters or add a parent's own chunks.
-  const unitChunks = new Map(
-    (
-      await Promise.all(
-        (["content", "exercise"] as const).map((kind) =>
-          loadCourseUnits(supabase, courseId, kind),
-        ),
-      )
+  // A KC may cite any chunk of its unit's `chapterIds`' subtrees.
+  const parentOf = new Map(
+    chapters.data!.map((c) => [c.id, c.parent_id] as const),
+  );
+  const inSubtree = (chapterId: string, roots: readonly string[]) => {
+    for (let id: string | null = chapterId; id; id = parentOf.get(id) ?? null) {
+      if (roots.includes(id)) return true;
+    }
+    return false;
+  };
+  const units = (
+    await Promise.all(
+      (["content", "exercise"] as const).map((kind) =>
+        loadCourseUnits(supabase, courseId, kind),
+      ),
     )
-      .flat()
-      .map((unit) => [
-        unitKey(unit),
-        new Set(unit.chunks.map((chunk) => chunk.id)),
-      ]),
+  ).flat();
+  const unitChunks = new Map(
+    units.map((unit) => [
+      unitKey(unit),
+      new Set(
+        chunks
+          .data!.filter(
+            (chunk) =>
+              chunk.chapter_id !== null &&
+              inSubtree(chunk.chapter_id, unit.chapterIds),
+          )
+          .map((chunk) => chunk.id),
+      ),
+    ]),
   );
   const strays = extractions.data!.flatMap((row) => {
     const allowed =

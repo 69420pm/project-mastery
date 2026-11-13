@@ -142,6 +142,8 @@ export type CourseUnit = {
   chapterId: string;
   kind: "content" | "exercise";
   unit: number;
+  /** Every Chapter whose subtree the unit reads. */
+  chapterIds: string[];
   /** Its Chapter's title; a packed unit's Chapters' titles, joined. */
   title: string;
   contentHash: string;
@@ -230,6 +232,7 @@ export async function loadCourseUnits(
         chapterId: unit.chapterId,
         kind,
         unit: unit.unit,
+        chapterIds: unit.chapterIds,
         title,
         contentHash: unitHash(
           title,
