@@ -142,7 +142,7 @@ export function CourseMap({
         </div>
       ) : (
         <>
-          {today}
+          <div className="flex shrink-0 flex-col gap-6">{today}</div>
           <div className="min-h-96 flex-1">
             <CourseMapGraph
               map={map}
