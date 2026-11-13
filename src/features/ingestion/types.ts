@@ -17,7 +17,11 @@ export type UnitLabel = (typeof UNIT_LABELS)[number];
 export const HEADING_STYLES = ["title", "large", "bold"] as const;
 
 /** Why a parse stored a page without reading it (`material_pages.skipped`). */
-export type PageSkip = "blank" | "overlay" | "unreadable" | "uncovered";
+export type PageSkip =
+  "blank" | "overlay" | "unreadable" | "uncovered" | "titles";
+
+/** The reasons a page batch answer gives for a page without units. */
+export const PAGE_SKIP_REASONS = ["titles_or_contents"] as const;
 
 /** Where a Material's parse stands. */
 export type ParseStatus =

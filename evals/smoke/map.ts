@@ -1,5 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { buildKnowledgeMap } from "@/features/knowledge-map/server";
+import {
+  buildKnowledgeMap,
+  loadCourseUnits,
+  unitKey,
+} from "@/features/knowledge-map/server";
 import { exportCourse } from "./gold-export";
 import { GOLD_SLUG } from "./gold-course";
 import {
@@ -184,7 +188,7 @@ async function checkMap(
         .eq("course_id", courseId),
       supabase
         .from("chapter_extractions")
-        .select("chapter_id, output")
+        .select("chapter_id, kind, unit, output")
         .eq("course_id", courseId),
       supabase
         .from("chunks")
@@ -207,24 +211,52 @@ async function checkMap(
     if (error) throw new Error(error.message);
   }
 
-  // A unit's chunks lie in its Chapter's subtree, so a KC citing a chunk
-  // outside that subtree cites one outside its unit.
-  const parentOf = new Map(chapters.data!.map((c) => [c.id, c.parent_id]));
-  const inSubtree = (chapterId: string | null, root: string): boolean =>
-    chapterId !== null &&
-    (chapterId === root || inSubtree(parentOf.get(chapterId) ?? null, root));
-  const chapterOf = new Map(chunks.data!.map((c) => [c.id, c.chapter_id]));
-  const strays = extractions.data!.flatMap((row) =>
-    (row.output as { kcs: Array<{ name: string; chunkIds: string[] }> }).kcs
+  // A KC may cite any chunk of its unit's `chapterIds`' subtrees.
+  const parentOf = new Map(
+    chapters.data!.map((c) => [c.id, c.parent_id] as const),
+  );
+  const inSubtree = (chapterId: string, roots: readonly string[]) => {
+    for (let id: string | null = chapterId; id; id = parentOf.get(id) ?? null) {
+      if (roots.includes(id)) return true;
+    }
+    return false;
+  };
+  const units = (
+    await Promise.all(
+      (["content", "exercise"] as const).map((kind) =>
+        loadCourseUnits(supabase, courseId, kind),
+      ),
+    )
+  ).flat();
+  const unitChunks = new Map(
+    units.map((unit) => [
+      unitKey(unit),
+      new Set(
+        chunks
+          .data!.filter(
+            (chunk) =>
+              chunk.chapter_id !== null &&
+              inSubtree(chunk.chapter_id, unit.chapterIds),
+          )
+          .map((chunk) => chunk.id),
+      ),
+    ]),
+  );
+  const strays = extractions.data!.flatMap((row) => {
+    const allowed =
+      unitChunks.get(
+        unitKey({ chapterId: row.chapter_id, kind: row.kind, unit: row.unit }),
+      ) ?? new Set<string>();
+    return (
+      row.output as { kcs: Array<{ name: string; chunkIds: string[] }> }
+    ).kcs
       .filter(
         (kc) =>
           kc.chunkIds.length === 0 ||
-          kc.chunkIds.some(
-            (id) => !inSubtree(chapterOf.get(id) ?? null, row.chapter_id),
-          ),
+          kc.chunkIds.some((id) => !allowed.has(id)),
       )
-      .map((kc) => kc.name),
-  );
+      .map((kc) => kc.name);
+  });
   // Formulas aside: LaTeX's \le would read as French "le". Name and
   // description together, as a short description may hold no marker word.
   const notEnglish = kcs.data!.filter((kc) => {

@@ -48,7 +48,7 @@ const CHECK_INSTRUCTIONS = `You get things that knowledge components (KCs) of a 
 
 /**
  * Call settings for one Prerequisite check of a build (task `map`), over up
- * to 25 names:
+ * to 50 names:
  *
  *   streamText({ ...prerequisiteCheckSettings(n), messages: prerequisiteCheckMessages(n) })
  */

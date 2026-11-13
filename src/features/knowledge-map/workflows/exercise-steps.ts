@@ -16,7 +16,6 @@ import {
   type StoredExtraction,
 } from "@/features/knowledge-map/schemas";
 import {
-  buildCall,
   extractAttempts,
   loadCourseLanguage,
   loadCourseUnits,
@@ -28,6 +27,10 @@ import {
   type CourseUnit,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  buildCall,
+  RateLimited,
+} from "@/features/knowledge-map/workflows/build-call";
 import { matchKcs } from "@/features/knowledge-map/workflows/consolidate-steps";
 import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
 import { allRows } from "@/lib/supabase/all-rows";
@@ -44,8 +47,11 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * is no longer the one it was extracted with.
  */
 
-/** How many KCs an exercise call is offered. */
-const CANDIDATE_KCS = 30;
+/** How many KCs an exercise call is offered at most. */
+const CANDIDATE_KCS = 40;
+
+/** How many nearest live KCs each exercise chunk adds. */
+const KCS_PER_CHUNK = 8;
 
 /** Parallel `match_kcs` calls. */
 const MATCHES_AT_ONCE = 10;
@@ -55,8 +61,9 @@ const MATCHES_AT_ONCE = 10;
  * order, as one round of at most AI_CONCURRENCY calls. A unit whose call
  * fails is left to the next step and goes last; after its second failure
  * it is called in pieces until it is given up (`domain/unit-pieces.ts`), so
- * it never fails the build. A reached Daily limit stops the build; what is
- * stored stays.
+ * it never fails the build. A unit the rate limit turned away is left to the
+ * next step, after the wait (`waitMs`). A reached Daily limit stops the
+ * build; what is stored stays.
  */
 export async function extractExercises(
   courseId: string,
@@ -119,7 +126,7 @@ export async function extractExercises(
     loadCandidates(supabase, courseId, batch),
   ]);
 
-  const { done, failedKeys, limit } = await extractAttempts(
+  const { done, failedKeys, limit, waitMs } = await extractAttempts(
     supabase,
     { owner, courseId },
     attempts,
@@ -134,7 +141,12 @@ export async function extractExercises(
     startedAt,
   );
   if (limit) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: attempts.length - done, failed: failedKeys };
+  return {
+    ok: true,
+    left: attempts.length - done,
+    failed: failedKeys,
+    waitMs,
+  };
 }
 
 extractExercises.maxRetries = RATE_LIMITED_STEP_RETRIES;
@@ -158,11 +170,27 @@ async function loadMarkdowns(
   return markdowns;
 }
 
+/**
+ * The lists' ids by rank (each list's first, then each second, and so on),
+ * without repeats, up to CANDIDATE_KCS.
+ */
+function mergeByRank(lists: readonly string[][]): string[] {
+  const merged = new Set<string>();
+  const longest = Math.max(0, ...lists.map((list) => list.length));
+  for (let rank = 0; rank < longest; rank++) {
+    for (const list of lists) {
+      if (list[rank] !== undefined) merged.add(list[rank]!);
+    }
+  }
+  return [...merged].slice(0, CANDIDATE_KCS);
+}
+
 type Candidate = { id: string; name: string; description: string };
 
 /**
- * Each unit's CANDIDATE_KCS live KCs nearest to any of its exercise chunks,
- * most alike first, by `unitKey`.
+ * Each unit's candidate KCs by `unitKey`: the KCS_PER_CHUNK live KCs nearest
+ * to each of its exercise chunks, merged by rank without repeats, up to
+ * CANDIDATE_KCS.
  */
 async function loadCandidates(
   supabase: AdminSupabase,
@@ -185,40 +213,32 @@ async function loadCandidates(
     embeddings.push(...data);
   }
 
-  const best = new Map<string, Map<string, number>>();
+  const nearest = new Map<string, string[]>();
   for (let start = 0; start < embeddings.length; start += MATCHES_AT_ONCE) {
     await Promise.all(
       embeddings
         .slice(start, start + MATCHES_AT_ONCE)
         .map(async ({ id, embedding }) => {
           if (!embedding) return;
-          const key = unitOf.get(id)!;
           const matches = await matchKcs(
             supabase,
             courseId,
             embedding,
-            CANDIDATE_KCS,
+            KCS_PER_CHUNK,
             false,
           );
-          const scores = best.get(key) ?? new Map<string, number>();
-          for (const match of matches) {
-            scores.set(
-              match.id,
-              Math.max(scores.get(match.id) ?? -1, match.similarity),
-            );
-          }
-          best.set(key, scores);
+          nearest.set(
+            id,
+            matches.map((match) => match.id),
+          );
         }),
     );
   }
 
   const chosen = new Map(
-    [...best].map(([key, scores]) => [
-      key,
-      [...scores]
-        .toSorted((a, b) => b[1] - a[1])
-        .slice(0, CANDIDATE_KCS)
-        .map(([id]) => id),
+    units.map((unit) => [
+      unitKey(unit),
+      mergeByRank(unit.chunks.map((chunk) => nearest.get(chunk.id) ?? [])),
     ]),
   );
   const kcIds = [...new Set([...chosen.values()].flat())];
@@ -256,7 +276,7 @@ async function extractUnit(
     solutionOf: (chunkId: string) => string | null;
     candidates: Candidate[];
   },
-): Promise<StoredExtraction | "limit" | "failed"> {
+): Promise<StoredExtraction | "limit" | "failed" | RateLimited> {
   const subtasks = unit.chunks.map((chunk, index): OfferedSubtask => {
     const solutionChunkId = solutionOf(chunk.id);
     return {
@@ -291,7 +311,9 @@ async function extractUnit(
     },
     exerciseExtractionSchema(),
   );
-  if (typeof answer === "string") return answer;
+  if (typeof answer === "string" || answer instanceof RateLimited) {
+    return answer;
+  }
   const { kcs, exercises } = checkExerciseAnswer(
     answer,
     subtasks,

@@ -1,3 +1,4 @@
+import { sleep } from "workflow";
 import {
   buildFailedReason,
   nothingToMapReason,
@@ -33,10 +34,12 @@ import { proposeTopicTree } from "@/features/knowledge-map/workflows/topic-steps
  * into pieces until it is given up, and the check report lists it. A match
  * call is asked again in halved calls, and after four failed tries its
  * names stay as text. A merge call that fails twice fails the build with a
- * reason naming its Chapter. A step that fails for
- * good, or a reached Daily limit, fails the build with a reason and loses
- * only that step's calls: the next Update map resumes where the build
- * stopped.
+ * reason naming its Chapter. A call the Gateway's rate limit turns away is
+ * no failure: its step stores what was answered, and the workflow sleeps
+ * the wait it named before the next step calls the rest. A step that fails
+ * for good, or a reached Daily limit, fails the build with a reason and
+ * loses only that step's calls: the next Update map resumes where the
+ * build stopped.
  */
 export async function buildKnowledgeMap(courseId: string): Promise<void> {
   "use workflow";
@@ -78,6 +81,8 @@ export async function buildKnowledgeMap(courseId: string): Promise<void> {
         if (outcome.left === null) return;
         if (outcome.left === 0) break;
         failed = [...failed, ...(outcome.failed ?? [])];
+        // The rate limit turned a call away: its units wait, nothing failed.
+        if (outcome.waitMs !== undefined) await sleep(outcome.waitMs);
       }
     }
     const proposal = await proposeTopicTree(courseId);

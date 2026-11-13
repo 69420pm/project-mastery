@@ -145,8 +145,9 @@ export type SentName = {
  * time. The extraction gives each unit the KCs `kcsOf` names (by default
  * one named after the unit's Chapter), citing its first chunk (or the id
  * `chunkIdOf` gives) and assuming the names `assumesOf` says (by default
- * nothing), each described "About <name>." as a KC of that name is; its
- * first `timeoutCalls` calls time out, and the next `blankCalls` answer
+ * nothing), each described "About <name>." as a KC of that name is; the
+ * calls `rateLimitedCalls` count meet the rate limit, its first
+ * `timeoutCalls` other calls time out, and the next `blankCalls` answer
  * nothing. The merge call
  * calls KCs of one cluster with the same name the same. The Prerequisite
  * check picks the candidate named `meaningOf` the name (by default the name
@@ -163,6 +164,7 @@ export function useBuildModels({
   subtaskOf = () => ({}),
   blankCalls = 0,
   timeoutCalls = 0,
+  rateLimitedCalls = [],
   blankChecks = 0,
   afterCall,
   treeOf = flatTree,
@@ -179,6 +181,8 @@ export function useBuildModels({
   blankCalls?: number;
   /** Extraction calls that run into their time limit first. */
   timeoutCalls?: number;
+  /** The extraction calls, counted from 1, the Gateway's rate limit turns away. */
+  rateLimitedCalls?: number[];
   afterCall?: (count: number) => void;
 } = {}) {
   const timeouts = Array.from({ length: timeoutCalls }, () => true);
@@ -189,6 +193,8 @@ export function useBuildModels({
   /** Each `map` call's reasoning setting. */
   const reasoning: unknown[] = [];
   const blanks = Array.from({ length: blankCalls }, () => true);
+  /** Every extraction call, answered or not. */
+  const extractCalls: unknown[] = [];
   const failedChecks = Array.from({ length: blankChecks }, () => true);
   const map = new MockLanguageModelV4({
     doStream: async (options) => {
@@ -220,6 +226,13 @@ export function useBuildModels({
               .map((group) => ({ kcIds: group.map((kc) => kc.id) })),
           ),
         });
+      }
+      extractCalls.push(sent);
+      if (rateLimitedCalls.includes(extractCalls.length)) {
+        throw Object.assign(
+          new Error("Rate limit exceeded. Retry after 20s."),
+          { name: "GatewayRateLimitError" },
+        );
       }
       if (timeouts.pop()) {
         // What the AI SDK's `timeout` aborts the call with.

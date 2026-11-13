@@ -33,3 +33,5 @@ export {
 } from "./server/stored-topics";
 export { topicLineage } from "./domain/topic-tree";
 export { buildKnowledgeMap } from "./workflows/build-knowledge-map";
+// The map smoke check reads the units a KC may cite from.
+export { loadCourseUnits, unitKey } from "./workflows/build-steps";

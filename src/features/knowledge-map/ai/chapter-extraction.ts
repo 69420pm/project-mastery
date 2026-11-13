@@ -65,7 +65,7 @@ export const chapterExtractionSchema = (chunkIds: readonly string[] = []) =>
         }),
       )
       .describe(
-        "Pairs of this unit's KCs where the text shows that one builds on the other.",
+        "Pairs of this unit's KCs where the second uses the first in its statement, its proof or its method.",
       ),
   });
 
@@ -73,10 +73,12 @@ const EXTRACTION_INSTRUCTIONS = `You get one unit of a university course's mater
 
 - A KC is one thing the unit teaches: a statement to know, an idea to understand, a method to carry out or when to use which method. Size it as something an exam task could test on its own and a Student could learn in one sitting.
 - Together, the unit's KCs cover what it teaches. Do not split one thing into several KCs or merge several into one.
-- Headings, summaries, asides, the organisation of the course and repeated material are no KCs.
+- Headings, summaries, the organisation of the course, lists of notation or conventions, repeated material and asides the course does not ask for (history, cost, outlooks beyond the course) are no KCs.
+- An example, counterexample, caution or remark belongs to the KC it illustrates. Give it a KC of its own only when an exam task could test it alone. A description states the KC itself, without examples or their numbers.
+- The outline only shows where the unit sits: take KCs only from the chunks. A chunk that is only a heading teaches nothing.
 - Give each KC a short name, a one-line description and the ids of the chunks that teach it.
 - For each KC, list under assumes up to 3 things it uses that this unit does not explain, from an earlier chapter or from outside the course, each with a short name and a one-line description of what it states or what it is. Leave out everyday knowledge that a university student of this subject cannot lack.
-- List a Prerequisite between two of this unit's KCs, by their names, only where the text shows that the second builds on the first.
+- List a Prerequisite between two of this unit's KCs, by their names, where the second uses the first in its statement, its proof or its method.
 - Write every name and description in the course language. Formulas in LaTeX ($...$).`;
 
 /**
