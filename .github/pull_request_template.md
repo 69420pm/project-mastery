@@ -12,7 +12,7 @@
 
 ## Try it
 
-<!-- Steps in the running app, each with what you should see. -->
+<!-- Browser steps on the PR's preview, each with what you should see, or "Nothing to see in the app". No commands. -->
 
 ## Checked
 

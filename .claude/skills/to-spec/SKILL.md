@@ -19,9 +19,9 @@ A spec has two halves. The **top half**, down to `Try it`, is the user's: what t
 
 4. **Size and slice it.** Split the work into vertical slices in build order, each working and testable on its own across the layers it needs. A **small** spec is one slice, a **feature** two to four. Anything larger is a **bet**: spec only its thinnest version that works end to end, and leave the rest until the user has used that version. Slices run on Sonnet; mark a slice `opus` when it designs new structure, such as a new workflow, schema or model call.
 
-5. **Write the Try it steps.** At most five steps the user takes in the running app, in under five minutes, each with what they should see, that together show the Goal is met. A change with nothing to see names the command that shows it.
+5. **Write the Try it steps.** At most five steps the user takes in a browser on the PR's preview, in under five minutes, each with what they should see, that together show the Goal is met. The preview runs on the staging project, where the user has their own Courses and the local test users do not exist. The user runs no command: a change with nothing to see in the app says so, and names what the builder runs and reports in the PR.
 
-6. **Plan the smoke check.** When the change touches a model call, name the [smoke check](../../../docs/agents/live-ai.md) that runs it once on a small real input, for example `pnpm smoke parse e2e/files/lecture-notes.pdf`. When the change depends on how the deployed model behaves (its tool calls, structured output or limits), pin that model with `AI_SMOKE_MODEL`: a check on the local default can pass where the deployed model fails. If it or the `pnpm smoke` runner doesn't exist yet, building it belongs to the last slice.
+6. **Plan the smoke check.** When the change touches a model call, name the [smoke check](../../../docs/agents/live-ai.md) that runs it once on a small real input, for example `pnpm smoke parse e2e/files/lecture-notes.pdf`. When the change depends on how the deployed model behaves (its tool calls, structured output or limits), pin that model with `AI_SMOKE_MODEL`: a check on the local default can pass where the deployed model fails. If it or the `pnpm smoke` runner doesn't exist yet, building it belongs to the last slice. A build that runs live rounds (tuning against a judge, a research run) names their cap here: rounds, calls and judging agents. The user queues such a spec last in a shift.
 
 7. **Publish.** Fill the template, keeping its `##` headings, with the top half under about 250 words and the whole under about 800. Create the issue as [docs/agents/issue-tracker.md](../../../docs/agents/issue-tracker.md) describes, as a sub-issue of the parent if there is one. Reply with the top half as published, the link and `/build <number>`.
 
@@ -50,7 +50,7 @@ What was cut or deferred and why, one line each, so each can become its own issu
 
 ## Try it
 
-1. A step in the running app, and what the user should see.
+1. A step on the preview, and what the user should see.
 
 ## Build decisions
 

@@ -12,15 +12,15 @@ How this repo equips coding agents: what to change when a run goes wrong, and wh
 
 ## Where things live
 
-| Place                    | Holds                                                                                                    |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `AGENTS.md`              | Pointers only, loaded into every session                                                                 |
-| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues, sweeps                                             |
-| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked                                      |
-| `docs/agents/notes/`     | Verified library and environment gotchas                                                                 |
-| `.claude/skills/`        | Workflows the user starts (`/sitting`, `/to-spec`, `/build`; parked: `/retro`, `/sweep`, `/sweep-apply`) |
-| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`, `/sweep`'s auditors)                                     |
-| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop                                               |
-| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm nit`, `pnpm -s retro`)                             |
-| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)                                         |
-| ESLint rules, tests      | Rules a machine can check                                                                                |
+| Place                    | Holds                                                                                                                                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`              | Pointers only, loaded into every session                                                                                                                                                                                           |
+| `docs/agents/*.md`       | Repo facts by topic: worktrees, live AI, PRs, issues, sweeps                                                                                                                                                                       |
+| `docs/retros/`           | `/retro` reports: what runs cost, what was fixed, whether it worked                                                                                                                                                                |
+| `docs/agents/notes/`     | Verified library and environment gotchas                                                                                                                                                                                           |
+| `.claude/skills/`        | Workflows the user starts (`/sitting`, `/to-spec`, `/build`; parked: `/retro`, `/sweep`, `/sweep-apply`). `pnpm sitting` and `pnpm shift <numbers>` start `/sitting` and `/build` in a new session on their models (Sonnet, Haiku) |
+| `.claude/agents/`        | Roles that skills start (`builder`, `reviewer`, `/sweep`'s auditors)                                                                                                                                                               |
+| `.claude/hooks/`         | Guardrails: Bash guard, lint on edit, `pnpm check` on stop                                                                                                                                                                         |
+| `tools/`, `package.json` | CLIs agents run (`pnpm -s agent`, `pnpm smoke`, `pnpm nit`, `pnpm -s retro`, `tools/sitting/waiting.sh`)                                                                                                                           |
+| `tools/sweep/`           | `/sweep`'s checks and units (`pnpm -s sweep [mutate [unit...]]`)                                                                                                                                                                   |
+| ESLint rules, tests      | Rules a machine can check                                                                                                                                                                                                          |
