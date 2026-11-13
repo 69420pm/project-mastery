@@ -36,7 +36,7 @@ export const kcMergeSchema = (kcIds: readonly string[] = []) =>
 
 const MERGE_INSTRUCTIONS = `You get clusters of knowledge components (KCs) from one university course, as JSON: each KC with its id, name and description. The KCs of a cluster are worded alike. In each cluster, say which KCs are the same KC.
 
-- Two KCs are the same when they teach the same thing, so one short exam question would test both.
+- Two KCs are the same when they teach the same thing, so one short exam question would test both. Two KCs that state the same definition, theorem or method are the same, also when one adds detail, examples or how to check it.
 - A KC that is a special case, a part, an application or the converse of another is not the same KC.
 - Name only KCs of one cluster together. Leave out a KC that is the same as no other. Do not guess.`;
 

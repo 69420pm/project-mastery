@@ -47,8 +47,11 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * is no longer the one it was extracted with.
  */
 
-/** How many KCs an exercise call is offered. */
-const CANDIDATE_KCS = 30;
+/** How many KCs an exercise call is offered at most. */
+const CANDIDATE_KCS = 40;
+
+/** How many nearest live KCs each exercise chunk adds. */
+const KCS_PER_CHUNK = 8;
 
 /** Parallel `match_kcs` calls. */
 const MATCHES_AT_ONCE = 10;
@@ -167,11 +170,27 @@ async function loadMarkdowns(
   return markdowns;
 }
 
+/**
+ * The lists' ids by rank (each list's first, then each second, and so on),
+ * without repeats, up to CANDIDATE_KCS.
+ */
+function mergeByRank(lists: readonly string[][]): string[] {
+  const merged = new Set<string>();
+  const longest = Math.max(0, ...lists.map((list) => list.length));
+  for (let rank = 0; rank < longest; rank++) {
+    for (const list of lists) {
+      if (list[rank] !== undefined) merged.add(list[rank]!);
+    }
+  }
+  return [...merged].slice(0, CANDIDATE_KCS);
+}
+
 type Candidate = { id: string; name: string; description: string };
 
 /**
- * Each unit's CANDIDATE_KCS live KCs nearest to any of its exercise chunks,
- * most alike first, by `unitKey`.
+ * Each unit's candidate KCs by `unitKey`: the KCS_PER_CHUNK live KCs nearest
+ * to each of its exercise chunks, merged by rank without repeats, up to
+ * CANDIDATE_KCS.
  */
 async function loadCandidates(
   supabase: AdminSupabase,
@@ -194,40 +213,32 @@ async function loadCandidates(
     embeddings.push(...data);
   }
 
-  const best = new Map<string, Map<string, number>>();
+  const nearest = new Map<string, string[]>();
   for (let start = 0; start < embeddings.length; start += MATCHES_AT_ONCE) {
     await Promise.all(
       embeddings
         .slice(start, start + MATCHES_AT_ONCE)
         .map(async ({ id, embedding }) => {
           if (!embedding) return;
-          const key = unitOf.get(id)!;
           const matches = await matchKcs(
             supabase,
             courseId,
             embedding,
-            CANDIDATE_KCS,
+            KCS_PER_CHUNK,
             false,
           );
-          const scores = best.get(key) ?? new Map<string, number>();
-          for (const match of matches) {
-            scores.set(
-              match.id,
-              Math.max(scores.get(match.id) ?? -1, match.similarity),
-            );
-          }
-          best.set(key, scores);
+          nearest.set(
+            id,
+            matches.map((match) => match.id),
+          );
         }),
     );
   }
 
   const chosen = new Map(
-    [...best].map(([key, scores]) => [
-      key,
-      [...scores]
-        .toSorted((a, b) => b[1] - a[1])
-        .slice(0, CANDIDATE_KCS)
-        .map(([id]) => id),
+    units.map((unit) => [
+      unitKey(unit),
+      mergeByRank(unit.chunks.map((chunk) => nearest.get(chunk.id) ?? [])),
     ]),
   );
   const kcIds = [...new Set([...chosen.values()].flat())];

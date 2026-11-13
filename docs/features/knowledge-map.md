@@ -137,7 +137,7 @@ A **Chapter unit** comes from `chapterUnits` in `domain/chapter-units.ts`. A Cha
 
 A unit's hash covers its Chapter's title and its chunks' Markdown. A unit whose stored extraction has the same hash makes no call: this is why Update map is cheap.
 
-The call answers KCs (name, description, the chunks that teach it, up to 3 things it `assumes`) and Prerequisites among them, by name. `checkExtraction` turns names and short ids into stored references. **Coverage** (`unitCoverage` in `domain/unit-coverage.ts`) is the share of the unit's characters in chunks some KC cites: below `MIN_UNIT_COVERAGE` (0.5) the call is made once more, and the answer that covers more is kept. An answer with no KCs (a notation list, say) is kept as it is, without that retry; the check report lists its Chapter under Chapters without KCs. The result goes into `chapter_extractions`, not yet into `kcs`.
+The call answers KCs (name, description, the chunks that teach it, up to 3 things it `assumes`) and Prerequisites among them, by name. Its prompt keeps the KCs near the size of an exam task: headings, notation lists, repeated material and asides beyond the course are no KCs, an example or remark belongs to the KC it illustrates unless an exam task could test it alone, the Outline only places the unit (KCs come from the chunks), and a Prerequisite is listed where the second KC uses the first in its statement, proof or method. `checkExtraction` turns names and short ids into stored references. **Coverage** (`unitCoverage` in `domain/unit-coverage.ts`) is the share of the unit's characters in chunks some KC cites: below `MIN_UNIT_COVERAGE` (0.5) the call is made once more, and the answer that covers more is kept. An answer with no KCs (a notation list, say) is kept as it is, without that retry; the check report lists its Chapter under Chapters without KCs. The result goes into `chapter_extractions`, not yet into `kcs`.
 
 ### 2. Consolidate
 
@@ -146,15 +146,15 @@ The call answers KCs (name, description, the chunks that teach it, up to 3 thing
 1. **Embed** it as "name: description".
 2. **Revive:** a retired KC at cosine similarity 0.90 or more comes back instead of a new one.
 3. **Find alike ones:** live KCs and other new KCs at 0.85 or more form clusters of 2 to 8.
-4. **Ask the merge call** which KCs of each cluster are the same, 15 clusters per call.
+4. **Ask the merge call** which KCs of each cluster are the same, 15 clusters per call. Its prompt counts two KCs that state the same definition, theorem or method as the same, also when one adds detail, examples or how to check it.
 5. **Apply the answer in code** (`mergeTargets`). A group keeps its oldest stored KC, or else its first new one. A merged new KC is never stored, and the KC it merges into gains its sources. Two stored KCs never merge.
 6. **Store** with `store_chapter_kcs` in one transaction. Prerequisites go through `acyclicLinks`, where a link that would close a cycle is dropped, so each cycle loses its newest link.
 
 ### 3. Extract the exercise units
 
-`extractExercises` makes one call per exercise unit that has no current extraction, or whose paired solutions changed. The call sees each exercise chunk's statement and paired solution, and the 30 live KCs nearest to the unit's statements. That's why it runs after step 2.
+`extractExercises` makes one call per exercise unit that has no current extraction, or whose paired solutions changed. The call sees each exercise chunk's statement and paired solution, and the live KCs nearest to the unit's statements: each exercise chunk adds its 8 nearest, merged by rank (every chunk's first, then every second) without repeats, up to 40 per unit. That's why it runs after step 2.
 
-It answers, per exercise chunk (the call's prompt says "subtask"): the listed KCs it tests, new KCs only when none fits, mathematical final results copied as printed and written as mathjs (code drops a key mathjs cannot parse), and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
+It answers, per exercise chunk (the call's prompt says "subtask"): the listed KCs its solution uses as a step (usually 1 to 4, at most 6), new KCs only when no listed one teaches what it needs, mathematical final results copied as printed and written as mathjs (code drops a key mathjs cannot parse; the prompt leaves out a result that depends on the Student's own choice, such as a representative, an order, a parametrisation or an example), and whether it is no exercise at all. Code then computes the difficulty from the number of KCs and the solution's length (`exerciseDifficulty`).
 
 **One exercise chunk gives one Exercise**, and the page read keeps an exercise with all its printed subtasks in one unit, so "Ex. 7.2" with parts a to c is one Exercise. A new KC's source is the exercise chunk that needed it, with `origin` `exercise`.
 

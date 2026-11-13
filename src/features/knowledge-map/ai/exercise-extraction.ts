@@ -46,7 +46,7 @@ export const exerciseExtractionSchema = (
         kcIds: z
           .array(offeredId(kcIds))
           .describe(
-            "The 1 to 6 listed KCs a Student needs to solve it, most important first.",
+            "The listed KCs its solution uses, most important first: usually 1 to 4, at most 6.",
           ),
         newKcs: z
           .array(
@@ -85,9 +85,9 @@ export const exerciseExtractionSchema = (
 
 const EXERCISE_INSTRUCTIONS = `You get one unit of a university course's exercises as JSON: the material's name, its outline with the unit's chapters marked, the course language, its subtasks, each with an id, its statement and its printed solution or null, and the knowledge components (KCs) nearest to it, each with an id. Answer for every subtask.
 
-- Give the ids of the 1 to 6 listed KCs a Student needs to solve it, most important first.
-- Only when no listed KC fits something it needs, propose a new KC: something an exam task could test on its own and a Student could learn in one sitting, with a short name and a one-line description.
-- Copy each final result that the statement or the solution prints, as printed: a result the statement gives for checking, such as "Result: 12 solutions", or the result the printed solution arrives at, such as "so $\\dim W = 3$". Write it as a mathjs expression: a number with its unit ("12 kg*m/s^2"), a vector ("[2, -3]"), a matrix by rows ("[[1, 2], [0, 1]]"), a complex number ("3 + 4i") or an expression in the statement's symbols ("n + 1"). Mark a list whose order does not matter, such as a set of eigenvalues, as any order. Give none for a result that is not mathematical, such as a proof or a sentence, and none when neither prints one: do not solve anything yourself.
+- Give the ids of the listed KCs its solution uses as a step, most important first: usually 1 to 4, at most 6. A KC used in several parts counts once.
+- Only when no listed KC teaches something it needs, propose a new KC, never a restatement of a listed one: something an exam task could test on its own and a Student could learn in one sitting, with a short name and a one-line description.
+- Copy each final result that the statement or the solution prints, as printed: a result the statement gives for checking, such as "Result: 12 solutions", or the result the printed solution arrives at, such as "so $\\dim W = 3$". Write it as a mathjs expression: a number with its unit ("12 kg*m/s^2"), a vector ("[2, -3]"), a matrix by rows ("[[1, 2], [0, 1]]"), a complex number ("3 + 4i") or an expression in the statement's symbols ("n + 1"). Mark a list whose order does not matter, such as a set of eigenvalues, as any order. Copy only a result every correct solution states identically: leave out one that depends on a choice the Student makes, such as a representative, an order, a parametrisation, an example or a counterexample. Give none for a result that is not mathematical, such as a proof or a sentence, and none when neither prints one: do not solve anything yourself.
 - Mark a subtask that asks nothing of the Student, such as a heading or an instruction for the whole sheet, as not an exercise.
 - Write every name and description in the course language. Formulas in LaTeX ($...$).`;
 
