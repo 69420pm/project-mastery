@@ -39,6 +39,8 @@
     "brief-eval": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/brief-eval.ts",
     "tutor-eval": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/tutor-eval.ts",
     "nit": "gh issue create --label \"status: triage\" --body \"\" --title",
+    "sitting": "sh -c 'exec claude --model sonnet \"/sitting $*\"' --",
+    "shift": "sh -c 'exec claude --model haiku \"/build $*\"' --",
     "retro": "tsx tools/retro/cli.ts",
     "sweep": "tsx tools/sweep/cli.ts"
   },
