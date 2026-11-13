@@ -2,8 +2,8 @@
  * Holds model requests within the free tiers' limits, for the smoke checks
  * and the tutoring scenarios (docs/agents/live-ai.md).
  */
+import { execFileSync } from "node:child_process";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 /**
@@ -42,7 +42,16 @@ function limitOf(url: string): { host: string; rpm: number } | null {
  * machine: `pnpm tutor-eval say` runs once per Student message, and each run
  * has to know what the one before it sent.
  */
-const SENT_FILE = path.join(os.tmpdir(), "project-mastery-model-requests.json");
+const SENT_FILE = path.join(
+  execFileSync(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    {
+      encoding: "utf8",
+    },
+  ).trim(),
+  "project-mastery-model-requests.json",
+);
 
 function readSent(): Record<string, number[]> {
   try {

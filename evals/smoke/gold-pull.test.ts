@@ -58,8 +58,9 @@ it("pulls every snapshot table and the Materials' files from staging", async () 
 
 it("stops when the Course is not on staging", async () => {
   const { fetchFn } = fakeStaging({});
+  const dir = await mkdtemp(path.join(tmpdir(), "gold-pull-"));
   await expect(
-    pullCourse(staging, "missing", "x", { fetchFn, dir: tmpdir() }),
+    pullCourse(staging, "missing", "x", { fetchFn, dir }),
   ).rejects.toThrow("not found on staging");
 });
 
