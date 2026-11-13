@@ -166,7 +166,7 @@ function ExamFacts({
     ["Scope confirmed", yesNo(fields.scopeConfirmed)],
   ];
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
       {rows.map(([label, value]) => (
         <div key={label} className="contents">
           <dt className="text-muted-foreground">{label}</dt>
@@ -178,7 +178,7 @@ function ExamFacts({
       {reservedExam && (
         <div className="contents">
           <dt className="text-muted-foreground">Reserved exam</dt>
-          <dd>
+          <dd className="break-words">
             {reservedExam === "none" ? (
               "None"
             ) : (
