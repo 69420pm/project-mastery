@@ -3,7 +3,8 @@
  * every reply so they stay cached. The facts of the moment come in the
  * tutor context in front of the newest Student message
  * (`renderTutorContext`). Changing them means running the `tutor` smoke
- * check (ADR 0012).
+ * check and the tutoring scenarios in `evals/tutor/` (ADR 0012); the last
+ * rounds are in `evals/tutor/runs/`.
  */
 import { CONTEXT_TAG } from "@/features/study/ai/context";
 

@@ -32,7 +32,7 @@ Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use th
 | `pnpm tutor-eval say <run> "<message>"` | Sends the message through `respondInChat`, then prints the reply, each tool call's input and result, and the new Attempts. |
 | `pnpm tutor-eval end <run>`             | Deletes the run's Student with its data.                                                                                   |
 
-Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model.
+Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model. An Opus agent plays and judges each scenario; the scorecards of each tuning are in `evals/tutor/runs/<date>.md`.
 
 ## Making a gold course
 
