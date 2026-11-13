@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.3](https://github.com/florianportscher/project-mastery/compare/project-mastery-v0.1.2...project-mastery-v0.1.3) (2026-11-13)
+
+
+### Features
+
+* **evals:** brief scenario runner, a second Course and eight personas ([#294](https://github.com/florianportscher/project-mastery/issues/294)) ([1194e2d](https://github.com/florianportscher/project-mastery/commit/1194e2dde47884f5e65dcb9ad0fae3940d8801a2))
+* settings dialog with name, Daily limit and appearance; remove the usage page ([#283](https://github.com/florianportscher/project-mastery/issues/283)) ([82c156e](https://github.com/florianportscher/project-mastery/commit/82c156ebd31db19b008db82523480c8c1098e38c))
+
+
+### Bug Fixes
+
+* **brief:** show the reserved exam as a row of the exam facts ([#282](https://github.com/florianportscher/project-mastery/issues/282)) ([0079224](https://github.com/florianportscher/project-mastery/commit/0079224b050fb1ba0708b28f415e4571949908c7))
+* keep brief replies to one per message and polish the readme ([#263](https://github.com/florianportscher/project-mastery/issues/263)) ([d270d34](https://github.com/florianportscher/project-mastery/commit/d270d34a2ef59ece2da9a6824d82989ab915aca8))
+* **tutoring:** continue from a stored grade after an interrupted reply ([#293](https://github.com/florianportscher/project-mastery/issues/293)) ([c63e4d3](https://github.com/florianportscher/project-mastery/commit/c63e4d385acd7b598ff0908fae5c9d6a9beadb00))
+* **ui:** responsive fixes across the phone breakpoint ([#295](https://github.com/florianportscher/project-mastery/issues/295)) ([d571e4f](https://github.com/florianportscher/project-mastery/commit/d571e4fb32f1f24f379663d75b86c18440626f58))
+
 ## [0.1.2](https://github.com/florianportscher/project-mastery/compare/project-mastery-v0.1.1...project-mastery-v0.1.2) (2026-11-10)
 
 
