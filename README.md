@@ -96,7 +96,7 @@ Open work is tracked on the [project board](https://github.com/users/florianport
 
 ## How it was built: one developer, a team of agents
 
-I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent-florianportscher` account, and agents reach `main` only through pull requests that I merge.
+I make the product and architecture decisions; Claude Code agents write the code, in a workflow I designed. Almost every commit comes from the `agent-florianportscher` account, and agents reach `main` only through pull requests that auto-merge once I approve them on GitHub.
 
 Review is split by what each reviewer does best:
 
@@ -107,9 +107,10 @@ Review is split by what each reviewer does best:
 The workflow:
 
 1. **Decide.** `/grilling` interviews me about a plan until every decision is made, and `/to-spec` turns the answers into a one-page spec issue.
-2. **Build.** `/build <spec>` implements the spec in its own git worktree: a fresh `builder` agent per slice, a `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model, then a PR.
+2. **Build.** `/build` works through a queue of specs, each in its own git worktree: a fresh `builder` agent per slice, a `reviewer` pass against the spec and the repo's standards, a live smoke check against a real model, then a PR set to auto-merge on my approval.
 3. **Verify.** Agents check their own work. `pnpm -s agent` drives the running app in a real browser and database, hooks lint every edit, and an agent cannot stop until the full `pnpm check` passes.
-4. **Clean up.** `/sweep` audits the codebase with parallel auditor agents and opens one issue of ranked changes; `/sweep-apply` builds the ones I tick, and `/retro` reviews what recent runs cost and where they went wrong.
+4. **Accept.** In a `/sitting` one local preview holds every PR waiting for review. I try each one against its spec and approve it on GitHub, which merges it; the same session sorts the inbox and shapes the next queue.
+5. **Clean up.** From time to time, `/sweep` audits the codebase with parallel auditor agents and opens one issue of ranked changes; `/sweep-apply` builds the ones I tick, and `/retro` reviews what recent runs cost and where they went wrong.
 
 The harness follows a few rules: fix a failure in the environment (a lint rule, a script, a hook) before adding a sentence to a prompt, keep always-loaded instructions short, and use the cheapest model that does a role well. They are written down in [docs/agents/harness.md](docs/agents/harness.md), with the skills and agents in [`.claude/`](.claude/), run reports in [docs/retros/](docs/retros/) and audits in [docs/sweeps/](docs/sweeps/).
 
