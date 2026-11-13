@@ -75,7 +75,7 @@ describe("the Progress section", () => {
   });
 });
 
-test("shows the reserved exam as a line, or none once answered", () => {
+test("shows the reserved exam as a row of the exam facts, or None once answered", () => {
   const { unmount } = renderPanel({
     brief: { reservedExam: { name: "Exam 2024", href: "/exam" } },
   });
@@ -85,7 +85,10 @@ test("shows the reserved exam as a line, or none once answered", () => {
   );
   unmount();
   renderPanel({ brief: { reservedExam: "none" } });
-  expect(screen.getByText("Reserved exam:")).toBeInTheDocument();
+  const label = screen.getByText("Reserved exam");
+  expect(label.tagName).toBe("DT");
+  expect(label.nextElementSibling).toHaveTextContent("None");
+  expect(screen.queryByText("Reserved exam:")).toBeNull();
 });
 
 describe("BriefPanel", () => {

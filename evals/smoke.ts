@@ -45,15 +45,15 @@ const CHECKS: SmokeCheck[] = [
 /**
  * The model every generating task is pinned to unless the check names its
  * own (docs/agents/live-ai.md). With a Google key, as in local development,
- * that is the Gemini model, which answers in seconds where MiMo through
- * DeepInfra can take minutes (ADR 0016). `AI_SMOKE_MODEL` pins another
- * model, such as xiaomi/mimo-v2.6-flash, the model that ships.
+ * that is the Gemini model, which answers in seconds (ADR 0016). Otherwise
+ * it is meta/muse-ember, the model that ships. `AI_SMOKE_MODEL` pins another
+ * model.
  */
 const DEFAULT_SMOKE_MODEL =
   process.env.AI_SMOKE_MODEL ??
   (process.env.GOOGLE_GENERATIVE_AI_API_KEY
     ? "google/gemini-3.5-flash-lite"
-    : "xiaomi/mimo-v2.6-flash");
+    : "meta/muse-ember");
 
 /** The most model calls a smoke check may record, unless it sets its own. */
 const DEFAULT_MAX_CALLS = 30;
@@ -62,7 +62,7 @@ const DEFAULT_MAX_CALLS = 30;
  * How long a check may run. An agent's prompt cache expires after 5 idle
  * minutes, so a longer wait makes it write its whole context again
  * (docs/agents/live-ai.md). `AI_SMOKE_MAX_MINUTES` sets another limit, such
- * as for a check on MiMo.
+ * as for a check on a slow model.
  */
 const MAX_MINUTES = Number(process.env.AI_SMOKE_MAX_MINUTES || 4);
 
@@ -91,7 +91,7 @@ const GEMINI_RPM = Number(process.env.AI_SMOKE_RPM || 14);
 
 /**
  * AI Gateway's free credit: 5 requests per minute per provider, for
- * `cohere/embed-v5.0-fast` as for MiMo (docs/agents/live-ai.md). A build's
+ * `cohere/embed-v5.0-fast` as for Muse (docs/agents/live-ai.md). A build's
  * embeddings come faster, so the runner holds those requests too.
  */
 const GATEWAY_RPM = 5;

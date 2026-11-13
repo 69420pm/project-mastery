@@ -22,52 +22,52 @@ export type TaskConfig = {
  * The single per-task model configuration (ADR 0005). Feature
  * code asks for a task through `aiTask`, never for a model id.
  *
- * These are placeholders: MiMo V2.6 Flash does the text work for its price
- * (ADR 0006), and the Gateway's free credit serves it (verified live on
- * 2026-10-14: no Google model, no MiMo Pro). The real model per task is chosen by testing on real course materials (open
- * question in docs/ARCHITECTURE.md). Local development can point a text task
+ * Every text task runs Muse Ember (ADR 0006), which the Gateway's free
+ * credit serves (docs/agents/notes/muse-ember.md). The real model per task is
+ * chosen by testing on real course materials (open question in
+ * docs/ARCHITECTURE.md). Local development can point a text task
  * at `google/gemini-3.5-flash-lite` through its override (ADR 0016).
  */
 export const AI_TASKS = {
   /** The AI's replies in a Chat. */
   chat: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_CHAT",
   },
   /** The AI's replies in a Course's Brief, where it asks about the exam. */
   brief: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_BRIEF",
   },
   /** A short title for a Chat, on the cheapest model. */
   title: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_TITLE",
   },
   /** Vision: a rendered page image to markdown with LaTeX (ADR 0007). */
   ingest: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_INGEST",
   },
   /** Builds a Course's Knowledge map from its chunks. */
   map: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_MAP",
   },
   /** The Exercises of a Knowledge map build and the KCs they test. */
   exercise: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_EXERCISE",
   },
   /** Proposes a Knowledge map build's Topic tree, with structured output. */
   topic: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_TOPIC",
   },
@@ -77,7 +77,7 @@ export const AI_TASKS = {
    * program fails goes back once.
    */
   generate: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_GENERATE",
   },
@@ -87,7 +87,7 @@ export const AI_TASKS = {
    * output. Metered, but not refused at the Daily limit.
    */
   grade_exam: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_GRADE_EXAM",
   },
@@ -97,7 +97,7 @@ export const AI_TASKS = {
    * structured output. Metered, but not refused at the Daily limit.
    */
   close: {
-    model: "xiaomi/mimo-v2.6-flash",
+    model: "meta/muse-ember",
     fallbacks: [],
     override: "AI_MODEL_CLOSE",
   },
@@ -138,7 +138,7 @@ const taskConfig = (task: AiTask): TaskConfig => AI_TASKS[task];
  * and answer in their own shape, so `Output.object` fails), and it is the
  * only one with zero data retention and no prompt training. `order` is not
  * enough: with an image in the request the Gateway ignored it. `only` also
- * excludes the `models` fallbacks, so MiMo tasks have none.
+ * excludes the `models` fallbacks, so a task overridden to MiMo has none.
  */
 const ONLY_PROVIDERS: Record<string, readonly string[]> = {
   "xiaomi/mimo-v2.6-flash": ["deepinfra"],
@@ -197,7 +197,7 @@ const GOOGLE_PREFIX = "google/";
 /**
  * Local development (ADR 0016): sends `google/` model ids straight to the
  * Gemini API with the Google key, and every other id through AI Gateway,
- * which serves no Google model on its free credit. MiMo and the embeddings
+ * which serves no Google model on its free credit. Muse and the embeddings
  * stay on the gateway.
  */
 function routeToGeminiApi(apiKey: string) {

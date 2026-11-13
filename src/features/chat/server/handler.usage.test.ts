@@ -32,12 +32,12 @@ describe("usage", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "chat",
-        model_id: "xiaomi/mimo-v2.6-flash",
+        model_id: "meta/muse-ember",
         input_tokens: 10,
         cached_input_tokens: 0,
         output_tokens: 20,
         // 10 × $0.14 + 20 × $0.28 per million tokens.
-        cost_usd: expect.closeTo(0.000007, 12),
+        cost_usd: expect.closeTo(0.000011, 12),
         estimated: false,
         chat_id: chatId,
       }),
@@ -62,7 +62,7 @@ describe("usage", () => {
       inputTokens: 10,
       cachedInputTokens: 0,
       outputTokens: 20,
-      costUsd: expect.closeTo(0.000007, 12),
+      costUsd: expect.closeTo(0.000011, 12),
       estimated: false,
     });
     const { loadMessages } = await import("./chat-store");
@@ -150,7 +150,7 @@ describe("usage", () => {
     expect(db.tables.ai_usage).toEqual([
       expect.objectContaining({
         task: "chat",
-        model_id: "xiaomi/mimo-v2.6-flash",
+        model_id: "meta/muse-ember",
         output_tokens: 0,
         estimated: true,
         chat_id: chatId,
@@ -279,7 +279,7 @@ describe("the Daily limit", () => {
 
   test("a reply that reaches the limit leaves the Chat untitled, without a title call", async () => {
     vi.stubEnv("AI_DAILY_LIMIT_USD", "1");
-    // The reply's ~$0.000007 crosses the limit.
+    // The reply's ~$0.000011 crosses the limit.
     seedSpend(STUDENT, 0.999996);
     const title = mockTextModel("Never generated");
     useMockModels({ chat: mockTextModel("Last reply."), title });
