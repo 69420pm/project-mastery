@@ -44,7 +44,7 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * The Prerequisite check of a build (#236, #249): what each stored KC
  * `assumes` becomes. Each name is embedded as "name: description" and
  * offered with the 5 nearest live KCs other than the assuming KC; one call
- * (task `map`) per 25 names picks the KC each means, or none. An earlier
+ * (task `map`) per 50 names picks the KC each means, or none. An earlier
  * KC becomes a Prerequisite and a later one nothing. What no KC means
  * stays on the assuming KC as text (`kcs.assumes`), and is matched again
  * when a later build stores KCs near it.
@@ -54,7 +54,7 @@ import type { AdminSupabase } from "@/lib/supabase/types";
  * The most names one check call is asked about. Each failure of a unit's
  * call halves it for that unit's names.
  */
-const NAMES_PER_CALL = 25;
+const NAMES_PER_CALL = 50;
 /** The tries a unit's check calls get before its names stay as text. */
 const MATCH_TRIES = 4;
 /** The KCs a name is offered. */

@@ -272,7 +272,7 @@ export const unit = (overrides: Record<string, unknown>) => ({
 });
 
 /** A canned batch result. */
-type CannedBatch = { units: unknown };
+type CannedBatch = { units: unknown; skippedPages?: unknown };
 
 type Prompt = Array<{ role: string; content: unknown }>;
 

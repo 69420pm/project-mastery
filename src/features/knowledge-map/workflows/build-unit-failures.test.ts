@@ -141,14 +141,14 @@ function seedAssumingUnit() {
 test("asks a unit's names in halved calls after each failure, and answers them on the last try", async () => {
   const { checks } = useBuildModels({
     ...seedAssumingUnit(),
-    blankChecks: 2 + 3 + 5,
+    blankChecks: 1 + 2 + 3,
   });
 
   await update();
 
-  // 30 names: 25 + 5, then 12 + 12 + 6, then 6 × 5, then 3 × 10 answered.
+  // 30 names: 30, then 25 + 5, then 12 + 12 + 6, then 6 × 5 answered.
   expect(checks.map((names) => names.length)).toEqual([
-    25, 5, 12, 12, 6, 6, 6, 6, 6, 6, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    30, 25, 5, 12, 12, 6, 6, 6, 6, 6, 6,
   ]);
   expect(build()?.status).toBe("built");
   expect(db.tables.prerequisite_links).toHaveLength(0);

@@ -1,7 +1,11 @@
 import "server-only";
 import { Output } from "ai";
 import { z } from "zod";
-import { HEADING_STYLES, UNIT_LABELS } from "@/features/ingestion/types";
+import {
+  HEADING_STYLES,
+  PAGE_SKIP_REASONS,
+  UNIT_LABELS,
+} from "@/features/ingestion/types";
 import { aiTask } from "@/lib/ai/models";
 
 /** One unit of a page batch, in reading order. */
@@ -33,7 +37,20 @@ const batchUnitSchema = z.object({
 });
 
 /** What one page batch call returns. */
-export const batchResultSchema = z.object({ units: z.array(batchUnitSchema) });
+export const batchResultSchema = z.object({
+  units: z.array(batchUnitSchema),
+  skippedPages: z
+    .array(
+      z.object({
+        pageNumber: z.number().int(),
+        reason: z.enum(PAGE_SKIP_REASONS),
+      }),
+    )
+    .default([])
+    .describe(
+      "Every page of the batch that has no unit, with the reason: titles_or_contents for a page of only a title, a table of contents, an index or a reference list. A page with units is not listed.",
+    ),
+});
 
 /** The units of a stored page result: those that start on that page. */
 export const storedUnitsSchema = z.array(batchUnitSchema);
@@ -57,7 +74,7 @@ const BATCH_INSTRUCTIONS = `You transcribe consecutive pages of a Student's cour
 - Write each unit as Markdown in the page's own language. Do not translate, summarize or solve anything.
 - Write every formula in LaTeX: $...$ inline, $$...$$ for display.
 - Describe a plot, chart or technical drawing inside its unit as a blockquote that starts with **Figure:**, saying what it shows. Leave out decorative images such as logos.
-- Do not transcribe running headers, footers, page numbers, logos, title pages, tables of contents, indexes or reference lists. A page with nothing else has no units.
+- Do not transcribe running headers, footers, page numbers, logos, title pages, tables of contents, indexes or reference lists. A page with nothing else has no units: list it in skippedPages with its reason. Every page of the batch either has units or is listed there.
 - Give each unit the page it starts on and the page it ends on. A unit may run over several of these pages.
 - When the context unit from before these pages is given, do not transcribe it again. Mark the first unit when it starts mid-way and goes on from before these pages, and the last unit when it is cut off at the end of the last page.`;
 

@@ -222,6 +222,23 @@ describe("parsing a PDF Material", () => {
     expect(db.tables.materials[0]).toMatchObject({ parse_status: "parsed" });
   });
 
+  test("stores a page the answer skips as titles, without reading it again", async () => {
+    seedMaterial("application/pdf", await fixture("seven-page-script.pdf"));
+    const { model, prompts } = pageModel([
+      {
+        units: [unit({ markdown: "Two.", pageFrom: 2, pageTo: 5 })],
+        skippedPages: [{ pageNumber: 1, reason: "titles_or_contents" }],
+      },
+      { units: [unit({ markdown: "Six.", pageFrom: 6, pageTo: 7 })] },
+    ]);
+    useMockModels({ ingest: model });
+
+    await parseMaterial(MATERIAL);
+
+    expect(prompts).toHaveLength(2);
+    expect(storedPages()[0]).toEqual([1, "titles", []]);
+  });
+
   test("skips a slide overlay and a blank page without a call", async () => {
     seedMaterial("application/pdf", await fixture("slides-with-blank.pdf"));
     const { model, prompts } = pageModel([

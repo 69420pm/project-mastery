@@ -264,7 +264,9 @@ async function pageSource(
  * `ingest`), at most AI_CONCURRENCY at a time. A batch's pages are stored as
  * it finishes, each with the units that start on it; a batch whose call
  * fails for good is read again page by page, and a page that still fails is
- * stored `unreadable`, so the parse goes on. A page that no unit covers is
+ * stored `unreadable`, so the parse goes on. A page the answer skips as
+ * titles or contents is stored `titles`. A page with neither units nor a
+ * reason is
  * read again alone, and stored `uncovered` when still none does. No call
  * starts that could run past the step's limit (`callFits`); the pages of
  * calls not started are left to the next step. A reached Daily limit stops
@@ -373,11 +375,11 @@ async function readBatch(
     [...onPages].map(([pageNumber, units]) => ({ pageNumber, units }));
 
   let context = await lastUnitBefore(supabase, material.id, batch[0]!);
-  const units = await callBatch(supabase, material, batch, context);
-  if (units === "limit") return { pages: [], limit: true, left: [] };
+  const answer = await callBatch(supabase, material, batch, context);
+  if (answer === "limit") return { pages: [], limit: true, left: [] };
 
   const pages: PageRow[] = [];
-  if (units === "failed") {
+  if (answer === "failed") {
     for (const [index, page] of batch.entries()) {
       if (!callFits(stepStartedAt)) {
         const left = batch.slice(index).map((p) => p.pageNumber);
@@ -389,14 +391,15 @@ async function readBatch(
         pages.push({ pageNumber: page.pageNumber, skipped: "unreadable" });
         context = null;
       } else {
-        pages.push(...rows(placed([page], single)));
-        context = single.at(-1) ?? null;
+        pages.push(...rows(placed([page], single.units)));
+        context = single.units.at(-1) ?? null;
       }
     }
     return { pages, limit: false, left: [] };
   }
 
-  const onPages = placed(batch, units);
+  const onPages = placed(batch, answer.units);
+  const skipped = new Set(answer.skipped);
   const uncovered = new Set(
     uncoveredPages(
       [...onPages.values()].flat(),
@@ -411,13 +414,21 @@ async function readBatch(
       context = own.at(-1) ?? context;
       continue;
     }
+    if (skipped.has(page.pageNumber)) {
+      pages.push({ pageNumber: page.pageNumber, skipped: "titles" });
+      continue;
+    }
     if (!callFits(stepStartedAt)) {
       left.push(page.pageNumber);
       continue;
     }
     const single = await callBatch(supabase, material, [page], context);
     if (single === "limit") return { pages, limit: true, left: [] };
-    const again = single === "failed" ? [] : single;
+    if (single !== "failed" && single.skipped.includes(page.pageNumber)) {
+      pages.push({ pageNumber: page.pageNumber, skipped: "titles" });
+      continue;
+    }
+    const again = single === "failed" ? [] : single.units;
     const onPage = placed([page], again).get(page.pageNumber) ?? [];
     if (uncoveredPages(onPage, [page.pageNumber]).length > 0) {
       pages.push({ pageNumber: page.pageNumber, skipped: "uncovered" });
@@ -429,8 +440,11 @@ async function readBatch(
   return { pages, limit: false, left };
 }
 
+/** What an answered batch call says: its units and the pages it skips. */
+type BatchAnswer = { units: PageUnit[]; skipped: number[] };
+
 /**
- * One streamed batch call: its units, "failed" when the call fails for
+ * One streamed batch call: its answer, "failed" when the call fails for
  * good or gives no valid answer, or "limit" when the Student's Daily limit
  * is reached.
  */
@@ -439,7 +453,7 @@ async function callBatch(
   material: ParseMaterialRow,
   batch: BatchPage[],
   context: PageUnit | null,
-): Promise<PageUnit[] | "failed" | "limit"> {
+): Promise<BatchAnswer | "failed" | "limit"> {
   const failedCall = (error: unknown) => {
     const pages = batch.map((page) => page.pageNumber).join(", ");
     console.error(`The batch call for pages ${pages} failed:`, error);
@@ -466,7 +480,11 @@ async function callBatch(
   }
   if (!result) return "limit";
   try {
-    return batchResultSchema.parse(await result.output).units;
+    const answer = batchResultSchema.parse(await result.output);
+    return {
+      units: answer.units,
+      skipped: answer.skippedPages.map((page) => page.pageNumber),
+    };
   } catch (error) {
     return failedCall(error);
   }
