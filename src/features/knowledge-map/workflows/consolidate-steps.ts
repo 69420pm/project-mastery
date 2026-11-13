@@ -24,7 +24,6 @@ import {
   type StoredExtraction,
 } from "@/features/knowledge-map/schemas";
 import {
-  buildCall,
   loadCurrentExtractions,
   runCalls,
   stepOutcome,
@@ -32,6 +31,10 @@ import {
   UNITS_PER_STEP,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  buildCall,
+  RateLimited,
+} from "@/features/knowledge-map/workflows/build-call";
 import {
   meteredEmbed,
   RATE_LIMITED_STEP_RETRIES,
@@ -140,6 +143,7 @@ export async function consolidateKcs(
       clusterParts(clusters[index]!).map((part) => batch[part]!.key),
     ),
     failedOnce,
+    waitMs: merged.waitMs,
   });
 }
 
@@ -272,8 +276,10 @@ async function matchStored(
  * Asks the merge calls (task `map`, trace `merge-kcs`) about the clusters
  * of new KCs by key, and of stored KCs keyed `kc:<id>`: the KC each merged
  * new KC becomes, by key, the indexes of the clusters decided and of those
- * whose call failed. `stepStartedAt` goes to `runCalls`. "limit" when the
- * Daily limit is reached.
+ * whose call failed. `stepStartedAt` goes to `runCalls`. A call the rate
+ * limit turned away leaves its clusters undecided, not failed, and starts
+ * no further call: `waitMs` is the wait it named. "limit" when the Daily
+ * limit is reached.
  */
 async function mergeClusters(
   supabase: AdminSupabase,
@@ -285,7 +291,12 @@ async function mergeClusters(
   clusters: string[][],
   stepStartedAt: number,
 ): Promise<
-  | { targets: Map<string, string>; decided: Set<number>; failed: Set<number> }
+  | {
+      targets: Map<string, string>;
+      decided: Set<number>;
+      failed: Set<number>;
+      waitMs?: number;
+    }
   | "limit"
 > {
   const targets = new Map<string, string>();
@@ -336,6 +347,7 @@ async function mergeClusters(
     );
   }
   let limitReached = false;
+  let waitMs: number | undefined;
   await runCalls(
     calls,
     async (indexes) => {
@@ -358,6 +370,10 @@ async function mergeClusters(
         limitReached = true;
         return "stop";
       }
+      if (answer instanceof RateLimited) {
+        waitMs = Math.max(waitMs ?? 0, answer.waitMs);
+        return "stop";
+      }
       if (answer === "failed") {
         for (const index of indexes) failedCalls.add(index);
         return;
@@ -378,7 +394,9 @@ async function mergeClusters(
     },
     stepStartedAt,
   );
-  return limitReached ? "limit" : { targets, decided, failed: failedCalls };
+  return limitReached
+    ? "limit"
+    : { targets, decided, failed: failedCalls, waitMs };
 }
 
 /**

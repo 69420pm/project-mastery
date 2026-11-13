@@ -16,13 +16,16 @@ import {
   storedExtractionSchema,
 } from "@/features/knowledge-map/schemas";
 import {
-  buildCall,
   loadCurrentExtractions,
   runCalls,
   touchBuild,
   UNITS_PER_STEP,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  buildCall,
+  RateLimited,
+} from "@/features/knowledge-map/workflows/build-call";
 import { matchKcs } from "@/features/knowledge-map/workflows/consolidate-steps";
 import {
   firstSourcePlaces,
@@ -78,10 +81,10 @@ const nameKey = (name: string) => name.trim().toLowerCase();
  * Matches what the KCs of up to UNITS_PER_STEP stored unit extractions
  * assume, in Course order, and stores the Prerequisites, the names no KC
  * means as text on their KCs and the extractions marked matched in one
- * transaction. Units whose calls fail or no longer fit the step wait for
- * the next step, which asks a failed unit's names in calls half as large
- * per failure (`failedKeys`, a key per failure). On its MATCH_TRIES-th failed
- * try, the names a unit's calls left unanswered stay on their KCs as text,
+ * transaction. Units whose calls fail, meet the rate limit (`waitMs`) or no
+ * longer fit the step wait for the next step, which asks a failed unit's
+ * names in calls half as large per failure (`failedKeys`, a key per
+ * failure). On its MATCH_TRIES-th failed try, the names a unit's calls left unanswered stay on their KCs as text,
  * as if no KC meant them, so a failing call never fails the build. A
  * reached Daily limit stops the build.
  */
@@ -172,6 +175,7 @@ export async function matchAssumptions(
     ok: true,
     left: pending.length - ready.length,
     failed: [...stillFailed].map((part) => batch[part]!.key),
+    waitMs: checked.waitMs,
   };
 }
 
@@ -184,7 +188,7 @@ matchAssumptions.maxRetries = RATE_LIMITED_STEP_RETRIES;
  * stops.
  */
 export type RematchOutcome =
-  | { ok: true; left: number | null; after: string }
+  | { ok: true; left: number | null; after: string; waitMs?: number }
   | { ok: false; reason: string };
 
 /**
@@ -284,6 +288,7 @@ export async function rematchAssumptions(
     ok: true,
     left: names.length - done,
     after: done === 0 ? after : batch[done - 1]!.key,
+    waitMs: checked.waitMs,
   };
 }
 
@@ -357,8 +362,8 @@ const kcIdOf = new WeakMap<OfferedKc, string>();
  * `callSize` (NAMES_PER_CALL by default), at most that many. Returns what each name means, by its
  * index: a name without candidates means none without a call, and a name
  * not offered is left out. Also the names whose call never started or met
- * the Daily limit (`unasked`), those whose call failed, and whether the
- * limit was reached.
+ * the Daily limit or the rate limit (`unasked`), those whose call failed,
+ * whether the Daily limit was reached, and the wait the rate limit named.
  */
 async function checkNames(
   supabase: AdminSupabase,
@@ -373,6 +378,7 @@ async function checkNames(
   unasked: Set<number>;
   failed: Set<number>;
   limitReached: boolean;
+  waitMs?: number;
 }> {
   const meanings = new Map<number, Meaning>();
   if (assumed.length === 0) {
@@ -448,6 +454,7 @@ async function checkNames(
   const started = new Set<OfferedName[]>();
   const failedCalls = new Set<OfferedName[]>();
   let limitReached = false;
+  let waitMs: number | undefined;
   const runCall = async (names: OfferedName[]) => {
     started.add(names);
     const answer = await buildCall(
@@ -461,6 +468,11 @@ async function checkNames(
     );
     if (answer === "limit") {
       limitReached = true;
+      started.delete(names);
+      return "stop" as const;
+    }
+    if (answer instanceof RateLimited) {
+      waitMs = Math.max(waitMs ?? 0, answer.waitMs);
       started.delete(names);
       return "stop" as const;
     }
@@ -495,5 +507,6 @@ async function checkNames(
     unasked: indexesOf(calls.filter((names) => !started.has(names))),
     failed: indexesOf([...failedCalls]),
     limitReached,
+    waitMs,
   };
 }

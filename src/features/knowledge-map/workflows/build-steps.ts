@@ -1,5 +1,4 @@
 import "server-only";
-import type { z } from "zod";
 import { UNIT_MARK } from "@/features/knowledge-map/ai/chapter-extraction";
 import {
   chapterUnits,
@@ -15,7 +14,7 @@ import {
   storedExtractionSchema,
   type StoredExtraction,
 } from "@/features/knowledge-map/schemas";
-import { meteredStream } from "@/features/usage/server";
+import { RateLimited } from "@/features/knowledge-map/workflows/build-call";
 import {
   givenUp,
   joinExtractions,
@@ -23,11 +22,7 @@ import {
   unitPieces,
   type UnitPiece,
 } from "@/features/knowledge-map/domain/unit-pieces";
-import {
-  BUILD_CALL_TIMEOUT_MS,
-  callFits,
-  CallTimeoutError,
-} from "@/lib/ai/call-timeout";
+import { BUILD_CALL_TIMEOUT_MS, callFits } from "@/lib/ai/call-timeout";
 import { getAiEnv } from "@/lib/ai/env";
 import { allRows } from "@/lib/supabase/all-rows";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -48,10 +43,12 @@ export const UNITS_PER_STEP = 8;
 /**
  * What a step did: how many units it left for the next step, or null when
  * the build no longer runs, and the keys (`unitKey`) of the units whose
- * call failed, left to the next step; or why the build stops.
+ * call failed, left to the next step; with `waitMs` when the Gateway's rate
+ * limit turned a call away, so the workflow waits that long before the next
+ * step; or why the build stops.
  */
 export type StepOutcome =
-  | { ok: true; left: number | null; failed?: string[] }
+  | { ok: true; left: number | null; failed?: string[]; waitMs?: number }
   | { ok: false; reason: string };
 
 /**
@@ -76,15 +73,17 @@ export async function stepOutcome(
     left,
     failedKeys,
     failedOnce,
+    waitMs,
   }: {
     left: number;
     failedKeys: Iterable<string>;
     failedOnce: readonly string[];
+    waitMs?: number;
   },
 ): Promise<StepOutcome> {
   const keys = [...new Set(failedKeys)];
   const again = keys.find((key) => failedOnce.includes(key));
-  if (again === undefined) return { ok: true, left, failed: keys };
+  if (again === undefined) return { ok: true, left, failed: keys, waitMs };
   const { data, error } = await supabase
     .from("chapters")
     .select("title")
@@ -136,40 +135,6 @@ export async function runCalls<Item>(
   await Promise.all(
     Array.from({ length: getAiEnv().AI_CONCURRENCY }, () => worker()),
   );
-}
-
-/**
- * One structured call of the build, streamed and metered, its answer
- * parsed with `schema`. It ends after BUILD_CALL_TIMEOUT_MS, or the shorter
- * `timeoutMs` of a retry. "failed" when the call timed out or its answer is
- * no valid output: the caller leaves its unit to the next step. "limit"
- * when the Daily limit is reached.
- */
-export async function buildCall<Schema extends z.ZodType>(
-  supabase: AdminSupabase,
-  scope: Parameters<typeof meteredStream>[1],
-  call: Parameters<typeof meteredStream>[2],
-  schema: Schema,
-  timeoutMs = BUILD_CALL_TIMEOUT_MS,
-): Promise<z.infer<Schema> | "limit" | "failed"> {
-  let result: Awaited<ReturnType<typeof meteredStream>>;
-  try {
-    result = await meteredStream(supabase, scope, {
-      ...call,
-      timeout: { totalMs: timeoutMs },
-    });
-  } catch (error) {
-    if (!(error instanceof CallTimeoutError)) throw error;
-    console.warn(error.message);
-    return "failed";
-  }
-  if (!result) return "limit";
-  try {
-    return schema.parse(await result.output);
-  } catch {
-    console.warn(`The ${scope.traceName} call gave no valid answer.`);
-    return "failed";
-  }
 }
 
 /** A unit of the Course, as the build reads it. */
@@ -411,7 +376,8 @@ export type UnitAttempt = {
  * (`runCalls`), and stores each unit's extraction: whole once every piece
  * is answered, else partial with the pieces answered so far. A unit with a
  * failed piece is in `failedKeys`; `limit` when the Daily limit stopped a
- * call.
+ * call. A piece the rate limit turned away is neither answered nor failed,
+ * and no further call starts: `waitMs` is the longest wait it named.
  */
 export async function extractAttempts(
   supabase: AdminSupabase,
@@ -420,15 +386,21 @@ export async function extractAttempts(
   callPiece: (
     unit: CourseUnit,
     chunks: CourseUnit["chunks"],
-  ) => Promise<StoredExtraction | "limit" | "failed">,
+  ) => Promise<StoredExtraction | "limit" | "failed" | RateLimited>,
   startedAt: number,
-): Promise<{ done: number; failedKeys: string[]; limit: boolean }> {
+): Promise<{
+  done: number;
+  failedKeys: string[];
+  limit: boolean;
+  waitMs?: number;
+}> {
   const batch = attempts.slice(0, UNITS_PER_STEP);
   const answered = batch.map(
     () => [] as Array<{ start: number; extraction: StoredExtraction }>,
   );
   const failedUnits = new Set<number>();
   let limit = false;
+  let waitMs: number | undefined;
   await runCalls(
     batch.flatMap((attempt, index) =>
       attempt.pieces.map((piece) => ({ index, piece })),
@@ -439,6 +411,10 @@ export async function extractAttempts(
       const extraction = await callPiece(unit, chunks);
       if (extraction === "limit") {
         limit = true;
+        return "stop";
+      }
+      if (extraction instanceof RateLimited) {
+        waitMs = Math.max(waitMs ?? 0, extraction.waitMs);
         return "stop";
       }
       if (extraction === "failed") {
@@ -485,6 +461,7 @@ export async function extractAttempts(
     done,
     failedKeys: [...failedUnits].map((index) => unitKey(batch[index]!.unit)),
     limit,
+    waitMs,
   };
 }
 

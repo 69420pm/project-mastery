@@ -16,7 +16,6 @@ import {
   type StoredExtraction,
 } from "@/features/knowledge-map/schemas";
 import {
-  buildCall,
   extractAttempts,
   loadCourseLanguage,
   loadCourseUnits,
@@ -28,6 +27,10 @@ import {
   type CourseUnit,
   type StepOutcome,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  buildCall,
+  RateLimited,
+} from "@/features/knowledge-map/workflows/build-call";
 import { matchKcs } from "@/features/knowledge-map/workflows/consolidate-steps";
 import { RATE_LIMITED_STEP_RETRIES } from "@/features/usage/server";
 import { allRows } from "@/lib/supabase/all-rows";
@@ -55,8 +58,9 @@ const MATCHES_AT_ONCE = 10;
  * order, as one round of at most AI_CONCURRENCY calls. A unit whose call
  * fails is left to the next step and goes last; after its second failure
  * it is called in pieces until it is given up (`domain/unit-pieces.ts`), so
- * it never fails the build. A reached Daily limit stops the build; what is
- * stored stays.
+ * it never fails the build. A unit the rate limit turned away is left to the
+ * next step, after the wait (`waitMs`). A reached Daily limit stops the
+ * build; what is stored stays.
  */
 export async function extractExercises(
   courseId: string,
@@ -119,7 +123,7 @@ export async function extractExercises(
     loadCandidates(supabase, courseId, batch),
   ]);
 
-  const { done, failedKeys, limit } = await extractAttempts(
+  const { done, failedKeys, limit, waitMs } = await extractAttempts(
     supabase,
     { owner, courseId },
     attempts,
@@ -134,7 +138,12 @@ export async function extractExercises(
     startedAt,
   );
   if (limit) return { ok: false, reason: dailyLimitReason };
-  return { ok: true, left: attempts.length - done, failed: failedKeys };
+  return {
+    ok: true,
+    left: attempts.length - done,
+    failed: failedKeys,
+    waitMs,
+  };
 }
 
 extractExercises.maxRetries = RATE_LIMITED_STEP_RETRIES;
@@ -256,7 +265,7 @@ async function extractUnit(
     solutionOf: (chunkId: string) => string | null;
     candidates: Candidate[];
   },
-): Promise<StoredExtraction | "limit" | "failed"> {
+): Promise<StoredExtraction | "limit" | "failed" | RateLimited> {
   const subtasks = unit.chunks.map((chunk, index): OfferedSubtask => {
     const solutionChunkId = solutionOf(chunk.id);
     return {
@@ -291,7 +300,9 @@ async function extractUnit(
     },
     exerciseExtractionSchema(),
   );
-  if (typeof answer === "string") return answer;
+  if (typeof answer === "string" || answer instanceof RateLimited) {
+    return answer;
+  }
   const { kcs, exercises } = checkExerciseAnswer(
     answer,
     subtasks,

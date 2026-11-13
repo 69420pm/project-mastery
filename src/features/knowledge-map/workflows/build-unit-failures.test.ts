@@ -10,6 +10,7 @@ import {
   seedMaterial,
   useBuildModels,
 } from "./build-testing";
+import { unitTitle } from "./build-models-testing";
 
 /**
  * Update map with extraction calls that fail: a failed unit waits a step,
@@ -19,6 +20,12 @@ import {
  */
 
 vi.mock("server-only", () => ({}));
+
+const sleep = vi.hoisted(() => vi.fn(async (ms: number) => void ms));
+vi.mock("workflow", async (original) => ({
+  ...(await original<typeof import("workflow")>()),
+  sleep,
+}));
 
 let db = createBuildDb();
 vi.mock("@/lib/supabase/admin", () => ({
@@ -36,6 +43,48 @@ async function update() {
 
 beforeEach(() => {
   db = createBuildDb();
+  sleep.mockClear();
+});
+
+test("stores the units answered before the rate limit, and extracts the rest after its wait", async () => {
+  for (const title of ["Vectors", "Sums", "Bases"]) {
+    seedMaterial(db, { chapters: [{ title }] });
+  }
+  // The third call meets the limit, which names 20 s.
+  const { extractions } = useBuildModels({ rateLimitedCalls: [3] });
+  const storedAtWait: number[] = [];
+  sleep.mockImplementation(async () => {
+    storedAtWait.push(db.tables.chapter_extractions.length);
+  });
+
+  await update();
+
+  expect(sleep.mock.calls).toEqual([[60_000]]);
+  expect(storedAtWait).toEqual([2]);
+  expect(extractions.map(unitTitle)).toEqual([
+    "Material 0",
+    "Material 1",
+    "Material 2",
+  ]);
+  expect(build()).toMatchObject({
+    status: "built",
+    check_report: expect.objectContaining({ unitsNotExtracted: [] }),
+  });
+  expect(liveKcs(db)).toEqual(["Material 0", "Material 1", "Material 2"]);
+});
+
+test("stores an answer with no KCs without asking again", async () => {
+  seedMaterial(db, { chapters: [{ title: "Notation" }] });
+  const { extractions } = useBuildModels({ kcsOf: () => [] });
+
+  await update();
+
+  expect(extractions).toHaveLength(1);
+  expect(db.tables.chapter_extractions).toHaveLength(1);
+  expect(build()).toMatchObject({
+    status: "built",
+    check_report: expect.objectContaining({ chaptersWithoutKcs: ["Notation"] }),
+  });
 });
 
 test("leaves a unit whose call gives no answer to the next step", async () => {

@@ -15,10 +15,13 @@ import {
   type TreeKc,
 } from "@/features/knowledge-map/domain/topic-tree";
 import {
-  buildCall,
   loadCourseLanguage,
   touchBuild,
 } from "@/features/knowledge-map/workflows/build-steps";
+import {
+  buildCall,
+  RateLimited,
+} from "@/features/knowledge-map/workflows/build-call";
 import {
   firstSourcePlaces,
   loadMapInput,
@@ -183,7 +186,8 @@ function offeredCourse(
  * its short ids turned back into stored ones (unknown ones are dropped). A
  * call that fails is made once more; when that fails too, the proposal is
  * empty, so every Chapter with KCs becomes a Topic of its own, and the
- * build goes on. A reached Daily limit stops the build.
+ * build goes on. A reached Daily limit stops the build; the rate limit
+ * retries the step after its wait.
  */
 export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
   "use step";
@@ -224,6 +228,8 @@ export async function proposeTopicTree(courseId: string): Promise<TreeOutcome> {
   let answer = await treeCall();
   const retryMs = retryTimeoutMs(startedAt);
   if (answer === "failed" && retryMs !== null) answer = await treeCall(retryMs);
+  // The step's one call: the step is retried after the wait.
+  if (answer instanceof RateLimited) throw answer.error;
   if (answer === "limit") return { ok: false, reason: dailyLimitReason };
   if (answer === "failed") {
     // Each Chapter with KCs becomes a Topic of its own (`planTopicTree`);
