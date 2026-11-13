@@ -163,6 +163,7 @@ describe("Gemini API for local development (ADR 0016)", () => {
 describe("gateway routing", () => {
   test("tags every call with its task and pins MiMo to DeepInfra", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
+    vi.stubEnv("AI_MODEL_TITLE", "xiaomi/mimo-v2.6-flash");
 
     expect(aiTask("title").providerOptions.gateway).toEqual({
       tags: ["task:title"],
@@ -170,7 +171,6 @@ describe("gateway routing", () => {
     });
     expect(aiTask("chat").providerOptions.gateway).toEqual({
       tags: ["task:chat"],
-      only: ["deepinfra"],
     });
   });
 
@@ -196,7 +196,7 @@ describe("title task", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "test-key");
     vi.stubEnv("AI_MODEL_TITLE", undefined);
 
-    expect(aiTask("title").model).toBe("xiaomi/mimo-v2.6-flash");
+    expect(aiTask("title").model).toBe("meta/muse-ember");
   });
 });
 
@@ -258,7 +258,7 @@ describe("aiTask", () => {
       model: AI_TASKS.chat.model,
       maxRetries: 3,
       providerOptions: {
-        gateway: { tags: ["task:chat"], only: ["deepinfra"] },
+        gateway: { tags: ["task:chat"] },
       },
       telemetry: { functionId: "chat" },
     });
