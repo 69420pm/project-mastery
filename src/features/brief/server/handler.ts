@@ -37,7 +37,7 @@ import {
   dailyLimitReachedMessage,
   recordReplyUsage,
 } from "@/features/usage/server";
-import { answeringModel } from "@/lib/ai/models";
+import { answeringModel, textOnlyStep } from "@/lib/ai/models";
 import { messageText, replyErrorMessage } from "@/lib/ai/reply";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -201,9 +201,12 @@ async function streamReply({
           ),
         ),
         stopWhen: isStepCount(MAX_STEPS),
-        // The last step writes text, so every reply answers the Student.
+        // The last step writes text, so every reply answers the Student,
+        // where the model lets a step be text-only.
         prepareStep: ({ steps }) =>
-          steps.length === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
+          steps.length === MAX_STEPS - 1
+            ? textOnlyStep(settings.model)
+            : undefined,
         // A disconnect, such as a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Brief reply failed:", error),

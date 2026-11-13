@@ -11,7 +11,7 @@ const computeInputSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "A mathjs program of at most 4,000 characters: one assignment per line, units inline, such as `mass_flow = 40 kg/s`, `thrust = mass_flow * (600 m/s - 250 m/s)`, `thrust_kN = to(thrust, kN)`. Never name a variable like a unit (m, s, g, N, K, T, ...): use mass, time or mass_flow.",
+      "A mathjs program of at most 4,000 characters: one assignment per line, units inline, such as `mass_flow = 40 kg/s`, `thrust = mass_flow * (600 m/s - 250 m/s)`, `thrust_kN = to(thrust, kN)`. Never name a variable like a unit: the single letters A, B, C, F, H, J, K, L, N, S, T, V, W, b, g, h, l, m, s and t are units, so name a variable m1 or t1 instead. Matrix functions include det, inv, transpose, multiply, lusolve and eigs.",
     ),
 });
 

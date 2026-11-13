@@ -65,7 +65,7 @@ import {
   recordReplyUsage,
 } from "@/features/usage/server";
 import { tokenUsage } from "@/lib/ai/cost";
-import { answeringModel } from "@/lib/ai/models";
+import { answeringModel, textOnlyStep } from "@/lib/ai/models";
 import { messageText, replyErrorMessage } from "@/lib/ai/reply";
 import { getUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
@@ -316,8 +316,11 @@ async function streamReply({
         stopWhen: [isStepCount(MAX_STEPS), endsReply],
         // The last step writes text, so a reply that spent its steps on
         // tool calls, such as retried grades, still answers the Student.
+        // Not every model lets a step be text-only (`textOnlyStep`).
         prepareStep: ({ steps }) =>
-          steps.length === MAX_STEPS - 1 ? { toolChoice: "none" } : undefined,
+          steps.length === MAX_STEPS - 1
+            ? textOnlyStep(settings.model)
+            : undefined,
         // A disconnect, such as Stop or a closed tab, aborts generation.
         abortSignal: request.signal,
         onError: ({ error }) => console.error("Chat reply failed:", error),

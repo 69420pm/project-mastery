@@ -14,9 +14,7 @@
  */
 // Must come first: lets smoke checks import modules that use Next.js.
 import "./next-aliases";
-import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { briefSmoke } from "./smoke/brief";
 import { closeSmoke } from "./smoke/close";
@@ -26,7 +24,9 @@ import { mapSmoke } from "./smoke/map";
 import { mockSmoke } from "./smoke/mock";
 import { pairSmoke } from "./smoke/pair";
 import { parseSmoke } from "./smoke/parse";
+import { paceModelRequests } from "./smoke/pace";
 import { result, type SmokeCheck, type SmokeResult } from "./smoke/smoke-check";
+import { createStudent, deleteStudent } from "./smoke/student";
 import { tutorSmoke } from "./smoke/tutor";
 
 // Register each smoke check here; its code is `evals/smoke/<name>.ts`.
@@ -81,60 +81,6 @@ async function withinTimeLimit(run: Promise<SmokeResult[]>) {
   }
 }
 
-/**
- * The Gemini free tier's limit: 15 requests per minute (`notes/ai-sdk.md`).
- * The AI SDK's retries don't wait a 429 out, and a reply of several steps
- * makes several requests, so the runner holds each Gemini request until the
- * last minute has room for it. `AI_SMOKE_RPM` sets another limit.
- */
-const GEMINI_RPM = Number(process.env.AI_SMOKE_RPM || 14);
-
-/**
- * AI Gateway's free credit: 5 requests per minute per provider, for
- * `cohere/embed-v5.0-fast` as for Muse (docs/agents/live-ai.md). A build's
- * embeddings come faster, so the runner holds those requests too.
- */
-const GATEWAY_RPM = 5;
-
-/** The request limit per minute of `url`'s host; null when unpaced. */
-function limitOf(url: string): { host: string; rpm: number } | null {
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return null;
-  }
-  if (host === "generativelanguage.googleapis.com") {
-    return { host, rpm: GEMINI_RPM };
-  }
-  if (host === "ai-gateway.vercel.sh") return { host, rpm: GATEWAY_RPM };
-  return null;
-}
-
-/** Wraps `fetch` so Gemini and AI Gateway requests keep within their limits. */
-function paceModelRequests() {
-  const sentBy = new Map<string, number[]>();
-  const fetch = globalThis.fetch;
-  globalThis.fetch = async (input, init) => {
-    const url = input instanceof Request ? input.url : String(input);
-    const limit = limitOf(url);
-    if (limit) {
-      const sent = sentBy.get(limit.host) ?? [];
-      sentBy.set(limit.host, sent);
-      for (;;) {
-        const now = Date.now();
-        while (sent.length > 0 && sent[0]! <= now - 60_000) sent.shift();
-        if (sent.length < limit.rpm) break;
-        await new Promise((resolve) =>
-          setTimeout(resolve, sent[0]! + 60_000 - now + 100),
-        );
-      }
-      sent.push(Date.now());
-    }
-    return fetch(input, init);
-  };
-}
-
 /** Tasks whose model generates text; embeddings keep their own model. */
 const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CHAT",
@@ -149,34 +95,6 @@ const GENERATING_TASK_OVERRIDES = [
   "AI_MODEL_CLOSE",
   "AI_MODEL_JUDGE",
 ];
-
-/** A Student no one signs in as, owning everything the check stores. */
-async function createStudent(supabase: AdminSupabase) {
-  const { data, error } = await supabase.auth.admin.createUser({
-    email: `smoke-${randomUUID()}@example.com`,
-    password: randomUUID(),
-    email_confirm: true,
-  });
-  if (error)
-    throw new Error(`Creating the smoke Student failed: ${error.message}`);
-  return data.user.id;
-}
-
-/** Deletes the Student's files, then the Student, whose rows cascade. */
-async function deleteStudent(supabase: AdminSupabase, studentId: string) {
-  const bucket = supabase.storage.from(MATERIALS_BUCKET);
-  const { data: courses } = await bucket.list(studentId);
-  for (const course of courses ?? []) {
-    const { data: files } = await bucket.list(`${studentId}/${course.name}`);
-    const paths = (files ?? []).map(
-      (f) => `${studentId}/${course.name}/${f.name}`,
-    );
-    if (paths.length > 0) await bucket.remove(paths);
-  }
-  const { error } = await supabase.auth.admin.deleteUser(studentId);
-  if (error)
-    console.error(`Deleting the smoke Student failed: ${error.message}`);
-}
 
 /** The model calls the Student's run recorded, against the cap and model. */
 async function checkCalls(
@@ -236,7 +154,7 @@ async function main() {
   paceModelRequests();
 
   const supabase = createAdminClient();
-  const studentId = await createStudent(supabase);
+  const studentId = await createStudent(supabase, "smoke");
   let results: SmokeResult[];
   let stopped = false;
   try {

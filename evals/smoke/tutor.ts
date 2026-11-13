@@ -63,21 +63,26 @@ async function readMemory(
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /** A tool call the AI made, with the KC ids it passed. */
-type ToolCall = {
+export type ToolCall = {
   toolName: string;
   kcIds: string[];
   input: Record<string, unknown>;
+  /** The tool's result, once it returned one. */
+  output?: unknown;
+  /** The refusal or failure, when the call failed. */
+  error?: string;
 };
 
 /**
  * Sends `text` in the Chat through the real Chat handler as the Student,
- * and returns the AI's tool calls and text.
+ * and returns the AI's tool calls and text. `log` gets the transcript.
  */
 export async function sendMessage(
   client: Supabase,
   studentId: string,
   chat: { chatId: string; courseId: string },
   text: string,
+  log: (line: string) => void = console.info,
 ): Promise<{
   calls: ToolCall[];
   text: string;
@@ -88,7 +93,7 @@ export async function sendMessage(
   /** The `showReading` calls' inputs. */
   readings: Array<{ sectionId: string; purpose: string }>;
 }> {
-  console.info(`Student: ${text}`);
+  log(`Student: ${text}`);
   const response = await respondInChat({
     request: new Request("http://localhost/api/chat", {
       method: "POST",
@@ -128,7 +133,7 @@ export async function sendMessage(
       Array.isArray(part.output?.kcs)
     ) {
       graded.push(...part.output.kcs);
-      console.info(`  graded ${JSON.stringify(part.output.kcs)}`);
+      log(`  graded ${JSON.stringify(part.output.kcs)}`);
     }
     if (
       part.type === "tool-output-available" &&
@@ -161,12 +166,17 @@ export async function sendMessage(
           ...(exercise.kcs ?? []).map((kc: { id: string }) => kc.id),
         );
       }
-      console.info(
-        `  found ${JSON.stringify(names)} ${part.output.note ?? ""}`,
-      );
+      log(`  found ${JSON.stringify(names)} ${part.output.note ?? ""}`);
+    }
+    const answered = callsById.get(part.toolCallId);
+    if (answered && part.type === "tool-output-available") {
+      answered.output = part.output;
+    }
+    if (answered && part.type === "tool-output-error") {
+      answered.error = String(part.errorText);
     }
     if (part.type === "tool-input-available") {
-      console.info(`  ${part.toolName} ${JSON.stringify(part.input)}`);
+      log(`  ${part.toolName} ${JSON.stringify(part.input)}`);
       const kcIds =
         part.input?.kcIds ??
         part.input?.results?.map((kc: { kcId: string }) => kc.kcId) ??
@@ -186,14 +196,21 @@ export async function sendMessage(
       }
     }
     if (part.type === "tool-output-error" || part.type === "error") {
-      console.info(`  ${part.type}: ${part.errorText}`);
+      log(`  ${part.type}: ${part.errorText}`);
     }
   }
+  // Each step's text is its own part in the Chat: keep them apart.
   const reply = chunks
-    .filter((part) => part.type === "text-delta")
-    .map((part) => part.delta)
-    .join("");
-  console.info(`AI: ${reply}`);
+    .map((part) =>
+      part.type === "text-delta"
+        ? part.delta
+        : part.type === "text-start"
+          ? "\n\n"
+          : "",
+    )
+    .join("")
+    .trim();
+  log(`AI: ${reply}`);
   return { calls, text: reply, questionIds, graded, returned, readings };
 }
 

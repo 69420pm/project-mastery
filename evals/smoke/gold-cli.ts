@@ -4,6 +4,7 @@
  * tried and evaluated without paying for the pipeline again.
  *
  *   pnpm gold list
+ *   pnpm gold pull <slug> [staging-course-id] [--name "Course name"]
  *   pnpm gold export <course-id> <slug> [--name "Course name"]
  *   pnpm gold seed <slug> [--exam-in-days 42]
  *
@@ -11,7 +12,8 @@
  * Materials in the app with a real model) into `evals/gold/<slug>/`:
  * `snapshot.json.gz` and the Materials' files in `materials/`. `seed` creates
  * or reuses the gold Student and replaces its Course of that name. Local
- * database only; makes no model calls.
+ * database only; makes no model calls. `pull` writes the same files from a
+ * Course on the staging project, read-only (ADR 0025).
  */
 import { parseArgs } from "node:util";
 import { readdir } from "node:fs/promises";
@@ -19,11 +21,28 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import type { AdminSupabase } from "@/lib/supabase/types";
 import { exportCourse } from "./gold-export";
+import { pullCourse } from "./gold-pull";
 import { GOLD_DIR, readSnapshot, seedSnapshot } from "./gold-seed";
 
 const GOLD_EMAIL = process.env.GOLD_EMAIL ?? "gold@example.com";
 const GOLD_PASSWORD = process.env.GOLD_PASSWORD ?? "gold-password";
 const DEFAULT_EXAM_IN_DAYS = 42;
+/** The staging Course each gold course is pulled from, when `pull` names none. */
+const STAGING_COURSES: Record<string, string | undefined> = {
+  "linear-algebra-I": "e899632d-e458-45c0-a18e-7c960ce44052",
+};
+
+/** The staging project's URL and secret key from `.env.local` (ADR 0025). */
+function stagingEnv() {
+  const url = process.env.STAGING_SUPABASE_URL;
+  const secretKey = process.env.STAGING_SUPABASE_SECRET_KEY;
+  if (!url || !secretKey) {
+    throw new Error(
+      "Set STAGING_SUPABASE_URL and STAGING_SUPABASE_SECRET_KEY in .env.local to pull from staging.",
+    );
+  }
+  return { url: url.replace(/\/+$/, ""), secretKey };
+}
 
 /** The gold Student, created on first use with a known local password. */
 async function goldStudent(supabase: AdminSupabase) {
@@ -103,8 +122,18 @@ function assertLocal() {
   }
 }
 
+/** `pnpm gold pull`: the staging Course into the snapshot folder; reads staging only. */
+async function pull(slug: string, courseId: string, name?: string) {
+  const counts = await pullCourse(stagingEnv(), courseId, slug, { name });
+  console.info(
+    `Pulled ${courseId} to ${GOLD_DIR}/${slug}: ${Object.entries(counts)
+      .filter(([, n]) => n > 0)
+      .map(([table, n]) => `${table} ${n}`)
+      .join(", ")}`,
+  );
+}
+
 async function main() {
-  assertLocal();
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
@@ -113,6 +142,12 @@ async function main() {
     },
   });
   const [command, first, second] = positionals;
+  if (command === "pull" && first) {
+    const courseId = second ?? STAGING_COURSES[first];
+    if (!courseId) throw new Error(`Give the staging Course id for ${first}.`);
+    return pull(first, courseId, values.name);
+  }
+  assertLocal();
   if (command === "list") return list();
   if (command === "export" && first && second) {
     return exportCourse(createAdminClient(), first, second, values.name);
@@ -124,7 +159,7 @@ async function main() {
     );
   }
   throw new Error(
-    "Usage: pnpm gold list | export <course-id> <slug> [--name N] | seed <slug> [--exam-in-days N]",
+    "Usage: pnpm gold list | pull <slug> [course-id] [--name N] | export <course-id> <slug> [--name N] | seed <slug> [--exam-in-days N]",
   );
 }
 

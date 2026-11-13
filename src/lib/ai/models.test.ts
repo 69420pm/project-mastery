@@ -9,7 +9,13 @@ import {
   test,
   vi,
 } from "vitest";
-import { AI_TASKS, aiTask, answeringModel, modelIdFor } from "./models";
+import {
+  AI_TASKS,
+  aiTask,
+  answeringModel,
+  modelIdFor,
+  textOnlyStep,
+} from "./models";
 import { mockEmbeddingModel, mockTextModel, useMockModels } from "./testing";
 
 vi.mock("server-only", () => ({}));
@@ -312,4 +318,11 @@ describe("answeringModel", () => {
     );
     expect(answeringModel({ model: "google/x" }, undefined)).toBe("google/x");
   });
+});
+
+test("textOnlyStep leaves the tool choice alone for a model that takes only auto", () => {
+  expect(textOnlyStep("xiaomi/mimo-v2.6-flash")).toEqual({
+    toolChoice: "none",
+  });
+  expect(textOnlyStep("meta/muse-ember")).toBeUndefined();
 });

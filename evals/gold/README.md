@@ -17,9 +17,22 @@ Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use th
 
 | Command                                            | What it does                                                                                                                                                                                                         |
 | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm gold pull <slug> [course-id] [--name "…"]`   | Writes a Course from the staging project into `evals/gold/<slug>/`, reading through GET requests only (ADR 0025; needs `STAGING_SUPABASE_URL` and `STAGING_SUPABASE_SECRET_KEY`). `linear-algebra-I` needs no id.    |
 | `pnpm gold export <course-id> <slug> [--name "…"]` | Writes a Course from the local database into `evals/gold/<slug>/`.                                                                                                                                                   |
 | `pnpm gold seed <slug> [--exam-in-days 42]`        | Creates or reuses the gold Student (`gold@example.com`, password `gold-password`; `GOLD_EMAIL` and `GOLD_PASSWORD` override), replaces its Course of the same name and sets the Brief's exam date relative to today. |
 | `pnpm gold list`                                   | Lists the snapshots.                                                                                                                                                                                                 |
+
+## Tutoring scenarios
+
+`evals/tutor/scenarios/` holds ten tutoring situations on `linear-algebra-I` (#277). Each file gives its setup as JSON under "## Setup" (exam days, goal, earlier Attempts, Memory, an open Question, a graded mock), the Student's persona and moves for an agent to play, and the checklist a judge scores. `evals/smoke/tutor-eval.ts` runs them, on the local database only:
+
+| Command                                 | What it does                                                                                                               |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm tutor-eval start <scenario>`      | A new Student with the gold course seeded and the setup applied; prints the run id (its Chat's id). `03` names `03-….md`.  |
+| `pnpm tutor-eval say <run> "<message>"` | Sends the message through `respondInChat`, then prints the reply, each tool call's input and result, and the new Attempts. |
+| `pnpm tutor-eval end <run>`             | Deletes the run's Student with its data.                                                                                   |
+
+Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model. An Opus agent plays and judges each scenario; the scorecards of each tuning are in `evals/tutor/runs/<date>.md`.
 
 ## Making a gold course
 
@@ -34,7 +47,7 @@ Everything the pipeline stores for a Course: Materials and their pages, chunks w
 
 ## linear-algebra-I
 
-The gold course of the Knowledge map pipeline v2 (#222). It has no snapshot yet: its folder holds the Materials, the recorded pages, the reference map and the judged runs. `pages.json` holds the recorded page results and structure call's Outline of `lecture-notes.pdf` pp. 17–24 (the end of Chapter 3 and Chapter 4, Vector Spaces) and `exercises.pdf` pp. 3 and 5 (Exercises 7–16 and solutions), which `pnpm smoke pair` and `pnpm smoke map` parse without page calls (`evals/smoke/recorded-pages.ts`); a change to the page schema records them again. The smoke checks that need a built map (`tutor`, `generate`, `mock`, `grade-mock`, `close`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
+The gold course of the Knowledge map pipeline v2 (#222). Its `snapshot.json.gz` was pulled with `pnpm gold pull linear-algebra-I` from the staging Course `e899632d-e458-45c0-a18e-7c960ce44052` (the Opus reference map: 113 KCs, 16 Topics, 164 chunks with their embeddings), so `pnpm gold seed linear-algebra-I` loads a working Course. `materials/b585de0b-….pdf` is the unsplit 55-page script the snapshot's Material points at, downloaded from staging storage; the three PDFs below are its parts. Pull again after the staging Course changes. The folder also holds the recorded pages, the reference map and the judged runs. `pages.json` holds the recorded page results and structure call's Outline of `lecture-notes.pdf` pp. 17–24 (the end of Chapter 3 and Chapter 4, Vector Spaces) and `exercises.pdf` pp. 3 and 5 (Exercises 7–16 and solutions), which `pnpm smoke pair` and `pnpm smoke map` parse without page calls (`evals/smoke/recorded-pages.ts`); a change to the page schema records them again. The smoke checks that need a built map (`tutor`, `generate`, `mock`, `grade-mock`, `close`) seed its snapshot for their Student (`evals/smoke/gold-course.ts`) and stop with "Run the gold run first (#222)" until the snapshot exists. Its Materials are one AI-written 55-page script, split into three PDFs so that its old exams are a Material of their own. Each file keeps its part of the outline.
 
 | File                | Pages of the script | What it holds                                                                                |
 | ------------------- | ------------------- | -------------------------------------------------------------------------------------------- |

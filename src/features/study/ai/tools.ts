@@ -71,7 +71,7 @@ const askInputSchema = z.object({
     .string()
     .nullish()
     .describe(
-      "The id of the Problem from findProblems when the question poses one; omit it for your own question.",
+      "The id of the Problem from findProblems when the question poses the whole of it, since grading then needs a value for each of its final results; omit it for your own question, also one that asks only some parts of a Problem.",
     ),
 });
 
@@ -100,7 +100,7 @@ const gradeInputSchema = z.object({
   help: z
     .enum(["none", "some", "solution_shown"])
     .describe(
-      "How much you helped on this question before the answer: none, some (hints or corrections), or solution_shown when you showed or walked through the solution.",
+      "How much you helped on this question: none when the Student answered without your hints, some (hints or corrections before the answer), or solution_shown when you showed or walked through the solution, before the answer or in this reply.",
     ),
   finalValues: z
     .array(
@@ -413,7 +413,7 @@ async function grade(
   const unvalued = keys.filter((_, index) => checked.checks[index] === null);
   if (unvalued.length > 0 && results.some(({ result }) => result === "full")) {
     throw new TutorToolError(
-      `A full needs the Student's value for each final result, for the check: give it in finalValues for ${unvalued.map(({ label }) => `"${label}"`).join(", ")}. Without one in the answer, no KC is full.`,
+      `A full needs the Student's value for each final result, for the check: give it in finalValues for ${unvalued.map(({ label }) => `"${label}"`).join(", ")}, as the Student wrote it, and keep your results. Only when the answer has no value for it is no KC full.`,
     );
   }
   const check = worstCheck(checked.checks);
