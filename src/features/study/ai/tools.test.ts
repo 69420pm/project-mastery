@@ -181,6 +181,16 @@ describe("grade", () => {
     ]);
   });
 
+  test("after a grade whose reply failed, the next message's grade says the grade is recorded and to write the reply from it", async () => {
+    await grade(open);
+    // The reply failed (429) after the grade was stored; the next message
+    // finds the Question graded.
+    await expect(grade({ ...open, graded: true })).rejects.toThrow(
+      /already graded.*recorded.*reply/,
+    );
+    expect(saved).toEqual([]);
+  });
+
   test("closeQuestion closes the open question without attempts", async () => {
     await expect(
       toolsOn({ ...open, answered: false }).closeQuestion.execute!({}, options),
@@ -191,7 +201,7 @@ describe("grade", () => {
 
   test.each([
     ["no question", null, "no open Question"],
-    ["a graded one", { ...open, graded: true }, "no open Question"],
+    ["a graded one", { ...open, graded: true }, "already graded"],
     [
       "one from an ended session",
       { ...open, sessionEnded: true },
@@ -227,7 +237,7 @@ describe("grade", () => {
       undefined,
       "not answered",
     ],
-    ["a graded one", { ...open, graded: true }, undefined, "no open Question"],
+    ["a graded one", { ...open, graded: true }, undefined, "already graded"],
     [
       "one from an ended session",
       { ...open, sessionEnded: true },

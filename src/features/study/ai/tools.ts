@@ -350,16 +350,18 @@ async function showReading(
   return section;
 }
 
-const alreadyGraded = "This question is already graded.";
+const alreadyGraded =
+  "This question is already graded: its grade is recorded, so don't grade or close it again. Write your reply to the Student from that grade.";
 
 /** The session's open Question, which `grade` and `closeQuestion` act on. */
 async function openQuestion(
   actions: TutorToolActions,
 ): Promise<QuestionToGrade> {
   const question = await actions.findQuestion();
-  if (!question || question.graded) {
+  if (!question) {
     throw new TutorToolError("There is no open Question: ask one first.");
   }
+  if (question.graded) throw new TutorToolError(alreadyGraded);
   if (question.sessionEnded) {
     throw new TutorToolError(
       "This question's study session has ended, so it can't be graded or closed.",
