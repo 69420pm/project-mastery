@@ -145,12 +145,19 @@ test("Settings saves the name into the sidebar, and clearing it brings the email
   await account.click();
   await page.getByRole("menuitem", { name: "Settings" }).click();
   const settings = page.getByRole("dialog", { name: "Settings" });
-  await expect(settings.getByLabel("Email")).toHaveValue(student.email);
+  await expect(settings.getByText(student.email)).toBeVisible();
+  await expect(settings.getByLabel("Email")).toHaveCount(0);
+
+  await settings.getByRole("tab", { name: "Usage" }).click();
   await expect(
     settings.getByText(/^100% left today · resets at /),
   ).toBeVisible();
   await expect(settings.getByText("$0 of $1.00 used")).toBeVisible();
 
+  await settings.getByRole("tab", { name: "Appearance" }).click();
+  await expect(settings.getByLabel("Theme")).toBeVisible();
+
+  await settings.getByRole("tab", { name: "Account" }).click();
   await settings.getByLabel("Name").fill("Ada Lovelace");
   await settings.getByRole("button", { name: "Save" }).click();
   await expect(settings.getByRole("status")).toHaveText("Saved.");
