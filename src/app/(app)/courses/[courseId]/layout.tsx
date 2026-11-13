@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { PathBreadcrumb } from "@/components/path-breadcrumb";
 import { UserMenu } from "@/features/auth";
+import { getDisplayName } from "@/features/auth/server";
 import { BriefLink, briefPath } from "@/features/brief";
 import {
   ChatList,
@@ -43,9 +44,10 @@ export default async function CourseLayout({
   params,
 }: LayoutProps<"/courses/[courseId]">) {
   const { courseId } = await params;
-  const [user, course, courses, chats, topicNames, cookieStore] =
+  const [user, displayName, course, courses, chats, topicNames, cookieStore] =
     await Promise.all([
       getUser(),
+      getDisplayName(),
       getCourse(courseId),
       getCourseList(),
       getChatList(courseId),
@@ -104,7 +106,9 @@ export default async function CourseLayout({
             />
           )
         }
-        footer={user && <UserMenu email={user.email} />}
+        footer={
+          user && <UserMenu email={user.email} displayName={displayName} />
+        }
       >
         {children}
       </AppShell>

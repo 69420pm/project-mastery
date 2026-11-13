@@ -9,8 +9,12 @@ import type {
 } from "@/lib/supabase/types";
 
 vi.mock("server-only", () => ({}));
+let sessionDb: Supabase;
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => sessionDb,
+}));
 
-const { checkDailyLimit, recordAiUsage } =
+const { checkDailyLimit, getDailyUsage, recordAiUsage } =
   await import("@/features/usage/server");
 
 const STUDENT_A = "11111111-1111-1111-1111-111111111111";
@@ -100,6 +104,47 @@ describe("usage recorded for an explicit Student id", () => {
     });
     expect(viaAdmin.level).toBe("reached");
     expect(viaAdmin).toEqual(viaSession);
+  });
+});
+
+describe("today's usage with amounts", () => {
+  beforeEach(() => {
+    sessionDb = fakeSupabase({
+      tables: { ai_usage: rows },
+      canAccess: (_table, row) => row.owner === STUDENT_A,
+    }) as unknown as Supabase;
+  });
+
+  test("is the Student's own spend today against the limit", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "2");
+    await recordAiUsage(admin, PARSE_CALL, { studentId: STUDENT_A });
+    await recordAiUsage(admin, PARSE_CALL, { studentId: STUDENT_B });
+
+    await expect(getDailyUsage(NOW)).resolves.toEqual({
+      spentUsd: 0.8,
+      limitUsd: 2,
+      resetsAt: "2026-01-02T00:00:00.000Z",
+    });
+  });
+
+  test("has no limit when none is configured", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "");
+
+    await expect(getDailyUsage(NOW)).resolves.toEqual({
+      spentUsd: 0,
+      limitUsd: undefined,
+      resetsAt: "2026-01-02T00:00:00.000Z",
+    });
+  });
+
+  test("counts nothing from before today's UTC day", async () => {
+    vi.stubEnv("AI_DAILY_LIMIT_USD", "2");
+    await recordAiUsage(admin, PARSE_CALL, { studentId: STUDENT_A });
+
+    const tomorrow = new Date("2026-01-02T01:00:00.000Z");
+    await expect(getDailyUsage(tomorrow)).resolves.toMatchObject({
+      spentUsd: 0,
+    });
   });
 });
 

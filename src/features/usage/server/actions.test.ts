@@ -20,7 +20,7 @@ vi.mock("@/lib/auth/user", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => db }));
 
-const { refreshDailyLimitStatus } = await import("./actions");
+const { loadDailyUsage, refreshDailyLimitStatus } = await import("./actions");
 
 beforeEach(() => {
   signedIn = true;
@@ -41,5 +41,15 @@ describe("refreshing the Daily limit status", () => {
     signedIn = false;
 
     await expect(refreshDailyLimitStatus()).rejects.toThrow("NEXT_REDIRECT");
+  });
+
+  test("loads today's usage with amounts for Settings", async () => {
+    await expect(loadDailyUsage()).resolves.toEqual({
+      spentUsd: 0.9,
+      limitUsd: 1,
+      resetsAt: "2026-10-09T00:00:00.000Z",
+    });
+    signedIn = false;
+    await expect(loadDailyUsage()).rejects.toThrow("NEXT_REDIRECT");
   });
 });

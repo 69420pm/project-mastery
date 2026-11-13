@@ -9,14 +9,16 @@ import {
   type LoginMessageCode,
 } from "@/features/auth/domain/login-messages";
 import {
+  displayNameSchema,
   magicLinkSchema,
   signInSchema,
   signUpSchema,
 } from "@/features/auth/schemas";
 import type { AuthFormState } from "@/features/auth/types";
 import { CONFIRM_PATH, safeRedirectPath } from "@/lib/auth/redirect";
+import { requireUser } from "@/lib/auth/user";
 import { createClient } from "@/lib/supabase/server";
-import { parseActionInput } from "@/lib/validation/action";
+import { parseActionInput, type ActionResult } from "@/lib/validation/action";
 
 /**
  * The site's origin, for links in auth emails. It comes from request headers
@@ -126,6 +128,26 @@ export async function signUp(
   // With email confirmation on, Supabase answers the same way whether or not
   // the address already has an account, so this reveals nothing.
   return { ok: true, data: undefined, email: input.data.email };
+}
+
+/**
+ * Saves the Student's name, shown in the sidebar. An empty name clears it, and
+ * the sidebar shows the email again.
+ */
+export async function saveDisplayName(input: FormData): Promise<ActionResult> {
+  const user = await requireUser();
+  const parsed = parseActionInput(displayNameSchema, input);
+  if (!parsed.ok) return parsed;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ display_name: parsed.data.displayName })
+    .eq("id", user.id);
+  if (error) throw new Error("Could not save the name.", { cause: error });
+
+  revalidatePath("/", "layout");
+  return { ok: true, data: undefined };
 }
 
 export async function signOut() {

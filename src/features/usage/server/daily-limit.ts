@@ -11,7 +11,7 @@ import {
   type AdminStudentScope,
   type StudentScope,
 } from "@/features/usage/server/usage-store";
-import type { DailyLimitStatus } from "@/features/usage/types";
+import type { DailyLimitStatus, DailyUsage } from "@/features/usage/types";
 import { createClient } from "@/lib/supabase/server";
 import type {
   AdminSupabase,
@@ -51,6 +51,19 @@ export async function checkDailyLimit(
     studentId,
   });
   return { level: dailyLimitLevel(spentUsd, limitUsd), resetsAt };
+}
+
+/**
+ * The signed-in Student's spend today against the Daily limit, with amounts,
+ * for Settings. Same window and spend as `checkDailyLimit`.
+ */
+export async function getDailyUsage(now = new Date()): Promise<DailyUsage> {
+  const spentUsd = await spentSinceUsd(await createClient(), utcDayStart(now));
+  return {
+    spentUsd,
+    limitUsd: getDailyLimitUsd(),
+    resetsAt: dailyLimitReset(now).toISOString(),
+  };
 }
 
 /** The signed-in Student's Daily limit status, for pages. */

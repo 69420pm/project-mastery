@@ -17,6 +17,15 @@ export function dailyLimitLevel(
   return "ok";
 }
 
+/** How much of the Daily limit is left, in whole percent rounded down. */
+export function dailyLimitPercentLeft(
+  spentUsd: number,
+  limitUsd: number,
+): number {
+  if (limitUsd <= 0) return 0;
+  return Math.floor(Math.max(0, 1 - spentUsd / limitUsd) * 100);
+}
+
 /** Start of the current Daily limit window: 00:00 UTC of `now`'s day. */
 export function utcDayStart(now: Date): Date {
   return new Date(

@@ -23,4 +23,17 @@ export const signUpSchema = z.object({
     .max(72, { error: "Use at most 72 characters." }),
 });
 
+/**
+ * The Student's name: trimmed, at most 100 characters (the column's check).
+ * Empty means no name, stored as null.
+ */
+export const displayNameSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .max(100, { error: "Use at most 100 characters." })
+    .optional()
+    .transform((name) => name || null),
+});
+
 export const magicLinkSchema = z.object({ email: emailSchema });

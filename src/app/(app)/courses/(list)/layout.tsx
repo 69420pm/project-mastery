@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { PathBreadcrumb } from "@/components/path-breadcrumb";
 import { UserMenu } from "@/features/auth";
+import { getDisplayName } from "@/features/auth/server";
 import { COURSE_LIST_PATH, CourseListLink } from "@/features/courses";
 import { getUser } from "@/lib/auth/user";
 import { isSidebarOpen } from "@/lib/sidebar-state";
@@ -14,7 +15,11 @@ import { isSidebarOpen } from "@/lib/sidebar-state";
 export default async function CourseListLayout({
   children,
 }: LayoutProps<"/courses">) {
-  const [user, cookieStore] = await Promise.all([getUser(), cookies()]);
+  const [user, displayName, cookieStore] = await Promise.all([
+    getUser(),
+    getDisplayName(),
+    cookies(),
+  ]);
 
   return (
     <AppShell
@@ -26,7 +31,7 @@ export default async function CourseListLayout({
           trail={[{ href: COURSE_LIST_PATH, label: "Courses" }]}
         />
       }
-      footer={user && <UserMenu email={user.email} />}
+      footer={user && <UserMenu email={user.email} displayName={displayName} />}
     >
       {children}
     </AppShell>
