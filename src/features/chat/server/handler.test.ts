@@ -48,7 +48,7 @@ describe("a first message", () => {
       {
         role: "assistant",
         text: "Show me your attempt first.",
-        modelId: "xiaomi/mimo-v2.6-flash",
+        modelId: "meta/muse-ember",
       },
     ]);
     expect(db.tables.study_sessions).toEqual([
@@ -338,7 +338,7 @@ describe("the Chat title", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "title",
-        model_id: "xiaomi/mimo-v2.6-flash",
+        model_id: "meta/muse-ember",
         input_tokens: 10,
         output_tokens: 20,
         estimated: false,

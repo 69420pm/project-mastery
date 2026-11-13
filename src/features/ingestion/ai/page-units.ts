@@ -70,7 +70,7 @@ const BATCH_INSTRUCTIONS = `You transcribe consecutive pages of a Student's cour
 export function batchCallSettings() {
   return {
     ...aiTask("ingest"),
-    // With reasoning on, MiMo can answer a structured output with an empty
+    // With reasoning on, a model (MiMo observed) can answer a structured output with an empty
     // text (docs/agents/notes/ai-sdk.md).
     reasoning: "none" as const,
     maxOutputTokens: 16000,

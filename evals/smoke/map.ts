@@ -57,8 +57,8 @@ function keptExercises(exercises: RecordedPage, solutions: RecordedPage) {
  * Update map from the recorded gold pages (#229): the lecture notes' pages
  * 17–24 and Exercises 7–10 with their printed solutions, parsed with their
  * recorded Outlines and without page calls, then built twice with the real
- * workflow in this process. On the default smoke model; pinned to MiMo
- * with AI_SMOKE_MODEL it may take 10 minutes (`AI_SMOKE_MAX_MINUTES=10`).
+ * workflow in this process. On the default smoke model; pinned to a slow
+ * model with AI_SMOKE_MODEL it may take 10 minutes (`AI_SMOKE_MAX_MINUTES=10`).
  */
 export const mapSmoke: SmokeCheck = {
   name: "map",

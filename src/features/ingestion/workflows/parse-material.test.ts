@@ -119,7 +119,7 @@ describe("parsing a PDF Material", () => {
       expect.objectContaining({
         owner: STUDENT,
         task: "ingest",
-        model_id: "xiaomi/mimo-v2.6-flash",
+        model_id: "meta/muse-ember",
         input_tokens: 1000,
         output_tokens: 200,
       }),
