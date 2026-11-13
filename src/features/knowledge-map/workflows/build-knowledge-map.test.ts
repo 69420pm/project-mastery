@@ -18,7 +18,6 @@ import {
   queueBuild,
   seedMaterial,
   STUDENT,
-  unitTitle,
   useBuildModels,
 } from "./build-testing";
 
@@ -118,7 +117,7 @@ describe("Update map", () => {
     expect(db.tables.kc_sources).toHaveLength(3);
   });
 
-  test("splits a Chapter over the cap into its children and its own chunks", async () => {
+  test("splits a Chapter over the cap into its children, its own chunks joining the first child's unit", async () => {
     seedMaterial(db, {
       chapters: [
         {
@@ -131,20 +130,24 @@ describe("Update map", () => {
         },
       ],
     });
-    const { extractions } = useBuildModels();
+    const { extractions } = useBuildModels({
+      kcsOf: (unit) => [unit.chunks.at(-1)!.markdown.slice(0, 4)],
+      chunkIdOf: (_, unit) => unit.chunks.at(-1)!.id,
+    });
 
     await update();
 
-    expect(extractions.map(unitTitle)).toEqual([
-      "Vector spaces",
-      "Subspaces",
-      "Bases",
+    // "Opening." goes with the unit of Subspaces, the first child.
+    expect(extractions.map((unit) => unit.chunks.length)).toEqual([2, 1]);
+    expect(extractions[0]!.outline).toEqual([
+      "Material 0",
+      "  Vector spaces  <- this unit",
+      "    Subspaces  <- this unit",
+      "    Bases",
     ]);
-    expect(liveKcs(db)).toEqual(["Vector spaces", "Subspaces", "Bases"]);
     expect(
       db.tables.chapter_extractions.map((row) => [row.kind, row.unit]),
     ).toEqual([
-      ["content", 0],
       ["content", 0],
       ["content", 0],
     ]);

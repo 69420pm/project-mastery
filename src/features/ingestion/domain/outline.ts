@@ -55,7 +55,8 @@ export function headingIds(
  * The Outline of a Material: the root Chapter, titled by its name, and the
  * proposed Chapters below it. A Chapter starts at its heading; with an
  * unknown or already used heading id, at the first unit that starts on its
- * page. A Chapter with neither, without a title, or starting before the
+ * page; given by a page where no unit starts, at the first unit after it,
+ * if that is before the next Chapter's start. A Chapter with none of these, without a title, or starting before the
  * Chapter kept before it is dropped. A Chapter's parent is the nearest
  * Chapter kept before it with a lower level, so its depth is one more than
  * that parent's.
@@ -79,7 +80,23 @@ export function outlineChapters(
   };
   const kept = [root];
   const levels = [0];
-  for (const chapter of proposed) {
+  // The start each Chapter has at its heading or on a page with a unit.
+  const seen = new Set<string>();
+  const exact = proposed.map((chapter): number | undefined => {
+    if (!chapter.title.trim()) return undefined;
+    if (
+      chapter.heading !== null &&
+      ids.has(chapter.heading) &&
+      !seen.has(chapter.heading)
+    ) {
+      seen.add(chapter.heading);
+      return ids.get(chapter.heading);
+    }
+    if (chapter.page === null) return undefined;
+    const index = units.findIndex((unit) => unit.pageFrom === chapter.page);
+    return index === -1 ? undefined : index;
+  });
+  for (const [at, chapter] of proposed.entries()) {
     const title = chapter.title.trim().slice(0, MAX_TITLE_CHARS);
     if (!title) continue;
     let startUnit: number | undefined;
@@ -94,7 +111,17 @@ export function outlineChapters(
       used.add(chapter.heading);
     } else if (chapter.page !== null) {
       const index = units.findIndex((unit) => unit.pageFrom === chapter.page);
-      if (index !== -1) startUnit = index;
+      if (index !== -1) {
+        startUnit = index;
+      } else if (chapter.page !== null) {
+        // A page without a unit (a title page, say): the first unit after
+        // it, if that comes before the next Chapter's start.
+        const next = exact.slice(at + 1).find((start) => start !== undefined);
+        const after = units.findIndex((unit) => unit.pageFrom > chapter.page!);
+        if (after !== -1 && (next === undefined || after < next)) {
+          startUnit = after;
+        }
+      }
     }
     if (startUnit === undefined || startUnit < kept.at(-1)!.startUnit) {
       continue;

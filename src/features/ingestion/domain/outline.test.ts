@@ -75,7 +75,23 @@ describe("outlineChapters", () => {
 
     expect(tree(proposed)).toEqual([
       [0, null, 0, "lecture-notes.pdf", 1, 0],
-      [1, 0, 1, "4 Vector Spaces", 18, 1],
+      [1, 0, 1, "Part I", 17, 0],
+      [2, 1, 2, "4 Vector Spaces", 18, 1],
+    ]);
+  });
+
+  test("starts a Chapter on a page without units at the first unit after it, unless the next Chapter starts first", () => {
+    expect(
+      tree([
+        chapter({ title: "Title page", page: 3 }),
+        chapter({ title: "Squeezed", page: 19 }),
+        chapter({ title: "4.2 Bases", heading: "h3" }),
+        chapter({ title: "Beyond", page: 40 }),
+      ]),
+    ).toEqual([
+      [0, null, 0, "lecture-notes.pdf", 1, 0],
+      [1, 0, 1, "Title page", 17, 0],
+      [2, 0, 1, "4.2 Bases", 20, 4],
     ]);
   });
 });

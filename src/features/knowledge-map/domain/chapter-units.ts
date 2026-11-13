@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 /**
  * The units the build extracts from (#229): a Chapter whose subtree's chunks
  * of one kind total at most UNIT_CHARS characters is one unit. A bigger
- * Chapter makes units of its children, plus units of its own chunks outside
- * them; chunks over the cap split between chunks. Sibling Chapters are never
- * packed into one unit. The same rule over a Material's `content` chunks
+ * Chapter makes units of its children; its own chunks outside them join the
+ * unit of its first child (alone only when they alone pass the cap), and
+ * consecutive children that each fit are packed into one unit up to the cap.
+ * Chunks over the cap split between chunks. The same rule over a Material's `content` chunks
  * gives its teaching units, over its `exercise` chunks its exercise units.
  */
 
@@ -27,8 +28,9 @@ export type UnitChunk = {
 };
 
 /**
- * A unit: its Chapter, its index among that Chapter's units, its chunks.
- * `chapterIds` holds its one Chapter.
+ * A unit: its lead Chapter, its index among that Chapter's units, its
+ * chunks. `chapterIds` holds every Chapter whose chunks it reads: a packed
+ * unit's siblings, a first child's unit's parents.
  */
 export type ChapterUnit = {
   chapterId: string;
@@ -66,29 +68,82 @@ export function chapterUnits(
     list.reduce((sum, chunk) => sum + chunk.markdown.length, 0);
 
   const units: ChapterUnit[] = [];
-  const visit = (id: string) => {
-    const whole = subtree(id);
+  type Part = { ids: string[]; chunks: UnitChunk[] };
+  const nothing: Part = { ids: [], chunks: [] };
+  // A unit is named by its `lead` Chapter: the one it is the first unit of
+  // or, for a packed unit, its first packed Chapter.
+  const emit = (
+    lead: string,
+    ids: string[],
+    list: readonly UnitChunk[],
+    unit = 0,
+  ) =>
+    units.push({
+      chapterId: lead,
+      unit,
+      chapterIds: ids,
+      chunkIds: list
+        .toSorted((a, b) => place.get(a.id)! - place.get(b.id)!)
+        .map((c) => c.id),
+    });
+  // `carry` is what the Chapters above give this one: their own chunks.
+  const visit = (id: string, carry: Part) => {
+    const whole = [...carry.chunks, ...subtree(id)];
+    const mine: Part = {
+      ids: [...carry.ids, id],
+      chunks: [...carry.chunks, ...(own.get(id) ?? [])],
+    };
     if (whole.length === 0) return;
     if (size(whole) <= cap) {
-      units.push({
-        chapterId: id,
-        unit: 0,
-        chapterIds: [id],
-        chunkIds: whole.map((c) => c.id),
-      });
+      emit(id, mine.ids, whole);
       return;
     }
-    slices(own.get(id) ?? [], cap).forEach((slice, unit) =>
-      units.push({
-        chapterId: id,
-        unit,
-        chapterIds: [id],
-        chunkIds: slice.map((c) => c.id),
-      }),
-    );
-    for (const child of children.get(id) ?? []) visit(child.id);
+    const kids = (children.get(id) ?? [])
+      .map((child) => ({ id: child.id, chunks: subtree(child.id) }))
+      .filter((kid) => kid.chunks.length > 0);
+    if (kids.length === 0 || size(mine.chunks) > cap) {
+      slices(mine.chunks, cap).forEach((slice, unit) =>
+        emit(id, mine.ids, slice, unit),
+      );
+    }
+    if (kids.length === 0) return;
+    // The Chapter's own chunks go with its first child, unless they were
+    // units of their own above.
+    // A Chapter without chunks of its own is not named by that unit.
+    let extra: Part =
+      size(mine.chunks) > cap
+        ? nothing
+        : {
+            ids: own.has(id) ? mine.ids : carry.ids,
+            chunks: mine.chunks,
+          };
+    // Consecutive children that fit are packed into units up to the cap.
+    const open: { pack: (Part & { lead: string }) | null } = { pack: null };
+    const flush = () => {
+      if (open.pack) emit(open.pack.lead, open.pack.ids, open.pack.chunks);
+      open.pack = null;
+    };
+    for (const kid of kids) {
+      const { pack } = open;
+      if (size(kid.chunks) + size(extra.chunks) > cap) {
+        flush();
+        visit(kid.id, extra);
+      } else if (pack && size(pack.chunks) + size(kid.chunks) <= cap) {
+        pack.ids.push(kid.id);
+        pack.chunks.push(...kid.chunks);
+      } else {
+        flush();
+        open.pack = {
+          lead: kid.id,
+          ids: [...extra.ids, kid.id],
+          chunks: [...extra.chunks, ...kid.chunks],
+        };
+      }
+      extra = nothing;
+    }
+    flush();
   };
-  visit(root.id);
+  visit(root.id, nothing);
   return units.toSorted(
     (a, b) => place.get(a.chunkIds[0]!)! - place.get(b.chunkIds[0]!)!,
   );
