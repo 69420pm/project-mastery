@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronsUpDownIcon, LogOutIcon, SettingsIcon } from "lucide-react";
-import { startTransition, useState } from "react";
+import { startTransition } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { SettingsDialog } from "@/features/auth/components/settings-dialog";
+import { useOpenSettings } from "@/features/auth/components/settings-provider";
 import { signOut } from "@/features/auth/server/actions";
 
 type UserMenuProps = {
@@ -34,18 +34,12 @@ type UserMenuProps = {
  */
 export function UserMenu({ email, displayName }: UserMenuProps) {
   const { isMobile } = useSidebar();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const openSettings = useOpenSettings();
   const label = displayName || email;
   const initial = label?.charAt(0).toUpperCase() || "?";
 
   return (
     <SidebarMenu>
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        displayName={displayName}
-        email={email}
-      />
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -71,7 +65,7 @@ export function UserMenu({ email, displayName }: UserMenuProps) {
               </>
             )}
             <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+              <DropdownMenuItem onSelect={openSettings}>
                 <SettingsIcon />
                 Settings
               </DropdownMenuItem>

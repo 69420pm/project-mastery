@@ -23,9 +23,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DailyLimitRow } from "@/features/auth/components/daily-limit-row";
 import { saveDisplayName } from "@/features/auth/server/actions";
 
+export type SettingsSection = "account" | "appearance" | "usage";
+
 type SettingsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  section: SettingsSection;
+  onSectionChange: (section: SettingsSection) => void;
   displayName: string | null;
   email: string | undefined;
 };
@@ -34,6 +38,8 @@ type SettingsDialogProps = {
 export function SettingsDialog({
   open,
   onOpenChange,
+  section,
+  onSectionChange,
   displayName,
   email,
 }: SettingsDialogProps) {
@@ -58,7 +64,8 @@ export function SettingsDialog({
           Your account, how the app looks and your usage.
         </DialogDescription>
         <Tabs
-          defaultValue="account"
+          value={section}
+          onValueChange={(value) => onSectionChange(value as SettingsSection)}
           orientation="vertical"
           className="h-full min-h-0 flex-col gap-0 sm:flex-row"
         >

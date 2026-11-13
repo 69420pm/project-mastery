@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { PathBreadcrumb } from "@/components/path-breadcrumb";
-import { UserMenu } from "@/features/auth";
+import { SettingsProvider, UserMenu } from "@/features/auth";
 import { getDisplayName } from "@/features/auth/server";
 import { COURSE_LIST_PATH, CourseListLink } from "@/features/courses";
 import { getUser } from "@/lib/auth/user";
@@ -22,18 +22,22 @@ export default async function CourseListLayout({
   ]);
 
   return (
-    <AppShell
-      defaultOpen={isSidebarOpen(cookieStore)}
-      homeHref={COURSE_LIST_PATH}
-      header={<CourseListLink />}
-      breadcrumb={
-        <PathBreadcrumb
-          trail={[{ href: COURSE_LIST_PATH, label: "Courses" }]}
-        />
-      }
-      footer={user && <UserMenu email={user.email} displayName={displayName} />}
-    >
-      {children}
-    </AppShell>
+    <SettingsProvider email={user?.email} displayName={displayName}>
+      <AppShell
+        defaultOpen={isSidebarOpen(cookieStore)}
+        homeHref={COURSE_LIST_PATH}
+        header={<CourseListLink />}
+        breadcrumb={
+          <PathBreadcrumb
+            trail={[{ href: COURSE_LIST_PATH, label: "Courses" }]}
+          />
+        }
+        footer={
+          user && <UserMenu email={user.email} displayName={displayName} />
+        }
+      >
+        {children}
+      </AppShell>
+    </SettingsProvider>
   );
 }
