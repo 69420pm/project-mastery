@@ -124,7 +124,7 @@ describe("a tool result", () => {
     expect(db.tables.courses[0]?.language).toBe("German");
   });
 
-  test("a reply's last step can only write text", async () => {
+  test("a reply's last step stays on auto for Muse, which refuses toolChoice none", async () => {
     seedBrief();
     const call = { toolName: "saveBrief", input: { goal: "pass" } };
     const model = mockToolModel([[call], [call], [call], [call]], "Ok.");
@@ -133,8 +133,7 @@ describe("a tool result", () => {
     await send({ courseId: COURSE, message: userMessage("…") });
 
     expect(model.doStreamCalls.map(({ toolChoice }) => toolChoice)).toEqual([
-      ...Array(4).fill({ type: "auto" }),
-      { type: "none" },
+      ...Array(5).fill({ type: "auto" }),
     ]);
   });
 

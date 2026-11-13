@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { MATERIALS_BUCKET } from "@/lib/supabase/buckets";
 import {
@@ -62,6 +63,16 @@ async function readAll(
 }
 
 /**
+ * Writes `bytes` to a new file with an unpredictable name beside `file`, then
+ * renames it over `file`, so a reader never sees half a file.
+ */
+async function writeFileAtomic(file: string, bytes: string | Uint8Array) {
+  const temp = `${file}.${randomUUID()}`;
+  await writeFile(temp, bytes, { flag: "wx", mode: 0o600 });
+  await rename(temp, file);
+}
+
+/**
  * Writes the staging Course `courseId` into `evals/gold/<slug>/`: every
  * `SNAPSHOT_TABLES` row and the Materials' files. Returns the row count per
  * table.
@@ -104,9 +115,12 @@ export async function pullCourse(
       await (await get(staging, fetchFn, url)).arrayBuffer(),
     );
     const file = `${material.id as string}.${extensionOf(material.media_type as string)}`;
-    await writeFile(path.join(dir, "materials", file), bytes);
+    await writeFileAtomic(path.join(dir, "materials", file), bytes);
   }
-  await writeFile(path.join(dir, "snapshot.json.gz"), encodeSnapshot(snapshot));
+  await writeFileAtomic(
+    path.join(dir, "snapshot.json.gz"),
+    encodeSnapshot(snapshot),
+  );
 
   return Object.fromEntries(
     Object.entries(tables).map(([name, rows]) => [name, rows.length]),

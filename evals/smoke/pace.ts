@@ -3,6 +3,7 @@
  * and the tutoring scenarios (docs/agents/live-ai.md).
  */
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -88,8 +89,8 @@ export function paceModelRequests() {
         now,
       ];
       // Written beside the file and renamed, so a reader never sees half a file.
-      const temp = `${SENT_FILE}.${process.pid}`;
-      writeFileSync(temp, JSON.stringify(all));
+      const temp = `${SENT_FILE}.${randomUUID()}`;
+      writeFileSync(temp, JSON.stringify(all), { flag: "wx", mode: 0o600 });
       renameSync(temp, SENT_FILE);
     }
     return fetch(input, init);

@@ -132,7 +132,7 @@ test("grade without results is refused before it runs", async () => {
   expect(db.tables.questions[0]!.graded_at).toBeNull();
 });
 
-test("a reply that spent its steps on tool calls ends with text", async () => {
+test("a reply that spent its steps on tool calls ends with text, on auto for Muse", async () => {
   const chatId = await useAskedChat();
   const failing = { toolName: "grade", input: { help: "none" } };
   const model = mockToolModel(
@@ -143,7 +143,7 @@ test("a reply that spent its steps on tool calls ends with text", async () => {
   await useReply(chatId, model);
 
   expect(model.doStreamCalls.map(({ toolChoice }) => toolChoice?.type)).toEqual(
-    ["auto", "auto", "auto", "auto", "none"],
+    ["auto", "auto", "auto", "auto", "auto"],
   );
   expect(JSON.stringify(db.tables.chat_messages.at(-1)!.parts)).toContain(
     "Both parts are right.",
