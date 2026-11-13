@@ -102,7 +102,7 @@ function run({ program, answers }) {
     if (typeof n.name === "string" && math.Unit.isValuelessUnit(n.name)) shadowing.add(n.name);
   }
   if (shadowing.size > 0) {
-    return fail("These variable names are mathjs units, which they would shadow: " + list([...shadowing]) + ". Rename them, such as mass_flow for m or A1 for A, and run the program again.");
+    return fail("These variable names are mathjs units, which they would shadow: " + list([...shadowing]) + ". Rename them, such as mass_flow for m, and run the program again.");
   }
   const scope = new Map();
   node.compile().evaluate(scope);
