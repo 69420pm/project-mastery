@@ -90,22 +90,7 @@ export function BriefPanel({
     <div className="flex flex-col divide-y px-5">
       <h1 className="sr-only">Brief data</h1>
       <Section title="Exam">
-        <ExamFacts fields={brief.fields} />
-        {brief.reservedExam && (
-          <p className="text-sm">
-            <span className="text-muted-foreground">Reserved exam: </span>
-            {brief.reservedExam === "none" ? (
-              "None"
-            ) : (
-              <Link
-                href={brief.reservedExam.href}
-                className="underline underline-offset-4"
-              >
-                {brief.reservedExam.name}
-              </Link>
-            )}
-          </p>
-        )}
+        <ExamFacts fields={brief.fields} reservedExam={brief.reservedExam} />
       </Section>
       <Section title="Excluded Materials">
         <MaterialLinks materials={brief.excludedMaterials} />
@@ -155,7 +140,13 @@ export function BriefPanel({
   );
 }
 
-function ExamFacts({ fields }: { fields: BriefFields }) {
+function ExamFacts({
+  fields,
+  reservedExam,
+}: {
+  fields: BriefFields;
+  reservedExam: BriefWithMessages["reservedExam"];
+}) {
   const rows: Array<[string, string | null]> = [
     [
       "Date",
@@ -184,6 +175,23 @@ function ExamFacts({ fields }: { fields: BriefFields }) {
           </dd>
         </div>
       ))}
+      {reservedExam && (
+        <div className="contents">
+          <dt className="text-muted-foreground">Reserved exam</dt>
+          <dd>
+            {reservedExam === "none" ? (
+              "None"
+            ) : (
+              <Link
+                href={reservedExam.href}
+                className="underline underline-offset-4"
+              >
+                {reservedExam.name}
+              </Link>
+            )}
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }
