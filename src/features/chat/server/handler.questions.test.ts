@@ -3,6 +3,8 @@
 // Question, the session facts in the tutor context, and a session that goes
 // through a graded Mock exam. Shared setup and helpers: handler-testing.ts.
 import { randomUUID } from "node:crypto";
+import { APICallError } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import { expect, test, vi } from "vitest";
 import { mockTextModel, mockToolModel, useMockModels } from "@/lib/ai/testing";
 import {
@@ -98,6 +100,46 @@ test("grade grades the open Question without an id, and ask waits for it", async
     expect.objectContaining({ kc_id: MAP.efficiency, result: "partial" }),
   ]);
   expect(db.tables.questions[0]!.graded_at).not.toBeNull();
+});
+
+test("a reply that failed after the grade was stored: the next message is told the grade is recorded", async () => {
+  const chatId = await useAskedChat();
+  const results = [
+    { kcId: MAP.thrust, result: "full" },
+    { kcId: MAP.efficiency, result: "full" },
+  ];
+  const grading = mockToolModel(
+    [[{ toolName: "grade", input: { results, help: "none" } }]],
+    "",
+  );
+  // The step after the grade call fails, as a 429 does.
+  let calls = 0;
+  const failing = new MockLanguageModelV4({
+    doStream: async (options) => {
+      if (calls++ === 0) return grading.doStream(options);
+      throw new APICallError({
+        message: "Too many requests",
+        url: "https://example.test",
+        requestBodyValues: {},
+        statusCode: 429,
+        isRetryable: false,
+      });
+    },
+  });
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  await useReply(chatId, failing);
+  expect(db.tables.questions[0]!.graded_at).not.toBeNull();
+  const stored = db.tables.attempts.length;
+
+  const second = mockToolModel(
+    [[{ toolName: "grade", input: { results, help: "none" } }]],
+    "You got both right.",
+  );
+  await useReply(chatId, second, "Did I get it?");
+
+  expect(toolError("grade")).toContain("recorded");
+  expect(db.tables.attempts).toHaveLength(stored);
+  expect(second.doStreamCalls).toHaveLength(2);
 });
 
 test("closeQuestion closes the Question without Attempts", async () => {
