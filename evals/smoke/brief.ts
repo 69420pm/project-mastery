@@ -1,13 +1,9 @@
-import { randomUUID } from "node:crypto";
-import { respondInBrief } from "@/features/brief/server";
 import { loadKcPriorities } from "@/features/priorities/server";
 import { signInAsUser } from "@/lib/supabase/admin";
 import type { AdminSupabase, Supabase } from "@/lib/supabase/types";
-import { insertRows } from "./gold-course";
+import { EXAM_TITLE, seedSmallCourse } from "./brief-course";
+import { sendBriefMessage } from "./brief-send";
 import { result, type SmokeCheck } from "./smoke-check";
-
-/** The lecture notes' last Chapter, which the parse proposed as an old exam. */
-const EXAM_TITLE = "Klausur 2025";
 
 /** What the Student tells the AI, one message per reply. */
 const MESSAGES = [
@@ -24,206 +20,15 @@ async function send(
   courseId: string,
   text: string,
 ) {
-  const response = await respondInBrief({
-    request: new Request("http://localhost/api/brief", {
-      method: "POST",
-      body: JSON.stringify({
-        courseId,
-        message: {
-          id: randomUUID(),
-          role: "user",
-          parts: [{ type: "text", text }],
-        },
-      }),
-    }),
-    supabase: client,
-    userId: studentId,
-  });
-  const body = await response.text();
-  if (!response.ok) throw new Error(`${response.status}: ${body}`);
-  const chunks = body
-    .split("\n")
-    .filter((line) => line.startsWith("data: {"))
-    .map((line) => JSON.parse(line.slice("data: ".length)));
-  for (const chunk of chunks) {
-    if (chunk.type === "tool-input-available") {
-      console.info(`  ${chunk.toolName} ${JSON.stringify(chunk.input)}`);
-    }
-    if (chunk.type === "tool-output-error" || chunk.type === "error") {
-      console.info(`  ${chunk.type}: ${chunk.errorText}`);
+  const reply = await sendBriefMessage(client, studentId, courseId, text);
+  for (const call of reply.calls) {
+    console.info(`  ${call.toolName} ${JSON.stringify(call.input)}`);
+    if (call.error !== undefined) {
+      console.info(`  tool-output-error: ${call.error}`);
     }
   }
-  return chunks
-    .filter((chunk) => chunk.type === "text-delta")
-    .map((chunk) => chunk.delta)
-    .join("");
-}
-
-/** The seeded Course: its Materials and the Topic the exam leaves out. */
-type Seeded = {
-  courseId: string;
-  labManualId: string;
-  /** The old exam Chapter inside the lecture notes. */
-  examChapterId: string;
-  /** The KCs of Chapter 2, which an admin text says is not examined. */
-  chapter2Kcs: string[];
-  /** The Topic that holds them. */
-  chapter2Topic: string;
-};
-
-/**
- * A small Course seeded in code (#229): a lab manual and lecture notes
- * whose admin chunk says "Chapter 2 is not examined", with Chapters 1 and
- * 2 and a last Chapter "Klausur 2025" that the parse proposed as an old
- * exam, and a map of two top-level Topics, one per teaching Chapter.
- */
-async function seedCourse(
-  supabase: AdminSupabase,
-  studentId: string,
-): Promise<Seeded> {
-  const { data: course, error } = await supabase
-    .from("courses")
-    .insert({ owner: studentId, name: "Smoke check" })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  const courseId = course.id;
-  const owned = { owner: studentId, course_id: courseId };
-  const [labManualId, notesId] = [randomUUID(), randomUUID()];
-  await insertRows(
-    supabase,
-    "materials",
-    [
-      [labManualId, "Lab manual"],
-      [notesId, "Lecture notes"],
-    ].map(([id, name], index) => ({
-      ...owned,
-      id,
-      name,
-      media_type: "application/pdf",
-      size_bytes: 1,
-      storage_path: `${studentId}/${courseId}/${id}`,
-      parse_status: "parsed",
-      created_at: new Date(Date.UTC(2026, 9, 1 + index)).toISOString(),
-    })),
-  );
-  // The lab manual's root Chapter, and the lecture notes' root Chapter with
-  // its three Chapters, each titled as printed.
-  const [labRoot, notesRoot, chapter1, chapter2, examChapter] = [
-    randomUUID(),
-    randomUUID(),
-    randomUUID(),
-    randomUUID(),
-    randomUUID(),
-  ];
-  const chapter = (
-    id: string,
-    materialId: string,
-    parentId: string | null,
-    position: number,
-    title: string,
-  ) => ({
-    ...owned,
-    id,
-    material_id: materialId,
-    parent_id: parentId,
-    position,
-    depth: parentId === null ? 0 : 1,
-    title,
-    page_from: Math.max(position, 1),
-    exam_proposed: title === EXAM_TITLE,
-  });
-  await insertRows(supabase, "chapters", [
-    chapter(labRoot, labManualId, null, 0, "Lab manual"),
-    chapter(notesRoot, notesId, null, 0, "Lecture notes"),
-    chapter(chapter1, notesId, notesRoot, 1, "Chapter 1: Vectors"),
-    chapter(chapter2, notesId, notesRoot, 2, "Chapter 2: Matrices"),
-    chapter(examChapter, notesId, notesRoot, 3, EXAM_TITLE),
-  ]);
-  const chunk = (
-    page: number,
-    chapterId: string,
-    label: string,
-    markdown: string,
-  ) => ({
-    ...owned,
-    id: randomUUID(),
-    material_id: notesId,
-    chapter_id: chapterId,
-    position: page - 1,
-    page_from: page,
-    page_to: page,
-    label,
-    markdown,
-  });
-  const chunks = [
-    chunk(1, notesRoot, "admin", "Chapter 2 is not examined."),
-    chunk(2, chapter1, "content", "# Chapter 1: Vectors\nA vector is ..."),
-    chunk(3, chapter2, "content", "# Chapter 2: Matrices\nA matrix is ..."),
-    chunk(
-      4,
-      examChapter,
-      "exercise",
-      `# ${EXAM_TITLE}\n**Problem 1.** Add the vectors (1, 2) and (3, 4).`,
-    ),
-  ];
-  await insertRows(supabase, "chunks", chunks);
-
-  // Two top-level Topics, each holding one Chapter's KC.
-  const [vectors, matrices] = [randomUUID(), randomUUID()];
-  const topic = (
-    id: string,
-    name: string,
-    chapterId: string,
-    position: number,
-  ) => ({
-    ...owned,
-    id,
-    name,
-    central_question: `What is ${name}?`,
-    chapter_ids: [chapterId],
-    position,
-  });
-  await insertRows(supabase, "topics", [
-    topic(vectors, "Chapter 1: Vectors", chapter1, 0),
-    topic(matrices, "Chapter 2: Matrices", chapter2, 1),
-  ]);
-  const kc = (name: string, position: number) => ({
-    ...owned,
-    id: randomUUID(),
-    name,
-    description: `${name}.`,
-    origin: "content",
-    position,
-  });
-  const kcs = [kc("Vector addition", 0), kc("Matrix product", 1)];
-  await insertRows(supabase, "kcs", kcs);
-  await insertRows(
-    supabase,
-    "topic_kcs",
-    [vectors, matrices].map((topicId, index) => ({
-      topic_id: topicId,
-      kc_id: kcs[index]!.id,
-      owner: studentId,
-      position: 0,
-    })),
-  );
-  await insertRows(
-    supabase,
-    "kc_sources",
-    kcs.map((row, index) => ({
-      ...owned,
-      kc_id: row.id,
-      chunk_id: chunks[index + 1]!.id,
-    })),
-  );
-  return {
-    courseId,
-    labManualId,
-    examChapterId: examChapter,
-    chapter2Kcs: [kcs[1]!.id],
-    chapter2Topic: matrices,
-  };
+  for (const error of reply.errors) console.info(`  error: ${error}`);
+  return reply.text;
 }
 
 /**
@@ -240,7 +45,7 @@ export const briefSmoke: SmokeCheck = {
   // One recorded call per reply (6), with slack for retries.
   maxCalls: 12,
   async run({ supabase, studentId }) {
-    const seeded = await seedCourse(supabase, studentId);
+    const seeded = await seedSmallCourse(supabase, studentId, "Smoke check");
     const { courseId } = seeded;
 
     // The Brief runs as the Student, with Row Level Security as in the app.

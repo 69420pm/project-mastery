@@ -34,6 +34,18 @@ Local database only, no model calls (`evals/smoke/gold-cli.ts`, which may use th
 
 Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model. An Opus agent plays and judges each scenario; the scorecards of each tuning are in `evals/tutor/runs/<date>.md`.
 
+## Brief scenarios
+
+`evals/brief/scenarios/` holds eight Brief personas (#279), each played on two Courses: **A**, `linear-algebra-I`, its Brief reset to new, and **B**, the small Course of the `brief` smoke check (lab manual, lecture notes with an admin text, "Klausur 2025"), seeded in code by `evals/smoke/brief-course.ts`. Each file gives the persona, how they talk, the ground truth per Course, a checklist scored 0 to 2 per item, and optionally a JSON setup under "## Setup" (a Brief already answered). `evals/smoke/brief-eval.ts` runs them, on the local database only:
+
+| Command                                       | What it does                                                                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm brief-eval start <scenario> --course A` | A new Student with Course A or B seeded and the Brief set up; prints the run id (the Course's id), the opening and the Brief. |
+| `pnpm brief-eval say <run> "<message>"`       | Sends the message through `respondInBrief`, then prints the reply, each tool call's input and result, and the stored Brief.   |
+| `pnpm brief-eval end <run>`                   | Deletes the run's Student with its data.                                                                                      |
+
+Replies run on `meta/muse-ember` and need `ALLOW_LIVE_AI=1` (docs/agents/live-ai.md); `AI_PROVIDER=mock` checks the plumbing without a model, though the mock calls no Brief tools.
+
 ## Making a gold course
 
 1. Write the Materials (lecture notes, a problem sheet with solutions, an old exam) as PDFs.

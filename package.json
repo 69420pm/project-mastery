@@ -36,6 +36,7 @@
     "agent": "tsx --env-file-if-exists=.env.local tools/agent/cli.ts",
     "gold": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/gold-cli.ts",
     "smoke": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke.ts",
+    "brief-eval": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/brief-eval.ts",
     "tutor-eval": "tsx --conditions=react-server --env-file-if-exists=.env.local evals/smoke/tutor-eval.ts",
     "nit": "gh issue create --label \"status: triage\" --body \"\" --title",
     "retro": "tsx tools/retro/cli.ts",
